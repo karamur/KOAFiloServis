@@ -1,0 +1,196 @@
+@page "/banka-hareketleri/yeni"
+@page "/banka-hareketleri/{Id:int}"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IBankaKasaHareketService HareketService
+@inject IBankaHesapService BankaHesapService
+@inject ICariService CariService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEdit ? "Hareket Düzenle" : "Yeni Hareket")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-arrow-left-right me-2"></i>@(IsEdit ? "Hareket Düzenle" : "Yeni Banka/Kasa Hareketi")</h3>
+        <button class="btn btn-secondary" @onclick="Geri">
+            <i class="bi bi-arrow-left me-1"></i>Geri
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="hareket" OnValidSubmit="Kaydet">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Ýþlem No *</label>
+                            <InputText @bind-Value="hareket.IslemNo" class="form-control" readonly="@IsEdit" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Ýþlem Tarihi *</label>
+                            <InputDate @bind-Value="hareket.IslemTarihi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Hareket Tipi *</label>
+                            <InputSelect @bind-Value="hareket.HareketTipi" class="form-select">
+                                <option value="@HareketTipi.Giris">Giriþ (Tahsilat)</option>
+                                <option value="@HareketTipi.Cikis">Çýkýþ (Ödeme)</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Hesap *</label>
+                            <InputSelect @bind-Value="hareket.BankaHesapId" class="form-select">
+                                <option value="0">-- Hesap Seçiniz --</option>
+                                @foreach (var hesap in hesaplar)
+                                {
+                                    <option value="@hesap.Id">@hesap.HesapAdi (@GetTipText(hesap.HesapTipi))</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Cari (Opsiyonel)</label>
+                            <InputSelect @bind-Value="hareket.CariId" class="form-select">
+                                <option value="">-- Cari Seçiniz --</option>
+                                @foreach (var cari in cariler)
+                                {
+                                    <option value="@cari.Id">@cari.Unvan</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Tutar (?) *</label>
+                            <InputNumber @bind-Value="hareket.Tutar" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Belge No</label>
+                            <InputText @bind-Value="hareket.BelgeNo" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Ýþlem Kaynaðý</label>
+                            <InputSelect @bind-Value="hareket.IslemKaynak" class="form-select">
+                                @foreach (IslemKaynak kaynak in Enum.GetValues(typeof(IslemKaynak)))
+                                {
+                                    <option value="@kaynak">@GetKaynakText(kaynak)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Açýklama</label>
+                    <InputTextArea @bind-Value="hareket.Aciklama" class="form-control" rows="3" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="Geri">
+                        <i class="bi bi-x-lg me-1"></i>Ýptal
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private BankaKasaHareket hareket = new();
+    private List<BankaHesap> hesaplar = new();
+    private List<Cari> cariler = new();
+    private bool IsEdit => Id.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hesaplar = await BankaHesapService.GetActiveAsync();
+        cariler = await CariService.GetAllAsync();
+
+        if (IsEdit)
+        {
+            var existing = await HareketService.GetByIdAsync(Id!.Value);
+            if (existing != null)
+            {
+                hareket = existing;
+            }
+            else
+            {
+                Navigation.NavigateTo("/banka-hareketleri");
+            }
+        }
+        else
+        {
+            hareket.IslemNo = await HareketService.GenerateNextIslemNoAsync();
+            hareket.IslemTarihi = DateTime.Today;
+            hareket.HareketTipi = HareketTipi.Giris;
+            hareket.IslemKaynak = IslemKaynak.Manuel;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        if (hareket.BankaHesapId == 0 || hareket.Tutar <= 0)
+            return;
+
+        if (IsEdit)
+        {
+            await HareketService.UpdateAsync(hareket);
+        }
+        else
+        {
+            await HareketService.CreateAsync(hareket);
+        }
+        Navigation.NavigateTo("/banka-hareketleri");
+    }
+
+    private void Geri()
+    {
+        Navigation.NavigateTo("/banka-hareketleri");
+    }
+
+    private string GetTipText(HesapTipi tip) => tip switch
+    {
+        HesapTipi.Kasa => "Kasa",
+        HesapTipi.VadesizHesap => "Vadesiz",
+        HesapTipi.VadeliHesap => "Vadeli",
+        HesapTipi.KrediHesabi => "Kredi",
+        _ => tip.ToString()
+    };
+
+    private string GetKaynakText(IslemKaynak kaynak) => kaynak switch
+    {
+        IslemKaynak.Manuel => "Manuel",
+        IslemKaynak.FaturaOdeme => "Fatura Ödeme",
+        IslemKaynak.FaturaTahsilat => "Fatura Tahsilat",
+        IslemKaynak.Havale => "Havale",
+        IslemKaynak.Eft => "EFT",
+        IslemKaynak.Nakit => "Nakit",
+        _ => kaynak.ToString()
+    };
+}

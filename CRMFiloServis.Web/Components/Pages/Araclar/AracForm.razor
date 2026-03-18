@@ -1,0 +1,208 @@
+@page "/araclar/yeni"
+@page "/araclar/{Id:int}"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IAracService AracService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEdit ? "Araç Düzenle" : "Yeni Araç")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-truck me-2"></i>@(IsEdit ? "Araç Düzenle" : "Yeni Araç")</h3>
+        <button class="btn btn-secondary" @onclick="Geri">
+            <i class="bi bi-arrow-left me-1"></i>Geri
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="arac" OnValidSubmit="Kaydet">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Plaka *</label>
+                            <InputText @bind-Value="arac.Plaka" class="form-control" style="text-transform: uppercase;" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Araç Tipi *</label>
+                            <InputSelect @bind-Value="arac.AracTipi" class="form-select">
+                                @foreach (AracTipi tip in Enum.GetValues(typeof(AracTipi)))
+                                {
+                                    <option value="@tip">@GetTipText(tip)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Koltuk Sayýsý</label>
+                            <InputNumber @bind-Value="arac.KoltukSayisi" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Marka</label>
+                            <InputText @bind-Value="arac.Marka" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Model</label>
+                            <InputText @bind-Value="arac.Model" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Model Yýlý</label>
+                            <InputNumber @bind-Value="arac.ModelYili" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Þase No</label>
+                            <InputText @bind-Value="arac.SaseNo" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Motor No</label>
+                            <InputText @bind-Value="arac.MotorNo" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Renk</label>
+                            <InputText @bind-Value="arac.Renk" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Trafik Sigortasý Bitiþ</label>
+                            <InputDate @bind-Value="arac.TrafikSigortaBitisTarihi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Kasko Bitiþ</label>
+                            <InputDate @bind-Value="arac.KaskoBitisTarihi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Muayene Bitiþ</label>
+                            <InputDate @bind-Value="arac.MuayeneBitisTarihi" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Km Durumu</label>
+                            <InputNumber @bind-Value="arac.KmDurumu" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3 pt-4">
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="arac.Aktif" class="form-check-input" id="aktif" />
+                                <label class="form-check-label" for="aktif">Aktif</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Notlar</label>
+                    <InputTextArea @bind-Value="arac.Notlar" class="form-control" rows="2" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="Geri">
+                        <i class="bi bi-x-lg me-1"></i>Ýptal
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Arac arac = new();
+    private bool IsEdit => Id.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEdit)
+        {
+            var existing = await AracService.GetByIdAsync(Id!.Value);
+            if (existing != null)
+            {
+                arac = existing;
+            }
+            else
+            {
+                Navigation.NavigateTo("/araclar");
+            }
+        }
+        else
+        {
+            arac.Aktif = true;
+            arac.AracTipi = AracTipi.Minibus;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        if (string.IsNullOrWhiteSpace(arac.Plaka))
+            return;
+
+        arac.Plaka = arac.Plaka.ToUpper();
+
+        if (IsEdit)
+        {
+            await AracService.UpdateAsync(arac);
+        }
+        else
+        {
+            await AracService.CreateAsync(arac);
+        }
+        Navigation.NavigateTo("/araclar");
+    }
+
+    private void Geri()
+    {
+        Navigation.NavigateTo("/araclar");
+    }
+
+    private string GetTipText(AracTipi tip) => tip switch
+    {
+        AracTipi.Minibus => "Minibüs",
+        AracTipi.Midibus => "Midibüs",
+        AracTipi.Otobus => "Otobüs",
+        AracTipi.Otomobil => "Otomobil",
+        AracTipi.Panelvan => "Panelvan",
+        _ => tip.ToString()
+    };
+}

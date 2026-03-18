@@ -1,0 +1,322 @@
+@page "/raporlar/cari-ekstre"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject ICariService CariService
+@inject IFaturaService FaturaService
+@inject IBankaKasaHareketService BankaKasaHareketService
+@rendermode InteractiveServer
+
+<PageTitle>Cari Ekstre Raporu</PageTitle>
+
+<div class="container-fluid">
+    <h3><i class="bi bi-file-earmark-text me-2"></i>Cari Ekstre Raporu</h3>
+    <hr />
+
+    <div class="row mb-4">
+        <div class="col-lg-9">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Cari Seçimi</label>
+                            <select class="form-select" @bind="secilenCariId" @bind:after="CariDegisti">
+                                <option value="0">-- Cari Seçin --</option>
+                                @foreach (var cari in cariler)
+                                {
+                                    <option value="@cari.Id">@cari.CariKodu - @cari.Unvan</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Baþlangýç Tarihi</label>
+                            <input type="date" class="form-control" @bind="baslangicTarihi" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Bitiþ Tarihi</label>
+                            <input type="date" class="form-control" @bind="bitisTarihi" />
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn btn-primary w-100" @onclick="RaporuGetir" disabled="@(secilenCariId == 0)">
+                                <i class="bi bi-search me-1"></i>Raporu Getir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Hýzlý Tarih Seçimi</small>
+                    <div class="d-grid gap-1 mt-2">
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="@(() => HizliTarih(30))">Son 30 Gün</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="@(() => HizliTarih(90))">Son 90 Gün</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="BuYil">Bu Yýl</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (secilenCari != null && ekstrehareketleri.Any())
+    {
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <div class="card border-primary">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Cari</h6>
+                        <h5 class="mb-0">@secilenCari.Unvan</h5>
+                        <small class="text-muted">@secilenCari.CariKodu</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-success">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Toplam Alacak</h6>
+                        <h4 class="text-success mb-0">@toplamAlacak.ToString("N2") ?</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-danger">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Toplam Borç</h6>
+                        <h4 class="text-danger mb-0">@toplamBorc.ToString("N2") ?</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Ekstre Detayý</h6>
+                <button class="btn btn-outline-success btn-sm" @onclick="ExcelExport">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Excel'e Aktar
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Ýþlem Türü</th>
+                                <th>Belge No</th>
+                                <th>Açýklama</th>
+                                <th class="text-end">Borç</th>
+                                <th class="text-end">Alacak</th>
+                                <th class="text-end">Bakiye</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="table-secondary">
+                                <td colspan="4"><strong>Önceki Dönem Bakiyesi</strong></td>
+                                <td class="text-end">@(oncekiDonemdekiBakiye < 0 ? Math.Abs(oncekiDonemdekiBakiye).ToString("N2") : "-")</td>
+                                <td class="text-end">@(oncekiDonemdekiBakiye >= 0 ? oncekiDonemdekiBakiye.ToString("N2") : "-")</td>
+                                <td class="text-end"><strong>@oncekiDonemdekiBakiye.ToString("N2") ?</strong></td>
+                            </tr>
+                            @{
+                                var calýsanBakiye = oncekiDonemdekiBakiye;
+                            }
+                            @foreach (var hareket in ekstrehareketleri)
+                            {
+                                calýsanBakiye += hareket.Alacak - hareket.Borc;
+                                <tr>
+                                    <td>@hareket.Tarih.ToString("dd.MM.yyyy")</td>
+                                    <td>
+                                        <span class="badge @GetIslemTipiBadge(hareket.IslemTipi)">@hareket.IslemTipi</span>
+                                    </td>
+                                    <td>@hareket.BelgeNo</td>
+                                    <td>@hareket.Aciklama</td>
+                                    <td class="text-end @(hareket.Borc > 0 ? "text-danger" : "")">
+                                        @(hareket.Borc > 0 ? hareket.Borc.ToString("N2") : "-")
+                                    </td>
+                                    <td class="text-end @(hareket.Alacak > 0 ? "text-success" : "")">
+                                        @(hareket.Alacak > 0 ? hareket.Alacak.ToString("N2") : "-")
+                                    </td>
+                                    <td class="text-end">
+                                        <strong class="@(calýsanBakiye < 0 ? "text-danger" : "text-success")">
+                                            @calýsanBakiye.ToString("N2") ?
+                                        </strong>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-primary">
+                            <tr>
+                                <td colspan="4"><strong>Dönem Sonu Bakiyesi</strong></td>
+                                <td class="text-end"><strong>@toplamBorc.ToString("N2") ?</strong></td>
+                                <td class="text-end"><strong>@toplamAlacak.ToString("N2") ?</strong></td>
+                                <td class="text-end">
+                                    <strong class="@(guncelBakiye < 0 ? "text-danger" : "text-success")">
+                                        @guncelBakiye.ToString("N2") ?
+                                    </strong>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+    else if (secilenCariId > 0 && raporGetirildimi)
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>Seçilen tarih aralýðýnda hareket bulunamadý.
+        </div>
+    }
+</div>
+
+@code {
+    private List<Cari> cariler = new();
+    private Cari? secilenCari;
+    private int secilenCariId;
+    private DateTime baslangicTarihi = DateTime.Today.AddMonths(-1);
+    private DateTime bitisTarihi = DateTime.Today;
+
+    private List<EkstreHareket> ekstrehareketleri = new();
+    private decimal toplamAlacak;
+    private decimal toplamBorc;
+    private decimal guncelBakiye;
+    private decimal oncekiDonemdekiBakiye;
+    private bool raporGetirildimi;
+
+    protected override async Task OnInitializedAsync()
+    {
+        cariler = (await CariService.GetAllAsync()).OrderBy(c => c.Unvan).ToList();
+    }
+
+    private async Task CariDegisti()
+    {
+        if (secilenCariId > 0)
+        {
+            secilenCari = cariler.FirstOrDefault(c => c.Id == secilenCariId);
+        }
+        else
+        {
+            secilenCari = null;
+            ekstrehareketleri.Clear();
+        }
+    }
+
+    private async Task RaporuGetir()
+    {
+        if (secilenCariId == 0) return;
+
+        ekstrehareketleri.Clear();
+        raporGetirildimi = true;
+
+        // Faturalarý getir
+        var faturalar = await FaturaService.GetByCariIdAsync(secilenCariId);
+        var donemFaturalar = faturalar
+            .Where(f => f.FaturaTarihi >= baslangicTarihi && f.FaturaTarihi <= bitisTarihi)
+            .ToList();
+
+        foreach (var fatura in donemFaturalar)
+        {
+            var hareket = new EkstreHareket
+            {
+                Tarih = fatura.FaturaTarihi,
+                IslemTipi = fatura.FaturaTipi == FaturaTipi.SatisFaturasi ? "Satýþ Faturasý" : "Alýþ Faturasý",
+                BelgeNo = fatura.FaturaNo,
+                Aciklama = fatura.Aciklama ?? $"{fatura.FaturaNo} nolu fatura"
+            };
+
+            if (fatura.FaturaTipi == FaturaTipi.SatisFaturasi)
+            {
+                hareket.Alacak = fatura.GenelToplam;
+            }
+            else
+            {
+                hareket.Borc = fatura.GenelToplam;
+            }
+
+            ekstrehareketleri.Add(hareket);
+        }
+
+        // Ödemeleri getir
+        var odemeler = await BankaKasaHareketService.GetByCariIdAsync(secilenCariId);
+        var donemOdemeler = odemeler
+            .Where(o => o.IslemTarihi >= baslangicTarihi && o.IslemTarihi <= bitisTarihi)
+            .ToList();
+
+        foreach (var odeme in donemOdemeler)
+        {
+            var hareket = new EkstreHareket
+            {
+                Tarih = odeme.IslemTarihi,
+                IslemTipi = odeme.HareketTipi == HareketTipi.Giris ? "Tahsilat" : "Ödeme",
+                BelgeNo = odeme.IslemNo,
+                Aciklama = odeme.Aciklama ?? $"{odeme.IslemNo} nolu iþlem"
+            };
+
+            if (odeme.HareketTipi == HareketTipi.Giris)
+            {
+                hareket.Borc = odeme.Tutar;
+            }
+            else
+            {
+                hareket.Alacak = odeme.Tutar;
+            }
+
+            ekstrehareketleri.Add(hareket);
+        }
+
+        // Tarihe göre sýrala
+        ekstrehareketleri = ekstrehareketleri.OrderBy(e => e.Tarih).ThenBy(e => e.BelgeNo).ToList();
+
+        // Toplamlarý hesapla
+        toplamAlacak = ekstrehareketleri.Sum(e => e.Alacak);
+        toplamBorc = ekstrehareketleri.Sum(e => e.Borc);
+
+        // Önceki dönem bakiyesini hesapla
+        var oncekiFaturalar = faturalar.Where(f => f.FaturaTarihi < baslangicTarihi).ToList();
+        var oncekiOdemeler = odemeler.Where(o => o.IslemTarihi < baslangicTarihi).ToList();
+
+        decimal oncekiAlacak = oncekiFaturalar.Where(f => f.FaturaTipi == FaturaTipi.SatisFaturasi).Sum(f => f.GenelToplam);
+        oncekiAlacak += oncekiOdemeler.Where(o => o.HareketTipi == HareketTipi.Cikis).Sum(o => o.Tutar);
+
+        decimal oncekiBorc = oncekiFaturalar.Where(f => f.FaturaTipi == FaturaTipi.AlisFaturasi).Sum(f => f.GenelToplam);
+        oncekiBorc += oncekiOdemeler.Where(o => o.HareketTipi == HareketTipi.Giris).Sum(o => o.Tutar);
+
+        oncekiDonemdekiBakiye = oncekiAlacak - oncekiBorc;
+        guncelBakiye = oncekiDonemdekiBakiye + toplamAlacak - toplamBorc;
+    }
+
+    private void HizliTarih(int gun)
+    {
+        bitisTarihi = DateTime.Today;
+        baslangicTarihi = DateTime.Today.AddDays(-gun);
+    }
+
+    private void BuYil()
+    {
+        baslangicTarihi = new DateTime(DateTime.Today.Year, 1, 1);
+        bitisTarihi = DateTime.Today;
+    }
+
+    private void ExcelExport()
+    {
+        // Excel export iþlemi - gerçek uygulamada bir Excel kütüphanesi kullanýlabilir
+    }
+
+    private string GetIslemTipiBadge(string islemTipi) => islemTipi switch
+    {
+        "Satýþ Faturasý" => "bg-success",
+        "Alýþ Faturasý" => "bg-primary",
+        "Tahsilat" => "bg-info",
+        "Ödeme" => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private class EkstreHareket
+    {
+        public DateTime Tarih { get; set; }
+        public string IslemTipi { get; set; } = "";
+        public string? BelgeNo { get; set; }
+        public string? Aciklama { get; set; }
+        public decimal Borc { get; set; }
+        public decimal Alacak { get; set; }
+    }
+}

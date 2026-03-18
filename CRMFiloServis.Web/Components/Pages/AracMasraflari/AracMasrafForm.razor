@@ -1,0 +1,210 @@
+@page "/arac-masraflari/yeni"
+@page "/arac-masraflari/{Id:int}"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IAracMasrafService AracMasrafService
+@inject IAracService AracService
+@inject IMasrafKalemiService MasrafKalemiService
+@inject IGuzergahService GuzergahService
+@inject IServisCalismaService ServisCalismaService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEdit ? "Masraf Düzenle" : "Yeni Araç Masrafý")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-cash-stack me-2"></i>@(IsEdit ? "Masraf Düzenle" : "Yeni Araç Masrafý")</h3>
+        <button class="btn btn-secondary" @onclick="Geri">
+            <i class="bi bi-arrow-left me-1"></i>Geri
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="masraf" OnValidSubmit="Kaydet">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Masraf Tarihi *</label>
+                            <InputDate @bind-Value="masraf.MasrafTarihi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Araç (Plaka) *</label>
+                            <InputSelect @bind-Value="masraf.AracId" class="form-select">
+                                <option value="0">-- Araç Seçiniz --</option>
+                                @foreach (var arac in araclar)
+                                {
+                                    <option value="@arac.Id">@arac.Plaka - @arac.Marka @arac.Model</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Masraf Kalemi *</label>
+                            <InputSelect @bind-Value="masraf.MasrafKalemiId" class="form-select">
+                                <option value="0">-- Masraf Kalemi Seçiniz --</option>
+                                @foreach (var kalem in masrafKalemleri)
+                                {
+                                    <option value="@kalem.Id">@kalem.MasrafAdi (@GetKategoriText(kalem.Kategori))</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Tutar (?) *</label>
+                            <InputNumber @bind-Value="masraf.Tutar" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Belge No</label>
+                            <InputText @bind-Value="masraf.BelgeNo" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-light mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title text-warning"><i class="bi bi-exclamation-triangle me-2"></i>Arýza Kaynaklý Masraf</h6>
+                        <p class="small text-muted">Araç arýzasý nedeniyle personel ulaþýmý (taksi, toplu taþýma vb.) masraflarý için bu bölümü kullanýn.</p>
+
+                        <div class="form-check mb-3">
+                            <InputCheckbox @bind-Value="masraf.ArizaKaynaklimi" class="form-check-input" id="arizaKaynakli" />
+                            <label class="form-check-label" for="arizaKaynakli">Bu masraf arýza nedeniyle oluþtu</label>
+                        </div>
+
+                        @if (masraf.ArizaKaynaklimi)
+                        {
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Güzergah</label>
+                                        <InputSelect @bind-Value="masraf.GuzergahId" class="form-select">
+                                            <option value="">-- Güzergah Seçiniz --</option>
+                                            @foreach (var guzergah in guzergahlar)
+                                            {
+                                                <option value="@guzergah.Id">@guzergah.GuzergahAdi (@guzergah.Cari?.Unvan)</option>
+                                            }
+                                        </InputSelect>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Ýlgili Servis Çalýþmasý</label>
+                                        <InputSelect @bind-Value="masraf.ServisCalismaId" class="form-select">
+                                            <option value="">-- Servis Çalýþmasý Seçiniz --</option>
+                                            @foreach (var calisma in servisCalismalar)
+                                            {
+                                                <option value="@calisma.Id">@calisma.CalismaTarihi.ToString("dd.MM.yyyy") - @calisma.Arac?.Plaka - @calisma.Guzergah?.GuzergahAdi</option>
+                                            }
+                                        </InputSelect>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Açýklama</label>
+                    <InputTextArea @bind-Value="masraf.Aciklama" class="form-control" rows="3" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="Geri">
+                        <i class="bi bi-x-lg me-1"></i>Ýptal
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private AracMasraf masraf = new();
+    private List<Arac> araclar = new();
+    private List<MasrafKalemi> masrafKalemleri = new();
+    private List<Guzergah> guzergahlar = new();
+    private List<ServisCalisma> servisCalismalar = new();
+    private bool IsEdit => Id.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        araclar = await AracService.GetActiveAsync();
+        masrafKalemleri = await MasrafKalemiService.GetActiveAsync();
+        guzergahlar = await GuzergahService.GetActiveAsync();
+
+        // Son 30 günün servis çalýþmalarýný getir
+        var endDate = DateTime.Today;
+        var startDate = endDate.AddDays(-30);
+        servisCalismalar = await ServisCalismaService.GetByDateRangeAsync(startDate, endDate);
+
+        if (IsEdit)
+        {
+            var existing = await AracMasrafService.GetByIdAsync(Id!.Value);
+            if (existing != null)
+            {
+                masraf = existing;
+            }
+            else
+            {
+                Navigation.NavigateTo("/arac-masraflari");
+            }
+        }
+        else
+        {
+            masraf.MasrafTarihi = DateTime.Today;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        if (masraf.AracId == 0 || masraf.MasrafKalemiId == 0 || masraf.Tutar <= 0)
+            return;
+
+        if (IsEdit)
+        {
+            await AracMasrafService.UpdateAsync(masraf);
+        }
+        else
+        {
+            await AracMasrafService.CreateAsync(masraf);
+        }
+        Navigation.NavigateTo("/arac-masraflari");
+    }
+
+    private void Geri()
+    {
+        Navigation.NavigateTo("/arac-masraflari");
+    }
+
+    private string GetKategoriText(MasrafKategori kategori) => kategori switch
+    {
+        MasrafKategori.Yakit => "Yakýt",
+        MasrafKategori.Bakim => "Bakým",
+        MasrafKategori.Tamir => "Tamir",
+        MasrafKategori.Sigorta => "Sigorta",
+        MasrafKategori.Vergi => "Vergi",
+        MasrafKategori.Personel => "Personel Ulaþým",
+        MasrafKategori.Lastik => "Lastik",
+        MasrafKategori.YedekParca => "Yedek Parça",
+        MasrafKategori.Diger => "Diðer",
+        _ => kategori.ToString()
+    };
+}

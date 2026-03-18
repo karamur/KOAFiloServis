@@ -1,0 +1,170 @@
+@page "/araclar"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IAracService AracService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Araçlar</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-truck me-2"></i>Araçlar</h3>
+        <button class="btn btn-primary" @onclick="YeniArac">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Araç
+        </button>
+    </div>
+
+    @if (araclar == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+        </div>
+    }
+    else if (!araclar.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>Henüz araç kaydý bulunmamaktadýr.
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Plaka</th>
+                                <th>Marka/Model</th>
+                                <th>Tip</th>
+                                <th>Model Yýlý</th>
+                                <th>Koltuk</th>
+                                <th>Durum</th>
+                                <th>Muayene</th>
+                                <th style="width: 120px;">Ýþlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var arac in araclar)
+                            {
+                                <tr>
+                                    <td><strong>@arac.Plaka</strong></td>
+                                    <td>@arac.Marka @arac.Model</td>
+                                    <td>
+                                        <span class="badge bg-secondary">@GetTipText(arac.AracTipi)</span>
+                                    </td>
+                                    <td>@arac.ModelYili</td>
+                                    <td>@arac.KoltukSayisi</td>
+                                    <td>
+                                        @if (arac.Aktif)
+                                        {
+                                            <span class="badge bg-success">Aktif</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger">Pasif</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (arac.MuayeneBitisTarihi.HasValue)
+                                        {
+                                            var gunKaldi = (arac.MuayeneBitisTarihi.Value - DateTime.Today).Days;
+                                            <span class="badge @(gunKaldi < 30 ? "bg-danger" : gunKaldi < 60 ? "bg-warning text-dark" : "bg-success")">
+                                                @arac.MuayeneBitisTarihi.Value.ToString("dd.MM.yyyy")
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(arac.Id)" title="Düzenle">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(arac)" title="Sil">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showDeleteModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Silme Onayý</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>@silinecekArac?.Plaka</strong> plakalý aracý silmek istediðinize emin misiniz?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">Ýptal</button>
+                    <button type="button" class="btn btn-danger" @onclick="Sil">Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Arac>? araclar;
+    private bool showDeleteModal = false;
+    private Arac? silinecekArac;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        araclar = await AracService.GetAllAsync();
+    }
+
+    private void YeniArac()
+    {
+        Navigation.NavigateTo("/araclar/yeni");
+    }
+
+    private void Duzenle(int id)
+    {
+        Navigation.NavigateTo($"/araclar/{id}");
+    }
+
+    private void SilOnay(Arac arac)
+    {
+        silinecekArac = arac;
+        showDeleteModal = true;
+    }
+
+    private async Task Sil()
+    {
+        if (silinecekArac != null)
+        {
+            await AracService.DeleteAsync(silinecekArac.Id);
+            await LoadData();
+        }
+        showDeleteModal = false;
+        silinecekArac = null;
+    }
+
+    private string GetTipText(AracTipi tip) => tip switch
+    {
+        AracTipi.Minibus => "Minibüs",
+        AracTipi.Midibus => "Midibüs",
+        AracTipi.Otobus => "Otobüs",
+        AracTipi.Otomobil => "Otomobil",
+        AracTipi.Panelvan => "Panelvan",
+        _ => tip.ToString()
+    };
+}

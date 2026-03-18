@@ -1,0 +1,49 @@
+using CRMFiloServis.Web.Components;
+using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Services;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+// PostgreSQL Database
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Application Services
+builder.Services.AddScoped<ICariService, CariService>();
+builder.Services.AddScoped<ISoforService, SoforService>();
+builder.Services.AddScoped<IAracService, AracService>();
+builder.Services.AddScoped<IGuzergahService, GuzergahService>();
+builder.Services.AddScoped<IMasrafKalemiService, MasrafKalemiService>();
+builder.Services.AddScoped<IAracMasrafService, AracMasrafService>();
+builder.Services.AddScoped<IServisCalismaService, ServisCalismaService>();
+builder.Services.AddScoped<IFaturaService, FaturaService>();
+builder.Services.AddScoped<IBankaHesapService, BankaHesapService>();
+builder.Services.AddScoped<IBankaKasaHareketService, BankaKasaHareketService>();
+builder.Services.AddScoped<IOdemeEslestirmeService, OdemeEslestirmeService>();
+builder.Services.AddScoped<IRaporService, RaporService>();
+builder.Services.AddScoped<IExcelService, ExcelService>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
+}
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseHttpsRedirection();
+
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+app.Run();

@@ -1,0 +1,164 @@
+@page "/cariler/yeni"
+@page "/cariler/{Id:int}"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject ICariService CariService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEdit ? "Cari Düzenle" : "Yeni Cari")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-person-plus me-2"></i>@(IsEdit ? "Cari Düzenle" : "Yeni Cari")</h3>
+        <button class="btn btn-secondary" @onclick="Geri">
+            <i class="bi bi-arrow-left me-1"></i>Geri
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="cari" OnValidSubmit="Kaydet">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Cari Kodu *</label>
+                            <InputText @bind-Value="cari.CariKodu" class="form-control" readonly="@IsEdit" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Cari Tipi *</label>
+                            <InputSelect @bind-Value="cari.CariTipi" class="form-select">
+                                @foreach (CariTipi tip in Enum.GetValues(typeof(CariTipi)))
+                                {
+                                    <option value="@tip">@GetTipText(tip)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Ünvan *</label>
+                    <InputText @bind-Value="cari.Unvan" class="form-control" />
+                    <ValidationMessage For="@(() => cari.Unvan)" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Vergi Dairesi</label>
+                            <InputText @bind-Value="cari.VergiDairesi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Vergi No</label>
+                            <InputText @bind-Value="cari.VergiNo" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Telefon</label>
+                            <InputText @bind-Value="cari.Telefon" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText @bind-Value="cari.Email" class="form-control" type="email" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Yetkili Kiþi</label>
+                    <InputText @bind-Value="cari.YetkiliKisi" class="form-control" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Adres</label>
+                    <InputTextArea @bind-Value="cari.Adres" class="form-control" rows="2" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Notlar</label>
+                    <InputTextArea @bind-Value="cari.Notlar" class="form-control" rows="2" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="Geri">
+                        <i class="bi bi-x-lg me-1"></i>Ýptal
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Cari cari = new();
+    private bool IsEdit => Id.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEdit)
+        {
+            var existing = await CariService.GetByIdAsync(Id!.Value);
+            if (existing != null)
+            {
+                cari = existing;
+            }
+            else
+            {
+                Navigation.NavigateTo("/cariler");
+            }
+        }
+        else
+        {
+            cari.CariKodu = await CariService.GenerateNextKodAsync();
+            cari.CariTipi = CariTipi.Musteri;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        if (string.IsNullOrWhiteSpace(cari.Unvan))
+            return;
+
+        if (IsEdit)
+        {
+            await CariService.UpdateAsync(cari);
+        }
+        else
+        {
+            await CariService.CreateAsync(cari);
+        }
+        Navigation.NavigateTo("/cariler");
+    }
+
+    private void Geri()
+    {
+        Navigation.NavigateTo("/cariler");
+    }
+
+    private string GetTipText(CariTipi tip) => tip switch
+    {
+        CariTipi.Musteri => "Müþteri",
+        CariTipi.Tedarikci => "Tedarikçi",
+        CariTipi.MusteriTedarikci => "Müþteri/Tedarikçi",
+        _ => tip.ToString()
+    };
+}

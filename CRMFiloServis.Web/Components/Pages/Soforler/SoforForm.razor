@@ -1,0 +1,169 @@
+@page "/soforler/yeni"
+@page "/soforler/{Id:int}"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject ISoforService SoforService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEdit ? "Þoför Düzenle" : "Yeni Þoför")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-person-badge me-2"></i>@(IsEdit ? "Þoför Düzenle" : "Yeni Þoför")</h3>
+        <button class="btn btn-secondary" @onclick="Geri">
+            <i class="bi bi-arrow-left me-1"></i>Geri
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="sofor" OnValidSubmit="Kaydet">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Þoför Kodu *</label>
+                            <InputText @bind-Value="sofor.SoforKodu" class="form-control" readonly="@IsEdit" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Ad *</label>
+                            <InputText @bind-Value="sofor.Ad" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Soyad *</label>
+                            <InputText @bind-Value="sofor.Soyad" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">TC Kimlik No</label>
+                            <InputText @bind-Value="sofor.TcKimlikNo" class="form-control" maxlength="11" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Telefon</label>
+                            <InputText @bind-Value="sofor.Telefon" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText @bind-Value="sofor.Email" class="form-control" type="email" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Ehliyet No</label>
+                            <InputText @bind-Value="sofor.EhliyetNo" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Ehliyet Geçerlilik Tarihi</label>
+                            <InputDate @bind-Value="sofor.EhliyetGecerlilikTarihi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Ýþe Baþlama Tarihi</label>
+                            <InputDate @bind-Value="sofor.IseBaslamaTarihi" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Adres</label>
+                    <InputTextArea @bind-Value="sofor.Adres" class="form-control" rows="2" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="sofor.Aktif" class="form-check-input" id="aktif" />
+                                <label class="form-check-label" for="aktif">Aktif</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Notlar</label>
+                    <InputTextArea @bind-Value="sofor.Notlar" class="form-control" rows="2" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="Geri">
+                        <i class="bi bi-x-lg me-1"></i>Ýptal
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Sofor sofor = new();
+    private bool IsEdit => Id.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEdit)
+        {
+            var existing = await SoforService.GetByIdAsync(Id!.Value);
+            if (existing != null)
+            {
+                sofor = existing;
+            }
+            else
+            {
+                Navigation.NavigateTo("/soforler");
+            }
+        }
+        else
+        {
+            sofor.SoforKodu = await SoforService.GenerateNextKodAsync();
+            sofor.Aktif = true;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        if (string.IsNullOrWhiteSpace(sofor.Ad) || string.IsNullOrWhiteSpace(sofor.Soyad))
+            return;
+
+        if (IsEdit)
+        {
+            await SoforService.UpdateAsync(sofor);
+        }
+        else
+        {
+            await SoforService.CreateAsync(sofor);
+        }
+        Navigation.NavigateTo("/soforler");
+    }
+
+    private void Geri()
+    {
+        Navigation.NavigateTo("/soforler");
+    }
+}

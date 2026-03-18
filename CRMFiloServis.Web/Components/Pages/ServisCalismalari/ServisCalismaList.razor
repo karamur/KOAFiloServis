@@ -1,0 +1,180 @@
+@page "/servis-calismalari"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IServisCalismaService ServisCalismaService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Servis Çalýþmalarý</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-calendar-check me-2"></i>Servis Çalýþmalarý</h3>
+        <button class="btn btn-primary" @onclick="YeniCalisma">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Çalýþma
+        </button>
+    </div>
+
+    @if (calismalar == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+        </div>
+    }
+    else if (!calismalar.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>Henüz servis çalýþma kaydý bulunmamaktadýr.
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Plaka</th>
+                                <th>Þoför</th>
+                                <th>Firma</th>
+                                <th>Güzergah</th>
+                                <th>Servis Türü</th>
+                                <th>Fiyat</th>
+                                <th>Durum</th>
+                                <th style="width: 120px;">Ýþlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var calisma in calismalar)
+                            {
+                                <tr class="@(calisma.ArizaOlduMu ? "table-danger" : "")">
+                                    <td><strong>@calisma.CalismaTarihi.ToString("dd.MM.yyyy")</strong></td>
+                                    <td>@calisma.Arac?.Plaka</td>
+                                    <td>@calisma.Sofor?.TamAd</td>
+                                    <td>@calisma.Guzergah?.Cari?.Unvan</td>
+                                    <td>@calisma.Guzergah?.GuzergahAdi</td>
+                                    <td>
+                                        <span class="badge bg-info">@GetServisTuruText(calisma.ServisTuru)</span>
+                                    </td>
+                                    <td><strong>@((calisma.Fiyat ?? calisma.Guzergah?.BirimFiyat ?? 0).ToString("N2")) ?</strong></td>
+                                    <td>
+                                        <span class="badge @GetDurumBadgeClass(calisma.Durum)">
+                                            @GetDurumText(calisma.Durum)
+                                        </span>
+                                        @if (calisma.ArizaOlduMu)
+                                        {
+                                            <span class="badge bg-danger ms-1">Arýza</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(calisma.Id)" title="Düzenle">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(calisma)" title="Sil">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showDeleteModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Silme Onayý</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Bu servis çalýþmasýný silmek istediðinize emin misiniz?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">Ýptal</button>
+                    <button type="button" class="btn btn-danger" @onclick="Sil">Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ServisCalisma>? calismalar;
+    private bool showDeleteModal = false;
+    private ServisCalisma? silinecekCalisma;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        calismalar = await ServisCalismaService.GetAllAsync();
+    }
+
+    private void YeniCalisma()
+    {
+        Navigation.NavigateTo("/servis-calismalari/yeni");
+    }
+
+    private void Duzenle(int id)
+    {
+        Navigation.NavigateTo($"/servis-calismalari/{id}");
+    }
+
+    private void SilOnay(ServisCalisma calisma)
+    {
+        silinecekCalisma = calisma;
+        showDeleteModal = true;
+    }
+
+    private async Task Sil()
+    {
+        if (silinecekCalisma != null)
+        {
+            await ServisCalismaService.DeleteAsync(silinecekCalisma.Id);
+            await LoadData();
+        }
+        showDeleteModal = false;
+        silinecekCalisma = null;
+    }
+
+    private string GetServisTuruText(ServisTuru tur) => tur switch
+    {
+        ServisTuru.Sabah => "Sabah",
+        ServisTuru.Aksam => "Akþam",
+        ServisTuru.SabahAksam => "Sabah+Akþam",
+        ServisTuru.Ozel => "Özel",
+        _ => tur.ToString()
+    };
+
+    private string GetDurumText(CalismaDurum durum) => durum switch
+    {
+        CalismaDurum.Planli => "Planlý",
+        CalismaDurum.Tamamlandi => "Tamamlandý",
+        CalismaDurum.IptalEdildi => "Ýptal",
+        CalismaDurum.ArizaNedeniyleYapilamadi => "Arýza",
+        _ => durum.ToString()
+    };
+
+    private string GetDurumBadgeClass(CalismaDurum durum) => durum switch
+    {
+        CalismaDurum.Planli => "bg-warning text-dark",
+        CalismaDurum.Tamamlandi => "bg-success",
+        CalismaDurum.IptalEdildi => "bg-secondary",
+        CalismaDurum.ArizaNedeniyleYapilamadi => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

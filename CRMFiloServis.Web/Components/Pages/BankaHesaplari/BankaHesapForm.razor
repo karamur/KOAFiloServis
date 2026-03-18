@@ -1,0 +1,186 @@
+@page "/banka-hesaplari/yeni"
+@page "/banka-hesaplari/{Id:int}"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IBankaHesapService BankaHesapService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEdit ? "Hesap Düzenle" : "Yeni Banka/Kasa Hesabý")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-bank me-2"></i>@(IsEdit ? "Hesap Düzenle" : "Yeni Banka/Kasa Hesabý")</h3>
+        <button class="btn btn-secondary" @onclick="Geri">
+            <i class="bi bi-arrow-left me-1"></i>Geri
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="hesap" OnValidSubmit="Kaydet">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Hesap Kodu *</label>
+                            <InputText @bind-Value="hesap.HesapKodu" class="form-control" readonly="@IsEdit" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Hesap Adý *</label>
+                            <InputText @bind-Value="hesap.HesapAdi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Hesap Tipi *</label>
+                            <InputSelect @bind-Value="hesap.HesapTipi" class="form-select">
+                                @foreach (HesapTipi tip in Enum.GetValues(typeof(HesapTipi)))
+                                {
+                                    <option value="@tip">@GetTipText(tip)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Banka Adý</label>
+                            <InputText @bind-Value="hesap.BankaAdi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Þube Adý</label>
+                            <InputText @bind-Value="hesap.SubeAdi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Þube Kodu</label>
+                            <InputText @bind-Value="hesap.SubeKodu" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Hesap No</label>
+                            <InputText @bind-Value="hesap.HesapNo" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">IBAN</label>
+                            <InputText @bind-Value="hesap.Iban" class="form-control" maxlength="34" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Para Birimi</label>
+                            <InputText @bind-Value="hesap.ParaBirimi" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Açýlýþ Bakiyesi (?)</label>
+                            <InputNumber @bind-Value="hesap.AcilisBakiye" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3 pt-4">
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="hesap.Aktif" class="form-check-input" id="aktif" />
+                                <label class="form-check-label" for="aktif">Aktif</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Notlar</label>
+                    <InputTextArea @bind-Value="hesap.Notlar" class="form-control" rows="2" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="Geri">
+                        <i class="bi bi-x-lg me-1"></i>Ýptal
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private BankaHesap hesap = new();
+    private bool IsEdit => Id.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEdit)
+        {
+            var existing = await BankaHesapService.GetByIdAsync(Id!.Value);
+            if (existing != null)
+            {
+                hesap = existing;
+            }
+            else
+            {
+                Navigation.NavigateTo("/banka-hesaplari");
+            }
+        }
+        else
+        {
+            hesap.HesapKodu = await BankaHesapService.GenerateNextKodAsync();
+            hesap.HesapTipi = HesapTipi.VadesizHesap;
+            hesap.ParaBirimi = "TRY";
+            hesap.Aktif = true;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        if (string.IsNullOrWhiteSpace(hesap.HesapAdi))
+            return;
+
+        if (IsEdit)
+        {
+            await BankaHesapService.UpdateAsync(hesap);
+        }
+        else
+        {
+            await BankaHesapService.CreateAsync(hesap);
+        }
+        Navigation.NavigateTo("/banka-hesaplari");
+    }
+
+    private void Geri()
+    {
+        Navigation.NavigateTo("/banka-hesaplari");
+    }
+
+    private string GetTipText(HesapTipi tip) => tip switch
+    {
+        HesapTipi.Kasa => "Kasa",
+        HesapTipi.VadesizHesap => "Vadesiz Hesap",
+        HesapTipi.VadeliHesap => "Vadeli Hesap",
+        HesapTipi.KrediHesabi => "Kredi Hesabý",
+        _ => tip.ToString()
+    };
+}

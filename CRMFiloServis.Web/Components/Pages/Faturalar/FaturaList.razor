@@ -1,0 +1,195 @@
+@page "/faturalar"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IFaturaService FaturaService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Faturalar</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-receipt me-2"></i>Faturalar</h3>
+        <button class="btn btn-primary" @onclick="YeniFatura">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Fatura
+        </button>
+    </div>
+
+    @if (faturalar == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+        </div>
+    }
+    else if (!faturalar.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>Henüz fatura kaydý bulunmamaktadýr.
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Fatura No</th>
+                                <th>Tarih</th>
+                                <th>Cari</th>
+                                <th>Tip</th>
+                                <th>Genel Toplam</th>
+                                <th>Ödenen</th>
+                                <th>Kalan</th>
+                                <th>Durum</th>
+                                <th style="width: 120px;">Ýþlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fatura in faturalar)
+                            {
+                                <tr>
+                                    <td><strong>@fatura.FaturaNo</strong></td>
+                                    <td>@fatura.FaturaTarihi.ToString("dd.MM.yyyy")</td>
+                                    <td>@fatura.Cari?.Unvan</td>
+                                    <td>
+                                        <span class="badge @GetTipBadgeClass(fatura.FaturaTipi)">
+                                            @GetTipText(fatura.FaturaTipi)
+                                        </span>
+                                    </td>
+                                    <td><strong>@fatura.GenelToplam.ToString("N2") ?</strong></td>
+                                    <td class="text-success">@fatura.OdenenTutar.ToString("N2") ?</td>
+                                    <td class="text-danger">@fatura.KalanTutar.ToString("N2") ?</td>
+                                    <td>
+                                        <span class="badge @GetDurumBadgeClass(fatura.Durum)">
+                                            @GetDurumText(fatura.Durum)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info me-1" @onclick="() => Detay(fatura.Id)" title="Detay">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(fatura.Id)" title="Düzenle">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(fatura)" title="Sil">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showDeleteModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Silme Onayý</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>@silinecekFatura?.FaturaNo</strong> numaralý faturayý silmek istediðinize emin misiniz?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">Ýptal</button>
+                    <button type="button" class="btn btn-danger" @onclick="Sil">Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Fatura>? faturalar;
+    private bool showDeleteModal = false;
+    private Fatura? silinecekFatura;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        faturalar = await FaturaService.GetAllAsync();
+    }
+
+    private void YeniFatura()
+    {
+        Navigation.NavigateTo("/faturalar/yeni");
+    }
+
+    private void Duzenle(int id)
+    {
+        Navigation.NavigateTo($"/faturalar/{id}");
+    }
+
+    private void Detay(int id)
+    {
+        Navigation.NavigateTo($"/faturalar/detay/{id}");
+    }
+
+    private void SilOnay(Fatura fatura)
+    {
+        silinecekFatura = fatura;
+        showDeleteModal = true;
+    }
+
+    private async Task Sil()
+    {
+        if (silinecekFatura != null)
+        {
+            await FaturaService.DeleteAsync(silinecekFatura.Id);
+            await LoadData();
+        }
+        showDeleteModal = false;
+        silinecekFatura = null;
+    }
+
+    private string GetTipText(FaturaTipi tip) => tip switch
+    {
+        FaturaTipi.SatisFaturasi => "Satýþ",
+        FaturaTipi.AlisFaturasi => "Alýþ",
+        FaturaTipi.SatisIadeFaturasi => "Satýþ Ýade",
+        FaturaTipi.AlisIadeFaturasi => "Alýþ Ýade",
+        _ => tip.ToString()
+    };
+
+    private string GetTipBadgeClass(FaturaTipi tip) => tip switch
+    {
+        FaturaTipi.SatisFaturasi => "bg-success",
+        FaturaTipi.AlisFaturasi => "bg-primary",
+        FaturaTipi.SatisIadeFaturasi => "bg-warning text-dark",
+        FaturaTipi.AlisIadeFaturasi => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    private string GetDurumText(FaturaDurum durum) => durum switch
+    {
+        FaturaDurum.Beklemede => "Beklemede",
+        FaturaDurum.KismiOdendi => "Kýsmi Ödendi",
+        FaturaDurum.Odendi => "Ödendi",
+        FaturaDurum.IptalEdildi => "Ýptal",
+        _ => durum.ToString()
+    };
+
+    private string GetDurumBadgeClass(FaturaDurum durum) => durum switch
+    {
+        FaturaDurum.Beklemede => "bg-warning text-dark",
+        FaturaDurum.KismiOdendi => "bg-info",
+        FaturaDurum.Odendi => "bg-success",
+        FaturaDurum.IptalEdildi => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

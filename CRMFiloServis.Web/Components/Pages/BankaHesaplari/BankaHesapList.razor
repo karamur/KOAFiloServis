@@ -1,0 +1,167 @@
+@page "/banka-hesaplari"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IBankaHesapService BankaHesapService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Banka/Kasa Hesaplarý</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-bank me-2"></i>Banka/Kasa Hesaplarý</h3>
+        <button class="btn btn-primary" @onclick="YeniHesap">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Hesap
+        </button>
+    </div>
+
+    @if (hesaplar == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var hesap in hesaplar)
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi @(hesap.HesapTipi == HesapTipi.Kasa ? "bi-cash-coin" : "bi-bank") me-2"></i>
+                                @hesap.HesapAdi
+                            </span>
+                            <span class="badge @(hesap.Aktif ? "bg-success" : "bg-danger")">
+                                @(hesap.Aktif ? "Aktif" : "Pasif")
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-1"><small class="text-muted">Hesap Kodu:</small> <strong>@hesap.HesapKodu</strong></p>
+                            <p class="mb-1"><small class="text-muted">Tip:</small> @GetTipText(hesap.HesapTipi)</p>
+                            @if (!string.IsNullOrEmpty(hesap.BankaAdi))
+                            {
+                                <p class="mb-1"><small class="text-muted">Banka:</small> @hesap.BankaAdi</p>
+                            }
+                            @if (!string.IsNullOrEmpty(hesap.Iban))
+                            {
+                                <p class="mb-1"><small class="text-muted">IBAN:</small> @hesap.Iban</p>
+                            }
+                            <hr />
+                            <div class="text-center">
+                                <span class="text-muted">Güncel Bakiye</span>
+                                <h4 class="mb-0 @(bakiyeler.GetValueOrDefault(hesap.Id) >= 0 ? "text-success" : "text-danger")">
+                                    @bakiyeler.GetValueOrDefault(hesap.Id).ToString("N2") ?
+                                </h4>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(hesap.Id)">
+                                <i class="bi bi-pencil"></i> Düzenle
+                            </button>
+                            <button class="btn btn-sm btn-outline-info me-1" @onclick="() => Hareketler(hesap.Id)">
+                                <i class="bi bi-list"></i> Hareketler
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(hesap)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (!hesaplar.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>Henüz banka/kasa hesabý bulunmamaktadýr.
+            </div>
+        }
+    }
+</div>
+
+@if (showDeleteModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Silme Onayý</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>@silinecekHesap?.HesapAdi</strong> hesabýný silmek istediðinize emin misiniz?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">Ýptal</button>
+                    <button type="button" class="btn btn-danger" @onclick="Sil">Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BankaHesap>? hesaplar;
+    private Dictionary<int, decimal> bakiyeler = new();
+    private bool showDeleteModal = false;
+    private BankaHesap? silinecekHesap;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        hesaplar = await BankaHesapService.GetAllAsync();
+        foreach (var hesap in hesaplar)
+        {
+            bakiyeler[hesap.Id] = await BankaHesapService.GetBakiyeAsync(hesap.Id);
+        }
+    }
+
+    private void YeniHesap()
+    {
+        Navigation.NavigateTo("/banka-hesaplari/yeni");
+    }
+
+    private void Duzenle(int id)
+    {
+        Navigation.NavigateTo($"/banka-hesaplari/{id}");
+    }
+
+    private void Hareketler(int id)
+    {
+        Navigation.NavigateTo($"/banka-hareketleri?hesapId={id}");
+    }
+
+    private void SilOnay(BankaHesap hesap)
+    {
+        silinecekHesap = hesap;
+        showDeleteModal = true;
+    }
+
+    private async Task Sil()
+    {
+        if (silinecekHesap != null)
+        {
+            await BankaHesapService.DeleteAsync(silinecekHesap.Id);
+            await LoadData();
+        }
+        showDeleteModal = false;
+        silinecekHesap = null;
+    }
+
+    private string GetTipText(HesapTipi tip) => tip switch
+    {
+        HesapTipi.Kasa => "Kasa",
+        HesapTipi.VadesizHesap => "Vadesiz Hesap",
+        HesapTipi.VadeliHesap => "Vadeli Hesap",
+        HesapTipi.KrediHesabi => "Kredi Hesabý",
+        _ => tip.ToString()
+    };
+}

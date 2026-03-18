@@ -1,0 +1,167 @@
+@page "/guzergahlar/yeni"
+@page "/guzergahlar/{Id:int}"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IGuzergahService GuzergahService
+@inject ICariService CariService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEdit ? "Güzergah Düzenle" : "Yeni Güzergah")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-signpost me-2"></i>@(IsEdit ? "Güzergah Düzenle" : "Yeni Güzergah")</h3>
+        <button class="btn btn-secondary" @onclick="Geri">
+            <i class="bi bi-arrow-left me-1"></i>Geri
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="guzergah" OnValidSubmit="Kaydet">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Güzergah Kodu *</label>
+                            <InputText @bind-Value="guzergah.GuzergahKodu" class="form-control" readonly="@IsEdit" />
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label class="form-label">Güzergah Adý *</label>
+                            <InputText @bind-Value="guzergah.GuzergahAdi" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Firma (Cari) *</label>
+                    <InputSelect @bind-Value="guzergah.CariId" class="form-select">
+                        <option value="0">-- Firma Seçiniz --</option>
+                        @foreach (var cari in cariler)
+                        {
+                            <option value="@cari.Id">@cari.Unvan</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Baþlangýç Noktasý</label>
+                            <InputText @bind-Value="guzergah.BaslangicNoktasi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Bitiþ Noktasý</label>
+                            <InputText @bind-Value="guzergah.BitisNoktasi" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Birim Fiyat (?) *</label>
+                            <InputNumber @bind-Value="guzergah.BirimFiyat" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Mesafe (km)</label>
+                            <InputNumber @bind-Value="guzergah.Mesafe" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Tahmini Süre (dk)</label>
+                            <InputNumber @bind-Value="guzergah.TahminiSure" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="guzergah.Aktif" class="form-check-input" id="aktif" />
+                                <label class="form-check-label" for="aktif">Aktif</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Notlar</label>
+                    <InputTextArea @bind-Value="guzergah.Notlar" class="form-control" rows="2" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="Geri">
+                        <i class="bi bi-x-lg me-1"></i>Ýptal
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Guzergah guzergah = new();
+    private List<Cari> cariler = new();
+    private bool IsEdit => Id.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        cariler = await CariService.GetByTipAsync(CariTipi.Musteri);
+
+        if (IsEdit)
+        {
+            var existing = await GuzergahService.GetByIdAsync(Id!.Value);
+            if (existing != null)
+            {
+                guzergah = existing;
+            }
+            else
+            {
+                Navigation.NavigateTo("/guzergahlar");
+            }
+        }
+        else
+        {
+            guzergah.GuzergahKodu = await GuzergahService.GenerateNextKodAsync();
+            guzergah.Aktif = true;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        if (string.IsNullOrWhiteSpace(guzergah.GuzergahAdi) || guzergah.CariId == 0)
+            return;
+
+        if (IsEdit)
+        {
+            await GuzergahService.UpdateAsync(guzergah);
+        }
+        else
+        {
+            await GuzergahService.CreateAsync(guzergah);
+        }
+        Navigation.NavigateTo("/guzergahlar");
+    }
+
+    private void Geri()
+    {
+        Navigation.NavigateTo("/guzergahlar");
+    }
+}
