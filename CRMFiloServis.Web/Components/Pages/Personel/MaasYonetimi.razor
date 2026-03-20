@@ -1,0 +1,296 @@
+@page "/personel/maas"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IPersonelMaasIzinService PersonelService
+@inject ISoforService SoforService
+@rendermode InteractiveServer
+
+<PageTitle>Personel Maaþ Yönetimi</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="bi bi-cash-stack me-2"></i>Personel Maaþ Yönetimi</h3>
+        <div class="d-flex gap-2">
+            <select class="form-select" style="width: 120px;" @bind="secilenYil" @bind:after="YenileData">
+                @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
+                {
+                    <option value="@y">@y</option>
+                }
+            </select>
+            <select class="form-select" style="width: 150px;" @bind="secilenAy" @bind:after="YenileData">
+                @for (int m = 1; m <= 12; m++)
+                {
+                    <option value="@m">@(new DateTime(2024, m, 1).ToString("MMMM"))</option>
+                }
+            </select>
+            <button class="btn btn-success" @onclick="TopluMaasOlustur">
+                <i class="bi bi-plus-circle me-1"></i>Toplu Maaþ Oluþtur
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (maasRapor != null)
+    {
+        <!-- Özet Kartlarý -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center py-2">
+                        <h6 class="mb-0">Personel</h6>
+                        <h4 class="mb-0">@maasRapor.PersonelSayisi</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center py-2">
+                        <h6 class="mb-0">Brüt Maaþ</h6>
+                        <h5 class="mb-0">@maasRapor.ToplamBrutMaas.ToString("N0") ?</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center py-2">
+                        <h6 class="mb-0">Net Maaþ</h6>
+                        <h5 class="mb-0">@maasRapor.ToplamNetMaas.ToString("N0") ?</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body text-center py-2">
+                        <h6 class="mb-0">SGK (Ýþçi)</h6>
+                        <h5 class="mb-0">@maasRapor.ToplamSGKIsci.ToString("N0") ?</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-danger text-white">
+                    <div class="card-body text-center py-2">
+                        <h6 class="mb-0">SGK (Ýþveren)</h6>
+                        <h5 class="mb-0">@maasRapor.ToplamSGKIsveren.ToString("N0") ?</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-secondary text-white">
+                    <div class="card-body text-center py-2">
+                        <h6 class="mb-0">Toplam Ödeme</h6>
+                        <h5 class="mb-0">@maasRapor.ToplamOdeme.ToString("N0") ?</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Maaþ Listesi -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Personel</th>
+                                <th class="text-end">Brüt Maaþ</th>
+                                <th class="text-end">Net Maaþ</th>
+                                <th class="text-end">Eklemeler</th>
+                                <th class="text-end">Kesintiler</th>
+                                <th class="text-end">Ödenecek</th>
+                                <th class="text-center">Durum</th>
+                                <th class="text-center">Ýþlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var maas in maasRapor.Detaylar)
+                            {
+                                <tr>
+                                    <td><strong>@maas.SoforAdSoyad</strong></td>
+                                    <td class="text-end">@maas.BrutMaas.ToString("N0") ?</td>
+                                    <td class="text-end">@maas.NetMaas.ToString("N0") ?</td>
+                                    <td class="text-end text-success">+@maas.ToplamEklemeler.ToString("N0") ?</td>
+                                    <td class="text-end text-danger">-@maas.ToplamKesintiler.ToString("N0") ?</td>
+                                    <td class="text-end"><strong>@maas.OdenecekTutar.ToString("N0") ?</strong></td>
+                                    <td class="text-center">
+                                        @if (maas.OdemeDurum == "Odendi")
+                                        {
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle me-1"></i>Ödendi
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-clock me-1"></i>Bekliyor
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" @onclick="() => DuzenleAc(maas.MaasId)" title="Düzenle">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            @if (maas.OdemeDurum != "Odendi")
+                                            {
+                                                <button class="btn btn-outline-success" @onclick="() => OdemeYap(maas.MaasId)" title="Ödeme Yap">
+                                                    <i class="bi bi-cash-coin"></i>
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Maaþ Düzenleme Modal -->
+@if (duzenlenenMaas != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Maaþ Düzenle - @duzenlenenMaas.Sofor?.TamAd</h5>
+                    <button type="button" class="btn-close" @onclick="ModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Maaþ Bilgileri</h6>
+                            <div class="mb-2">
+                                <label class="form-label small">Brüt Maaþ</label>
+                                <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.BrutMaas" />
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small">Net Maaþ</label>
+                                <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.NetMaas" />
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small">Çalýþma Günü</label>
+                                <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.CalismaGunu" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success">Ek Ödemeler</h6>
+                            <div class="row">
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small">Prim</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.Prim" />
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small">Ýkramiye</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.Ikramiye" />
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small">Mesai</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.Mesai" />
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small">Yemek</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.Yemek" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr />
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-danger">Kesintiler</h6>
+                            <div class="row">
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small">Avans</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.Avans" />
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small">Ýcra Takibi</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.IcraTakibi" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info">Hesaplanan</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td>Ödenecek Tutar:</td>
+                                    <td class="text-end"><strong>@duzenlenenMaas.OdenecekTutar.ToString("N0") ?</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="ModalKapat">Ýptal</button>
+                    <button class="btn btn-primary" @onclick="MaasKaydet">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int secilenYil = DateTime.Today.Year;
+    private int secilenAy = DateTime.Today.Month;
+    private MaasRaporOzet? maasRapor;
+    private Shared.Entities.PersonelMaas? duzenlenenMaas;
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await YenileData();
+    }
+
+    private async Task YenileData()
+    {
+        isLoading = true;
+        try
+        {
+            maasRapor = await PersonelService.GetMaasRaporuAsync(secilenYil, secilenAy);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task TopluMaasOlustur()
+    {
+        await PersonelService.TopluMaasOlusturAsync(secilenYil, secilenAy);
+        await YenileData();
+    }
+
+    private async Task DuzenleAc(int maasId)
+    {
+        duzenlenenMaas = await PersonelService.GetMaasByIdAsync(maasId);
+    }
+
+    private void ModalKapat()
+    {
+        duzenlenenMaas = null;
+    }
+
+    private async Task MaasKaydet()
+    {
+        if (duzenlenenMaas != null)
+        {
+            await PersonelService.UpdateMaasAsync(duzenlenenMaas);
+            ModalKapat();
+            await YenileData();
+        }
+    }
+
+    private async Task OdemeYap(int maasId)
+    {
+        await PersonelService.MaasOdemeYapAsync(maasId, DateTime.Now);
+        await YenileData();
+    }
+}

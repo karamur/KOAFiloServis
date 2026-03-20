@@ -30,6 +30,15 @@ public class ApplicationDbContext : DbContext
     public DbSet<BankaKasaHareket> BankaKasaHareketleri { get; set; }
     public DbSet<OdemeEslestirme> OdemeEslestirmeleri { get; set; }
 
+    // Checklist Modülü
+    public DbSet<AylikChecklist> AylikChecklistler { get; set; }
+    public DbSet<ChecklistKalem> ChecklistKalemleri { get; set; }
+
+    // Personel Maaþ/Ýzin Modülü
+    public DbSet<PersonelMaas> PersonelMaaslari { get; set; }
+    public DbSet<PersonelIzin> PersonelIzinleri { get; set; }
+    public DbSet<PersonelIzinHakki> PersonelIzinHaklari { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -225,6 +234,94 @@ public class ApplicationDbContext : DbContext
                 .WithMany(b => b.OdemeEslestirmeleri)
                 .HasForeignKey(e => e.BankaKasaHareketId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // AylikChecklist
+        modelBuilder.Entity<AylikChecklist>(entity =>
+        {
+            entity.HasIndex(e => new { e.Yil, e.Ay, e.ChecklistTipi, e.SoforId, e.AracId, e.GuzergahId });
+            entity.Property(e => e.KontrolEden).HasMaxLength(100);
+            
+            entity.HasOne(e => e.Sofor)
+                .WithMany()
+                .HasForeignKey(e => e.SoforId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            entity.HasOne(e => e.Arac)
+                .WithMany()
+                .HasForeignKey(e => e.AracId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            entity.HasOne(e => e.Guzergah)
+                .WithMany()
+                .HasForeignKey(e => e.GuzergahId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // Checklist Kalem
+        modelBuilder.Entity<ChecklistKalem>(entity =>
+        {
+            entity.Property(e => e.KalemAdi).HasMaxLength(200);
+            entity.Property(e => e.Aciklama).HasMaxLength(500);
+            entity.HasOne(e => e.AylikChecklist)
+                .WithMany(ac => ac.Kalemler)
+                .HasForeignKey(e => e.AylikChecklistId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // Personel Maaþ
+        modelBuilder.Entity<PersonelMaas>(entity =>
+        {
+            entity.HasIndex(e => new { e.SoforId, e.Yil, e.Ay }).IsUnique();
+            entity.Property(e => e.BrutMaas).HasPrecision(18, 2);
+            entity.Property(e => e.NetMaas).HasPrecision(18, 2);
+            entity.Property(e => e.SGKIsciPayi).HasPrecision(18, 2);
+            entity.Property(e => e.SGKIsverenPayi).HasPrecision(18, 2);
+            entity.Property(e => e.GelirVergisi).HasPrecision(18, 2);
+            entity.Property(e => e.DamgaVergisi).HasPrecision(18, 2);
+            entity.Property(e => e.IssizlikPrimi).HasPrecision(18, 2);
+            entity.Property(e => e.Prim).HasPrecision(18, 2);
+            entity.Property(e => e.Ikramiye).HasPrecision(18, 2);
+            entity.Property(e => e.Yemek).HasPrecision(18, 2);
+            entity.Property(e => e.Yol).HasPrecision(18, 2);
+            entity.Property(e => e.Mesai).HasPrecision(18, 2);
+            entity.Property(e => e.DigerEklemeler).HasPrecision(18, 2);
+            entity.Property(e => e.Avans).HasPrecision(18, 2);
+            entity.Property(e => e.IcraTakibi).HasPrecision(18, 2);
+            entity.Property(e => e.DigerKesintiler).HasPrecision(18, 2);
+            
+            entity.HasOne(e => e.Sofor)
+                .WithMany(s => s.Maaslar)
+                .HasForeignKey(e => e.SoforId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // Personel Ýzin
+        modelBuilder.Entity<PersonelIzin>(entity =>
+        {
+            entity.HasOne(e => e.Sofor)
+                .WithMany(s => s.Izinler)
+                .HasForeignKey(e => e.SoforId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // Personel Ýzin Hakký
+        modelBuilder.Entity<PersonelIzinHakki>(entity =>
+        {
+            entity.HasIndex(e => new { e.SoforId, e.Yil }).IsUnique();
+            entity.HasOne(e => e.Sofor)
+                .WithMany(s => s.IzinHaklari)
+                .HasForeignKey(e => e.SoforId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
     }

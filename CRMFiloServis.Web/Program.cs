@@ -28,6 +28,8 @@ builder.Services.AddScoped<IOdemeEslestirmeService, OdemeEslestirmeService>();
 builder.Services.AddScoped<IRaporService, RaporService>();
 builder.Services.AddScoped<IExcelService, ExcelService>();
 builder.Services.AddScoped<IFaturaHazirlikService, FaturaHazirlikService>();
+builder.Services.AddScoped<IMaliAnalizService, MaliAnalizService>();
+builder.Services.AddScoped<IPersonelMaasIzinService, PersonelMaasIzinService>();
 
 var app = builder.Build();
 

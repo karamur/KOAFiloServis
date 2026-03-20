@@ -52,11 +52,6 @@
                         </NavLink>
                     </div>
                     <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="soforler">
-                            <i class="bi bi-person-badge-fill me-2"></i> Şoförler
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
                         <NavLink class="nav-link" href="guzergahlar">
                             <i class="bi bi-signpost-split-fill me-2"></i> Güzergahlar
                         </NavLink>
@@ -78,7 +73,35 @@
                     </div>
                     <div class="nav-item px-3">
                         <NavLink class="nav-link" href="arac-masraflari">
-                            <i class="bi bi-cash-stack me-2"></i> Araç Masrafları
+                            <i class="bi bi-receipt me-2"></i> Araç Masrafları
+                        </NavLink>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- PERSONEL YÖNETİMİ -->
+        <div class="nav-section">
+            <div class="nav-section-header" @onclick="() => ToggleSection(5)">
+                <span><i class="bi bi-people-fill me-2"></i>PERSONEL</span>
+                <i class="bi @(expandedSections.Length > 5 && expandedSections[5] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+            </div>
+            @if (expandedSections.Length > 5 && expandedSections[5])
+            {
+                <div class="nav-section-content">
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="personel">
+                            <i class="bi bi-people me-2"></i> Personel Listesi
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="personel/maas">
+                            <i class="bi bi-cash-stack me-2"></i> Maaş Yönetimi
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="personel/izin">
+                            <i class="bi bi-calendar-check me-2"></i> İzin Yönetimi
                         </NavLink>
                     </div>
                 </div>
@@ -146,6 +169,31 @@
             {
                 <div class="nav-section-content">
                     <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="mali-analiz">
+                            <i class="bi bi-graph-up-arrow me-2"></i> Mali Analiz
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="rapor/checklist">
+                            <i class="bi bi-clipboard-check me-2"></i> Aylık Checklist
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="rapor/ozmal-arac">
+                            <i class="bi bi-truck me-2"></i> Özmal Araç Raporu
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="rapor/kiralik-arac">
+                            <i class="bi bi-building me-2"></i> Kiralık Araç Raporu
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="rapor/komisyon">
+                            <i class="bi bi-percent me-2"></i> Komisyon Raporu
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
                         <NavLink class="nav-link" href="rapor/servis-calisma">
                             <i class="bi bi-file-earmark-bar-graph me-2"></i> Servis Raporu
                         </NavLink>
@@ -172,7 +220,7 @@
 </div>
 
 @code {
-    private bool[] expandedSections = [true, true, true, true, true];
+    private bool[] expandedSections = [true, true, true, true, true, true];
 
     private void ToggleSection(int index)
     {

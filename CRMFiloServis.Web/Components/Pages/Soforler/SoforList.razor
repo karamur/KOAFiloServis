@@ -1,21 +1,31 @@
 @page "/soforler"
+@page "/personel"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject ISoforService SoforService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
-<PageTitle>Þoförler</PageTitle>
+<PageTitle>Personel Listesi</PageTitle>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3><i class="bi bi-person-badge me-2"></i>Þoförler</h3>
-        <button class="btn btn-primary" @onclick="YeniSofor">
-            <i class="bi bi-plus-lg me-1"></i>Yeni Þoför
-        </button>
+        <h3><i class="bi bi-people me-2"></i>Personel Listesi</h3>
+        <div class="d-flex gap-2">
+            <select class="form-select" style="width: 180px;" @bind="secilenGorev" @bind:after="FiltreleAsync">
+                <option value="">Tüm Personel</option>
+                @foreach (PersonelGorev gorev in Enum.GetValues(typeof(PersonelGorev)))
+                {
+                    <option value="@gorev">@GetGorevAdi(gorev)</option>
+                }
+            </select>
+            <button class="btn btn-primary" @onclick="YeniPersonel">
+                <i class="bi bi-plus-lg me-1"></i>Yeni Personel
+            </button>
+        </div>
     </div>
 
-    @if (soforler == null)
+    @if (personeller == null)
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
@@ -23,48 +33,74 @@
             </div>
         </div>
     }
-    else if (!soforler.Any())
+    else if (!personeller.Any())
     {
         <div class="alert alert-info">
-            <i class="bi bi-info-circle me-2"></i>Henüz þoför kaydý bulunmamaktadýr.
+            <i class="bi bi-info-circle me-2"></i>Henüz personel kaydý bulunmamaktadýr.
         </div>
     }
     else
     {
         <div class="card">
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped table-hover mb-0">
                         <thead class="table-dark">
                             <tr>
-                                <th>Þoför Kodu</th>
+                                <th>Personel Kodu</th>
                                 <th>Ad Soyad</th>
-                                <th>TC Kimlik</th>
+                                <th>Görev</th>
                                 <th>Telefon</th>
-                                <th>Ehliyet</th>
-                                <th>Durum</th>
+                                <th>Ýþe Baþlama</th>
+                                <th class="text-end">Maaþ</th>
+                                <th class="text-center">Belgeler</th>
+                                <th class="text-center">Durum</th>
                                 <th style="width: 120px;">Ýþlemler</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var sofor in soforler)
+                            @foreach (var personel in personeller)
                             {
                                 <tr>
-                                    <td><strong>@sofor.SoforKodu</strong></td>
-                                    <td>@sofor.TamAd</td>
-                                    <td>@sofor.TcKimlikNo</td>
-                                    <td>@sofor.Telefon</td>
+                                    <td><strong>@personel.SoforKodu</strong></td>
+                                    <td>@personel.TamAd</td>
                                     <td>
-                                        @if (sofor.EhliyetGecerlilikTarihi.HasValue)
+                                        <span class="badge @GetGorevBadgeClass(personel.Gorev)">
+                                            @GetGorevAdi(personel.Gorev)
+                                        </span>
+                                    </td>
+                                    <td>@personel.Telefon</td>
+                                    <td>@personel.IseBaslamaTarihi?.ToString("dd.MM.yyyy")</td>
+                                    <td class="text-end">@personel.NetMaas.ToString("N0") ?</td>
+                                    <td class="text-center">
+                                        @if (personel.IsSofor)
                                         {
-                                            var gunKaldi = (sofor.EhliyetGecerlilikTarihi.Value - DateTime.Today).Days;
-                                            <span class="badge @(gunKaldi < 30 ? "bg-danger" : gunKaldi < 60 ? "bg-warning text-dark" : "bg-success")">
-                                                @sofor.EhliyetGecerlilikTarihi.Value.ToString("dd.MM.yyyy")
-                                            </span>
+                                            @* Ehliyet durumu *@
+                                            @if (personel.EhliyetGecerlilikTarihi.HasValue)
+                                            {
+                                                var gunKaldi = (personel.EhliyetGecerlilikTarihi.Value - DateTime.Today).Days;
+                                                <span class="badge @(gunKaldi < 30 ? "bg-danger" : gunKaldi < 60 ? "bg-warning text-dark" : "bg-success")" 
+                                                      title="Ehliyet: @personel.EhliyetGecerlilikTarihi.Value.ToString("dd.MM.yyyy")">
+                                                    <i class="bi bi-card-text"></i>
+                                                </span>
+                                            }
+                                            @* SRC durumu *@
+                                            @if (personel.SrcBelgesiGecerlilikTarihi.HasValue)
+                                            {
+                                                var gunKaldi = (personel.SrcBelgesiGecerlilikTarihi.Value - DateTime.Today).Days;
+                                                <span class="badge @(gunKaldi < 30 ? "bg-danger" : gunKaldi < 60 ? "bg-warning text-dark" : "bg-success") ms-1" 
+                                                      title="SRC: @personel.SrcBelgesiGecerlilikTarihi.Value.ToString("dd.MM.yyyy")">
+                                                    <i class="bi bi-file-earmark-check"></i>
+                                                </span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
                                         }
                                     </td>
-                                    <td>
-                                        @if (sofor.Aktif)
+                                    <td class="text-center">
+                                        @if (personel.Aktif)
                                         {
                                             <span class="badge bg-success">Aktif</span>
                                         }
@@ -74,10 +110,10 @@
                                         }
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(sofor.Id)" title="Düzenle">
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(personel.Id)" title="Düzenle">
                                             <i class="bi bi-pencil"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(sofor)" title="Sil">
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(personel)" title="Sil">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </td>
@@ -85,6 +121,42 @@
                             }
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Özet Bilgiler -->
+        <div class="row mt-3">
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body py-2 text-center">
+                        <small class="text-muted">Toplam Personel</small>
+                        <h5 class="mb-0">@personeller.Count</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body py-2 text-center">
+                        <small class="text-muted">Þoför Sayýsý</small>
+                        <h5 class="mb-0">@personeller.Count(p => p.Gorev == PersonelGorev.Sofor)</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body py-2 text-center">
+                        <small class="text-muted">Aktif Personel</small>
+                        <h5 class="mb-0">@personeller.Count(p => p.Aktif)</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body py-2 text-center">
+                        <small class="text-muted">Toplam Maaþ</small>
+                        <h5 class="mb-0">@personeller.Where(p => p.Aktif).Sum(p => p.NetMaas).ToString("N0") ?</h5>
+                    </div>
                 </div>
             </div>
         </div>
@@ -101,7 +173,7 @@
                     <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>@silinecekSofor?.TamAd</strong> isimli þoförü silmek istediðinize emin misiniz?</p>
+                    <p><strong>@silinecekPersonel?.TamAd</strong> isimli personeli silmek istediðinize emin misiniz?</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">Ýptal</button>
@@ -113,9 +185,10 @@
 }
 
 @code {
-    private List<Sofor>? soforler;
+    private List<Sofor>? personeller;
     private bool showDeleteModal = false;
-    private Sofor? silinecekSofor;
+    private Sofor? silinecekPersonel;
+    private string secilenGorev = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -124,10 +197,22 @@
 
     private async Task LoadData()
     {
-        soforler = await SoforService.GetAllAsync();
+        personeller = await SoforService.GetAllAsync();
+    }
+    
+    private async Task FiltreleAsync()
+    {
+        if (string.IsNullOrEmpty(secilenGorev))
+        {
+            personeller = await SoforService.GetAllAsync();
+        }
+        else if (Enum.TryParse<PersonelGorev>(secilenGorev, out var gorev))
+        {
+            personeller = await SoforService.GetByGorevAsync(gorev);
+        }
     }
 
-    private void YeniSofor()
+    private void YeniPersonel()
     {
         Navigation.NavigateTo("/soforler/yeni");
     }
@@ -137,20 +222,47 @@
         Navigation.NavigateTo($"/soforler/{id}");
     }
 
-    private void SilOnay(Sofor sofor)
+    private void SilOnay(Sofor personel)
     {
-        silinecekSofor = sofor;
+        silinecekPersonel = personel;
         showDeleteModal = true;
     }
 
     private async Task Sil()
     {
-        if (silinecekSofor != null)
+        if (silinecekPersonel != null)
         {
-            await SoforService.DeleteAsync(silinecekSofor.Id);
+            await SoforService.DeleteAsync(silinecekPersonel.Id);
             await LoadData();
         }
         showDeleteModal = false;
-        silinecekSofor = null;
+        silinecekPersonel = null;
+    }
+    
+    private string GetGorevAdi(PersonelGorev gorev)
+    {
+        return gorev switch
+        {
+            PersonelGorev.Sofor => "Þoför",
+            PersonelGorev.OfisCalisani => "Ofis Çalýþaný",
+            PersonelGorev.Muhasebe => "Muhasebe",
+            PersonelGorev.Yonetici => "Yönetici",
+            PersonelGorev.Teknik => "Teknik",
+            PersonelGorev.Diger => "Diðer",
+            _ => gorev.ToString()
+        };
+    }
+    
+    private string GetGorevBadgeClass(PersonelGorev gorev)
+    {
+        return gorev switch
+        {
+            PersonelGorev.Sofor => "bg-primary",
+            PersonelGorev.OfisCalisani => "bg-info",
+            PersonelGorev.Muhasebe => "bg-success",
+            PersonelGorev.Yonetici => "bg-warning text-dark",
+            PersonelGorev.Teknik => "bg-secondary",
+            _ => "bg-dark"
+        };
     }
 }

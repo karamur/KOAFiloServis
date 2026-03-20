@@ -227,7 +227,7 @@
     protected override async Task OnInitializedAsync()
     {
         araclar = (await AracService.GetActiveAsync()).ToList();
-        soforler = (await SoforService.GetActiveAsync()).ToList();
+        soforler = (await SoforService.GetActiveSoforlerAsync()).ToList(); // Sadece þoför görevli personeller
         guzergahlar = (await GuzergahService.GetActiveAsync()).ToList();
     }
 

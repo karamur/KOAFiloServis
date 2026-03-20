@@ -76,4 +76,32 @@ public class SoforService : ISoforService
         var nextNumber = (lastSofor?.Id ?? 0) + 1;
         return $"SFR-{nextNumber:D4}";
     }
+
+    // Görev bazlý filtreleme metodlarý
+    public async Task<List<Sofor>> GetByGorevAsync(PersonelGorev gorev)
+    {
+        return await _context.Soforler
+            .Where(s => s.Gorev == gorev)
+            .OrderBy(s => s.Ad)
+            .ThenBy(s => s.Soyad)
+            .ToListAsync();
+    }
+
+    public async Task<List<Sofor>> GetActiveSoforlerAsync()
+    {
+        return await _context.Soforler
+            .Where(s => s.Aktif && s.Gorev == PersonelGorev.Sofor)
+            .OrderBy(s => s.Ad)
+            .ThenBy(s => s.Soyad)
+            .ToListAsync();
+    }
+
+    public async Task<List<Sofor>> GetActiveByGorevAsync(PersonelGorev gorev)
+    {
+        return await _context.Soforler
+            .Where(s => s.Aktif && s.Gorev == gorev)
+            .OrderBy(s => s.Ad)
+            .ThenBy(s => s.Soyad)
+            .ToListAsync();
+    }
 }

@@ -1,0 +1,151 @@
+@page "/rapor/komisyon"
+@using CRMFiloServis.Web.Services
+@using Models = CRMFiloServis.Web.Models
+@inject IMaliAnalizService MaliAnalizService
+@rendermode InteractiveServer
+
+<PageTitle>Komisyon Raporu</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="bi bi-percent me-2"></i>Komisyon Raporu</h3>
+        <div class="d-flex gap-2">
+            <select class="form-select" style="width: 120px;" @bind="secilenYil" @bind:after="YenileData">
+                @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
+                {
+                    <option value="@y">@y</option>
+                }
+            </select>
+            <select class="form-select" style="width: 150px;" @bind="secilenAy" @bind:after="YenileData">
+                @for (int m = 1; m <= 12; m++)
+                {
+                    <option value="@m">@(new DateTime(2024, m, 1).ToString("MMMM"))</option>
+                }
+            </select>
+            <a href="/mali-analiz" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (rapor != null)
+    {
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h6>Toplam Gelir</h6>
+                        <h3>@rapor.ToplamGelir.ToString("N0") TL</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body text-center">
+                        <h6>Komisyon</h6>
+                        <h3>@rapor.ToplamKomisyon.ToString("N0") TL</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h6>Net Gelir</h6>
+                        <h3>@rapor.NetGelir.ToString("N0") TL</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h6>Sefer</h6>
+                        <h3>@rapor.ToplamSefer</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @foreach (var k in rapor.KomisyoncuDetaylari)
+        {
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <strong>@k.KomisyoncuUnvan</strong> - %@k.KomisyonOrani
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Plaka</th>
+                                <th>Guzergah</th>
+                                <th>Musteri</th>
+                                <th class="text-center">Sefer</th>
+                                <th class="text-end">Gelir</th>
+                                <th class="text-end">Komisyon</th>
+                                <th class="text-end">Net</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in k.IsDetaylari)
+                            {
+                                <tr>
+                                    <td>@d.AracPlaka</td>
+                                    <td>@d.GuzergahAdi</td>
+                                    <td>@d.MusteriUnvan</td>
+                                    <td class="text-center">@d.SeferSayisi</td>
+                                    <td class="text-end text-success">@d.SeferGeliri.ToString("N0")</td>
+                                    <td class="text-end text-danger">@d.KomisyonTutari.ToString("N0")</td>
+                                    <td class="text-end">@d.NetGelir.ToString("N0")</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-info">
+                            <tr>
+                                <th colspan="3">TOPLAM</th>
+                                <th class="text-center">@k.ToplamSefer</th>
+                                <th class="text-end">@k.ToplamGelir.ToString("N0")</th>
+                                <th class="text-end">@k.ToplamKomisyon.ToString("N0")</th>
+                                <th class="text-end">@k.NetGelir.ToString("N0")</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @if (!rapor.KomisyoncuDetaylari.Any())
+        {
+            <div class="alert alert-info">Bu donemde komisyonlu is yok.</div>
+        }
+    }
+</div>
+
+@code {
+    private int secilenYil = DateTime.Today.Year;
+    private int secilenAy = DateTime.Today.Month;
+    private Models.KomisyonRaporu? rapor;
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await YenileData();
+    }
+
+    private async Task YenileData()
+    {
+        isLoading = true;
+        try
+        {
+            rapor = await MaliAnalizService.GetKomisyonRaporuAsync(secilenYil, secilenAy);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

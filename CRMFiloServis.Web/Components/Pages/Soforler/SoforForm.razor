@@ -1,16 +1,18 @@
 @page "/soforler/yeni"
 @page "/soforler/{Id:int}"
+@page "/personel/yeni"
+@page "/personel/{Id:int}"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject ISoforService SoforService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
-<PageTitle>@(IsEdit ? "Þoför Düzenle" : "Yeni Þoför")</PageTitle>
+<PageTitle>@(IsEdit ? "Personel Düzenle" : "Yeni Personel")</PageTitle>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3><i class="bi bi-person-badge me-2"></i>@(IsEdit ? "Þoför Düzenle" : "Yeni Þoför")</h3>
+        <h3><i class="bi bi-person-badge me-2"></i>@(IsEdit ? "Personel Düzenle" : "Yeni Personel")</h3>
         <button class="btn btn-secondary" @onclick="Geri">
             <i class="bi bi-arrow-left me-1"></i>Geri
         </button>
@@ -21,34 +23,68 @@
             <EditForm Model="sofor" OnValidSubmit="Kaydet">
                 <DataAnnotationsValidator />
 
+                <!-- Temel Bilgiler -->
+                <h5 class="text-primary mb-3"><i class="bi bi-person me-2"></i>Temel Bilgiler</h5>
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Þoför Kodu *</label>
+                            <label class="form-label">Personel Kodu *</label>
                             <InputText @bind-Value="sofor.SoforKodu" class="form-control" readonly="@IsEdit" />
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label class="form-label">Ad *</label>
                             <InputText @bind-Value="sofor.Ad" class="form-control" />
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label class="form-label">Soyad *</label>
                             <InputText @bind-Value="sofor.Soyad" class="form-control" />
                         </div>
                     </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label class="form-label">TC Kimlik No</label>
                             <InputText @bind-Value="sofor.TcKimlikNo" class="form-control" maxlength="11" />
                         </div>
                     </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Görev *</label>
+                            <InputSelect @bind-Value="sofor.Gorev" class="form-select">
+                                @foreach (PersonelGorev gorev in Enum.GetValues(typeof(PersonelGorev)))
+                                {
+                                    <option value="@gorev">@GetGorevAdi(gorev)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Departman</label>
+                            <InputText @bind-Value="sofor.Departman" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Pozisyon</label>
+                            <InputText @bind-Value="sofor.Pozisyon" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Ýþe Baþlama Tarihi</label>
+                            <InputDate @bind-Value="sofor.IseBaslamaTarihi" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
                     <div class="col-md-4">
                         <div class="mb-3">
                             <label class="form-label">Telefon</label>
@@ -61,48 +97,104 @@
                             <InputText @bind-Value="sofor.Email" class="form-control" type="email" />
                         </div>
                     </div>
-                </div>
-
-                <div class="row">
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <label class="form-label">Ehliyet No</label>
-                            <InputText @bind-Value="sofor.EhliyetNo" class="form-control" />
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="mb-3">
-                            <label class="form-label">Ehliyet Geçerlilik Tarihi</label>
-                            <InputDate @bind-Value="sofor.EhliyetGecerlilikTarihi" class="form-control" />
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="mb-3">
-                            <label class="form-label">Ýþe Baþlama Tarihi</label>
-                            <InputDate @bind-Value="sofor.IseBaslamaTarihi" class="form-control" />
+                            <label class="form-label">Adres</label>
+                            <InputText @bind-Value="sofor.Adres" class="form-control" />
                         </div>
                     </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Adres</label>
-                    <InputTextArea @bind-Value="sofor.Adres" class="form-control" rows="2" />
-                </div>
-
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <InputCheckbox @bind-Value="sofor.Aktif" class="form-check-input" id="aktif" />
-                                <label class="form-check-label" for="aktif">Aktif</label>
+                <!-- Þoför Belgeleri (Sadece Þoför seçiliyse göster) -->
+                @if (sofor.Gorev == PersonelGorev.Sofor)
+                {
+                    <hr />
+                    <h5 class="text-primary mb-3"><i class="bi bi-file-earmark-text me-2"></i>Þoför Belgeleri</h5>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Ehliyet No</label>
+                                <InputText @bind-Value="sofor.EhliyetNo" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Ehliyet Geçerlilik</label>
+                                <InputDate @bind-Value="sofor.EhliyetGecerlilikTarihi" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">SRC Belgesi Geçerlilik</label>
+                                <InputDate @bind-Value="sofor.SrcBelgesiGecerlilikTarihi" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Psikoteknik Geçerlilik</label>
+                                <InputDate @bind-Value="sofor.PsikoteknikGecerlilikTarihi" class="form-control" />
                             </div>
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Saðlýk Raporu Geçerlilik</label>
+                                <InputDate @bind-Value="sofor.SaglikRaporuGecerlilikTarihi" class="form-control" />
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Maaþ ve Banka Bilgileri -->
+                <hr />
+                <h5 class="text-primary mb-3"><i class="bi bi-cash-stack me-2"></i>Maaþ ve Banka Bilgileri</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Brüt Maaþ (?)</label>
+                            <InputNumber @bind-Value="sofor.BrutMaas" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Net Maaþ (?)</label>
+                            <InputNumber @bind-Value="sofor.NetMaas" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Banka Adý</label>
+                            <InputText @bind-Value="sofor.BankaAdi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">IBAN</label>
+                            <InputText @bind-Value="sofor.IBAN" class="form-control" placeholder="TR00 0000 0000 0000 0000 0000 00" />
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Notlar</label>
-                    <InputTextArea @bind-Value="sofor.Notlar" class="form-control" rows="2" />
+                <!-- Durum ve Notlar -->
+                <hr />
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <div class="form-check form-switch mt-4">
+                                <InputCheckbox @bind-Value="sofor.Aktif" class="form-check-input" id="aktif" />
+                                <label class="form-check-label" for="aktif">
+                                    <strong>@(sofor.Aktif ? "Aktif" : "Pasif")</strong>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-10">
+                        <div class="mb-3">
+                            <label class="form-label">Notlar</label>
+                            <InputTextArea @bind-Value="sofor.Notlar" class="form-control" rows="2" />
+                        </div>
+                    </div>
                 </div>
 
                 <div class="d-flex gap-2">
@@ -136,13 +228,14 @@
             }
             else
             {
-                Navigation.NavigateTo("/soforler");
+                Navigation.NavigateTo("/personel");
             }
         }
         else
         {
             sofor.SoforKodu = await SoforService.GenerateNextKodAsync();
             sofor.Aktif = true;
+            sofor.Gorev = PersonelGorev.Sofor;
         }
     }
 
@@ -159,11 +252,25 @@
         {
             await SoforService.CreateAsync(sofor);
         }
-        Navigation.NavigateTo("/soforler");
+        Navigation.NavigateTo("/personel");
     }
 
     private void Geri()
     {
-        Navigation.NavigateTo("/soforler");
+        Navigation.NavigateTo("/personel");
+    }
+    
+    private string GetGorevAdi(PersonelGorev gorev)
+    {
+        return gorev switch
+        {
+            PersonelGorev.Sofor => "Þoför",
+            PersonelGorev.OfisCalisani => "Ofis Çalýþaný",
+            PersonelGorev.Muhasebe => "Muhasebe",
+            PersonelGorev.Yonetici => "Yönetici",
+            PersonelGorev.Teknik => "Teknik",
+            PersonelGorev.Diger => "Diðer",
+            _ => gorev.ToString()
+        };
     }
 }
