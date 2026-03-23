@@ -375,12 +375,14 @@ public class ApplicationDbContext : DbContext
 
     public override int SaveChanges()
     {
+        ConvertDatesToUtc();
         UpdateTimestamps();
         return base.SaveChanges();
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        ConvertDatesToUtc();
         UpdateTimestamps();
         return base.SaveChangesAsync(cancellationToken);
     }
@@ -393,6 +395,34 @@ public class ApplicationDbContext : DbContext
             if (entry.State == EntityState.Modified)
             {
                 entry.Entity.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+    }
+
+    private void ConvertDatesToUtc()
+    {
+        var entries = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+        foreach (var entry in entries)
+        {
+            foreach (var property in entry.Properties)
+            {
+                if (property.CurrentValue is DateTime dateTime)
+                {
+                    if (dateTime.Kind != DateTimeKind.Utc)
+                    {
+                        property.CurrentValue = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+                    }
+                }
+                else if (property.CurrentValue is DateTime?)
+                {
+                    var nullableDateTime = (DateTime?)property.CurrentValue;
+                    if (nullableDateTime.HasValue && nullableDateTime.Value.Kind != DateTimeKind.Utc)
+                    {
+                        property.CurrentValue = DateTime.SpecifyKind(nullableDateTime.Value, DateTimeKind.Utc);
+                    }
+                }
             }
         }
     }
