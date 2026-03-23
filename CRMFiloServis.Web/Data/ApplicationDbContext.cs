@@ -341,6 +341,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Aciklama).HasMaxLength(500);
             entity.Property(e => e.Notlar).HasMaxLength(1000);
             entity.Property(e => e.Miktar).HasPrecision(18, 2);
+            entity.Property(e => e.Durum).HasConversion<int>();
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 

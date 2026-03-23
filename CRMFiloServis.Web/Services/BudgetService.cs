@@ -366,14 +366,24 @@ public class BudgetService : IBudgetService
 
             if (odemeler.Any())
             {
-                // Toplu ekleme
-                foreach (var odeme in odemeler)
+                try
                 {
-                    _context.BudgetOdemeler.Add(odeme);
+                    // Toplu ekleme
+                    foreach (var odeme in odemeler)
+                    {
+                        _context.BudgetOdemeler.Add(odeme);
+                    }
+                    await _context.SaveChangesAsync();
+                    result.ImportedCount = odemeler.Count;
+                    result.ImportedItems = odemeler;
                 }
-                await _context.SaveChangesAsync();
-                result.ImportedCount = odemeler.Count;
-                result.ImportedItems = odemeler;
+                catch (Exception dbEx)
+                {
+                    var innerMsg = dbEx.InnerException?.Message ?? dbEx.Message;
+                    result.Errors.Add($"Veritabani kayit hatasi: {innerMsg}");
+                    result.Success = false;
+                    return result;
+                }
             }
 
             result.Success = result.ErrorCount == 0 || result.ImportedCount > 0;
@@ -381,7 +391,8 @@ public class BudgetService : IBudgetService
         catch (Exception ex)
         {
             result.Success = false;
-            result.Errors.Add($"Excel dosyasi okunamadi: {ex.Message}");
+            var innerMsg = ex.InnerException?.Message ?? ex.Message;
+            result.Errors.Add($"Excel dosyasi okunamadi: {innerMsg}");
         }
 
         return result;
