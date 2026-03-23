@@ -171,7 +171,7 @@
                                                     @if (gunData?.ToplamOdeme > 0)
                                                     {
                                                         <div class="@(seciliMi ? "" : "text-danger")" style="font-size: 0.65rem;">
-                                                            @FormatKisaPara(gunData.ToplamOdeme)
+                                                            @FormatPara(gunData.ToplamOdeme)
                                                         </div>
                                                     }
                                                 </td>
@@ -209,7 +209,7 @@
                                                 }
                                             </div>
                                             <div class="text-end">
-                                                <span class="badge bg-danger">@FormatKisaPara(kredi.KalanTutar)</span>
+                                                <span class="badge bg-danger">@FormatPara(kredi.KalanTutar)</span>
                                                 <br /><small class="text-muted">@kredi.KalanTaksitSayisi/@kredi.ToplamTaksitSayisi</small>
                                             </div>
                                         </div>
@@ -380,7 +380,7 @@
                                                         <span class="badge" style="background-color: @(kat.Renk ?? "#6c757d"); width: 10px; height: 10px; padding: 0;"></span>
                                                         @kat.MasrafKalemi
                                                     </small>
-                                                    <small class="text-muted">@FormatKisaPara(kat.Toplam)</small>
+                                                    <small class="text-muted">@FormatPara(kat.Toplam)</small>
                                                 </div>
                                             }
                                         }
@@ -994,5 +994,4 @@
     private string GetDurumAdi(OdemeDurum d) => d switch { OdemeDurum.Bekliyor => "Bekliyor", OdemeDurum.Odendi => "Odendi", _ => d.ToString() };
     private string GetDurumClass(OdemeDurum d) => d switch { OdemeDurum.Bekliyor => "bg-warning text-dark", OdemeDurum.Odendi => "bg-success", _ => "bg-secondary" };
     private string FormatPara(decimal t) => $"{t:N0} TL";
-    private string FormatKisaPara(decimal t) => t >= 1000 ? $"{t/1000:N1}K" : $"{t:N0}";
 }
