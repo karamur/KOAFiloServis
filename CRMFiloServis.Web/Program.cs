@@ -36,6 +36,8 @@ builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<IToastService, ToastService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
+builder.Services.AddScoped<IBackupService, BackupService>();
+builder.Services.AddHostedService<AutoBackupService>();
 
 var app = builder.Build();
 

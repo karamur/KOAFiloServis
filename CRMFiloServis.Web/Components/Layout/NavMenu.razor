@@ -233,11 +233,29 @@
                 </div>
             }
         </div>
+
+        <!-- AYARLAR -->
+        <div class="nav-section">
+            <div class="nav-section-header" @onclick="() => ToggleSection(6)">
+                <span><i class="bi bi-gear-fill me-2"></i>AYARLAR</span>
+                <i class="bi @(expandedSections.Length > 6 && expandedSections[6] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+            </div>
+            @if (expandedSections.Length > 6 && expandedSections[6])
+            {
+                <div class="nav-section-content">
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="yedekleme">
+                            <i class="bi bi-database-fill-gear me-2"></i> Yedekleme
+                        </NavLink>
+                    </div>
+                </div>
+            }
+        </div>
     </nav>
 </div>
 
 @code {
-    private bool[] expandedSections = [true, true, true, true, true, true];
+    private bool[] expandedSections = [true, true, true, true, true, true, true];
 
     private void ToggleSection(int index)
     {
