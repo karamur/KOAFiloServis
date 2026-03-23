@@ -43,6 +43,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<BudgetOdeme> BudgetOdemeler { get; set; }
     public DbSet<BudgetMasrafKalemi> BudgetMasrafKalemleri { get; set; }
 
+    // Sistem Modülü
+    public DbSet<AktiviteLog> AktiviteLoglar { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -350,6 +353,22 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Renk).HasMaxLength(20);
             entity.Property(e => e.Icon).HasMaxLength(50);
             entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // Aktivite Log
+        modelBuilder.Entity<AktiviteLog>(entity =>
+        {
+            entity.HasIndex(e => e.IslemZamani);
+            entity.HasIndex(e => new { e.Modul, e.IslemTipi });
+            entity.Property(e => e.IslemTipi).HasMaxLength(50);
+            entity.Property(e => e.Modul).HasMaxLength(100);
+            entity.Property(e => e.EntityTipi).HasMaxLength(100);
+            entity.Property(e => e.EntityAdi).HasMaxLength(500);
+            entity.Property(e => e.Aciklama).HasMaxLength(1000);
+            entity.Property(e => e.KullaniciAdi).HasMaxLength(100);
+            entity.Property(e => e.IpAdresi).HasMaxLength(50);
+            entity.Property(e => e.Tarayici).HasMaxLength(500);
+            // Log tablosunda soft delete yok
         });
     }
 

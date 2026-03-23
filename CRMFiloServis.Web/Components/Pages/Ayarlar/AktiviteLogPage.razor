@@ -1,0 +1,270 @@
+@page "/aktivite-log"
+@using CRMFiloServis.Web.Services
+@using CRMFiloServis.Shared.Entities
+@inject IAktiviteLogService AktiviteLogService
+@inject IToastService ToastService
+@rendermode InteractiveServer
+
+<PageTitle>Aktivite Logu</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="bi bi-clock-history me-2"></i>Aktivite Logu</h3>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-warning" @onclick="EskiLoglariTemizle">
+                <i class="bi bi-trash me-1"></i>90 Günden Eski Loglarý Temizle
+            </button>
+            <button class="btn btn-outline-primary" @onclick="YenileAsync">
+                <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtreler -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label small">Baþlangýç Tarihi</label>
+                    <input type="date" class="form-control" @bind="filter.BaslangicTarihi" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Bitiþ Tarihi</label>
+                    <input type="date" class="form-control" @bind="filter.BitisTarihi" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Modül</label>
+                    <select class="form-select" @bind="filter.Modul">
+                        <option value="">Tümü</option>
+                        <option value="Cari">Cari</option>
+                        <option value="Araç">Araç</option>
+                        <option value="Personel">Personel</option>
+                        <option value="Fatura">Fatura</option>
+                        <option value="Güzergah">Güzergah</option>
+                        <option value="Servis">Servis</option>
+                        <option value="Banka">Banka</option>
+                        <option value="Bütçe">Bütçe</option>
+                        <option value="Sistem">Sistem</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Ýþlem Tipi</label>
+                    <select class="form-select" @bind="filter.IslemTipi">
+                        <option value="">Tümü</option>
+                        <option value="Ekleme">Ekleme</option>
+                        <option value="Güncelleme">Güncelleme</option>
+                        <option value="Silme">Silme</option>
+                        <option value="Hata">Hata</option>
+                        <option value="Yedekleme">Yedekleme</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Seviye</label>
+                    <select class="form-select" @bind="secilenSeviye">
+                        <option value="">Tümü</option>
+                        <option value="1">Bilgi</option>
+                        <option value="2">Uyarý</option>
+                        <option value="3">Hata</option>
+                        <option value="4">Kritik</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" @onclick="FiltreleAsync">
+                        <i class="bi bi-search me-1"></i>Filtrele
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Özet Kartlarý -->
+    @if (ozet != null)
+    {
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card bg-primary text-white">
+                    <div class="card-body py-2 text-center">
+                        <h4 class="mb-0">@ozet.ToplamLog</h4>
+                        <small>Toplam Log</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-info text-white">
+                    <div class="card-body py-2 text-center">
+                        <h4 class="mb-0">@ozet.BugunLog</h4>
+                        <small>Bugün</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-success text-white">
+                    <div class="card-body py-2 text-center">
+                        <h4 class="mb-0">@ozet.EklemeAdet</h4>
+                        <small>Ekleme</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body py-2 text-center">
+                        <h4 class="mb-0">@ozet.GuncellemeAdet</h4>
+                        <small>Güncelleme</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-secondary text-white">
+                    <div class="card-body py-2 text-center">
+                        <h4 class="mb-0">@ozet.SilmeAdet</h4>
+                        <small>Silme</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-danger text-white">
+                    <div class="card-body py-2 text-center">
+                        <h4 class="mb-0">@ozet.HataAdet</h4>
+                        <small>Hata</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Log Listesi -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">Log Kayýtlarý</h6>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-secondary">@logs.Count kayýt</span>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" @onclick="OncekiSayfa" disabled="@(filter.Sayfa <= 1)">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span class="btn btn-outline-secondary disabled">Sayfa @filter.Sayfa</span>
+                    <button class="btn btn-outline-secondary" @onclick="SonrakiSayfa" disabled="@(logs.Count < filter.SayfaBoyutu)">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 140px;">Zaman</th>
+                            <th style="width: 100px;">Ýþlem</th>
+                            <th style="width: 100px;">Modül</th>
+                            <th>Kayýt</th>
+                            <th>Açýklama</th>
+                            <th style="width: 80px;">Seviye</th>
+                            <th style="width: 100px;">Kullanýcý</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in logs)
+                        {
+                            <tr class="@(log.Seviye == AktiviteSeviye.Hata || log.Seviye == AktiviteSeviye.Kritik ? "table-danger" : "")">
+                                <td>
+                                    <small>@log.IslemZamani.ToString("dd.MM.yyyy")</small><br />
+                                    <small class="text-muted">@log.IslemZamani.ToString("HH:mm:ss")</small>
+                                </td>
+                                <td>
+                                    <i class="bi @log.IslemTipiIcon me-1"></i>
+                                    <span class="small">@log.IslemTipi</span>
+                                </td>
+                                <td><span class="badge bg-light text-dark">@log.Modul</span></td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(log.EntityAdi))
+                                    {
+                                        <strong>@log.EntityAdi</strong>
+                                        @if (log.EntityId.HasValue)
+                                        {
+                                            <small class="text-muted"> (#@log.EntityId)</small>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td><small>@log.Aciklama</small></td>
+                                <td><span class="badge @log.SeviyeClass">@log.Seviye</span></td>
+                                <td><small>@(log.KullaniciAdi ?? "-")</small></td>
+                            </tr>
+                        }
+                        @if (!logs.Any())
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                                    <p class="mb-0 mt-2">Kriterlere uygun log kaydý bulunamadý</p>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AktiviteLogItem> logs = new();
+    private AktiviteLogOzet? ozet;
+    private AktiviteLogFilter filter = new() { SayfaBoyutu = 50 };
+    private string secilenSeviye = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        filter.BaslangicTarihi = DateTime.Today.AddDays(-7);
+        filter.BitisTarihi = DateTime.Today;
+        await YenileAsync();
+    }
+
+    private async Task YenileAsync()
+    {
+        if (!string.IsNullOrEmpty(secilenSeviye) && int.TryParse(secilenSeviye, out var seviyeInt))
+        {
+            filter.Seviye = (AktiviteSeviye)seviyeInt;
+        }
+        else
+        {
+            filter.Seviye = null;
+        }
+
+        logs = await AktiviteLogService.GetLogsAsync(filter);
+        ozet = await AktiviteLogService.GetOzetAsync(7);
+        StateHasChanged();
+    }
+
+    private async Task FiltreleAsync()
+    {
+        filter.Sayfa = 1;
+        await YenileAsync();
+    }
+
+    private async Task OncekiSayfa()
+    {
+        if (filter.Sayfa > 1)
+        {
+            filter.Sayfa--;
+            await YenileAsync();
+        }
+    }
+
+    private async Task SonrakiSayfa()
+    {
+        filter.Sayfa++;
+        await YenileAsync();
+    }
+
+    private async Task EskiLoglariTemizle()
+    {
+        await AktiviteLogService.CleanupOldLogsAsync(90);
+        ToastService.ShowSuccess("90 günden eski loglar temizlendi.");
+        await YenileAsync();
+    }
+}
