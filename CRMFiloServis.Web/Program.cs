@@ -34,6 +34,8 @@ builder.Services.AddScoped<ApplicationDbContext>(sp =>
 
 // Application Services
 builder.Services.AddSingleton<IFirmaService, FirmaService>(); // Singleton - aktif firma state tutmak icin
+builder.Services.AddSingleton<ILisansService, LisansService>(); // Singleton - lisans cache
+builder.Services.AddSingleton<IKullaniciService, KullaniciService>(); // Singleton - aktif kullanici
 builder.Services.AddScoped<ICariService, CariService>();
 builder.Services.AddScoped<ISoforService, SoforService>();
 builder.Services.AddScoped<IAracService, AracService>();
@@ -60,6 +62,7 @@ builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IAktiviteLogService, AktiviteLogService>();
 builder.Services.AddScoped<IDatabaseSettingsService, DatabaseSettingsService>();
 builder.Services.AddScoped<IMuhasebeService, MuhasebeService>();
+builder.Services.AddScoped<ISatisService, SatisService>();
 builder.Services.AddHostedService<AutoBackupService>();
 builder.Services.AddHttpContextAccessor();
 
@@ -70,6 +73,16 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await DbInitializer.InitializeAsync(context);
+    
+    // Kullanici ve Lisans seed
+    var kullaniciService = scope.ServiceProvider.GetRequiredService<IKullaniciService>();
+    await kullaniciService.SeedAdminAsync();
+    
+    var lisansService = scope.ServiceProvider.GetRequiredService<ILisansService>();
+    await lisansService.GetAktifLisansAsync(); // Trial lisans olusturur
+    
+    var satisService = scope.ServiceProvider.GetRequiredService<ISatisService>();
+    await satisService.SeedMarkaModelAsync();
 }
 
 // Configure the HTTP request pipeline.

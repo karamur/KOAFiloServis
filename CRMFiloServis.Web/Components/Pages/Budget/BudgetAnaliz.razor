@@ -339,9 +339,16 @@
                                                 <td class="text-center">
                                                     @if (odeme.Durum == OdemeDurum.Bekliyor)
                                                     {
-                                                        <button class="btn btn-success btn-sm py-0 px-1" @onclick="() => OdemeYapModalAc(odeme)">
+                                                        <button class="btn btn-outline-secondary btn-sm py-0 px-1 me-1" @onclick="() => OdemeDuzenle(odeme)" title="Duzenle">
+                                                            <i class="bi bi-pencil" style="font-size: 0.7rem;"></i>
+                                                        </button>
+                                                        <button class="btn btn-success btn-sm py-0 px-1" @onclick="() => OdemeYapModalAc(odeme)" title="Ode">
                                                             <i class="bi bi-cash" style="font-size: 0.7rem;"></i>
                                                         </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-success"><i class="bi bi-check-circle"></i></span>
                                                     }
                                                 </td>
                                             </tr>
@@ -901,6 +908,15 @@
             ToastService.ShowSuccess(odemeYapilacak.MasrafKalemi + " odendi!");
             ModalKapat();
             await YenileDataAsync();
+            
+            // Eger gun seciliyse, gun odemelerini de guncelle
+            if (secilenGun.HasValue)
+            {
+                takvimData = await BudgetService.GetTakvimDataAsync(secilenYil, aktifTakvimAy);
+                var gunData = takvimData?.FirstOrDefault(t => t.Gun == secilenGun.Value);
+                secilenGunOdemeleri = gunData?.Odemeler?.Where(o => o.Durum == OdemeDurum.Bekliyor).ToList() ?? new List<BudgetOdeme>();
+                StateHasChanged();
+            }
         }
         catch (Exception ex)
         {

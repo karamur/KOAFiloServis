@@ -282,6 +282,34 @@
             }
         </div>
 
+        <!-- SATIS MODULU -->
+        <div class="nav-section">
+            <div class="nav-section-header" @onclick="() => ToggleSection(8)" style="cursor: pointer;">
+                <span><i class="bi bi-car-front-fill me-2"></i>SATIS MODULU</span>
+                <i class="bi @(expandedSections.Length > 8 && expandedSections[8] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+            </div>
+            @if (expandedSections.Length > 8 && expandedSections[8])
+            {
+                <div class="nav-section-content">
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="satis">
+                            <i class="bi bi-speedometer2 me-2"></i> Satis Dashboard
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="satis/ilan/yeni">
+                            <i class="bi bi-plus-circle me-2"></i> Yeni Ilan
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="satis/personel">
+                            <i class="bi bi-people me-2"></i> Satis Personeli
+                        </NavLink>
+                    </div>
+                </div>
+            }
+        </div>
+
         <!-- AYARLAR -->
         <div class="nav-section">
             <div class="nav-section-header" @onclick="() => ToggleSection(6)" style="cursor: pointer;">
@@ -299,6 +327,16 @@
                     <div class="nav-item px-3">
                         <NavLink class="nav-link" href="ayarlar/raporlar">
                             <i class="bi bi-file-earmark-bar-graph me-2 text-success"></i> Servis Raporlari
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="ayarlar/lisans">
+                            <i class="bi bi-key me-2 text-warning"></i> Lisans Bilgileri
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="ayarlar/kullanicilar">
+                            <i class="bi bi-person-badge me-2 text-info"></i> Kullanici Yonetimi
                         </NavLink>
                     </div>
                     <div class="nav-item px-3">
@@ -323,7 +361,7 @@
 </div>
 
 @code {
-    private bool[] expandedSections = [false, false, false, false, false, false, false, false];
+    private bool[] expandedSections = [false, false, false, false, false, false, false, false, false];
 
     private void ToggleSection(int index)
     {
