@@ -2,6 +2,10 @@ using CRMFiloServis.Web.Components;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Services;
 using Microsoft.EntityFrameworkCore;
+using OfficeOpenXml;
+
+// EPPlus lisans ayari (NonCommercial kullanim icin)
+ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,9 +13,31 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// PostgreSQL Database
+// PostgreSQL Database - connection pooling ayarlari
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
+    {
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
+        npgsqlOptions.CommandTimeout(30);
+    });
+    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+});
+
+// DbContext Factory - paralel islemler icin
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
+    {
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
+    });
+}, ServiceLifetime.Scoped);
 
 // Application Services
 builder.Services.AddScoped<ICariService, CariService>();
