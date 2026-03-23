@@ -258,7 +258,10 @@
     </div>
 
     <!-- Grafikler -->
-    <CRMFiloServis.Web.Components.Shared.DashboardGrafik />
+    @if (!isLoading)
+    {
+        <CRMFiloServis.Web.Components.Shared.DashboardGrafik ParentLoaded="@(!isLoading)" />
+    }
 
     <!-- Gecikmiş ve Yaklaşan -->
     <div class="row mb-4">

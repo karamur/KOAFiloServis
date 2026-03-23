@@ -5,159 +5,181 @@
 @rendermode InteractiveServer
 
 <div class="row mb-4">
-    <!-- Aylýk Gelir/Gider Grafiði -->
-    <div class="col-md-8">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>Aylýk Gelir / Gider (@secilenYil)</h6>
-                <select class="form-select form-select-sm" style="width: 100px;" @bind="secilenYil" @bind:after="YenileGrafiklerAsync">
-                    @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
+    @if (isLoading)
+    {
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Grafikler yukleniyor...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Aylik Gelir/Gider Grafigi -->
+        <div class="col-md-8">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>Aylik Gelir / Gider (@secilenYil)</h6>
+                    <select class="form-select form-select-sm" style="width: 100px;" @bind="secilenYil" @bind:after="YenileGrafiklerAsync">
+                        @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
+                        {
+                            <option value="@y">@y</option>
+                        }
+                    </select>
+                </div>
+                <div class="card-body">
+                    <canvas id="gelirGiderChart" style="height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aylik Sefer Sayisi -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Aylik Sefer Sayisi</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="seferChart" style="height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (!isLoading)
+{
+    <div class="row mb-4">
+        <!-- Arac Performans -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Arac Performansi (Bu Ay)</h6>
+                    <button class="btn btn-sm btn-outline-success" @onclick="ExportAracPerformans" disabled="@(aracPerformans == null || !aracPerformans.Any())">
+                        <i class="bi bi-file-earmark-excel"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if (aracPerformans != null && aracPerformans.Any())
                     {
-                        <option value="@y">@y</option>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Plaka</th>
+                                        <th class="text-center">Sefer</th>
+                                        <th class="text-end">Ciro</th>
+                                        <th class="text-end">Masraf</th>
+                                        <th class="text-end">Net</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var arac in aracPerformans)
+                                    {
+                                        <tr>
+                                            <td><strong>@arac.Plaka</strong></td>
+                                            <td class="text-center"><span class="badge bg-primary">@arac.SeferSayisi</span></td>
+                                            <td class="text-end text-success">@arac.ToplamCiro.ToString("N0") TL</td>
+                                            <td class="text-end text-danger">@arac.ToplamMasraf.ToString("N0") TL</td>
+                                            <td class="text-end">
+                                                <strong class="@(arac.NetKar >= 0 ? "text-success" : "text-danger")">
+                                                    @arac.NetKar.ToString("N0") TL
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     }
-                </select>
-            </div>
-            <div class="card-body">
-                <canvas id="gelirGiderChart" style="height: 300px;"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Aylýk Sefer Sayýsý -->
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Aylýk Sefer Sayýsý</h6>
-            </div>
-            <div class="card-body">
-                <canvas id="seferChart" style="height: 300px;"></canvas>
+                    else
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                            <p class="mb-0 mt-2">Bu ay veri bulunmuyor</p>
+                        </div>
+                    }
+                </div>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="row mb-4">
-    <!-- Araç Performans -->
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Araç Performansý (Bu Ay)</h6>
-                <button class="btn btn-sm btn-outline-success" @onclick="ExportAracPerformans" disabled="@(aracPerformans == null || !aracPerformans.Any())">
-                    <i class="bi bi-file-earmark-excel"></i>
-                </button>
-            </div>
-            <div class="card-body p-0">
-                @if (aracPerformans != null && aracPerformans.Any())
-                {
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Plaka</th>
-                                    <th class="text-center">Sefer</th>
-                                    <th class="text-end">Ciro</th>
-                                    <th class="text-end">Masraf</th>
-                                    <th class="text-end">Net</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var arac in aracPerformans)
-                                {
+        <!-- Cari Performans -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-people me-2"></i>Musteri Performansi (Bu Ay)</h6>
+                    <button class="btn btn-sm btn-outline-success" @onclick="ExportCariPerformans" disabled="@(cariPerformans == null || !cariPerformans.Any())">
+                        <i class="bi bi-file-earmark-excel"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if (cariPerformans != null && cariPerformans.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
                                     <tr>
-                                        <td><strong>@arac.Plaka</strong></td>
-                                        <td class="text-center"><span class="badge bg-primary">@arac.SeferSayisi</span></td>
-                                        <td class="text-end text-success">@arac.ToplamCiro.ToString("N0") ?</td>
-                                        <td class="text-end text-danger">@arac.ToplamMasraf.ToString("N0") ?</td>
-                                        <td class="text-end">
-                                            <strong class="@(arac.NetKar >= 0 ? "text-success" : "text-danger")">
-                                                @arac.NetKar.ToString("N0") ?
-                                            </strong>
-                                        </td>
+                                        <th>Musteri</th>
+                                        <th class="text-end">Ciro</th>
+                                        <th class="text-end">Odenen</th>
+                                        <th class="text-end">Kalan</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-                else
-                {
-                    <div class="text-center text-muted py-4">
-                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                        <p class="mb-0 mt-2">Bu ay veri bulunmuyor</p>
-                    </div>
-                }
+                                </thead>
+                                <tbody>
+                                    @foreach (var cari in cariPerformans)
+                                    {
+                                        <tr>
+                                            <td><strong>@TruncateText(cari.CariUnvan, 25)</strong></td>
+                                            <td class="text-end">@cari.ToplamCiro.ToString("N0") TL</td>
+                                            <td class="text-end text-success">@cari.OdenenTutar.ToString("N0") TL</td>
+                                            <td class="text-end">
+                                                <span class="@(cari.KalanBakiye > 0 ? "text-danger" : "text-success")">
+                                                    @cari.KalanBakiye.ToString("N0") TL
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                            <p class="mb-0 mt-2">Bu ay veri bulunmuyor</p>
+                        </div>
+                    }
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- Cari Performans -->
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0"><i class="bi bi-people me-2"></i>Müþteri Performansý (Bu Ay)</h6>
-                <button class="btn btn-sm btn-outline-success" @onclick="ExportCariPerformans" disabled="@(cariPerformans == null || !cariPerformans.Any())">
-                    <i class="bi bi-file-earmark-excel"></i>
-                </button>
-            </div>
-            <div class="card-body p-0">
-                @if (cariPerformans != null && cariPerformans.Any())
-                {
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Müþteri</th>
-                                    <th class="text-end">Ciro</th>
-                                    <th class="text-end">Ödenen</th>
-                                    <th class="text-end">Kalan</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var cari in cariPerformans)
-                                {
-                                    <tr>
-                                        <td><strong>@TruncateText(cari.CariUnvan, 25)</strong></td>
-                                        <td class="text-end">@cari.ToplamCiro.ToString("N0") ?</td>
-                                        <td class="text-end text-success">@cari.OdenenTutar.ToString("N0") ?</td>
-                                        <td class="text-end">
-                                            <span class="@(cari.KalanBakiye > 0 ? "text-danger" : "text-success")">
-                                                @cari.KalanBakiye.ToString("N0") ?
-                                            </span>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-                else
-                {
-                    <div class="text-center text-muted py-4">
-                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                        <p class="mb-0 mt-2">Bu ay veri bulunmuyor</p>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-</div>
+}
 
 @code {
+    [Parameter]
+    public bool ParentLoaded { get; set; } = false;
+    
     private int secilenYil = DateTime.Today.Year;
     private AylikGrafikData? gelirGiderData;
     private AylikGrafikData? seferData;
     private List<AracPerformansData>? aracPerformans;
     private List<CariPerformansData>? cariPerformans;
     private bool chartsInitialized = false;
+    private bool isLoading = true;
+    private static readonly SemaphoreSlim _semaphore = new(1, 1);
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        await LoadDataAsync();
+        // Parent yüklendikten sonra grafikleri yükle
+        if (ParentLoaded && isLoading)
+        {
+            await LoadDataAsync();
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender || !chartsInitialized)
+        if (!isLoading && !chartsInitialized)
         {
             await InitializeChartsAsync();
             chartsInitialized = true;
@@ -166,38 +188,64 @@
 
     private async Task LoadDataAsync()
     {
-        var buAy = DateTime.Today.Month;
+        if (!await _semaphore.WaitAsync(0))
+            return;
 
-        gelirGiderData = await GrafikService.GetAylikGelirGiderAsync(secilenYil);
-        seferData = await GrafikService.GetAylikSeferSayisiAsync(secilenYil);
-        aracPerformans = await GrafikService.GetAracPerformansAsync(secilenYil, buAy);
-        cariPerformans = await GrafikService.GetCariPerformansAsync(secilenYil, buAy);
+        try
+        {
+            var buAy = DateTime.Today.Month;
+
+            gelirGiderData = await GrafikService.GetAylikGelirGiderAsync(secilenYil);
+            await Task.Delay(10);
+            
+            seferData = await GrafikService.GetAylikSeferSayisiAsync(secilenYil);
+            await Task.Delay(10);
+            
+            aracPerformans = await GrafikService.GetAracPerformansAsync(secilenYil, buAy);
+            await Task.Delay(10);
+            
+            cariPerformans = await GrafikService.GetCariPerformansAsync(secilenYil, buAy);
+        }
+        finally
+        {
+            isLoading = false;
+            _semaphore.Release();
+            StateHasChanged();
+        }
     }
 
     private async Task YenileGrafiklerAsync()
     {
+        isLoading = true;
+        chartsInitialized = false;
+        StateHasChanged();
+        
         await LoadDataAsync();
         await InitializeChartsAsync();
     }
 
     private async Task InitializeChartsAsync()
     {
-        if (gelirGiderData != null)
+        try
         {
-            await JS.InvokeVoidAsync("createBarChart", "gelirGiderChart", 
-                gelirGiderData.Aylar.ToArray(),
-                gelirGiderData.Veri1.Select(v => (double)v).ToArray(),
-                gelirGiderData.Veri2.Select(v => (double)v).ToArray(),
-                "Gelir", "Gider");
-        }
+            if (gelirGiderData != null)
+            {
+                await JS.InvokeVoidAsync("createBarChart", "gelirGiderChart", 
+                    gelirGiderData.Aylar.ToArray(),
+                    gelirGiderData.Veri1.Select(v => (double)v).ToArray(),
+                    gelirGiderData.Veri2.Select(v => (double)v).ToArray(),
+                    "Gelir", "Gider");
+            }
 
-        if (seferData != null)
-        {
-            await JS.InvokeVoidAsync("createLineChart", "seferChart",
-                seferData.Aylar.ToArray(),
-                seferData.Veri1.Select(v => (double)v).ToArray(),
-                "Sefer Sayýsý");
+            if (seferData != null)
+            {
+                await JS.InvokeVoidAsync("createLineChart", "seferChart",
+                    seferData.Aylar.ToArray(),
+                    seferData.Veri1.Select(v => (double)v).ToArray(),
+                    "Sefer Sayisi");
+            }
         }
+        catch { }
     }
 
     private async Task ExportAracPerformans()
@@ -205,7 +253,7 @@
         if (aracPerformans != null && aracPerformans.Any())
         {
             var excelBytes = ExcelService.ExportAracPerformans(aracPerformans, secilenYil, DateTime.Today.Month);
-            var fileName = $"AracPerformans_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = "AracPerformans_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx";
             var base64 = Convert.ToBase64String(excelBytes);
             await JS.InvokeVoidAsync("downloadFile", fileName, base64, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         }
@@ -216,7 +264,7 @@
         if (cariPerformans != null && cariPerformans.Any())
         {
             var excelBytes = ExcelService.ExportCariPerformans(cariPerformans, secilenYil, DateTime.Today.Month);
-            var fileName = $"MusteriPerformans_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = "MusteriPerformans_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx";
             var base64 = Convert.ToBase64String(excelBytes);
             await JS.InvokeVoidAsync("downloadFile", fileName, base64, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         }
