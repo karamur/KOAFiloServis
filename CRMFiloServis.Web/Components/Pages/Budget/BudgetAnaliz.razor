@@ -185,6 +185,50 @@
                     </div>
                 </div>
 
+                <!-- Kredi Taksit Listesi -->
+                <div class="card mb-3">
+                    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-credit-card me-2"></i>Kredi/Taksitler</h6>
+                        <a href="/butce/kredi-raporu" class="btn btn-outline-info btn-sm py-0">
+                            <i class="bi bi-bar-chart"></i>
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" style="max-height: 180px; overflow-y: auto;">
+                            @if (aktifKrediler.Any())
+                            {
+                                @foreach (var kredi in aktifKrediler.Take(5))
+                                {
+                                    <div class="list-group-item list-group-item-action p-2" style="cursor: pointer;" @onclick="() => KrediFiltrele(kredi)">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <small><strong>@kredi.MasrafKalemi</strong></small>
+                                                @if (!string.IsNullOrEmpty(kredi.Aciklama))
+                                                {
+                                                    <br /><small class="text-muted" style="font-size: 0.7rem;">@kredi.Aciklama</small>
+                                                }
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="badge bg-danger">@FormatKisaPara(kredi.KalanTutar)</span>
+                                                <br /><small class="text-muted">@kredi.KalanTaksitSayisi/@kredi.ToplamTaksitSayisi</small>
+                                            </div>
+                                        </div>
+                                        <div class="progress mt-1" style="height: 4px;">
+                                            <div class="progress-bar bg-success" style="width: @kredi.TamamlanmaYuzdesi%"></div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="list-group-item text-center text-muted py-3">
+                                    <small>Aktif kredi yok</small>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Trend Grafik -->
                 <div class="card">
                     <div class="card-header py-2">
@@ -605,6 +649,7 @@
     private List<BudgetTrendData>? trendData;
     private List<BudgetMasrafKalemi> masrafKalemleri = new();
     private List<BankaHesap> bankaHesaplari = new();
+    private List<KrediOzet> aktifKrediler = new();
     private decimal krediTaksitToplam = 0;
     private int krediTaksitAdet = 0;
 
@@ -688,6 +733,9 @@
             krediTaksitToplam = krediOdemeler.Sum(o => o.Miktar);
             krediTaksitAdet = krediOdemeler.Count;
 
+            // Aktif krediler
+            aktifKrediler = await BudgetService.GetAktifKredilerAsync();
+
             FiltreUygula();
         }
         finally
@@ -752,6 +800,17 @@
             "odenen" => odemeler.Where(o => o.Durum == OdemeDurum.Odendi).OrderBy(o => o.OdemeTarihi).ToList(),
             _ => odemeler.OrderBy(o => o.OdemeTarihi).ToList()
         };
+        StateHasChanged();
+    }
+
+    private void KrediFiltrele(KrediOzet kredi)
+    {
+        // Secilen kredinin taksitlerini filtrele
+        krediFiltre = "kredi";
+        filtrelenmisOdemeler = odemeler
+            .Where(o => o.TaksitGrupId == kredi.TaksitGrupId)
+            .OrderBy(o => o.OdemeTarihi)
+            .ToList();
         StateHasChanged();
     }
 
