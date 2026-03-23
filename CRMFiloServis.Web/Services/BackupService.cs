@@ -136,22 +136,37 @@ public class BackupService : IBackupService
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
+        // Sirayla sorgula (concurrent DbContext kullanimi hatasi onlemek icin)
+        var cariler = await context.Cariler.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var araclar = await context.Araclar.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var soforler = await context.Soforler.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var guzergahlar = await context.Guzergahlar.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var faturalar = await context.Faturalar.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var faturaKalemleri = await context.FaturaKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var bankaHesaplari = await context.BankaHesaplari.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var bankaKasaHareketleri = await context.BankaKasaHareketleri.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var budgetOdemeler = await context.BudgetOdemeler.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var budgetMasrafKalemleri = await context.BudgetMasrafKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var servisCalismalari = await context.ServisCalismalari.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var aracMasraflari = await context.AracMasraflari.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var masrafKalemleri = await context.MasrafKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+
         var backup = new
         {
-            ExportDate = DateTime.Now,
-            Cariler = await context.Cariler.IgnoreQueryFilters().ToListAsync(),
-            Araclar = await context.Araclar.IgnoreQueryFilters().ToListAsync(),
-            Soforler = await context.Soforler.IgnoreQueryFilters().ToListAsync(),
-            Guzergahlar = await context.Guzergahlar.IgnoreQueryFilters().ToListAsync(),
-            Faturalar = await context.Faturalar.IgnoreQueryFilters().ToListAsync(),
-            FaturaKalemleri = await context.FaturaKalemleri.IgnoreQueryFilters().ToListAsync(),
-            BankaHesaplari = await context.BankaHesaplari.IgnoreQueryFilters().ToListAsync(),
-            BankaKasaHareketleri = await context.BankaKasaHareketleri.IgnoreQueryFilters().ToListAsync(),
-            BudgetOdemeler = await context.BudgetOdemeler.IgnoreQueryFilters().ToListAsync(),
-            BudgetMasrafKalemleri = await context.BudgetMasrafKalemleri.IgnoreQueryFilters().ToListAsync(),
-            ServisCalismalari = await context.ServisCalismalari.IgnoreQueryFilters().ToListAsync(),
-            AracMasraflari = await context.AracMasraflari.IgnoreQueryFilters().ToListAsync(),
-            MasrafKalemleri = await context.MasrafKalemleri.IgnoreQueryFilters().ToListAsync()
+            ExportDate = DateTime.UtcNow,
+            Cariler = cariler,
+            Araclar = araclar,
+            Soforler = soforler,
+            Guzergahlar = guzergahlar,
+            Faturalar = faturalar,
+            FaturaKalemleri = faturaKalemleri,
+            BankaHesaplari = bankaHesaplari,
+            BankaKasaHareketleri = bankaKasaHareketleri,
+            BudgetOdemeler = budgetOdemeler,
+            BudgetMasrafKalemleri = budgetMasrafKalemleri,
+            ServisCalismalari = servisCalismalari,
+            AracMasraflari = aracMasraflari,
+            MasrafKalemleri = masrafKalemleri
         };
 
         var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions 

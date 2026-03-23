@@ -5,6 +5,7 @@ public class AutoBackupService : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AutoBackupService> _logger;
     private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(30);
+    private readonly TimeSpan _initialDelay = TimeSpan.FromMinutes(2); // Uygulama basladiktan 2 dk sonra kontrol
 
     public AutoBackupService(IServiceProvider serviceProvider, ILogger<AutoBackupService> logger)
     {
@@ -14,25 +15,43 @@ public class AutoBackupService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Otomatik yedekleme servisi baþlatýldý.");
+        _logger.LogInformation("Otomatik yedekleme servisi baslatildi.");
+
+        // Uygulama tam baslayana kadar bekle
+        await Task.Delay(_initialDelay, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await CheckAndBackupAsync();
+                await CheckAndBackupAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal kapanis
+                break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Otomatik yedekleme kontrolü hatasý");
+                _logger.LogError(ex, "Otomatik yedekleme kontrolu hatasi");
             }
 
-            await Task.Delay(_checkInterval, stoppingToken);
+            try
+            {
+                await Task.Delay(_checkInterval, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
     }
 
-    private async Task CheckAndBackupAsync()
+    private async Task CheckAndBackupAsync(CancellationToken stoppingToken)
     {
+        if (stoppingToken.IsCancellationRequested)
+            return;
+
         using var scope = _serviceProvider.CreateScope();
         var backupService = scope.ServiceProvider.GetRequiredService<IBackupService>();
 
@@ -53,18 +72,18 @@ public class AutoBackupService : BackgroundService
             shouldBackup = elapsed.TotalHours >= settings.AutoBackupIntervalHours;
         }
 
-        if (shouldBackup)
+        if (shouldBackup && !stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation("Otomatik yedekleme baþlatýlýyor...");
+            _logger.LogInformation("Otomatik yedekleme baslatiliyor...");
             var result = await backupService.CreateBackupAsync();
 
             if (result.Success)
             {
-                _logger.LogInformation("Otomatik yedekleme tamamlandý: {FileName}", result.FileName);
+                _logger.LogInformation("Otomatik yedekleme tamamlandi: {FileName}", result.FileName);
             }
             else
             {
-                _logger.LogError("Otomatik yedekleme baþarýsýz: {Error}", result.ErrorMessage);
+                _logger.LogError("Otomatik yedekleme basarisiz: {Error}", result.ErrorMessage);
             }
         }
     }
