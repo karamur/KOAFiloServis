@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 
 // EPPlus lisans ayari (NonCommercial kullanim icin)
-ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+ExcelPackage.License.SetNonCommercialPersonal("CRMFiloServis");
 
 var builder = WebApplication.CreateBuilder(args);
 
