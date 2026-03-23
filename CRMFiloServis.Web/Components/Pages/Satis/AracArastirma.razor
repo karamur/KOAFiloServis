@@ -380,25 +380,38 @@
     private Task<List<AramaSonuc>> SimuleAramaYapAsync()
     {
         // Gercek implementasyonda Sahibinden/Arabam API veya web scraping yapilacak
-        // Simdilik ornek data dondur - SADECE AKTIF ILANLAR
+        // Simdilik ornek data dondur - SADECE AKTIF ve GUNCEL ILANLAR
         var random = new Random();
         var sehirler = new[] { "Istanbul", "Ankara", "Izmir", "Bursa", "Antalya", "Kocaeli", "Adana", "Konya" };
+        var motorlar = new[] { "1.0 TSI", "1.2 TSI", "1.4 TSI", "1.5 TSI", "1.6 TDI", "1.8 TSI", "2.0 TDI", "2.0 TSI", "1.5 dCi", "1.6 CDTI", "1.3 MJET" };
         var sonuclar = new List<AramaSonuc>();
+        var birYilOnce = DateTime.Today.AddYears(-1);
 
-        for (int i = 0; i < random.Next(15, 40); i++)
+        for (int i = 0; i < random.Next(20, 50); i++)
         {
-            var yil = aramaKriteri.MinYil > 0 ? random.Next(aramaKriteri.MinYil, aramaKriteri.MaxYil > 0 ? aramaKriteri.MaxYil : DateTime.Today.Year) : random.Next(2015, DateTime.Today.Year);
-            var km = random.Next(aramaKriteri.MinKm > 0 ? aramaKriteri.MinKm : 10000, aramaKriteri.MaxKm > 0 ? aramaKriteri.MaxKm : 250000);
-            var fiyat = random.Next(400000, 2500000);
+            var yil = aramaKriteri.MinYil > 0 
+                ? random.Next(aramaKriteri.MinYil, aramaKriteri.MaxYil > 0 ? aramaKriteri.MaxYil + 1 : DateTime.Today.Year + 1) 
+                : random.Next(2018, DateTime.Today.Year + 1);
+            var km = random.Next(aramaKriteri.MinKm > 0 ? aramaKriteri.MinKm : 10000, aramaKriteri.MaxKm > 0 ? aramaKriteri.MaxKm : 200000);
+            var fiyat = random.Next(500000, 3000000);
             
-            // Sadece Aktif ilanlar - Satilmis, Kaldirilmis, Rezerve edilmis ilanlar eklenmez
-            var ilanDurumu = "Aktif"; // Gercek API'den gelecek
+            // Ilan tarihi - son 1 yil icinde (1 yildan eski ilanlar eklenmez)
+            var ilanTarihi = DateTime.Today.AddDays(-random.Next(1, 300));
+            
+            // Ilan durumu - %10 satilmis, %5 kaldirilmis, %3 rezerve, %82 aktif
+            var durumRandom = random.Next(100);
+            var ilanDurumu = durumRandom < 82 ? "Aktif" : 
+                             durumRandom < 92 ? "Satildi" : 
+                             durumRandom < 97 ? "Kaldirildi" : "Rezerve";
+
+            // Motor/versiyon secimi - marka bazli
+            var motor = motorlar[random.Next(motorlar.Length)];
 
             sonuclar.Add(new AramaSonuc
             {
-                Kaynak = random.Next(2) == 0 ? "Sahibinden" : "Arabam",
-                Baslik = $"{aramaKriteri.Marka} {aramaKriteri.Model ?? "Model"}",
-                Versiyon = random.Next(3) == 0 ? "1.6 TDI" : random.Next(2) == 0 ? "1.4 TSI" : "2.0 TDI",
+                Kaynak = random.Next(3) == 0 ? "Arabam" : random.Next(2) == 0 ? "Sahibinden" : "Cargratis",
+                Baslik = $"{aramaKriteri.Marka} {aramaKriteri.Model ?? ""}".Trim(),
+                Versiyon = motor,
                 Sehir = sehirler[random.Next(sehirler.Length)],
                 Yil = yil,
                 Kilometre = km,
@@ -409,24 +422,31 @@
                 TramerTutari = random.Next(5) == 0 ? random.Next(5000, 50000) : 0,
                 Fiyat = fiyat,
                 IlanUrl = $"https://www.sahibinden.com/ilan/{random.Next(100000000, 999999999)}",
-                IlanDurumu = ilanDurumu, // Aktif, Satildi, Kaldirildi, Rezerve
-                IlanTarihi = DateTime.Today.AddDays(-random.Next(1, 60))
+                IlanDurumu = ilanDurumu,
+                IlanTarihi = ilanTarihi
             });
         }
 
-        // Sadece Aktif ilanlari dondur - Satilmis, Kaldirilmis ve Rezerve edilmisleri filtrele
+        // ONEMLI FILTRELER:
+        // 1. Sadece AKTIF ilanlar (Satildi, Kaldirildi, Rezerve olanlari cikar)
+        // 2. 1 yildan eski ilanlar cikarilir
+        // 3. Fiyata gore siralama
         return Task.FromResult(sonuclar
-            .Where(s => s.IlanDurumu == "Aktif") 
+            .Where(s => s.IlanDurumu == "Aktif" && s.IlanTarihi >= birYilOnce)
             .OrderBy(s => s.Fiyat)
             .ToList());
     }
 
     private void FiltreUygula()
     {
+        var birYilOnce = DateTime.Today.AddYears(-1);
         var query = aramaSonuclari.AsEnumerable();
 
-        // Aktif olmayanlarý filtrele (satýlmýþ, kaldýrýlmýþ, rezerve)
+        // 1. Aktif olmayanlarý filtrele (satýlmýþ, kaldýrýlmýþ, rezerve)
         query = query.Where(s => s.IlanDurumu == "Aktif");
+        
+        // 2. 1 yýldan eski ilanlarý filtrele
+        query = query.Where(s => s.IlanTarihi >= birYilOnce);
 
         if (!string.IsNullOrEmpty(filtreKaynak))
             query = query.Where(s => s.Kaynak == filtreKaynak);

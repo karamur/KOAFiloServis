@@ -1,88 +1,90 @@
 # CRM Filo Servis
 
-Filo Yönetimi, Muhasebe ve CRM Uygulamasý - .NET 10 Blazor Server
+Filo Yonetimi, Muhasebe ve CRM Uygulamasi - .NET 10 Blazor Server
 
-## ?? Özellikler
+## ?? Ozellikler
 
-### ?? Ana Modüller
+### ?? Ana Moduller
 
-#### 1. **Cari Yönetimi**
-- Müþteri ve tedarikçi kaydý
+#### 1. **Cari Yonetimi**
+- Musteri ve tedarikci kaydi
 - Cari hesap takibi
-- Cari ekstre raporlarý
+- Cari ekstre raporlari
 
 #### 2. **Filo Servis**
-- Araç kaydý ve takibi (Özmal, Kiralýk, Komisyon)
-- Þoför yönetimi
-- Güzergah tanýmlama
-- Servis çalýþmasý kayýtlarý
-- Toplu çalýþma giriþi
-- Araç masraflarý takibi
+- Arac kaydi ve takibi (Ozmal, Kiralik, Komisyon)
+- Sofor yonetimi
+- Guzergah tanimlama
+- Servis calismasi kayitlari
+- Toplu calisma girisi
+- Arac masraflari takibi
 
-#### 3. **E-Fatura / E-Arþiv**
-- **Gelen Faturalar (Alýþ)**
-  - Ödeme tarihi belirleme
-  - Ödeme durumu takibi (Ödendi, Kýsmi Ödendi, Ödenmedi)
-  - Vade geçmiþ uyarýlarý
-  - Bütçe analize aktarým
+#### 3. **E-Fatura / E-Arsiv**
+- **Gelen Faturalar (Alis)**
+  - Odeme tarihi belirleme ve degistirme
+  - Odeme durumu takibi (Odendi, Kismi Odendi, Odenmedi)
+  - Vade gecmis uyarilari
+  - Butce analize aktarim
 
-- **Giden Faturalar (Satýþ)**
-  - Tahsilat durumu (Tahsil Edildi, Kýsmi Tahsilat, Tahsil Edilmedi)
+- **Giden Faturalar (Satis)**
+  - Tahsilat durumu (Tahsil Edildi, Kismi Tahsilat, Tahsil Edilmedi)
   - Tahsilat raporu
   - Vade takibi
 
 #### 4. **Banka / Kasa**
-- Banka hesaplarý yönetimi
+- Banka hesaplari yonetimi
 - Kasa takibi
-- Tahsilat ve ödeme iþlemleri
-- Fatura eþleþtirme
+- Tahsilat ve odeme islemleri
+- Fatura eslestirme
+- Hareket silme ve duzenleme
 
 #### 5. **Muhasebe**
-- Standart hesap planý (otomatik yükleme)
-- Muhasebe fiþleri
+- Standart hesap plani (otomatik yukleme)
+- Muhasebe fisleri
 - Gelir tablosu
-- Bilanço
+- Bilanco
 
-#### 6. **Satýþ Modülü**
-- Araç ilanlarý yönetimi
-- **Piyasa Araþtýrma**
-  - Sahibinden / Arabam karþýlaþtýrma
-  - Sadece aktif ilanlar (Satýlmýþ/Kaldýrýlmýþ/Rezerve filtreleme)
+#### 6. **Satis Modulu**
+- Arac ilanlari yonetimi
+- **Piyasa Arastirma**
+  - Sahibinden / Arabam / Cargratis karsilastirma
+  - Sadece aktif ilanlar (Satilmis/Kaldirilmis/Rezerve filtreleme)
+  - 1 yildan eski ilanlar filtrelenir
   - Fiyat analizi
   - Excel/PDF export
-- Satýþ personeli yönetimi
+- Satis personeli yonetimi
 - Komisyon takibi
 
-#### 7. **Personel Yönetimi**
-- Personel kaydý
-- Maaþ yönetimi
-- Ýzin takibi
-- Belge uyarýlarý (Ehliyet, SRC, Psikoteknik, Saðlýk Raporu)
+#### 7. **Personel Yonetimi**
+- Personel kaydi
+- Maas yonetimi
+- Izin takibi
+- Belge uyarilari (Ehliyet, SRC, Psikoteknik, Saglik Raporu)
 
-#### 8. **Bütçe ve Raporlar**
-- Bütçe analizi
+#### 8. **Butce ve Raporlar**
+- Butce analizi (odeme yapilinca listeden kalkar)
 - Mali analiz
-- Aylýk checklist
-- Özmal/Kiralýk araç raporlarý
-- Komisyon raporlarý
-- Fatura ödeme takvimleri
+- Aylik checklist
+- Ozmal/Kiralik arac raporlari
+- Komisyon raporlari
+- Fatura odeme takvimleri
 
-#### 9. **Sistem Yönetimi**
-- Kullanýcý yönetimi
+#### 9. **Sistem Yonetimi**
+- Kullanici yonetimi
 - Rol ve yetki sistemi
-- Lisans yönetimi
+- Lisans yonetimi
 - Otomatik yedekleme
-- Aktivite loglarý
+- Aktivite loglari
 
 ## ??? Teknolojiler
 
 - **.NET 10** - Ana framework
 - **Blazor Server** - UI framework
 - **Entity Framework Core** - ORM
-- **PostgreSQL** - Veritabaný
+- **PostgreSQL** - Veritabani
 - **Bootstrap 5** - CSS framework
-- **Bootstrap Icons** - Ýkonlar
-- **EPPlus** - Excel iþlemleri
+- **Bootstrap Icons** - Ikonlar
+- **EPPlus** - Excel islemleri
 
 ## ?? Gereksinimler
 
@@ -92,14 +94,14 @@ Filo Yönetimi, Muhasebe ve CRM Uygulamasý - .NET 10 Blazor Server
 
 ## ?? Kurulum
 
-1. **Repository'yi klonlayýn:**
+1. **Repository'yi klonlayin:**
 ```bash
 git clone https://github.com/karamur/CRMFiloServis.git
 cd CRMFiloServis
 ```
 
-2. **PostgreSQL baðlantýsýný ayarlayýn:**
-`CRMFiloServis.Web/appsettings.json` dosyasýnda:
+2. **PostgreSQL baglantisini ayarlayin:**
+`CRMFiloServis.Web/appsettings.json` dosyasinda:
 ```json
 {
   "ConnectionStrings": {
@@ -108,83 +110,91 @@ cd CRMFiloServis
 }
 ```
 
-3. **Uygulamayý çalýþtýrýn:**
+3. **Uygulamayi calistirin:**
 ```bash
 cd CRMFiloServis.Web
 dotnet run
 ```
 
-4. **Tarayýcýda açýn:**
+4. **Tarayicida acin:**
 ```
 http://localhost:5190
 ```
 
-## ?? Proje Yapýsý
+## ?? Proje Yapisi
 
 ```
 CRMFiloServis/
-??? CRMFiloServis.Shared/        # Paylaþýlan entity ve modeller
+??? CRMFiloServis.Shared/        # Paylasilan entity ve modeller
 ?   ??? Entities/
-??? CRMFiloServis.Web/           # Ana Blazor uygulamasý
+??? CRMFiloServis.Web/           # Ana Blazor uygulamasi
 ?   ??? Components/
-?   ?   ??? Layout/              # Ana layout ve menü
+?   ?   ??? Layout/              # Ana layout ve menu
 ?   ?   ??? Pages/               # Sayfalar
-?   ?   ?   ??? Ayarlar/         # Ayarlar sayfalarý
-?   ?   ?   ??? Budget/          # Bütçe modülü
-?   ?   ?   ??? EFatura/         # E-Fatura modülü
-?   ?   ?   ??? Muhasebe/        # Muhasebe modülü
-?   ?   ?   ??? Personel/        # Personel modülü
+?   ?   ?   ??? Ayarlar/         # Ayarlar sayfalari
+?   ?   ?   ??? Budget/          # Butce modulu
+?   ?   ?   ??? EFatura/         # E-Fatura modulu
+?   ?   ?   ??? Muhasebe/        # Muhasebe modulu
+?   ?   ?   ??? Personel/        # Personel modulu
 ?   ?   ?   ??? Raporlar/        # Raporlar
-?   ?   ?   ??? Satis/           # Satýþ modülü
-?   ?   ??? Shared/              # Ortak bileþenler
+?   ?   ?   ??? Satis/           # Satis modulu
+?   ?   ??? Shared/              # Ortak bilesenler
 ?   ??? Data/                    # DbContext ve Migrations
-?   ??? Services/                # Ýþ mantýðý servisleri
+?   ??? Services/                # Is mantigi servisleri
 ?   ??? wwwroot/                 # Statik dosyalar
 ??? README.md
 ```
 
-## ?? Varsayýlan Giriþ
+## ?? Varsayilan Giris
 
-- **Kullanýcý Adý:** admin
-- **Þifre:** admin123
+- **Kullanici Adi:** admin
+- **Sifre:** admin123
 
-## ?? Lisans Türleri
+## ?? Lisans Turleri
 
-| Özellik | Trial | Basic | Professional | Enterprise |
+| Ozellik | Trial | Basic | Professional | Enterprise |
 |---------|-------|-------|--------------|------------|
-| Süre | 30 gün | 1 yýl | 1 yýl | 1 yýl |
-| Kullanýcý | 5 | 5 | 10 | Sýnýrsýz |
+| Sure | 30 gun | 1 yil | 1 yil | 1 yil |
+| Kullanici | 5 | 5 | 10 | Sinirsiz |
 | Excel Export | ? | ? | ? | ? |
 | PDF Export | ? | ? | ? | ? |
 | Raporlama | ? | ? | ? | ? |
 | Yedekleme | ? | ? | ? | ? |
 | Muhasebe | ? | - | ? | ? |
-| Satýþ Modülü | ? | - | ? | ? |
+| Satis Modulu | ? | - | ? | ? |
 
-## ?? Son Güncellemeler
+## ?? Son Guncellemeler
+
+### v1.1.0 (2024)
+- ? Butce analiz - odeme yapilinca listeden kaldirilir
+- ? Butce analiz - duzenleme ve silme butonlari eklendi
+- ? Mali analiz - para birimi TL formatina duzeltildi
+- ? Banka/Kasa hareketleri - silme ve para birimi duzeltildi
+- ? Piyasa arastirma - 1 yildan eski ilanlar filtrelenir
+- ? Piyasa arastirma - satilmis/kaldirilmis/rezerve ilanlar filtrelenir
 
 ### v1.0.0 (2024)
-- ? Gelen fatura ödeme tarihi ve durumu
+- ? Gelen fatura odeme tarihi ve durumu
 - ? Giden fatura tahsilat durumu
-- ? Bütçe analize otomatik aktarým
-- ? Takvimde ödeme gösterimi
-- ? Piyasa araþtýrma - aktif ilan filtreleme
-- ? Profesyonel login sayfasý
-- ? Kullanýcý yönetimi
-- ? Standart hesap planý otomatik yükleme
+- ? Butce analize otomatik aktarim
+- ? Takvimde odeme gosterimi
+- ? Piyasa arastirma - aktif ilan filtreleme
+- ? Profesyonel login sayfasi
+- ? Kullanici yonetimi
+- ? Standart hesap plani otomatik yukleme
 
-## ?? Katkýda Bulunma
+## ?? Katkida Bulunma
 
-1. Fork yapýn
-2. Feature branch oluþturun (`git checkout -b feature/amazing-feature`)
-3. Commit yapýn (`git commit -m 'Add some amazing feature'`)
-4. Push yapýn (`git push origin feature/amazing-feature`)
-5. Pull Request açýn
+1. Fork yapin
+2. Feature branch olusturun (`git checkout -b feature/amazing-feature`)
+3. Commit yapin (`git commit -m 'Add some amazing feature'`)
+4. Push yapin (`git push origin feature/amazing-feature`)
+5. Pull Request acin
 
-## ?? Ýletiþim
+## ?? Iletisim
 
-Sorularýnýz için: [GitHub Issues](https://github.com/karamur/CRMFiloServis/issues)
+Sorulariniz icin: [GitHub Issues](https://github.com/karamur/CRMFiloServis/issues)
 
 ## ?? Lisans
 
-Bu proje MIT lisansý altýnda lisanslanmýþtýr - detaylar için [LICENSE](LICENSE) dosyasýna bakýn.
+Bu proje MIT lisansi altinda lisanslanmistir - detaylar icin [LICENSE](LICENSE) dosyasina bakin.

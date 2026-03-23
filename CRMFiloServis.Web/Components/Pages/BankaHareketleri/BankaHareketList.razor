@@ -4,6 +4,7 @@
 @inject IBankaKasaHareketService HareketService
 @inject IBankaHesapService BankaHesapService
 @inject ICariService CariService
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -21,14 +22,14 @@
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Yükleniyor...</span>
+                <span class="visually-hidden">Yukleniyor...</span>
             </div>
         </div>
     }
     else if (!hareketler.Any())
     {
         <div class="alert alert-info">
-            <i class="bi bi-info-circle me-2"></i>Henüz hareket kaydý bulunmamaktadýr.
+            <i class="bi bi-info-circle me-2"></i>Henuz hareket kaydi bulunmamaktadir.
         </div>
     }
     else
@@ -39,14 +40,14 @@
                     <table class="table table-striped table-hover">
                         <thead class="table-dark">
                             <tr>
-                                <th>Ýþlem No</th>
+                                <th>Islem No</th>
                                 <th>Tarih</th>
                                 <th>Hesap</th>
                                 <th>Cari</th>
                                 <th>Tip</th>
                                 <th>Tutar</th>
-                                <th>Açýklama</th>
-                                <th style="width: 120px;">Ýþlemler</th>
+                                <th>Aciklama</th>
+                                <th style="width: 120px;">Islemler</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -61,24 +62,24 @@
                                         @if (hareket.HareketTipi == HareketTipi.Giris)
                                         {
                                             <span class="badge bg-success">
-                                                <i class="bi bi-arrow-down me-1"></i>Giriþ
+                                                <i class="bi bi-arrow-down me-1"></i>Giris
                                             </span>
                                         }
                                         else
                                         {
                                             <span class="badge bg-danger">
-                                                <i class="bi bi-arrow-up me-1"></i>Çýkýþ
+                                                <i class="bi bi-arrow-up me-1"></i>Cikis
                                             </span>
                                         }
                                     </td>
                                     <td>
                                         <strong class="@(hareket.HareketTipi == HareketTipi.Giris ? "text-success" : "text-danger")">
-                                            @(hareket.HareketTipi == HareketTipi.Giris ? "+" : "-")@hareket.Tutar.ToString("N2") ?
+                                            @(hareket.HareketTipi == HareketTipi.Giris ? "+" : "-")@hareket.Tutar.ToString("N2") TL
                                         </strong>
                                     </td>
                                     <td>@hareket.Aciklama</td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(hareket.Id)" title="Düzenle">
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(hareket.Id)" title="Duzenle">
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(hareket)" title="Sil">
@@ -101,15 +102,22 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Silme Onayý</h5>
+                    <h5 class="modal-title">Silme Onayi</h5>
                     <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>@silinecekHareket?.IslemNo</strong> numaralý hareketi silmek istediðinize emin misiniz?</p>
+                    <p><strong>@silinecekHareket?.IslemNo</strong> numarali hareketi silmek istediginize emin misiniz?</p>
+                    <p class="text-danger"><strong>@silinecekHareket?.Tutar.ToString("N2") TL</strong> tutarindaki bu islem kalici olarak silinecektir.</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">Ýptal</button>
-                    <button type="button" class="btn btn-danger" @onclick="Sil">Sil</button>
+                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">Iptal</button>
+                    <button type="button" class="btn btn-danger" @onclick="SilAsync" disabled="@isDeleting">
+                        @if (isDeleting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Sil
+                    </button>
                 </div>
             </div>
         </div>
@@ -119,6 +127,7 @@
 @code {
     private List<BankaKasaHareket>? hareketler;
     private bool showDeleteModal = false;
+    private bool isDeleting = false;
     private BankaKasaHareket? silinecekHareket;
 
     protected override async Task OnInitializedAsync()
@@ -147,14 +156,29 @@
         showDeleteModal = true;
     }
 
-    private async Task Sil()
+    private async Task SilAsync()
     {
-        if (silinecekHareket != null)
+        if (silinecekHareket == null) return;
+
+        isDeleting = true;
+        StateHasChanged();
+
+        try
         {
             await HareketService.DeleteAsync(silinecekHareket.Id);
+            ToastService.ShowSuccess("Hareket silindi.");
             await LoadData();
         }
-        showDeleteModal = false;
-        silinecekHareket = null;
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Silme hatasi: " + ex.Message);
+        }
+        finally
+        {
+            isDeleting = false;
+            showDeleteModal = false;
+            silinecekHareket = null;
+            StateHasChanged();
+        }
     }
 }

@@ -29,13 +29,13 @@
     {
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Yükleniyor...</span>
+                <span class="visually-hidden">Yukleniyor...</span>
             </div>
         </div>
     }
     else if (dashboard != null)
     {
-        <!-- Özet Kartlar -->
+        <!-- Ozet Kartlar -->
         <div class="row mb-4">
             <div class="col-md-3">
                 <div class="card bg-success text-white h-100">
@@ -43,7 +43,7 @@
                         <div class="d-flex justify-content-between">
                             <div>
                                 <h6 class="text-white-50">Toplam Gelir</h6>
-                                <h3 class="mb-0">@dashboard.ToplamGelir.ToString("N0") ?</h3>
+                                <h3 class="mb-0">@FormatPara(dashboard.ToplamGelir)</h3>
                             </div>
                             <i class="bi bi-arrow-up-circle" style="font-size: 2.5rem; opacity: 0.5;"></i>
                         </div>
@@ -60,7 +60,7 @@
                         <div class="d-flex justify-content-between">
                             <div>
                                 <h6 class="text-white-50">Toplam Gider</h6>
-                                <h3 class="mb-0">@dashboard.ToplamGider.ToString("N0") ?</h3>
+                                <h3 class="mb-0">@FormatPara(dashboard.ToplamGider)</h3>
                             </div>
                             <i class="bi bi-arrow-down-circle" style="font-size: 2.5rem; opacity: 0.5;"></i>
                         </div>
@@ -77,7 +77,7 @@
                         <div class="d-flex justify-content-between">
                             <div>
                                 <h6 class="text-white-50">Net Kar</h6>
-                                <h3 class="mb-0">@dashboard.NetKar.ToString("N0") ?</h3>
+                                <h3 class="mb-0">@FormatPara(dashboard.NetKar)</h3>
                             </div>
                             <i class="bi bi-wallet2" style="font-size: 2.5rem; opacity: 0.5;"></i>
                         </div>
@@ -89,7 +89,7 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h6 class="text-white-50">Karlýlýk Oraný</h6>
+                                <h6 class="text-white-50">Karlilik Oraný</h6>
                                 <h3 class="mb-0">%@dashboard.KarlilikOrani.ToString("N1")</h3>
                             </div>
                             <i class="bi bi-percent" style="font-size: 2.5rem; opacity: 0.5;"></i>
@@ -110,18 +110,18 @@
                         <div class="row text-center mb-3">
                             <div class="col-6 border-end">
                                 <small class="text-muted">Gelir</small>
-                                <h5 class="text-success mb-0">@dashboard.OzmalAracAnaliz.Gelir.ToString("N0") ?</h5>
+                                <h5 class="text-success mb-0">@FormatPara(dashboard.OzmalAracAnaliz.Gelir)</h5>
                             </div>
                             <div class="col-6">
                                 <small class="text-muted">Gider</small>
-                                <h5 class="text-danger mb-0">@dashboard.OzmalAracAnaliz.Gider.ToString("N0") ?</h5>
+                                <h5 class="text-danger mb-0">@FormatPara(dashboard.OzmalAracAnaliz.Gider)</h5>
                             </div>
                         </div>
                         <hr />
                         <div class="text-center">
                             <small class="text-muted">Net Kar</small>
                             <h4 class="@(dashboard.OzmalAracAnaliz.Kar >= 0 ? "text-success" : "text-danger") mb-0">
-                                @dashboard.OzmalAracAnaliz.Kar.ToString("N0") ?
+                                @FormatPara(dashboard.OzmalAracAnaliz.Kar)
                             </h4>
                             <small class="text-muted">Karlýlýk: %@dashboard.OzmalAracAnaliz.KarlilikOrani.ToString("N1")</small>
                         </div>
@@ -147,18 +147,18 @@
                         <div class="row text-center mb-3">
                             <div class="col-6 border-end">
                                 <small class="text-muted">Müþteriden</small>
-                                <h5 class="text-success mb-0">@dashboard.KiralikAracAnaliz.Gelir.ToString("N0") ?</h5>
+                                <h5 class="text-success mb-0">@FormatPara(dashboard.KiralikAracAnaliz.Gelir)</h5>
                             </div>
                             <div class="col-6">
                                 <small class="text-muted">Firmaya</small>
-                                <h5 class="text-danger mb-0">@dashboard.KiralikAracAnaliz.Gider.ToString("N0") ?</h5>
+                                <h5 class="text-danger mb-0">@FormatPara(dashboard.KiralikAracAnaliz.Gider)</h5>
                             </div>
                         </div>
                         <hr />
                         <div class="text-center">
                             <small class="text-muted">Net Kar</small>
                             <h4 class="@(dashboard.KiralikAracAnaliz.Kar >= 0 ? "text-success" : "text-danger") mb-0">
-                                @dashboard.KiralikAracAnaliz.Kar.ToString("N0") ?
+                                @FormatPara(dashboard.KiralikAracAnaliz.Kar)
                             </h4>
                             <small class="text-muted">Karlýlýk: %@dashboard.KiralikAracAnaliz.KarlilikOrani.ToString("N1")</small>
                         </div>
@@ -184,18 +184,18 @@
                         <div class="row text-center mb-3">
                             <div class="col-6 border-end">
                                 <small class="text-muted">Gelir</small>
-                                <h5 class="text-success mb-0">@dashboard.KomisyonAnaliz.Gelir.ToString("N0") ?</h5>
+                                <h5 class="text-success mb-0">@FormatPara(dashboard.KomisyonAnaliz.Gelir)</h5>
                             </div>
                             <div class="col-6">
                                 <small class="text-muted">Komisyon</small>
-                                <h5 class="text-danger mb-0">@dashboard.KomisyonAnaliz.Gider.ToString("N0") ?</h5>
+                                <h5 class="text-danger mb-0">@FormatPara(dashboard.KomisyonAnaliz.Gider)</h5>
                             </div>
                         </div>
                         <hr />
                         <div class="text-center">
                             <small class="text-muted">Net Gelir</small>
                             <h4 class="@(dashboard.KomisyonAnaliz.Kar >= 0 ? "text-success" : "text-danger") mb-0">
-                                @dashboard.KomisyonAnaliz.Kar.ToString("N0") ?
+                                @FormatPara(dashboard.KomisyonAnaliz.Kar)
                             </h4>
                             <small class="text-muted">Karlýlýk: %@dashboard.KomisyonAnaliz.KarlilikOrani.ToString("N1")</small>
                         </div>
@@ -229,7 +229,7 @@
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between mb-1">
                                     <span>@item.Etiket</span>
-                                    <span><strong>@item.Deger.ToString("N0") ?</strong> (%@yuzde.ToString("N1"))</span>
+                                    <span><strong>@FormatPara(item.Deger)</strong> (%@yuzde.ToString("N1"))</span>
                                 </div>
                                 <div class="progress" style="height: 20px;">
                                     <div class="progress-bar" role="progressbar" 
@@ -265,7 +265,7 @@
                                 <div class="mb-3">
                                     <div class="d-flex justify-content-between mb-1">
                                         <span>@item.Etiket</span>
-                                        <span><strong>@item.Deger.ToString("N0") ?</strong> (%@yuzde.ToString("N1"))</span>
+                                        <span><strong>@FormatPara(item.Deger)</strong> (%@yuzde.ToString("N1"))</span>
                                     </div>
                                     <div class="progress" style="height: 20px;">
                                         <div class="progress-bar" role="progressbar" 
@@ -307,7 +307,7 @@
                                 <div class="mb-3">
                                     <div class="d-flex justify-content-between mb-1">
                                         <span>@item.Etiket</span>
-                                        <strong class="text-success">@item.Deger.ToString("N0") ?</strong>
+                                        <strong class="text-success">@FormatPara(item.Deger)</strong>
                                     </div>
                                     <div class="progress" style="height: 15px;">
                                         <div class="progress-bar bg-success" role="progressbar" 
@@ -353,7 +353,7 @@
                                             }
                                         </span>
                                         <strong class="@(item.Deger >= 0 ? "text-success" : "text-danger")">
-                                            @item.Deger.ToString("N0") ?
+                                            @FormatPara(item.Deger)
                                         </strong>
                                     </div>
                                     <div class="progress" style="height: 15px;">
@@ -481,4 +481,6 @@
             isLoading = false;
         }
     }
+
+    private string FormatPara(decimal tutar) => tutar.ToString("N0") + " TL";
 }

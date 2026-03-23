@@ -636,8 +636,9 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetGunlukOzet>> GetTakvimDataAsync(int yil, int ay)
     {
+        // SADECE BEKLEYEN odemeleri getir (Odenmis olanlar takvimde gozukmez)
         var odemeler = await _context.BudgetOdemeler
-            .Where(o => o.OdemeYil == yil && o.OdemeAy == ay)
+            .Where(o => o.OdemeYil == yil && o.OdemeAy == ay && o.Durum == OdemeDurum.Bekliyor)
             .OrderBy(o => o.OdemeTarihi)
             .ToListAsync();
 

@@ -337,19 +337,20 @@
                                                     <span class="badge @GetDurumClass(odeme.Durum)" style="font-size: 0.6rem;">@GetDurumAdi(odeme.Durum)</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    @if (odeme.Durum == OdemeDurum.Bekliyor)
-                                                    {
-                                                        <button class="btn btn-outline-secondary btn-sm py-0 px-1 me-1" @onclick="() => OdemeDuzenle(odeme)" title="Duzenle">
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button class="btn btn-outline-secondary py-0 px-1" @onclick="() => OdemeDuzenle(odeme)" title="Duzenle">
                                                             <i class="bi bi-pencil" style="font-size: 0.7rem;"></i>
                                                         </button>
-                                                        <button class="btn btn-success btn-sm py-0 px-1" @onclick="() => OdemeYapModalAc(odeme)" title="Ode">
-                                                            <i class="bi bi-cash" style="font-size: 0.7rem;"></i>
+                                                        @if (odeme.Durum == OdemeDurum.Bekliyor)
+                                                        {
+                                                            <button class="btn btn-success py-0 px-1" @onclick="() => OdemeYapModalAc(odeme)" title="Ode">
+                                                                <i class="bi bi-cash" style="font-size: 0.7rem;"></i>
+                                                            </button>
+                                                        }
+                                                        <button class="btn btn-outline-danger py-0 px-1" @onclick="() => OdemeSilOnay(odeme)" title="Sil">
+                                                            <i class="bi bi-trash" style="font-size: 0.7rem;"></i>
                                                         </button>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="text-success"><i class="bi bi-check-circle"></i></span>
-                                                    }
+                                                    </div>
                                                 </td>
                                             </tr>
                                         }
@@ -974,15 +975,31 @@
         }
     }
 
-    private async Task OdemeSil(BudgetOdeme odeme)
+    private async Task OdemeSilOnay(BudgetOdeme odeme)
     {
-        await BudgetService.DeleteOdemeAsync(odeme.Id);
-        ToastService.ShowSuccess("Silindi.");
-        ModalKapat();
-        await YenileDataAsync();
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"'{odeme.MasrafKalemi}' odemesini silmek istediginizden emin misiniz?");
+        if (confirmed)
+        {
+            await OdemeSil(odeme);
+        }
     }
 
-    private void TaksitliOdemeAc()
+    private async Task OdemeSil(BudgetOdeme odeme)
+    {
+        try
+        {
+            await BudgetService.DeleteOdemeAsync(odeme.Id);
+            ToastService.ShowSuccess("Odeme silindi.");
+            ModalKapat();
+            await YenileDataAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Silme hatasi: " + ex.Message);
+        }
+    }
+
+    private async Task TaksitliOdemeAc()
     {
         taksitRequest = new TaksitliOdemeRequest
         {
