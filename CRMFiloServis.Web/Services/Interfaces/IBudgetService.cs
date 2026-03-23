@@ -15,6 +15,11 @@ public interface IBudgetService
     Task<List<BudgetOdeme>> CreateTaksitliOdemeAsync(TaksitliOdemeRequest request);
     Task<List<BudgetOdeme>> GetTaksitGrubuAsync(Guid taksitGrupId);
     Task UpdateTaksitGrubuAsync(List<BudgetOdeme> taksitler);
+    
+    // Toplu Ýþlemler (Excel)
+    Task<List<BudgetOdeme>> CreateBulkOdemeAsync(List<BudgetOdeme> odemeler);
+    byte[] GenerateExcelTemplate();
+    Task<ExcelImportResult> ImportFromExcelAsync(byte[] fileContent);
 
     // Masraf Kalemleri
     Task<List<BudgetMasrafKalemi>> GetMasrafKalemleriAsync();
@@ -85,4 +90,13 @@ public class BudgetKategoriOzet
     public decimal Toplam { get; set; }
     public int Adet { get; set; }
     public decimal Yuzde { get; set; }
+}
+
+public class ExcelImportResult
+{
+    public bool Success { get; set; }
+    public int ImportedCount { get; set; }
+    public int ErrorCount { get; set; }
+    public List<string> Errors { get; set; } = new();
+    public List<BudgetOdeme> ImportedItems { get; set; } = new();
 }

@@ -132,6 +132,198 @@ public class BudgetService : IBudgetService
 
     #endregion
 
+    #region Toplu Ýþlemler (Excel)
+
+    public async Task<List<BudgetOdeme>> CreateBulkOdemeAsync(List<BudgetOdeme> odemeler)
+    {
+        foreach (var odeme in odemeler)
+        {
+            odeme.OdemeAy = odeme.OdemeTarihi.Month;
+            odeme.OdemeYil = odeme.OdemeTarihi.Year;
+        }
+        
+        _context.BudgetOdemeler.AddRange(odemeler);
+        await _context.SaveChangesAsync();
+        return odemeler;
+    }
+
+    public byte[] GenerateExcelTemplate()
+    {
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Ödeme Þablonu");
+
+        // Baþlýklar
+        var headers = new[] { "Ödeme Tarihi*", "Masraf Kalemi*", "Açýklama", "Miktar*", "Durum", "Notlar" };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Style.Font.Bold = true;
+            worksheet.Cell(1, i + 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightBlue;
+        }
+
+        // Örnek satýrlar
+        worksheet.Cell(2, 1).Value = DateTime.Today.ToString("dd.MM.yyyy");
+        worksheet.Cell(2, 2).Value = "Kira";
+        worksheet.Cell(2, 3).Value = "Ocak ayý kirasý";
+        worksheet.Cell(2, 4).Value = 5000;
+        worksheet.Cell(2, 5).Value = "Bekliyor";
+        worksheet.Cell(2, 6).Value = "";
+
+        worksheet.Cell(3, 1).Value = DateTime.Today.AddDays(5).ToString("dd.MM.yyyy");
+        worksheet.Cell(3, 2).Value = "Elektrik";
+        worksheet.Cell(3, 3).Value = "Ocak faturasý";
+        worksheet.Cell(3, 4).Value = 850;
+        worksheet.Cell(3, 5).Value = "Bekliyor";
+        worksheet.Cell(3, 6).Value = "";
+
+        // Açýklama satýrlarý
+        worksheet.Cell(5, 1).Value = "AÇIKLAMALAR:";
+        worksheet.Cell(5, 1).Style.Font.Bold = true;
+        worksheet.Cell(6, 1).Value = "* Ödeme Tarihi: GG.AA.YYYY formatýnda";
+        worksheet.Cell(7, 1).Value = "* Masraf Kalemi: Kira, Elektrik, Su, Doðalgaz, Personel Maaþ vb.";
+        worksheet.Cell(8, 1).Value = "* Miktar: Sayýsal deðer (virgül veya nokta kullanabilirsiniz)";
+        worksheet.Cell(9, 1).Value = "* Durum: Bekliyor, Ödendi, Ertelendi, Ýptal";
+
+        // Masraf kalemleri listesi
+        worksheet.Cell(11, 1).Value = "MASRAF KALEMLERÝ:";
+        worksheet.Cell(11, 1).Style.Font.Bold = true;
+        
+        var masrafKalemleri = _context.BudgetMasrafKalemleri.Where(m => m.Aktif).OrderBy(m => m.SiraNo).ToList();
+        int row = 12;
+        foreach (var kalem in masrafKalemleri)
+        {
+            worksheet.Cell(row, 1).Value = kalem.KalemAdi;
+            worksheet.Cell(row, 2).Value = kalem.Kategori;
+            row++;
+        }
+
+        // Sütun geniþlikleri
+        worksheet.Column(1).Width = 15;
+        worksheet.Column(2).Width = 20;
+        worksheet.Column(3).Width = 30;
+        worksheet.Column(4).Width = 15;
+        worksheet.Column(5).Width = 12;
+        worksheet.Column(6).Width = 30;
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public async Task<ExcelImportResult> ImportFromExcelAsync(byte[] fileContent)
+    {
+        var result = new ExcelImportResult();
+        var odemeler = new List<BudgetOdeme>();
+
+        try
+        {
+            using var stream = new MemoryStream(fileContent);
+            using var workbook = new ClosedXML.Excel.XLWorkbook(stream);
+            var worksheet = workbook.Worksheet(1);
+
+            var rows = worksheet.RowsUsed().Skip(1); // Baþlýk satýrýný atla
+
+            int rowNum = 1;
+            foreach (var row in rows)
+            {
+                rowNum++;
+                
+                // Boþ satýr veya açýklama satýrlarýný atla
+                var tarihStr = row.Cell(1).GetString().Trim();
+                if (string.IsNullOrEmpty(tarihStr) || tarihStr.StartsWith("AÇIKLAMA") || tarihStr.StartsWith("MASRAF") || tarihStr.StartsWith("*"))
+                    continue;
+
+                try
+                {
+                    // Tarih parse
+                    if (!DateTime.TryParse(tarihStr, out var tarih))
+                    {
+                        // GG.AA.YYYY formatýný dene
+                        if (!DateTime.TryParseExact(tarihStr, new[] { "dd.MM.yyyy", "d.M.yyyy", "dd/MM/yyyy", "yyyy-MM-dd" }, 
+                            null, System.Globalization.DateTimeStyles.None, out tarih))
+                        {
+                            result.Errors.Add($"Satýr {rowNum}: Geçersiz tarih formatý - '{tarihStr}'");
+                            result.ErrorCount++;
+                            continue;
+                        }
+                    }
+
+                    var masrafKalemi = row.Cell(2).GetString().Trim();
+                    if (string.IsNullOrEmpty(masrafKalemi))
+                    {
+                        result.Errors.Add($"Satýr {rowNum}: Masraf kalemi boþ olamaz");
+                        result.ErrorCount++;
+                        continue;
+                    }
+
+                    var aciklama = row.Cell(3).GetString().Trim();
+                    
+                    // Miktar parse
+                    var miktarStr = row.Cell(4).GetString().Trim().Replace(",", ".");
+                    if (!decimal.TryParse(miktarStr, System.Globalization.NumberStyles.Any, 
+                        System.Globalization.CultureInfo.InvariantCulture, out var miktar) || miktar <= 0)
+                    {
+                        result.Errors.Add($"Satýr {rowNum}: Geçersiz miktar - '{miktarStr}'");
+                        result.ErrorCount++;
+                        continue;
+                    }
+
+                    // Durum parse
+                    var durumStr = row.Cell(5).GetString().Trim().ToLower();
+                    var durum = durumStr switch
+                    {
+                        "ödendi" or "odendi" => OdemeDurum.Odendi,
+                        "ertelendi" => OdemeDurum.Ertelendi,
+                        "iptal" => OdemeDurum.Iptal,
+                        _ => OdemeDurum.Bekliyor
+                    };
+
+                    var notlar = row.Cell(6).GetString().Trim();
+
+                    var odeme = new BudgetOdeme
+                    {
+                        OdemeTarihi = tarih,
+                        OdemeAy = tarih.Month,
+                        OdemeYil = tarih.Year,
+                        MasrafKalemi = masrafKalemi,
+                        Aciklama = string.IsNullOrEmpty(aciklama) ? null : aciklama,
+                        Miktar = miktar,
+                        Durum = durum,
+                        Notlar = string.IsNullOrEmpty(notlar) ? null : notlar,
+                        TaksitliMi = false,
+                        ToplamTaksitSayisi = 1,
+                        KacinciTaksit = 1
+                    };
+
+                    odemeler.Add(odeme);
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add($"Satýr {rowNum}: {ex.Message}");
+                    result.ErrorCount++;
+                }
+            }
+
+            if (odemeler.Any())
+            {
+                await CreateBulkOdemeAsync(odemeler);
+                result.ImportedCount = odemeler.Count;
+                result.ImportedItems = odemeler;
+            }
+
+            result.Success = result.ErrorCount == 0 || result.ImportedCount > 0;
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Errors.Add($"Excel dosyasý okunamadý: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    #endregion
+
     #region Masraf Kalemleri
 
     public async Task<List<BudgetMasrafKalemi>> GetMasrafKalemleriAsync()

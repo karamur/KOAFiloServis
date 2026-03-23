@@ -2,6 +2,7 @@
 @page "/butce/{Yil:int}/{Ay:int}"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
+@using Microsoft.AspNetCore.Components.Forms
 @inject IBudgetService BudgetService
 @inject IToastService ToastService
 @inject NavigationManager Navigation
@@ -27,6 +28,14 @@
                     <option value="@m">@GetAyAdi(m)</option>
                 }
             </select>
+            <div class="btn-group">
+                <button class="btn btn-outline-success" @onclick="ExcelSablonIndir" title="Excel Þablon Ýndir">
+                    <i class="bi bi-download me-1"></i>Þablon
+                </button>
+                <button class="btn btn-outline-success" @onclick="() => showExcelImportModal = true" title="Excel'den Yükle">
+                    <i class="bi bi-upload me-1"></i>Yükle
+                </button>
+            </div>
             <button class="btn btn-primary" @onclick="YeniOdemeAc">
                 <i class="bi bi-plus-lg me-1"></i>Yeni Ödeme
             </button>
@@ -591,6 +600,69 @@
     </div>
 }
 
+<!-- Excel Import Modal -->
+@if (showExcelImportModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Excel'den Ödeme Yükle</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="ModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle me-2"></i>Kullaným Adýmlarý:</h6>
+                        <ol class="mb-0">
+                            <li>Önce <strong>"Þablon Ýndir"</strong> butonuna týklayarak Excel þablonunu indirin</li>
+                            <li>Þablonu açýp ödemelerinizi girin</li>
+                            <li>Dosyayý kaydedin ve aþaðýdan yükleyin</li>
+                        </ol>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Excel Dosyasý Seçin (.xlsx)</label>
+                        <InputFile OnChange="ExcelDosyaYukle" accept=".xls,.xlsx" class="form-control form-control-lg" />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="bi bi-check-circle text-success me-2"></i>Desteklenen Formatlar</h6>
+                                    <ul class="mb-0 small">
+                                        <li>Tarih: GG.AA.YYYY (örn: 15.01.2025)</li>
+                                        <li>Miktar: Sayýsal (örn: 1500.50)</li>
+                                        <li>Durum: Bekliyor, Ödendi, Ertelendi, Ýptal</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="bi bi-list-check text-primary me-2"></i>Zorunlu Alanlar</h6>
+                                    <ul class="mb-0 small">
+                                        <li><strong>Ödeme Tarihi</strong></li>
+                                        <li><strong>Masraf Kalemi</strong></li>
+                                        <li><strong>Miktar</strong></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-success" @onclick="ExcelSablonIndir">
+                        <i class="bi bi-download me-1"></i>Þablon Ýndir
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int Yil { get; set; }
     [Parameter] public int Ay { get; set; }
@@ -599,6 +671,7 @@
     private int secilenAy;
     private int takvimAy;
     private bool isLoading = true;
+    private bool showExcelImportModal = false;
 
     private BudgetOzet? ozet;
     private BudgetYillikOzet? yillikOzet;
@@ -890,6 +963,7 @@
         showTaksitModal = false;
         showTaksitGrupModal = false;
         showGunDetayModal = false;
+        showExcelImportModal = false;
     }
 
     private string GetAyAdi(int ay) => AyAdlari[ay];
@@ -931,6 +1005,63 @@
     {
         var rnd = new Random();
         return $"#{rnd.Next(0x1000000):X6}";
+    }
+
+    private async Task ExcelSablonIndir()
+    {
+        try
+        {
+            var excelBytes = BudgetService.GenerateExcelTemplate();
+            var fileName = $"OdemeSablonu_{DateTime.Now:yyyyMMdd}.xlsx";
+            var base64 = Convert.ToBase64String(excelBytes);
+            await JS.InvokeVoidAsync("downloadFile", fileName, base64, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            ToastService.ShowSuccess("Þablon indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task ExcelDosyaYukle(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file == null) return;
+
+            using var stream = file.OpenReadStream(10 * 1024 * 1024); // 10 MB max
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var fileContent = ms.ToArray();
+
+            var result = await BudgetService.ImportFromExcelAsync(fileContent);
+
+            if (result.Success)
+            {
+                if (result.ImportedCount > 0)
+                {
+                    ToastService.ShowSuccess($"{result.ImportedCount} ödeme baþarýyla yüklendi.");
+                }
+                
+                if (result.ErrorCount > 0)
+                {
+                    ToastService.ShowWarning($"{result.ErrorCount} satýrda hata oluþtu.");
+                }
+
+                ModalKapat();
+                await YenileDataAsync();
+            }
+            else
+            {
+                var errorMsg = result.Errors.Any() ? string.Join(", ", result.Errors.Take(3)) : "Bilinmeyen hata";
+                ToastService.ShowError($"Yükleme baþarýsýz: {errorMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
     }
 
     private class TaksitOnizleme
