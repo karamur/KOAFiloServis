@@ -9,10 +9,10 @@
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
-<PageTitle>Fatura Ödeme Raporu</PageTitle>
+<PageTitle>Fatura Odeme Raporu</PageTitle>
 
 <div class="container-fluid">
-    <h3 class="mb-3"><i class="bi bi-file-earmark-text me-2"></i>Fatura Ödeme Raporu</h3>
+    <h3 class="mb-3"><i class="bi bi-file-earmark-text me-2"></i>Fatura Odeme Raporu</h3>
 
     <div class="card mb-3">
         <div class="card-header">
@@ -22,13 +22,13 @@
             <div class="row">
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label class="form-label">Baþlangýç Tarihi</label>
+                        <label class="form-label">Baslangic Tarihi</label>
                         <input type="date" class="form-control" @bind="baslangicTarihi" />
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label class="form-label">Bitiþ Tarihi</label>
+                        <label class="form-label">Bitis Tarihi</label>
                         <input type="date" class="form-control" @bind="bitisTarihi" />
                     </div>
                 </div>
@@ -36,7 +36,7 @@
                     <div class="mb-3">
                         <label class="form-label">Cari</label>
                         <select class="form-select" @bind="secilenCariId">
-                            <option value="0">Tümü</option>
+                            <option value="0">Tumu</option>
                             @foreach (var cari in cariler)
                             {
                                 <option value="@cari.Id">@cari.Unvan</option>
@@ -48,7 +48,7 @@
                     <div class="mb-3">
                         <label class="form-label">Durum</label>
                         <select class="form-select" @bind="sadeceBekleyenler">
-                            <option value="false">Tümü</option>
+                            <option value="false">Tumu</option>
                             <option value="true">Sadece Bekleyenler</option>
                         </select>
                     </div>
@@ -74,7 +74,7 @@
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Yükleniyor...</span>
+                <span class="visually-hidden">Yukleniyor...</span>
             </div>
         </div>
     }
@@ -93,15 +93,15 @@
                 <div class="card bg-info text-white">
                     <div class="card-body text-center">
                         <h6>Toplam Tutar</h6>
-                        <h3>@raporData.Sum(r => r.GenelToplam).ToString("N2") ?</h3>
+                        <h3>@raporData.Sum(r => r.GenelToplam).ToString("N2") TL</h3>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card bg-success text-white">
                     <div class="card-body text-center">
-                        <h6>Ödenen</h6>
-                        <h3>@raporData.Sum(r => r.OdenenTutar).ToString("N2") ?</h3>
+                        <h6>Odenen</h6>
+                        <h3>@raporData.Sum(r => r.OdenenTutar).ToString("N2") TL</h3>
                     </div>
                 </div>
             </div>
@@ -109,7 +109,7 @@
                 <div class="card bg-danger text-white">
                     <div class="card-body text-center">
                         <h6>Kalan</h6>
-                        <h3>@raporData.Sum(r => r.KalanTutar).ToString("N2") ?</h3>
+                        <h3>@raporData.Sum(r => r.KalanTutar).ToString("N2") TL</h3>
                     </div>
                 </div>
             </div>
@@ -127,10 +127,10 @@
                                 <th>Cari</th>
                                 <th>Tip</th>
                                 <th class="text-end">Genel Toplam</th>
-                                <th class="text-end">Ödenen</th>
+                                <th class="text-end">Odenen</th>
                                 <th class="text-end">Kalan</th>
                                 <th>Durum</th>
-                                <th class="text-center">Vade Günü</th>
+                                <th class="text-center">Vade Gunu</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -142,9 +142,9 @@
                                     <td>@item.VadeTarihi?.ToString("dd.MM.yyyy")</td>
                                     <td>@item.CariUnvan</td>
                                     <td><span class="badge bg-secondary">@item.FaturaTipi</span></td>
-                                    <td class="text-end">@item.GenelToplam.ToString("N2") ?</td>
-                                    <td class="text-end text-success">@item.OdenenTutar.ToString("N2") ?</td>
-                                    <td class="text-end text-danger"><strong>@item.KalanTutar.ToString("N2") ?</strong></td>
+                                    <td class="text-end">@item.GenelToplam.ToString("N2") TL</td>
+                                    <td class="text-end text-success">@item.OdenenTutar.ToString("N2") TL</td>
+                                    <td class="text-end text-danger"><strong>@item.KalanTutar.ToString("N2") TL</strong></td>
                                     <td>
                                         <span class="badge @GetDurumBadgeClass(item.Durum)">@item.Durum</span>
                                     </td>
@@ -152,7 +152,7 @@
                                         @if (item.KalanTutar > 0)
                                         {
                                             <span class="badge @(item.VadeGunu < 0 ? "bg-danger" : item.VadeGunu < 7 ? "bg-warning text-dark" : "bg-success")">
-                                                @(item.VadeGunu < 0 ? $"{Math.Abs(item.VadeGunu)} gün gecikmiþ" : $"{item.VadeGunu} gün")
+                                                @(item.VadeGunu < 0 ? Math.Abs(item.VadeGunu) + " gun gecikmis" : item.VadeGunu + " gun")
                                             </span>
                                         }
                                     </td>
@@ -162,9 +162,9 @@
                         <tfoot class="table-secondary">
                             <tr>
                                 <td colspan="5" class="text-end"><strong>TOPLAM:</strong></td>
-                                <td class="text-end"><strong>@raporData.Sum(r => r.GenelToplam).ToString("N2") ?</strong></td>
-                                <td class="text-end"><strong class="text-success">@raporData.Sum(r => r.OdenenTutar).ToString("N2") ?</strong></td>
-                                <td class="text-end"><strong class="text-danger">@raporData.Sum(r => r.KalanTutar).ToString("N2") ?</strong></td>
+                                <td class="text-end"><strong>@raporData.Sum(r => r.GenelToplam).ToString("N2") TL</strong></td>
+                                <td class="text-end"><strong class="text-success">@raporData.Sum(r => r.OdenenTutar).ToString("N2") TL</strong></td>
+                                <td class="text-end"><strong class="text-danger">@raporData.Sum(r => r.KalanTutar).ToString("N2") TL</strong></td>
                                 <td colspan="2"></td>
                             </tr>
                         </tfoot>
@@ -215,7 +215,7 @@
             return;
 
         var excelBytes = ExcelService.ExportFaturaOdemeRaporu(raporData);
-        var fileName = $"FaturaOdemeRaporu_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        var fileName = "FaturaOdemeRaporu_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx";
 
         await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(excelBytes), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }

@@ -7,18 +7,18 @@
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
-<PageTitle>Belge Süre Uyarýlarý</PageTitle>
+<PageTitle>Belge Sure Uyarilari</PageTitle>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3><i class="bi bi-file-earmark-medical me-2"></i>Belge Süre Uyarýlarý</h3>
+        <h3><i class="bi bi-file-earmark-medical me-2"></i>Belge Sure Uyarilari</h3>
         <div class="d-flex gap-2">
             <select class="form-select" style="width: 180px;" @bind="gunFiltre" @bind:after="YenileAsync">
-                <option value="7">7 Gün Ýçinde</option>
-                <option value="15">15 Gün Ýçinde</option>
-                <option value="30">30 Gün Ýçinde</option>
-                <option value="60">60 Gün Ýçinde</option>
-                <option value="90">90 Gün Ýçinde</option>
+                <option value="7">7 Gun Icinde</option>
+                <option value="15">15 Gun Icinde</option>
+                <option value="30">30 Gun Icinde</option>
+                <option value="60">60 Gun Icinde</option>
+                <option value="90">90 Gun Icinde</option>
             </select>
             <button class="btn btn-danger" @onclick="PdfExport" disabled="@(uyarilar == null || !uyarilar.TumUyarilar.Any())">
                 <i class="bi bi-file-earmark-pdf me-1"></i>PDF
@@ -37,13 +37,13 @@
     }
     else if (uyarilar != null)
     {
-        <!-- Özet Kartlarý -->
+        <!-- Ozet Kartlari -->
         <div class="row mb-4">
             <div class="col-md-3">
                 <div class="card bg-danger text-white h-100">
                     <div class="card-body text-center">
                         <h1 class="mb-0">@uyarilar.TumUyarilar.Count(u => u.Seviye == BelgeUyariSeviye.Kritik)</h1>
-                        <small>Süresi Geçmiþ</small>
+                        <small>Suresi Gecmis</small>
                     </div>
                 </div>
             </div>
@@ -51,7 +51,7 @@
                 <div class="card bg-warning text-dark h-100">
                     <div class="card-body text-center">
                         <h1 class="mb-0">@uyarilar.TumUyarilar.Count(u => u.Seviye == BelgeUyariSeviye.Acil)</h1>
-                        <small>7 Gün Ýçinde</small>
+                        <small>7 Gun Icinde</small>
                     </div>
                 </div>
             </div>
@@ -59,7 +59,7 @@
                 <div class="card bg-info text-white h-100">
                     <div class="card-body text-center">
                         <h1 class="mb-0">@uyarilar.TumUyarilar.Count(u => u.Seviye == BelgeUyariSeviye.Uyari)</h1>
-                        <small>30 Gün Ýçinde</small>
+                        <small>30 Gun Icinde</small>
                     </div>
                 </div>
             </div>
@@ -67,7 +67,7 @@
                 <div class="card bg-success text-white h-100">
                     <div class="card-body text-center">
                         <h1 class="mb-0">@uyarilar.ToplamUyari</h1>
-                        <small>Toplam Uyarý</small>
+                        <small>Toplam Uyari</small>
                     </div>
                 </div>
             </div>
@@ -90,7 +90,7 @@
                                         <tr>
                                             <th>Personel</th>
                                             <th>Belge</th>
-                                            <th>Bitiþ</th>
+                                            <th>Bitis</th>
                                             <th class="text-center">Durum</th>
                                         </tr>
                                     </thead>
@@ -111,11 +111,11 @@
                                                     <span class="badge @u.SeviyeClass">
                                                         @if (u.KalanGun < 0)
                                                         {
-                                                            <text>@Math.Abs(u.KalanGun) gün geçti</text>
+                                                            @(Math.Abs(u.KalanGun) + " gun gecti")
                                                         }
                                                         else
                                                         {
-                                                            <text>@u.KalanGun gün</text>
+                                                            @(u.KalanGun + " gun")
                                                         }
                                                     </span>
                                                 </td>
@@ -129,18 +129,18 @@
                         {
                             <div class="text-center text-success py-4">
                                 <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
-                                <p class="mb-0 mt-2">Personel belgeleri güncel!</p>
+                                <p class="mb-0 mt-2">Personel belgeleri guncel!</p>
                             </div>
                         }
                     </div>
                 </div>
             </div>
 
-            <!-- Araç Belgeleri -->
+            <!-- Arac Belgeleri -->
             <div class="col-md-6 mb-4">
                 <div class="card h-100">
                     <div class="card-header bg-success text-white">
-                        <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Araç Belgeleri</h6>
+                        <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Arac Belgeleri</h6>
                     </div>
                     <div class="card-body p-0">
                         @if (uyarilar.MuayeneUyarilari.Any() || uyarilar.KaskoUyarilari.Any() || 
@@ -152,7 +152,7 @@
                                         <tr>
                                             <th>Plaka</th>
                                             <th>Belge</th>
-                                            <th>Bitiþ</th>
+                                            <th>Bitis</th>
                                             <th class="text-center">Durum</th>
                                         </tr>
                                     </thead>
@@ -172,11 +172,11 @@
                                                     <span class="badge @u.SeviyeClass">
                                                         @if (u.KalanGun < 0)
                                                         {
-                                                            <text>@Math.Abs(u.KalanGun) gün geçti</text>
+                                                            @(Math.Abs(u.KalanGun) + " gun gecti")
                                                         }
                                                         else
                                                         {
-                                                            <text>@u.KalanGun gün</text>
+                                                            @(u.KalanGun + " gun")
                                                         }
                                                     </span>
                                                 </td>
@@ -190,7 +190,7 @@
                         {
                             <div class="text-center text-success py-4">
                                 <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
-                                <p class="mb-0 mt-2">Araç belgeleri güncel!</p>
+                                <p class="mb-0 mt-2">Arac belgeleri guncel!</p>
                             </div>
                         }
                     </div>
@@ -198,10 +198,10 @@
             </div>
         </div>
 
-        <!-- Belge Türü Bazýnda Özet -->
+        <!-- Belge Turu Bazinda Ozet -->
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Belge Türü Özeti</h6>
+                <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Belge Turu Ozeti</h6>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -244,7 +244,7 @@
                         <div class="p-3 border rounded @(uyarilar.TrafikSigortasiUyarilari.Any(u => u.KalanGun < 0) ? "border-danger" : "")">
                             <i class="bi bi-shield-exclamation" style="font-size: 2rem;"></i>
                             <h4 class="mt-2 mb-0">@uyarilar.TrafikSigortasiUyarilari.Count</h4>
-                            <small class="text-muted">Trafik Sigortasý</small>
+                            <small class="text-muted">Trafik Sigortasi</small>
                         </div>
                     </div>
                 </div>
@@ -281,7 +281,7 @@
         if (uyarilar != null && uyarilar.TumUyarilar.Any())
         {
             var excelBytes = ExcelService.ExportBelgeUyarilari(uyarilar.TumUyarilar);
-            var fileName = $"BelgeUyarilari_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = "BelgeUyarilari_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx";
             var base64 = Convert.ToBase64String(excelBytes);
             await JS.InvokeVoidAsync("downloadFile", fileName, base64, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         }
@@ -292,7 +292,7 @@
         if (uyarilar != null && uyarilar.TumUyarilar.Any())
         {
             var pdfBytes = PdfService.GenerateBelgeUyariRaporuPdf(uyarilar.TumUyarilar);
-            var fileName = $"BelgeUyarilari_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+            var fileName = "BelgeUyarilari_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf";
             var base64 = Convert.ToBase64String(pdfBytes);
             await JS.InvokeVoidAsync("downloadFile", fileName, base64, "application/pdf");
         }
