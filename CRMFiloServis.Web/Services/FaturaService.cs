@@ -330,16 +330,41 @@ public class FaturaService : IFaturaService
 
                     if (string.IsNullOrEmpty(faturaNo)) continue;
 
-                    // Fatura zaten var mi kontrol et
-                    var existingFatura = await _context.Faturalar.FirstOrDefaultAsync(f => f.FaturaNo == faturaNo);
+                    // Tarihi parse et
+                    DateTime faturaTarihi = DateTime.UtcNow;
+                    if (DateTime.TryParse(tarihStr, out var parsedTarih))
+                    {
+                        faturaTarihi = DateTime.SpecifyKind(parsedTarih.Date, DateTimeKind.Utc);
+                    }
+
+                    // KONTROL: Fatura no VE tarih ayni olan kayit var mi?
+                    var existingFatura = await _context.Faturalar.FirstOrDefaultAsync(f => 
+                        f.FaturaNo == faturaNo && f.FaturaTarihi.Date == faturaTarihi.Date);
+                    
                     if (existingFatura != null)
                     {
                         result.SkippedCount++;
+                        result.Errors.Add($"Satir {row}: '{faturaNo}' numarali fatura {faturaTarihi:dd.MM.yyyy} tarihinde zaten mevcut.");
                         continue;
                     }
 
-                    // Cari bul veya olustur
-                    var cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
+                    // CARÝ KONTROL: VKN ile bul, yoksa unvan ile bul, yoksa olustur
+                    Cari? cari = null;
+                    
+                    // Oncelikle VKN ile ara
+                    if (!string.IsNullOrEmpty(cariVkn))
+                    {
+                        cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
+                    }
+                    
+                    // VKN ile bulunamadiysa unvan ile ara
+                    if (cari == null && !string.IsNullOrEmpty(cariUnvan))
+                    {
+                        cari = await _context.Cariler.FirstOrDefaultAsync(c => 
+                            c.Unvan.ToLower() == cariUnvan.ToLower());
+                    }
+                    
+                    // Hala bulunamadiysa yeni cari olustur
                     if (cari == null && !string.IsNullOrEmpty(cariUnvan))
                     {
                         cari = new Cari
@@ -363,7 +388,7 @@ public class FaturaService : IFaturaService
                     var fatura = new Fatura
                     {
                         FaturaNo = faturaNo,
-                        FaturaTarihi = DateTime.TryParse(tarihStr, out var tarih) ? DateTime.SpecifyKind(tarih, DateTimeKind.Utc) : DateTime.UtcNow,
+                        FaturaTarihi = faturaTarihi,
                         CariId = cari.Id,
                         FaturaYonu = yon,
                         FaturaTipi = yon == FaturaYonu.Giden ? FaturaTipi.SatisFaturasi : FaturaTipi.AlisFaturasi,
@@ -426,15 +451,26 @@ public class FaturaService : IFaturaService
                     var faturaNo = worksheet.Cells[row, 1].Text?.Trim();
                     if (string.IsNullOrEmpty(faturaNo)) continue;
 
-                    // Fatura zaten var mi kontrol et
-                    var existingFatura = await _context.Faturalar.FirstOrDefaultAsync(f => f.FaturaNo == faturaNo);
+                    var tarihStr = worksheet.Cells[row, 2].Text?.Trim();
+                    
+                    // Tarihi parse et
+                    DateTime faturaTarihi = DateTime.UtcNow;
+                    if (DateTime.TryParse(tarihStr, out var parsedTarih))
+                    {
+                        faturaTarihi = DateTime.SpecifyKind(parsedTarih.Date, DateTimeKind.Utc);
+                    }
+
+                    // KONTROL: Fatura no VE tarih ayni olan kayit var mi?
+                    var existingFatura = await _context.Faturalar.FirstOrDefaultAsync(f => 
+                        f.FaturaNo == faturaNo && f.FaturaTarihi.Date == faturaTarihi.Date);
+                    
                     if (existingFatura != null)
                     {
                         result.SkippedCount++;
+                        result.Errors.Add($"Satir {row}: '{faturaNo}' numarali fatura {faturaTarihi:dd.MM.yyyy} tarihinde zaten mevcut.");
                         continue;
                     }
 
-                    var tarihStr = worksheet.Cells[row, 2].Text?.Trim();
                     var cariVkn = worksheet.Cells[row, 3].Text?.Trim();
                     var cariUnvan = worksheet.Cells[row, 4].Text?.Trim();
                     var matrah = ParseDecimal(worksheet.Cells[row, 5].Text);
@@ -443,8 +479,23 @@ public class FaturaService : IFaturaService
                     var ettnNo = worksheet.Cells[row, 8].Text?.Trim();
                     var faturaTipiStr = worksheet.Cells[row, 9].Text?.Trim();
 
-                    // Cari bul veya olustur
-                    var cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
+                    // CARÝ KONTROL: VKN ile bul, yoksa unvan ile bul, yoksa olustur
+                    Cari? cari = null;
+                    
+                    // Oncelikle VKN ile ara
+                    if (!string.IsNullOrEmpty(cariVkn))
+                    {
+                        cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
+                    }
+                    
+                    // VKN ile bulunamadiysa unvan ile ara
+                    if (cari == null && !string.IsNullOrEmpty(cariUnvan))
+                    {
+                        cari = await _context.Cariler.FirstOrDefaultAsync(c => 
+                            c.Unvan.ToLower() == cariUnvan.ToLower());
+                    }
+                    
+                    // Hala bulunamadiysa yeni cari olustur
                     if (cari == null && !string.IsNullOrEmpty(cariUnvan))
                     {
                         cari = new Cari
@@ -474,7 +525,7 @@ public class FaturaService : IFaturaService
                     var fatura = new Fatura
                     {
                         FaturaNo = faturaNo,
-                        FaturaTarihi = DateTime.TryParse(tarihStr, out var tarih) ? DateTime.SpecifyKind(tarih, DateTimeKind.Utc) : DateTime.UtcNow,
+                        FaturaTarihi = faturaTarihi,
                         CariId = cari.Id,
                         FaturaYonu = yon,
                         FaturaTipi = yon == FaturaYonu.Giden ? FaturaTipi.SatisFaturasi : FaturaTipi.AlisFaturasi,

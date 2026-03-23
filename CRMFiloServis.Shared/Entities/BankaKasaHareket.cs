@@ -36,5 +36,7 @@ public enum IslemKaynak
     FaturaTahsilat = 3,
     Havale = 4,
     Eft = 5,
-    Nakit = 6
+    Nakit = 6,
+    Butce = 7,
+    EFatura = 8
 }
