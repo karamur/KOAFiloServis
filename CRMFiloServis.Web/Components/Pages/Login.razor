@@ -57,7 +57,7 @@
                 <a href="#" class="forgot-password" @onclick="SifremiUnuttum" @onclick:preventDefault>Sifremi Unuttum</a>
             </div>
 
-            <button class="btn btn-primary btn-login w-100" @onclick="GirisYapAsync" disabled="@isLoading">
+            <button class="btn btn-primary btn-login w-100 mb-2" @onclick="GirisYapAsync" disabled="@isLoading">
                 @if (isLoading)
                 {
                     <span class="spinner-border spinner-border-sm me-2"></span>
@@ -68,6 +68,11 @@
                     <i class="bi bi-box-arrow-in-right me-2"></i>
                     <span>Giris Yap</span>
                 }
+            </button>
+
+            <!-- TEST/DEV: Hizli Giris Butonu -->
+            <button class="btn btn-outline-warning w-100" @onclick="HizliGirisYap" disabled="@isLoading">
+                <i class="bi bi-lightning-fill me-2"></i>Hizli Giris (Test)
             </button>
         </div>
 
@@ -358,5 +363,13 @@
     private void SifremiUnuttum()
     {
         errorMessage = "Sifre sifirlama icin sistem yoneticisi ile iletisime gecin.";
+    }
+
+    private async Task HizliGirisYap()
+    {
+        kullaniciAdi = "test";
+        sifre = "test123";
+        beniHatirla = true;
+        await GirisYapAsync();
     }
 }

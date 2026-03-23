@@ -15,6 +15,11 @@ public class Cari : BaseEntity
     public string? Email { get; set; }
     public string? YetkiliKisi { get; set; }
     public string? Notlar { get; set; }
+    public bool Aktif { get; set; } = true;
+
+    // Borc/Alacak (hesaplanan degerler - veritabaninda saklanmaz)
+    public decimal Borc { get; set; }
+    public decimal Alacak { get; set; }
 
     // Muhasebe Hesap Eslestirme
     public int? MuhasebeHesapId { get; set; } // 120.xxx veya 320.xxx

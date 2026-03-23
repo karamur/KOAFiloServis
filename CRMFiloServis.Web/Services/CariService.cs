@@ -20,6 +20,56 @@ public class CariService : ICariService
             .ToListAsync();
     }
 
+    public async Task<List<Cari>> GetAllWithBakiyeAsync()
+    {
+        var cariler = await _context.Cariler
+            .OrderBy(c => c.Unvan)
+            .ToListAsync();
+
+        // Her cari icin borc/alacak hesapla
+        foreach (var cari in cariler)
+        {
+            // Gelen faturalar (Alis) = Borcumuz
+            var gelenFaturalar = await _context.Faturalar
+                .Where(f => f.CariId == cari.Id && f.FaturaYonu == FaturaYonu.Gelen)
+                .SumAsync(f => (decimal?)f.GenelToplam) ?? 0;
+
+            // Giden faturalar (Satis) = Alacagimiz
+            var gidenFaturalar = await _context.Faturalar
+                .Where(f => f.CariId == cari.Id && f.FaturaYonu == FaturaYonu.Giden)
+                .SumAsync(f => (decimal?)f.GenelToplam) ?? 0;
+
+            // Banka hareketlerinden odeme/tahsilat
+            var odemeler = await _context.BankaKasaHareketleri
+                .Where(h => h.CariId == cari.Id && h.HareketTipi == HareketTipi.Cikis)
+                .SumAsync(h => (decimal?)h.Tutar) ?? 0;
+
+            var tahsilatlar = await _context.BankaKasaHareketleri
+                .Where(h => h.CariId == cari.Id && h.HareketTipi == HareketTipi.Giris)
+                .SumAsync(h => (decimal?)h.Tutar) ?? 0;
+
+            // Musteri icin: Giden fatura = Alacak, Tahsilat = Borc azaltir
+            // Tedarikci icin: Gelen fatura = Borc, Odeme = Borc azaltir
+            if (cari.CariTipi == CariTipi.Musteri)
+            {
+                cari.Alacak = gidenFaturalar; // Musteriye kesilen fatura (alacak)
+                cari.Borc = tahsilatlar; // Musteriden alinan odeme (borc azaltir)
+            }
+            else if (cari.CariTipi == CariTipi.Tedarikci)
+            {
+                cari.Borc = gelenFaturalar; // Tedarikci faturasi (borc)
+                cari.Alacak = odemeler; // Tedarikci odemesi (alacak)
+            }
+            else // MusteriTedarikci
+            {
+                cari.Alacak = gidenFaturalar + odemeler;
+                cari.Borc = gelenFaturalar + tahsilatlar;
+            }
+        }
+
+        return cariler;
+    }
+
     public async Task<int> GetCountAsync()
     {
         return await _context.Cariler.CountAsync();

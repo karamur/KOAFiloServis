@@ -376,6 +376,22 @@ public class KullaniciService : IKullaniciService
             context.Kullanicilar.Add(admin);
             await context.SaveChangesAsync();
         }
+
+        // TEST kullanici olustur - hizli giris icin
+        if (!await context.Kullanicilar.AnyAsync(k => k.KullaniciAdi == "test"))
+        {
+            var testUser = new Kullanici
+            {
+                KullaniciAdi = "test",
+                SifreHash = HashPassword("test123"),
+                AdSoyad = "Test Kullanici",
+                RolId = adminRol.Id, // Admin yetkisiyle test
+                Aktif = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.Kullanicilar.Add(testUser);
+            await context.SaveChangesAsync();
+        }
     }
 
     #endregion
