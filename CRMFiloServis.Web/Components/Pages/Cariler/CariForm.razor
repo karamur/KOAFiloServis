@@ -3,6 +3,7 @@
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject ICariService CariService
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -136,17 +137,29 @@
     private async Task Kaydet()
     {
         if (string.IsNullOrWhiteSpace(cari.Unvan))
+        {
+            ToastService.ShowWarning("Ünvan alaný zorunludur!");
             return;
+        }
 
-        if (IsEdit)
+        try
         {
-            await CariService.UpdateAsync(cari);
+            if (IsEdit)
+            {
+                await CariService.UpdateAsync(cari);
+                ToastService.ShowSuccess($"{cari.Unvan} baþarýyla güncellendi.");
+            }
+            else
+            {
+                await CariService.CreateAsync(cari);
+                ToastService.ShowSuccess($"{cari.Unvan} baþarýyla eklendi.");
+            }
+            Navigation.NavigateTo("/cariler");
         }
-        else
+        catch (Exception ex)
         {
-            await CariService.CreateAsync(cari);
+            ToastService.ShowError($"Kayýt sýrasýnda hata oluþtu: {ex.Message}");
         }
-        Navigation.NavigateTo("/cariler");
     }
 
     private void Geri()

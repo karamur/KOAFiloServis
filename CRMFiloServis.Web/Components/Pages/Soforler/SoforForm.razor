@@ -5,6 +5,7 @@
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject ISoforService SoforService
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -242,17 +243,29 @@
     private async Task Kaydet()
     {
         if (string.IsNullOrWhiteSpace(sofor.Ad) || string.IsNullOrWhiteSpace(sofor.Soyad))
+        {
+            ToastService.ShowWarning("Ad ve Soyad alanlarý zorunludur!");
             return;
+        }
 
-        if (IsEdit)
+        try
         {
-            await SoforService.UpdateAsync(sofor);
+            if (IsEdit)
+            {
+                await SoforService.UpdateAsync(sofor);
+                ToastService.ShowSuccess($"{sofor.TamAd} baþarýyla güncellendi.");
+            }
+            else
+            {
+                await SoforService.CreateAsync(sofor);
+                ToastService.ShowSuccess($"{sofor.TamAd} baþarýyla eklendi.");
+            }
+            Navigation.NavigateTo("/personel");
         }
-        else
+        catch (Exception ex)
         {
-            await SoforService.CreateAsync(sofor);
+            ToastService.ShowError($"Kayýt sýrasýnda hata oluþtu: {ex.Message}");
         }
-        Navigation.NavigateTo("/personel");
     }
 
     private void Geri()

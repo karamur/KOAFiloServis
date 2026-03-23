@@ -33,6 +33,7 @@ builder.Services.AddScoped<IPersonelMaasIzinService, PersonelMaasIzinService>();
 builder.Services.AddScoped<IBelgeUyariService, BelgeUyariService>();
 builder.Services.AddScoped<IDashboardGrafikService, DashboardGrafikService>();
 builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
+builder.Services.AddScoped<IToastService, ToastService>();
 
 var app = builder.Build();
 

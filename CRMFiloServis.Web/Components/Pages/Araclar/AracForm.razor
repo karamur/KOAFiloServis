@@ -4,6 +4,7 @@
 @using CRMFiloServis.Web.Services
 @inject IAracService AracService
 @inject ICariService CariService
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -354,15 +355,24 @@
             arac.KomisyonHesaplamaTipi = null;
         }
 
-        if (IsEdit)
+        try
         {
-            await AracService.UpdateAsync(arac);
+            if (IsEdit)
+            {
+                await AracService.UpdateAsync(arac);
+                ToastService.ShowSuccess($"{arac.Plaka} baþarýyla güncellendi.");
+            }
+            else
+            {
+                await AracService.CreateAsync(arac);
+                ToastService.ShowSuccess($"{arac.Plaka} baþarýyla eklendi.");
+            }
+            Navigation.NavigateTo("/araclar");
         }
-        else
+        catch (Exception ex)
         {
-            await AracService.CreateAsync(arac);
+            ToastService.ShowError($"Kayýt sýrasýnda hata oluþtu: {ex.Message}");
         }
-        Navigation.NavigateTo("/araclar");
     }
 
     private void Geri()
