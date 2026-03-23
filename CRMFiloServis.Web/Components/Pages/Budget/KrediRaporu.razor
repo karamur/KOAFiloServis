@@ -1,0 +1,417 @@
+@page "/butce/kredi-raporu"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IBudgetService BudgetService
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Kredi Taksit Raporu</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="bi bi-credit-card me-2"></i>Kredi Taksit Raporu</h3>
+        <div class="d-flex gap-2">
+            <select class="form-select" style="width: 100px;" @bind="secilenYil" @bind:after="YenileDataAsync">
+                @for (int y = DateTime.Today.Year + 1; y >= DateTime.Today.Year - 3; y--)
+                {
+                    <option value="@y">@y</option>
+                }
+            </select>
+            <a href="/butce" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left me-1"></i>Butce Analiz
+            </a>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else
+    {
+        <!-- Ozet Kartlari -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">Aktif Kredi</h6>
+                        <h3 class="mb-0">@aktifKrediler.Count</h3>
+                        <small>devam eden taksitli odeme</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">Toplam Kalan Borc</h6>
+                        <h3 class="mb-0">@FormatPara(aktifKrediler.Sum(k => k.KalanTutar))</h3>
+                        <small>@aktifKrediler.Sum(k => k.KalanTaksitSayisi) taksit</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-dark h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">Bu Ay Taksit</h6>
+                        <h3 class="mb-0">@FormatPara(GetBuAyTaksit())</h3>
+                        <small>@GetBuAyTaksitSayisi() adet</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">Odenen</h6>
+                        <h3 class="mb-0">@FormatPara(aktifKrediler.Sum(k => k.OdenenTutar))</h3>
+                        <small>@aktifKrediler.Sum(k => k.OdenenTaksitSayisi) taksit</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aktif Krediler -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-credit-card-2-front me-2"></i>Aktif Krediler / Taksitli Odemeler</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Kredi / Odeme</th>
+                                <th class="text-center">Taksit Durumu</th>
+                                <th class="text-center">Ilerleme</th>
+                                <th class="text-end">Taksit Tutari</th>
+                                <th class="text-end">Kalan Borc</th>
+                                <th class="text-center">Sonraki Taksit</th>
+                                <th class="text-center">Islem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var kredi in aktifKrediler)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@kredi.MasrafKalemi</strong>
+                                        @if (!string.IsNullOrEmpty(kredi.Aciklama))
+                                        {
+                                            <br /><small class="text-muted">@kredi.Aciklama</small>
+                                        }
+                                        <br /><small class="text-muted">
+                                            @kredi.BaslangicTarihi.ToString("MM/yyyy") - @kredi.BitisTarihi.ToString("MM/yyyy")
+                                        </small>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">@kredi.OdenenTaksitSayisi Odendi</span>
+                                        <span class="badge bg-warning text-dark">@kredi.KalanTaksitSayisi Kaldi</span>
+                                    </td>
+                                    <td class="text-center" style="width: 150px;">
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-success" style="width: @kredi.TamamlanmaYuzdesi%">
+                                                %@kredi.TamamlanmaYuzdesi
+                                            </div>
+                                        </div>
+                                        <small>@kredi.OdenenTaksitSayisi / @kredi.ToplamTaksitSayisi</small>
+                                    </td>
+                                    <td class="text-end"><strong>@FormatPara(kredi.TaksitTutari)</strong></td>
+                                    <td class="text-end">
+                                        <strong class="text-danger">@FormatPara(kredi.KalanTutar)</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (kredi.SonrakiTaksitTarihi.HasValue)
+                                        {
+                                            var kalanGun = (kredi.SonrakiTaksitTarihi.Value - DateTime.Today).Days;
+                                            <span class="@(kalanGun <= 7 ? "text-danger fw-bold" : kalanGun <= 15 ? "text-warning" : "")">
+                                                @kredi.SonrakiTaksitTarihi.Value.ToString("dd.MM.yyyy")
+                                            </span>
+                                            @if (kalanGun <= 7 && kalanGun >= 0)
+                                            {
+                                                <br /><span class="badge bg-danger">@kalanGun gun kaldi</span>
+                                            }
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-info" @onclick="() => TaksitDetayGoster(kredi.TaksitGrupId)">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                            @if (!aktifKrediler.Any())
+                            {
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                                        <p class="mb-0 mt-2">Aktif kredi veya taksitli odeme bulunmuyor</p>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aylik Taksit Raporu -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-calendar3 me-2"></i>@secilenYil Yili Aylik Taksit Raporu</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ay</th>
+                                <th class="text-center">Taksit Sayisi</th>
+                                <th class="text-end">Toplam Tutar</th>
+                                <th class="text-end">Odenen</th>
+                                <th class="text-end">Bekleyen</th>
+                                <th class="text-center">Detay</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ay in aylikRapor.Where(a => a.TaksitSayisi > 0))
+                            {
+                                <tr class="@(ay.Ay == DateTime.Today.Month && secilenYil == DateTime.Today.Year ? "table-primary" : "")">
+                                    <td>
+                                        <strong>@ay.AyAdi</strong>
+                                        @if (ay.Ay == DateTime.Today.Month && secilenYil == DateTime.Today.Year)
+                                        {
+                                            <span class="badge bg-primary ms-2">Bu Ay</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-secondary">@ay.TaksitSayisi</span>
+                                    </td>
+                                    <td class="text-end"><strong>@FormatPara(ay.ToplamTaksitTutari)</strong></td>
+                                    <td class="text-end text-success">@FormatPara(ay.OdenenTutar)</td>
+                                    <td class="text-end text-warning">@FormatPara(ay.BekleyenTutar)</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => AyDetayGoster(ay)">
+                                            <i class="bi bi-list"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td><strong>TOPLAM</strong></td>
+                                <td class="text-center"><strong>@aylikRapor.Sum(a => a.TaksitSayisi)</strong></td>
+                                <td class="text-end"><strong>@FormatPara(aylikRapor.Sum(a => a.ToplamTaksitTutari))</strong></td>
+                                <td class="text-end text-success"><strong>@FormatPara(aylikRapor.Sum(a => a.OdenenTutar))</strong></td>
+                                <td class="text-end text-warning"><strong>@FormatPara(aylikRapor.Sum(a => a.BekleyenTutar))</strong></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Taksit Detay Modal -->
+@if (showTaksitModal && secilenTaksitler.Any())
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-list-ol me-2"></i>Taksit Detaylari</h5>
+                    <button type="button" class="btn-close" @onclick="ModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Taksit</th>
+                                    <th>Tarih</th>
+                                    <th class="text-end">Tutar</th>
+                                    <th class="text-center">Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var taksit in secilenTaksitler)
+                                {
+                                    <tr class="@(taksit.Durum == OdemeDurum.Odendi ? "table-success" : taksit.OdemeTarihi < DateTime.Today ? "table-danger" : "")">
+                                        <td>@taksit.KacinciTaksit / @taksit.ToplamTaksitSayisi</td>
+                                        <td>@taksit.OdemeTarihi.ToString("dd.MM.yyyy")</td>
+                                        <td class="text-end">@FormatPara(taksit.Tutar)</td>
+                                        <td class="text-center">
+                                            <span class="badge @(taksit.Durum == OdemeDurum.Odendi ? "bg-success" : "bg-warning text-dark")">
+                                                @(taksit.Durum == OdemeDurum.Odendi ? "Odendi" : "Bekliyor")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="2"><strong>TOPLAM</strong></td>
+                                    <td class="text-end"><strong>@FormatPara(secilenTaksitler.Sum(t => t.Tutar))</strong></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Ay Detay Modal -->
+@if (showAyModal && secilenAyRapor != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-calendar-day me-2"></i>@secilenAyRapor.AyAdi @secilenYil Taksitleri</h5>
+                    <button type="button" class="btn-close" @onclick="ModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Kredi / Odeme</th>
+                                    <th>Taksit</th>
+                                    <th>Tarih</th>
+                                    <th class="text-end">Tutar</th>
+                                    <th class="text-center">Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var taksit in secilenAyRapor.Taksitler)
+                                {
+                                    <tr class="@(taksit.Durum == OdemeDurum.Odendi ? "" : taksit.OdemeTarihi < DateTime.Today ? "table-danger" : "")">
+                                        <td>
+                                            <strong>@taksit.MasrafKalemi</strong>
+                                            @if (!string.IsNullOrEmpty(taksit.Aciklama))
+                                            {
+                                                <br /><small class="text-muted">@taksit.Aciklama</small>
+                                            }
+                                        </td>
+                                        <td>@taksit.KacinciTaksit / @taksit.ToplamTaksitSayisi</td>
+                                        <td>@taksit.OdemeTarihi.ToString("dd.MM.yyyy")</td>
+                                        <td class="text-end">@FormatPara(taksit.Tutar)</td>
+                                        <td class="text-center">
+                                            <span class="badge @(taksit.Durum == OdemeDurum.Odendi ? "bg-success" : "bg-warning text-dark")">
+                                                @(taksit.Durum == OdemeDurum.Odendi ? "Odendi" : "Bekliyor")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3"><strong>TOPLAM</strong></td>
+                                    <td class="text-end"><strong>@FormatPara(secilenAyRapor.ToplamTaksitTutari)</strong></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int secilenYil;
+    private bool isLoading = true;
+
+    private List<KrediOzet> aktifKrediler = new();
+    private List<AylikKrediTaksitRapor> aylikRapor = new();
+
+    private bool showTaksitModal = false;
+    private bool showAyModal = false;
+    private List<KrediTaksitDetay> secilenTaksitler = new();
+    private AylikKrediTaksitRapor? secilenAyRapor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        secilenYil = DateTime.Today.Year;
+        await YenileDataAsync();
+    }
+
+    private async Task YenileDataAsync()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            aktifKrediler = await BudgetService.GetAktifKredilerAsync();
+            aylikRapor = await BudgetService.GetAylikKrediTaksitRaporuAsync(secilenYil);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private decimal GetBuAyTaksit()
+    {
+        var buAy = aylikRapor.FirstOrDefault(a => a.Ay == DateTime.Today.Month);
+        return buAy?.ToplamTaksitTutari ?? 0;
+    }
+
+    private int GetBuAyTaksitSayisi()
+    {
+        var buAy = aylikRapor.FirstOrDefault(a => a.Ay == DateTime.Today.Month);
+        return buAy?.TaksitSayisi ?? 0;
+    }
+
+    private async Task TaksitDetayGoster(Guid taksitGrupId)
+    {
+        var taksitler = await BudgetService.GetTaksitGrubuAsync(taksitGrupId);
+        secilenTaksitler = taksitler.Select(t => new KrediTaksitDetay
+        {
+            MasrafKalemi = t.MasrafKalemi,
+            Aciklama = t.Aciklama,
+            KacinciTaksit = t.KacinciTaksit,
+            ToplamTaksitSayisi = t.ToplamTaksitSayisi,
+            Tutar = t.Miktar,
+            Durum = t.Durum,
+            OdemeTarihi = t.OdemeTarihi
+        }).ToList();
+        showTaksitModal = true;
+    }
+
+    private void AyDetayGoster(AylikKrediTaksitRapor ay)
+    {
+        secilenAyRapor = ay;
+        showAyModal = true;
+    }
+
+    private void ModalKapat()
+    {
+        showTaksitModal = false;
+        showAyModal = false;
+        secilenTaksitler.Clear();
+        secilenAyRapor = null;
+    }
+
+    private string FormatPara(decimal tutar)
+    {
+        return $"{tutar:N0} TL";
+    }
+}

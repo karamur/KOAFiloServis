@@ -260,21 +260,30 @@ public class BudgetService : IBudgetService
             {
                 rowNum++;
                 
-                // Boþ satýr veya açýklama satýrlarýný atla
+                // Bos satir veya aciklama satirlarini atla
                 var tarihStr = row.Cell(1).GetString().Trim();
-                if (string.IsNullOrEmpty(tarihStr) || tarihStr.StartsWith("AÇIKLAMA") || tarihStr.StartsWith("MASRAF") || tarihStr.StartsWith("*"))
+                if (string.IsNullOrEmpty(tarihStr) || tarihStr.StartsWith("ACIKLAMA") || tarihStr.StartsWith("MASRAF") || tarihStr.StartsWith("*"))
                     continue;
 
                 try
                 {
-                    // Tarih parse
-                    if (!DateTime.TryParse(tarihStr, out var tarih))
+                    // Tarih parse - Excel'den sayi olarak da gelebilir
+                    DateTime tarih;
+                    if (row.Cell(1).DataType == ClosedXML.Excel.XLDataType.DateTime)
                     {
-                        // GG.AA.YYYY formatýný dene
+                        tarih = row.Cell(1).GetDateTime();
+                    }
+                    else if (row.Cell(1).DataType == ClosedXML.Excel.XLDataType.Number)
+                    {
+                        tarih = DateTime.FromOADate(row.Cell(1).GetDouble());
+                    }
+                    else if (!DateTime.TryParse(tarihStr, new System.Globalization.CultureInfo("tr-TR"), out tarih))
+                    {
+                        // GG.AA.YYYY formatini dene
                         if (!DateTime.TryParseExact(tarihStr, new[] { "dd.MM.yyyy", "d.M.yyyy", "dd/MM/yyyy", "yyyy-MM-dd" }, 
-                            null, System.Globalization.DateTimeStyles.None, out tarih))
+                            new System.Globalization.CultureInfo("tr-TR"), System.Globalization.DateTimeStyles.None, out tarih))
                         {
-                            result.Errors.Add($"Satýr {rowNum}: Geçersiz tarih formatý - '{tarihStr}'");
+                            result.Errors.Add($"Satir {rowNum}: Gecersiz tarih formati - '{tarihStr}'");
                             result.ErrorCount++;
                             continue;
                         }
@@ -283,19 +292,37 @@ public class BudgetService : IBudgetService
                     var masrafKalemi = row.Cell(2).GetString().Trim();
                     if (string.IsNullOrEmpty(masrafKalemi))
                     {
-                        result.Errors.Add($"Satýr {rowNum}: Masraf kalemi boþ olamaz");
+                        result.Errors.Add($"Satir {rowNum}: Masraf kalemi bos olamaz");
                         result.ErrorCount++;
                         continue;
                     }
 
                     var aciklama = row.Cell(3).GetString().Trim();
                     
-                    // Miktar parse
-                    var miktarStr = row.Cell(4).GetString().Trim().Replace(",", ".");
-                    if (!decimal.TryParse(miktarStr, System.Globalization.NumberStyles.Any, 
-                        System.Globalization.CultureInfo.InvariantCulture, out var miktar) || miktar <= 0)
+                    // Miktar parse - Excel'den sayi olarak da gelebilir
+                    decimal miktar;
+                    if (row.Cell(4).DataType == ClosedXML.Excel.XLDataType.Number)
                     {
-                        result.Errors.Add($"Satýr {rowNum}: Geçersiz miktar - '{miktarStr}'");
+                        miktar = (decimal)row.Cell(4).GetDouble();
+                    }
+                    else
+                    {
+                        var miktarStr = row.Cell(4).GetString().Trim()
+                            .Replace(".", "")  // Binlik ayirici noktayi kaldir
+                            .Replace(",", "."); // Virgulu noktaya cevir
+                        
+                        if (!decimal.TryParse(miktarStr, System.Globalization.NumberStyles.Any, 
+                            System.Globalization.CultureInfo.InvariantCulture, out miktar))
+                        {
+                            result.Errors.Add($"Satir {rowNum}: Gecersiz miktar - '{row.Cell(4).GetString()}'");
+                            result.ErrorCount++;
+                            continue;
+                        }
+                    }
+                    
+                    if (miktar <= 0)
+                    {
+                        result.Errors.Add($"Satir {rowNum}: Miktar sifirdan buyuk olmali");
                         result.ErrorCount++;
                         continue;
                     }
@@ -304,7 +331,7 @@ public class BudgetService : IBudgetService
                     var durumStr = row.Cell(5).GetString().Trim().ToLower();
                     var durum = durumStr switch
                     {
-                        "ödendi" or "odendi" => OdemeDurum.Odendi,
+                        "odendi" or "ödendi" => OdemeDurum.Odendi,
                         "ertelendi" => OdemeDurum.Ertelendi,
                         "iptal" => OdemeDurum.Iptal,
                         _ => OdemeDurum.Bekliyor
@@ -530,6 +557,92 @@ public class BudgetService : IBudgetService
             })
             .OrderByDescending(k => k.Toplam)
             .ToList();
+    }
+
+    #endregion
+
+    #region Kredi/Taksit Raporlari
+
+    public async Task<List<KrediOzet>> GetAktifKredilerAsync()
+    {
+        var taksitliOdemeler = await _context.BudgetOdemeler
+            .Where(o => o.TaksitliMi && o.TaksitGrupId.HasValue)
+            .ToListAsync();
+
+        var krediler = taksitliOdemeler
+            .GroupBy(o => o.TaksitGrupId!.Value)
+            .Select(g =>
+            {
+                var taksitler = g.OrderBy(t => t.KacinciTaksit).ToList();
+                var ilkTaksit = taksitler.First();
+                var sonTaksit = taksitler.Last();
+                var odenenTaksitler = taksitler.Where(t => t.Durum == OdemeDurum.Odendi).ToList();
+                var bekleyenTaksitler = taksitler.Where(t => t.Durum == OdemeDurum.Bekliyor).ToList();
+                var sonrakiTaksit = bekleyenTaksitler.OrderBy(t => t.OdemeTarihi).FirstOrDefault();
+
+                return new KrediOzet
+                {
+                    TaksitGrupId = g.Key,
+                    MasrafKalemi = ilkTaksit.MasrafKalemi,
+                    Aciklama = ilkTaksit.Aciklama,
+                    BaslangicTarihi = ilkTaksit.OdemeTarihi,
+                    BitisTarihi = sonTaksit.OdemeTarihi,
+                    ToplamTaksitSayisi = taksitler.Count,
+                    OdenenTaksitSayisi = odenenTaksitler.Count,
+                    KalanTaksitSayisi = bekleyenTaksitler.Count,
+                    TaksitTutari = taksitler.First().Miktar,
+                    ToplamTutar = taksitler.Sum(t => t.Miktar),
+                    OdenenTutar = odenenTaksitler.Sum(t => t.Miktar),
+                    KalanTutar = bekleyenTaksitler.Sum(t => t.Miktar),
+                    TamamlanmaYuzdesi = taksitler.Count > 0 
+                        ? Math.Round((decimal)odenenTaksitler.Count / taksitler.Count * 100, 1) 
+                        : 0,
+                    SonrakiTaksitTarihi = sonrakiTaksit?.OdemeTarihi
+                };
+            })
+            .Where(k => k.KalanTaksitSayisi > 0) // Sadece aktif (kalan taksiti olan) krediler
+            .OrderBy(k => k.SonrakiTaksitTarihi)
+            .ToList();
+
+        return krediler;
+    }
+
+    public async Task<List<AylikKrediTaksitRapor>> GetAylikKrediTaksitRaporuAsync(int yil)
+    {
+        var taksitliOdemeler = await _context.BudgetOdemeler
+            .Where(o => o.TaksitliMi && o.OdemeYil == yil)
+            .OrderBy(o => o.OdemeAy)
+            .ThenBy(o => o.OdemeTarihi)
+            .ToListAsync();
+
+        var rapor = new List<AylikKrediTaksitRapor>();
+
+        for (int ay = 1; ay <= 12; ay++)
+        {
+            var aylikTaksitler = taksitliOdemeler.Where(o => o.OdemeAy == ay).ToList();
+
+            rapor.Add(new AylikKrediTaksitRapor
+            {
+                Ay = ay,
+                AyAdi = AyAdlari[ay],
+                ToplamTaksitTutari = aylikTaksitler.Sum(t => t.Miktar),
+                OdenenTutar = aylikTaksitler.Where(t => t.Durum == OdemeDurum.Odendi).Sum(t => t.Miktar),
+                BekleyenTutar = aylikTaksitler.Where(t => t.Durum == OdemeDurum.Bekliyor).Sum(t => t.Miktar),
+                TaksitSayisi = aylikTaksitler.Count,
+                Taksitler = aylikTaksitler.Select(t => new KrediTaksitDetay
+                {
+                    MasrafKalemi = t.MasrafKalemi,
+                    Aciklama = t.Aciklama,
+                    KacinciTaksit = t.KacinciTaksit,
+                    ToplamTaksitSayisi = t.ToplamTaksitSayisi,
+                    Tutar = t.Miktar,
+                    Durum = t.Durum,
+                    OdemeTarihi = t.OdemeTarihi
+                }).ToList()
+            });
+        }
+
+        return rapor;
     }
 
     #endregion
