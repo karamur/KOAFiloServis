@@ -272,6 +272,30 @@ public class KullaniciService : IKullaniciService
         await context.SaveChangesAsync();
     }
 
+    public async Task<Rol> UpdateRolYetkileriAsync(int rolId, List<RolYetki> yetkiler)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var rol = await context.Roller
+            .Include(r => r.Yetkiler)
+            .FirstOrDefaultAsync(r => r.Id == rolId);
+
+        if (rol == null) throw new Exception("Rol bulunamadi");
+
+        // Mevcut yetkileri sil
+        context.RolYetkileri.RemoveRange(rol.Yetkiler);
+
+        // Yeni yetkileri ekle
+        foreach (var yetki in yetkiler)
+        {
+            yetki.RolId = rolId;
+            yetki.CreatedAt = DateTime.UtcNow;
+            context.RolYetkileri.Add(yetki);
+        }
+
+        await context.SaveChangesAsync();
+        return rol;
+    }
+
     public async Task SetRolYetkileriAsync(int rolId, List<string> yetkiKodlari)
     {
         using var context = await _contextFactory.CreateDbContextAsync();

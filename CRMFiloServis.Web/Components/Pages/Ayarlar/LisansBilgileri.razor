@@ -1,0 +1,333 @@
+@page "/ayarlar/lisans"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject ILisansService LisansService
+@inject IKullaniciService KullaniciService
+@inject IToastService ToastService
+@rendermode InteractiveServer
+
+<PageTitle>Lisans Bilgileri</PageTitle>
+
+<div class="container-fluid">
+    <h3 class="mb-4"><i class="bi bi-key me-2"></i>Lisans Bilgileri</h3>
+
+    @if (lisans == null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <!-- Ana Lisans Karti -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header @(lisans.Gecerli ? "bg-success" : "bg-danger") text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-shield-check me-2"></i>
+                            @GetLisansTuruAdi(lisans.Tur)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center mb-4">
+                            <div class="license-badge @(lisans.Gecerli ? "active" : "expired")">
+                                <i class="bi @(lisans.Gecerli ? "bi-check-circle-fill" : "bi-x-circle-fill")"></i>
+                            </div>
+                            <h4 class="mt-3 @(lisans.Gecerli ? "text-success" : "text-danger")">
+                                @(lisans.Gecerli ? "Lisans Aktif" : "Lisans Suresi Dolmus")
+                            </h4>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="info-box">
+                                    <i class="bi bi-calendar-check"></i>
+                                    <span>Baslangic</span>
+                                    <strong>@lisans.BaslangicTarihi.ToString("dd.MM.yyyy")</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="info-box">
+                                    <i class="bi bi-calendar-x"></i>
+                                    <span>Bitis</span>
+                                    <strong>@lisans.BitisTarihi.ToString("dd.MM.yyyy")</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="info-box">
+                                    <i class="bi bi-clock"></i>
+                                    <span>Kalan Gun</span>
+                                    <strong class="@(lisans.KalanGun <= 7 ? "text-danger" : "")">@lisans.KalanGun</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="info-box">
+                                    <i class="bi bi-people"></i>
+                                    <span>Kullanici Limiti</span>
+                                    <strong>@kullaniciSayisi / @lisans.MaxKullaniciSayisi</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (lisans.KalanGun <= 7 && lisans.KalanGun > 0)
+                        {
+                            <div class="alert alert-warning mt-3 mb-0">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                Lisansiniz @lisans.KalanGun gun icinde sona erecek!
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Izinler -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-toggles me-2"></i>Modul Izinleri</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="permission-item @(lisans.ExcelExportIzni ? "active" : "")">
+                                    <i class="bi @(lisans.ExcelExportIzni ? "bi-check-circle-fill" : "bi-x-circle")"></i>
+                                    <span>Excel Export</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="permission-item @(lisans.PdfExportIzni ? "active" : "")">
+                                    <i class="bi @(lisans.PdfExportIzni ? "bi-check-circle-fill" : "bi-x-circle")"></i>
+                                    <span>PDF Export</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="permission-item @(lisans.RaporlamaIzni ? "active" : "")">
+                                    <i class="bi @(lisans.RaporlamaIzni ? "bi-check-circle-fill" : "bi-x-circle")"></i>
+                                    <span>Raporlama</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="permission-item @(lisans.YedeklemeIzni ? "active" : "")">
+                                    <i class="bi @(lisans.YedeklemeIzni ? "bi-check-circle-fill" : "bi-x-circle")"></i>
+                                    <span>Yedekleme</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="permission-item @(lisans.MuhasebeIzni ? "active" : "")">
+                                    <i class="bi @(lisans.MuhasebeIzni ? "bi-check-circle-fill" : "bi-x-circle")"></i>
+                                    <span>Muhasebe Modulu</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="permission-item @(lisans.SatisModuluIzni ? "active" : "")">
+                                    <i class="bi @(lisans.SatisModuluIzni ? "bi-check-circle-fill" : "bi-x-circle")"></i>
+                                    <span>Satis Modulu</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lisans Aktivasyon -->
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-key-fill me-2"></i>Lisans Aktivasyonu</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">Makine Kodu</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" value="@makineKodu" readonly />
+                                    <button class="btn btn-outline-secondary" @onclick="MakineKoduKopyala">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">Bu kodu lisans almak icin kullanin</small>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Lisans Anahtari</label>
+                                <input type="text" class="form-control" @bind="lisansAnahtari" 
+                                       placeholder="XXXX-XXXX-XXXX-XXXX" />
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-primary w-100" @onclick="LisansAktiveEtAsync">
+                                    <i class="bi bi-check-lg me-1"></i>Aktive Et
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lisans Detaylari -->
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Lisans Detaylari</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td class="text-muted">Lisans Anahtari:</td>
+                                        <td><code>@lisans.LisansAnahtari</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Makine Kodu:</td>
+                                        <td><code>@lisans.MakineKodu</code></td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-4">
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td class="text-muted">Firma Adi:</td>
+                                        <td>@(lisans.FirmaAdi ?? "-")</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Yetkili Kisi:</td>
+                                        <td>@(lisans.YetkiliKisi ?? "-")</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-4">
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td class="text-muted">Email:</td>
+                                        <td>@(lisans.Email ?? "-")</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Telefon:</td>
+                                        <td>@(lisans.Telefon ?? "-")</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .license-badge {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        font-size: 3rem;
+    }
+
+    .license-badge.active {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        box-shadow: 0 10px 30px rgba(40, 167, 69, 0.3);
+    }
+
+    .license-badge.expired {
+        background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+        color: white;
+        box-shadow: 0 10px 30px rgba(220, 53, 69, 0.3);
+    }
+
+    .info-box {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+    }
+
+    .info-box i {
+        font-size: 1.5rem;
+        color: #1e3c72;
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .info-box span {
+        display: block;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    .info-box strong {
+        font-size: 1.25rem;
+        color: #212529;
+    }
+
+    .permission-item {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .permission-item i {
+        font-size: 1.25rem;
+        color: #dc3545;
+    }
+
+    .permission-item.active i {
+        color: #28a745;
+    }
+</style>
+
+@code {
+    private Lisans? lisans;
+    private string makineKodu = "";
+    private string lisansAnahtari = "";
+    private int kullaniciSayisi = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        lisans = await LisansService.GetAktifLisansAsync();
+        makineKodu = await LisansService.GetMakineKoduAsync();
+        var kullanicilar = await KullaniciService.GetAllAsync();
+        kullaniciSayisi = kullanicilar.Count(k => k.Aktif);
+    }
+
+    private async Task LisansAktiveEtAsync()
+    {
+        if (string.IsNullOrWhiteSpace(lisansAnahtari))
+        {
+            ToastService.ShowWarning("Lisans anahtari girin!");
+            return;
+        }
+
+        try
+        {
+            lisans = await LisansService.AktiveLisansAsync(lisansAnahtari);
+            ToastService.ShowSuccess("Lisans aktive edildi!");
+            lisansAnahtari = "";
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
+    }
+
+    private void MakineKoduKopyala()
+    {
+        ToastService.ShowInfo("Makine kodu panoya kopyalandi!");
+    }
+
+    private string GetLisansTuruAdi(LisansTuru tur) => tur switch
+    {
+        LisansTuru.Trial => "Deneme Lisansi (30 Gun)",
+        LisansTuru.Basic => "Temel Lisans",
+        LisansTuru.Professional => "Profesyonel Lisans",
+        LisansTuru.Enterprise => "Kurumsal Lisans",
+        _ => tur.ToString()
+    };
+}

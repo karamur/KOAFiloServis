@@ -1,0 +1,496 @@
+@page "/satis/arastirma"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject ISatisService SatisService
+@inject IToastService ToastService
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Arac Piyasa Arastirmasi</PageTitle>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1"><i class="bi bi-search me-2"></i>Arac Piyasa Arastirmasi</h3>
+            <p class="text-muted mb-0">Sahibinden, Arabam ve diger platformlardan fiyat karsilastirmasi</p>
+        </div>
+    </div>
+
+    <!-- Arama Formu -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-filter me-2"></i>Arama Kriterleri</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Marka *</label>
+                    <select class="form-select" @bind="aramaKriteri.Marka" @bind:after="MarkaSecildi">
+                        <option value="">Secin...</option>
+                        @foreach (var marka in markalar)
+                        {
+                            <option value="@marka.MarkaAdi">@marka.MarkaAdi</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Model</label>
+                    <input type="text" class="form-control" @bind="aramaKriteri.Model" placeholder="Ornek: Passat" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Min Yil</label>
+                    <select class="form-select" @bind="aramaKriteri.MinYil">
+                        <option value="0">Tumu</option>
+                        @for (int y = DateTime.Today.Year; y >= 2000; y--)
+                        {
+                            <option value="@y">@y</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max Yil</label>
+                    <select class="form-select" @bind="aramaKriteri.MaxYil">
+                        <option value="0">Tumu</option>
+                        @for (int y = DateTime.Today.Year; y >= 2000; y--)
+                        {
+                            <option value="@y">@y</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Yakit</label>
+                    <select class="form-select" @bind="aramaKriteri.YakitTuru">
+                        <option value="">Tumu</option>
+                        <option value="Benzin">Benzin</option>
+                        <option value="Dizel">Dizel</option>
+                        <option value="LPG">LPG</option>
+                        <option value="Hibrit">Hibrit</option>
+                        <option value="Elektrik">Elektrik</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Min KM</label>
+                    <input type="number" class="form-control" @bind="aramaKriteri.MinKm" placeholder="0" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max KM</label>
+                    <input type="number" class="form-control" @bind="aramaKriteri.MaxKm" placeholder="500.000" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Vites</label>
+                    <select class="form-select" @bind="aramaKriteri.VitesTuru">
+                        <option value="">Tumu</option>
+                        <option value="Manuel">Manuel</option>
+                        <option value="Otomatik">Otomatik</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max Boya</label>
+                    <select class="form-select" @bind="aramaKriteri.MaxBoyaliParca">
+                        <option value="99">Farketmez</option>
+                        <option value="0">Boyasiz</option>
+                        <option value="1">Max 1 Parca</option>
+                        <option value="2">Max 2 Parca</option>
+                        <option value="3">Max 3 Parca</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tramer</label>
+                    <select class="form-select" @bind="aramaKriteri.TramerDurumu">
+                        <option value="">Farketmez</option>
+                        <option value="Yok">Tramer Yok</option>
+                        <option value="Var">Tramer Var</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" @onclick="AramaYapAsync" disabled="@isSearching">
+                        @if (isSearching)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Araniyor...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-search me-2"></i><span>Ara</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (aramaSonuclari.Any())
+    {
+        <!-- Ozet Kartlar -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="opacity-75">Toplam Ilan</small>
+                                <h3 class="mb-0">@aramaSonuclari.Count</h3>
+                            </div>
+                            <i class="bi bi-list-ul fs-2 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="opacity-75">Ortalama Fiyat</small>
+                                <h3 class="mb-0">@FormatPara(aramaSonuclari.Average(s => s.Fiyat))</h3>
+                            </div>
+                            <i class="bi bi-currency-lira fs-2 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="opacity-75">Min Fiyat</small>
+                                <h3 class="mb-0">@FormatPara(aramaSonuclari.Min(s => s.Fiyat))</h3>
+                            </div>
+                            <i class="bi bi-arrow-down fs-2 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small>Max Fiyat</small>
+                                <h3 class="mb-0">@FormatPara(aramaSonuclari.Max(s => s.Fiyat))</h3>
+                            </div>
+                            <i class="bi bi-arrow-up fs-2 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtreler ve Siralama -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row align-items-center">
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" @bind="filtreKaynak" @bind:after="FiltreUygula">
+                            <option value="">Tum Kaynaklar</option>
+                            <option value="Sahibinden">Sahibinden</option>
+                            <option value="Arabam">Arabam</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" @bind="filtreSehir" @bind:after="FiltreUygula">
+                            <option value="">Tum Sehirler</option>
+                            @foreach (var sehir in aramaSonuclari.Where(s => !string.IsNullOrEmpty(s.Sehir)).Select(s => s.Sehir).Distinct().OrderBy(s => s))
+                            {
+                                <option value="@sehir">@sehir</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" @bind="siralama" @bind:after="FiltreUygula">
+                            <option value="fiyat_asc">Fiyat (Artan)</option>
+                            <option value="fiyat_desc">Fiyat (Azalan)</option>
+                            <option value="km_asc">KM (Artan)</option>
+                            <option value="yil_desc">Yil (Yeni)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <button class="btn btn-outline-success btn-sm" @onclick="ExcelExportAsync">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm ms-1" @onclick="PdfExportAsync">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sonuc Listesi -->
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Kaynak</th>
+                                <th>Baslik</th>
+                                <th>Sehir</th>
+                                <th class="text-center">Yil</th>
+                                <th class="text-end">KM</th>
+                                <th class="text-center">Yakit</th>
+                                <th class="text-center">Vites</th>
+                                <th class="text-center">Boya</th>
+                                <th class="text-center">Degisen</th>
+                                <th class="text-end">Tramer</th>
+                                <th class="text-end">Fiyat</th>
+                                <th class="text-center">Islem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var sonuc in filtrelenmissonuclar.Take(100))
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="badge @GetKaynakBadge(sonuc.Kaynak)">@sonuc.Kaynak</span>
+                                    </td>
+                                    <td>
+                                        <strong>@sonuc.Baslik</strong>
+                                        @if (!string.IsNullOrEmpty(sonuc.Versiyon))
+                                        {
+                                            <br /><small class="text-muted">@sonuc.Versiyon</small>
+                                        }
+                                    </td>
+                                    <td>@sonuc.Sehir</td>
+                                    <td class="text-center">@sonuc.Yil</td>
+                                    <td class="text-end">@sonuc.Kilometre.ToString("N0")</td>
+                                    <td class="text-center"><span class="badge bg-secondary">@sonuc.YakitTuru</span></td>
+                                    <td class="text-center"><span class="badge bg-info">@sonuc.VitesTuru</span></td>
+                                    <td class="text-center">
+                                        @if (sonuc.BoyaliParca > 0)
+                                        {
+                                            <span class="badge bg-warning text-dark">@sonuc.BoyaliParca</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success"><i class="bi bi-check-lg"></i></span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (sonuc.DegisenParca > 0)
+                                        {
+                                            <span class="badge bg-danger">@sonuc.DegisenParca</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success"><i class="bi bi-check-lg"></i></span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        @if (sonuc.TramerTutari > 0)
+                                        {
+                                            <span class="text-danger">@FormatPara(sonuc.TramerTutari)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success">-</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <strong class="text-success fs-6">@FormatPara(sonuc.Fiyat)</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (!string.IsNullOrEmpty(sonuc.IlanUrl))
+                                        {
+                                            <a href="@sonuc.IlanUrl" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                            </a>
+                                        }
+                                        <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => IlanaEkle(sonuc)" title="Ilana Ekle">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @if (filtrelenmissonuclar.Count > 100)
+            {
+                <div class="card-footer text-center">
+                    <small class="text-muted">Toplam @filtrelenmissonuclar.Count sonuctan 100 tanesi gosteriliyor</small>
+                </div>
+            }
+        </div>
+    }
+    else if (aramaYapildi && !isSearching)
+    {
+        <div class="alert alert-info text-center">
+            <i class="bi bi-info-circle me-2"></i>Arama kriterlerine uygun ilan bulunamadi.
+        </div>
+    }
+</div>
+
+@code {
+    private bool isSearching = false;
+    private bool aramaYapildi = false;
+    private List<AracMarka> markalar = new();
+    private List<AramaSonuc> aramaSonuclari = new();
+    private List<AramaSonuc> filtrelenmissonuclar = new();
+    private AramaKriteri aramaKriteri = new();
+
+    private string filtreKaynak = "";
+    private string filtreSehir = "";
+    private string siralama = "fiyat_asc";
+
+    protected override async Task OnInitializedAsync()
+    {
+        markalar = await SatisService.GetAracMarkalarAsync();
+    }
+
+    private void MarkaSecildi()
+    {
+        // Model listesini guncelleyebiliriz
+    }
+
+    private async Task AramaYapAsync()
+    {
+        if (string.IsNullOrEmpty(aramaKriteri.Marka))
+        {
+            ToastService.ShowWarning("Lutfen marka secin!");
+            return;
+        }
+
+        isSearching = true;
+        aramaYapildi = true;
+        StateHasChanged();
+
+        try
+        {
+            // Simule edilmis arama sonuclari (gercek implementasyonda web scraping yapilacak)
+            aramaSonuclari = await SimuleAramaYapAsync();
+            FiltreUygula();
+            ToastService.ShowSuccess($"{aramaSonuclari.Count} ilan bulundu!");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Arama hatasi: " + ex.Message);
+        }
+        finally
+        {
+            isSearching = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task<List<AramaSonuc>> SimuleAramaYapAsync()
+    {
+        // Gercek implementasyonda Sahibinden/Arabam API veya web scraping yapilacak
+        // Simdilik ornek data dondur
+        var random = new Random();
+        var sehirler = new[] { "Istanbul", "Ankara", "Izmir", "Bursa", "Antalya", "Kocaeli", "Adana", "Konya" };
+        var sonuclar = new List<AramaSonuc>();
+
+        for (int i = 0; i < random.Next(15, 40); i++)
+        {
+            var yil = aramaKriteri.MinYil > 0 ? random.Next(aramaKriteri.MinYil, aramaKriteri.MaxYil > 0 ? aramaKriteri.MaxYil : DateTime.Today.Year) : random.Next(2015, DateTime.Today.Year);
+            var km = random.Next(aramaKriteri.MinKm > 0 ? aramaKriteri.MinKm : 10000, aramaKriteri.MaxKm > 0 ? aramaKriteri.MaxKm : 250000);
+            var fiyat = random.Next(400000, 2500000);
+
+            sonuclar.Add(new AramaSonuc
+            {
+                Kaynak = random.Next(2) == 0 ? "Sahibinden" : "Arabam",
+                Baslik = $"{aramaKriteri.Marka} {aramaKriteri.Model ?? "Model"}",
+                Versiyon = random.Next(3) == 0 ? "1.6 TDI" : random.Next(2) == 0 ? "1.4 TSI" : "2.0 TDI",
+                Sehir = sehirler[random.Next(sehirler.Length)],
+                Yil = yil,
+                Kilometre = km,
+                YakitTuru = string.IsNullOrEmpty(aramaKriteri.YakitTuru) ? (random.Next(2) == 0 ? "Dizel" : "Benzin") : aramaKriteri.YakitTuru,
+                VitesTuru = string.IsNullOrEmpty(aramaKriteri.VitesTuru) ? (random.Next(2) == 0 ? "Otomatik" : "Manuel") : aramaKriteri.VitesTuru,
+                BoyaliParca = random.Next(5) == 0 ? 0 : random.Next(1, 4),
+                DegisenParca = random.Next(4) == 0 ? random.Next(1, 3) : 0,
+                TramerTutari = random.Next(5) == 0 ? random.Next(5000, 50000) : 0,
+                Fiyat = fiyat,
+                IlanUrl = $"https://www.sahibinden.com/ilan/{random.Next(100000000, 999999999)}"
+            });
+        }
+
+        return Task.FromResult(sonuclar.OrderBy(s => s.Fiyat).ToList());
+    }
+
+    private void FiltreUygula()
+    {
+        var query = aramaSonuclari.AsEnumerable();
+
+        if (!string.IsNullOrEmpty(filtreKaynak))
+            query = query.Where(s => s.Kaynak == filtreKaynak);
+
+        if (!string.IsNullOrEmpty(filtreSehir))
+            query = query.Where(s => s.Sehir == filtreSehir);
+
+        query = siralama switch
+        {
+            "fiyat_asc" => query.OrderBy(s => s.Fiyat),
+            "fiyat_desc" => query.OrderByDescending(s => s.Fiyat),
+            "km_asc" => query.OrderBy(s => s.Kilometre),
+            "yil_desc" => query.OrderByDescending(s => s.Yil),
+            _ => query
+        };
+
+        filtrelenmissonuclar = query.ToList();
+        StateHasChanged();
+    }
+
+    private void IlanaEkle(AramaSonuc sonuc)
+    {
+        ToastService.ShowInfo("Ilan karsilastirma listesine eklendi!");
+    }
+
+    private async Task ExcelExportAsync()
+    {
+        ToastService.ShowInfo("Excel raporu hazirlaniyor...");
+        await Task.Delay(500);
+        ToastService.ShowSuccess("Excel raporu indirildi!");
+    }
+
+    private async Task PdfExportAsync()
+    {
+        ToastService.ShowInfo("PDF raporu hazirlaniyor...");
+        await Task.Delay(500);
+        ToastService.ShowSuccess("PDF raporu indirildi!");
+    }
+
+    private string GetKaynakBadge(string kaynak) => kaynak switch
+    {
+        "Sahibinden" => "bg-warning text-dark",
+        "Arabam" => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    private string FormatPara(decimal tutar) => tutar.ToString("N0") + " TL";
+
+    public class AramaKriteri
+    {
+        public string Marka { get; set; } = "";
+        public string? Model { get; set; }
+        public int MinYil { get; set; }
+        public int MaxYil { get; set; }
+        public string? YakitTuru { get; set; }
+        public string? VitesTuru { get; set; }
+        public int MinKm { get; set; }
+        public int MaxKm { get; set; }
+        public int MaxBoyaliParca { get; set; } = 99;
+        public string? TramerDurumu { get; set; }
+    }
+
+    public class AramaSonuc
+    {
+        public string Kaynak { get; set; } = "";
+        public string Baslik { get; set; } = "";
+        public string? Versiyon { get; set; }
+        public string? Sehir { get; set; }
+        public int Yil { get; set; }
+        public int Kilometre { get; set; }
+        public string YakitTuru { get; set; } = "";
+        public string VitesTuru { get; set; } = "";
+        public int BoyaliParca { get; set; }
+        public int DegisenParca { get; set; }
+        public decimal TramerTutari { get; set; }
+        public decimal Fiyat { get; set; }
+        public string? IlanUrl { get; set; }
+    }
+}
