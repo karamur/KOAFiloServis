@@ -12,6 +12,9 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Diger PC'lerden erisim icin tum IP'lerden dinle
+builder.WebHost.UseUrls("http://0.0.0.0:5190", "https://0.0.0.0:7113");
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

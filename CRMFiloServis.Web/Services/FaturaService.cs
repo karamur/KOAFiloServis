@@ -570,6 +570,117 @@ public class FaturaService : IFaturaService
 
     #endregion
 
+    #region Excel Sablon ve Export
+
+    public async Task<byte[]> GetExcelSablonAsync(FaturaYonu yon, List<Cari> cariler)
+    {
+        using var package = new ExcelPackage();
+        var ws = package.Workbook.Worksheets.Add("Fatura Sablonu");
+
+        // Basliklar
+        var headers = new[] { "Fatura No*", "Tarih*", "VKN/TCKN", "Cari Unvan*", "Matrah*", "KDV", "Toplam*", "ETTN No", "Vade Tarihi", "Tip (E-Fatura/E-Arsiv)", "Aciklama" };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            ws.Cells[1, i + 1].Value = headers[i];
+            ws.Cells[1, i + 1].Style.Font.Bold = true;
+            ws.Cells[1, i + 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+            ws.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightBlue);
+        }
+
+        // Ornek satir
+        ws.Cells[2, 1].Value = $"FTR-{DateTime.Now:yyyyMM}-001";
+        ws.Cells[2, 2].Value = DateTime.Today.ToString("dd.MM.yyyy");
+        ws.Cells[2, 3].Value = "1234567890";
+        ws.Cells[2, 4].Value = "Ornek Firma A.S.";
+        ws.Cells[2, 5].Value = 1000;
+        ws.Cells[2, 6].Value = 200;
+        ws.Cells[2, 7].Value = 1200;
+        ws.Cells[2, 8].Value = "";
+        ws.Cells[2, 9].Value = DateTime.Today.AddDays(30).ToString("dd.MM.yyyy");
+        ws.Cells[2, 10].Value = "E-Arsiv";
+        ws.Cells[2, 11].Value = "";
+
+        // Aciklamalar
+        ws.Cells[5, 1].Value = "ACIKLAMALAR:";
+        ws.Cells[5, 1].Style.Font.Bold = true;
+        ws.Cells[6, 1].Value = "* Fatura No: Benzersiz fatura numarasi";
+        ws.Cells[7, 1].Value = "* Tarih: GG.AA.YYYY formatinda";
+        ws.Cells[8, 1].Value = "* VKN/TCKN: Vergi veya TC kimlik no (mevcut cari bulunur veya yeni olusturulur)";
+        ws.Cells[9, 1].Value = "* Tip: E-Fatura veya E-Arsiv";
+
+        // Cari listesi
+        ws.Cells[12, 1].Value = "MEVCUT CARILER:";
+        ws.Cells[12, 1].Style.Font.Bold = true;
+        int row = 13;
+        var filteredCariler = yon == FaturaYonu.Giden 
+            ? cariler.Where(c => c.CariTipi == CariTipi.Musteri).Take(50).ToList()
+            : cariler.Where(c => c.CariTipi == CariTipi.Tedarikci).Take(50).ToList();
+        
+        foreach (var cari in filteredCariler)
+        {
+            ws.Cells[row, 1].Value = cari.VergiNo;
+            ws.Cells[row, 2].Value = cari.Unvan;
+            row++;
+        }
+
+        ws.Cells.AutoFitColumns();
+        return await Task.FromResult(package.GetAsByteArray());
+    }
+
+    public async Task<byte[]> ExportToExcelAsync(List<Fatura> faturalar)
+    {
+        using var package = new ExcelPackage();
+        var ws = package.Workbook.Worksheets.Add("Faturalar");
+
+        // Basliklar
+        var headers = new[] { "Fatura No", "Tarih", "Vade", "Cari", "VKN", "Matrah", "KDV", "Toplam", "Odenen", "Kalan", "Durum", "Tip", "ETTN" };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            ws.Cells[1, i + 1].Value = headers[i];
+            ws.Cells[1, i + 1].Style.Font.Bold = true;
+            ws.Cells[1, i + 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+            ws.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGreen);
+        }
+
+        // Veriler
+        int row = 2;
+        foreach (var f in faturalar)
+        {
+            ws.Cells[row, 1].Value = f.FaturaNo;
+            ws.Cells[row, 2].Value = f.FaturaTarihi.ToString("dd.MM.yyyy");
+            ws.Cells[row, 3].Value = f.VadeTarihi?.ToString("dd.MM.yyyy");
+            ws.Cells[row, 4].Value = f.Cari?.Unvan;
+            ws.Cells[row, 5].Value = f.Cari?.VergiNo;
+            ws.Cells[row, 6].Value = f.AraToplam;
+            ws.Cells[row, 7].Value = f.KdvTutar;
+            ws.Cells[row, 8].Value = f.GenelToplam;
+            ws.Cells[row, 9].Value = f.OdenenTutar;
+            ws.Cells[row, 10].Value = f.KalanTutar;
+            ws.Cells[row, 11].Value = f.Durum.ToString();
+            ws.Cells[row, 12].Value = f.EFaturaTipi == EFaturaTipi.EFatura ? "E-Fatura" : "E-Arsiv";
+            ws.Cells[row, 13].Value = f.EttnNo;
+            row++;
+        }
+
+        // Ozet satiri
+        row++;
+        ws.Cells[row, 5].Value = "TOPLAM:";
+        ws.Cells[row, 5].Style.Font.Bold = true;
+        ws.Cells[row, 6].Value = faturalar.Sum(f => f.AraToplam);
+        ws.Cells[row, 7].Value = faturalar.Sum(f => f.KdvTutar);
+        ws.Cells[row, 8].Value = faturalar.Sum(f => f.GenelToplam);
+        ws.Cells[row, 9].Value = faturalar.Sum(f => f.OdenenTutar);
+        ws.Cells[row, 10].Value = faturalar.Sum(f => f.KalanTutar);
+
+        // Format
+        ws.Cells[2, 6, row, 10].Style.Numberformat.Format = "#,##0.00";
+        ws.Cells.AutoFitColumns();
+
+        return await Task.FromResult(package.GetAsByteArray());
+    }
+
+    #endregion
+
     private static void CalculateTotals(Fatura fatura)
     {
         if (fatura.FaturaKalemleri != null && fatura.FaturaKalemleri.Count != 0)

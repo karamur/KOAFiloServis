@@ -26,6 +26,10 @@ public interface IFaturaService
     Task<EFaturaImportResult> ImportFromExcelAsync(byte[] fileContent, FaturaYonu yon);
     Task<EFaturaImportResult> ImportFromLucaAsync(byte[] fileContent, FaturaYonu yon);
     
+    // Excel Sablon ve Export
+    Task<byte[]> GetExcelSablonAsync(FaturaYonu yon, List<Cari> cariler);
+    Task<byte[]> ExportToExcelAsync(List<Fatura> faturalar);
+    
     // Dashboard optimized methods
     Task<DashboardFaturaStats> GetDashboardStatsAsync();
 }

@@ -20,15 +20,17 @@
             </button>
             <div class="dropdown">
                 <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    <i class="bi bi-upload me-1"></i>Import
+                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#" @onclick="ExcelImportAc" @onclick:preventDefault><i class="bi bi-file-earmark-excel me-2"></i>Excel'den Aktar</a></li>
-                    <li><a class="dropdown-item" href="#" @onclick="LucaImportAc" @onclick:preventDefault><i class="bi bi-cloud-download me-2"></i>Luca'dan Aktar</a></li>
+                    <li><a class="dropdown-item" href="#" @onclick="SablonIndir" @onclick:preventDefault><i class="bi bi-download me-2"></i>Sablon Indir</a></li>
+                    <li><a class="dropdown-item" href="#" @onclick="ExcelImportAc" @onclick:preventDefault><i class="bi bi-upload me-2"></i>Excel Yukle</a></li>
+                    <li><hr class="dropdown-divider" /></li>
+                    <li><a class="dropdown-item" href="#" @onclick="ExcelExport" @onclick:preventDefault><i class="bi bi-file-earmark-arrow-down me-2"></i>Excel Indir</a></li>
                 </ul>
             </div>
-            <button class="btn btn-outline-success" @onclick="ExcelExport" disabled="@(!faturalar.Any())">
-                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            <button class="btn btn-outline-info" @onclick="LucaImportAc">
+                <i class="bi bi-cloud-download me-1"></i>Luca
             </button>
         </div>
     </div>
@@ -727,9 +729,38 @@
         }
     }
 
+    private async Task SablonIndir()
+    {
+        try
+        {
+            var bytes = await FaturaService.GetExcelSablonAsync(FaturaYonu.Giden, cariler);
+            await JS.InvokeVoidAsync("downloadFileFromBase64", "kesilen_fatura_sablon.xlsx", Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Sablon indirildi!");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
+    }
+
     private async Task ExcelExport()
     {
-        ToastService.ShowInfo("Excel export ozelligi yaklasimda...");
+        if (!filtreliFaturalar.Any())
+        {
+            ToastService.ShowWarning("Indirilecek fatura yok!");
+            return;
+        }
+
+        try
+        {
+            var bytes = await FaturaService.ExportToExcelAsync(filtreliFaturalar);
+            await JS.InvokeVoidAsync("downloadFileFromBase64", $"kesilen_faturalar_{DateTime.Now:yyyyMMdd}.xlsx", Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Excel indirildi!");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
     }
 
     private void ModalKapat()
