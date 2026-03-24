@@ -407,9 +407,22 @@
             // Motor/versiyon secimi - marka bazli
             var motor = motorlar[random.Next(motorlar.Length)];
 
+            // Kaynak secimi
+            var kaynak = random.Next(3) == 0 ? "Arabam" : random.Next(2) == 0 ? "Sahibinden" : "Cargratis";
+            
+            // Kaynaga gore URL olustur
+            var ilanNo = random.Next(100000000, 999999999);
+            var ilanUrl = kaynak switch
+            {
+                "Arabam" => $"https://www.arabam.com/ilan/{ilanNo}",
+                "Sahibinden" => $"https://www.sahibinden.com/ilan/{ilanNo}",
+                "Cargratis" => $"https://www.cargratis.com/ilan/{ilanNo}",
+                _ => $"https://www.sahibinden.com/ilan/{ilanNo}"
+            };
+
             sonuclar.Add(new AramaSonuc
             {
-                Kaynak = random.Next(3) == 0 ? "Arabam" : random.Next(2) == 0 ? "Sahibinden" : "Cargratis",
+                Kaynak = kaynak,
                 Baslik = $"{aramaKriteri.Marka} {aramaKriteri.Model ?? ""}".Trim(),
                 Versiyon = motor,
                 Sehir = sehirler[random.Next(sehirler.Length)],
@@ -421,7 +434,7 @@
                 DegisenParca = random.Next(4) == 0 ? random.Next(1, 3) : 0,
                 TramerTutari = random.Next(5) == 0 ? random.Next(5000, 50000) : 0,
                 Fiyat = fiyat,
-                IlanUrl = $"https://www.sahibinden.com/ilan/{random.Next(100000000, 999999999)}",
+                IlanUrl = ilanUrl,
                 IlanDurumu = ilanDurumu,
                 IlanTarihi = ilanTarihi
             });

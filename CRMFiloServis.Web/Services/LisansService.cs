@@ -45,6 +45,9 @@ public class LisansService : ILisansService
     {
         using var context = await _contextFactory.CreateDbContextAsync();
 
+        // Boþluklarý ve satýr sonlarýný temizle
+        lisansAnahtari = lisansAnahtari.Trim().Replace("\r", "").Replace("\n", "").Replace(" ", "");
+
         // Mevcut lisansi pasif yap
         var mevcutLisans = await context.Lisanslar.FirstOrDefaultAsync(l => !l.IsDeleted);
         if (mevcutLisans != null)
@@ -52,16 +55,21 @@ public class LisansService : ILisansService
             mevcutLisans.IsDeleted = true;
         }
 
-        // Yeni lisans olustur
-        var lisansBilgi = ParseLisansAnahtari(lisansAnahtari);
+        // Lisans bilgilerini parse et
+        var lisansBilgi = ParseLisansAnahtariFull(lisansAnahtari);
+        
         var yeniLisans = new Lisans
         {
             LisansAnahtari = lisansAnahtari,
             Tur = lisansBilgi.Tur,
-            BaslangicTarihi = DateTime.UtcNow,
-            BitisTarihi = DateTime.UtcNow.AddDays(lisansBilgi.Gun),
-            MaxKullaniciSayisi = lisansBilgi.KullaniciSayisi,
+            BaslangicTarihi = lisansBilgi.BaslangicTarihi,
+            BitisTarihi = lisansBilgi.BitisTarihi,
+            MaxKullaniciSayisi = lisansBilgi.MaxKullaniciSayisi,
             MakineKodu = await GetMakineKoduAsync(),
+            FirmaAdi = lisansBilgi.FirmaAdi,
+            YetkiliKisi = lisansBilgi.YetkiliKisi,
+            Email = lisansBilgi.Email,
+            Telefon = lisansBilgi.Telefon,
             ExcelExportIzni = true,
             PdfExportIzni = true,
             RaporlamaIzni = true,
@@ -172,10 +180,13 @@ public class LisansService : ILisansService
         return $"TRIAL-{guid.Substring(0, 4)}-{guid.Substring(4, 4)}-{guid.Substring(8, 4)}";
     }
 
-    private (LisansTuru Tur, int Gun, int KullaniciSayisi) ParseLisansAnahtari(string anahtar)
+    private (LisansTuru Tur, DateTime BaslangicTarihi, DateTime BitisTarihi, int MaxKullaniciSayisi, string FirmaAdi, string YetkiliKisi, string Email, string Telefon) ParseLisansAnahtariFull(string anahtar)
     {
         try
         {
+            // Boþluklarý ve satýr sonlarýný temizle
+            anahtar = anahtar.Trim().Replace("\r", "").Replace("\n", "").Replace(" ", "");
+            
             // Þifrelenmiþ lisans anahtarýný çöz
             var lisansJson = DecryptString(anahtar);
             
@@ -183,11 +194,11 @@ public class LisansService : ILisansService
             var lisansBilgi = System.Text.Json.JsonSerializer.Deserialize<DesktopLisansBilgi>(lisansJson);
             
             if (lisansBilgi == null)
-                throw new Exception("Geçersiz lisans formatý");
+                throw new Exception("Geçersiz lisans formatý - JSON parse edilemedi");
             
             // Makine kodu kontrolü
             var currentMakineKodu = GetMakineKoduAsync().Result;
-            if (lisansBilgi.MakineKodu != currentMakineKodu)
+            if (!string.Equals(lisansBilgi.MakineKodu, currentMakineKodu, StringComparison.OrdinalIgnoreCase))
             {
                 throw new Exception($"Bu lisans baþka bir bilgisayar için oluþturulmuþ!\n\nLisans Makine Kodu: {lisansBilgi.MakineKodu}\nBu PC Makine Kodu: {currentMakineKodu}");
             }
@@ -211,11 +222,22 @@ public class LisansService : ILisansService
             // Kalan gün hesapla
             var kalanGun = (int)(lisansBilgi.BitisTarihi - DateTime.UtcNow).TotalDays;
             
-            return (tur, kalanGun, lisansBilgi.MaxKullaniciSayisi);
+            return (tur, lisansBilgi.BaslangicTarihi, lisansBilgi.BitisTarihi, lisansBilgi.MaxKullaniciSayisi, lisansBilgi.FirmaAdi, lisansBilgi.YetkiliKisi, lisansBilgi.Email, lisansBilgi.Telefon);
         }
-        catch (Exception ex)
+        catch (FormatException)
         {
-            // Hata durumunda Exception fýrlat
+            throw new Exception("Geçersiz lisans formatý - Base64 decode hatasý. Lisans anahtarýný doðru kopyaladýðýnýzdan emin olun.");
+        }
+        catch (System.Security.Cryptography.CryptographicException)
+        {
+            throw new Exception("Lisans anahtarý þifresi çözülemedi. Geçersiz veya bozuk lisans anahtarý.");
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            throw new Exception("Lisans verisi okunamadý. Geçersiz lisans formatý.");
+        }
+        catch (Exception ex) when (!ex.Message.Contains("Makine Kodu") && !ex.Message.Contains("süresi dolmuþ"))
+        {
             throw new Exception($"Lisans aktive edilemedi: {ex.Message}");
         }
     }

@@ -82,6 +82,8 @@ builder.Services.AddScoped<IAktiviteLogService, AktiviteLogService>();
 builder.Services.AddScoped<IDatabaseSettingsService, DatabaseSettingsService>();
 builder.Services.AddScoped<IMuhasebeService, MuhasebeService>();
 builder.Services.AddScoped<ISatisService, SatisService>();
+builder.Services.AddScoped<IAracDegerlemeAIService, AracDegerlemeAIService>(); // AI Araç Deðerleme
+builder.Services.AddHttpClient("OpenAI"); // OpenAI için HttpClient
 builder.Services.AddHostedService<AutoBackupService>();
 builder.Services.AddHttpContextAccessor();
 

@@ -1092,8 +1092,22 @@
 
     private async Task AylikListeYazdir()
     {
+        // Ensure modal is open so printArea element exists in DOM
+        if (!showAylikListeModal)
+        {
+            showAylikListeModal = true;
+            StateHasChanged();
+            // Wait for Blazor to render the modal and DOM to update
+            await Task.Delay(100);
+        }
+
         await JS.InvokeVoidAsync("eval", @"
-            var printContent = document.getElementById('printArea').innerHTML;
+            var printElement = document.getElementById('printArea');
+            if (!printElement) {
+                console.error('printArea element not found');
+                return;
+            }
+            var printContent = printElement.innerHTML;
             var printWindow = window.open('', '_blank', 'width=800,height=600');
             printWindow.document.write('<html><head><title>Aylik Odeme Listesi</title>');
             printWindow.document.write('<style>body{font-family:Arial,sans-serif;margin:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #000;padding:6px;} @media print{body{margin:0;} @page{size:A4;margin:10mm;}}</style>');
