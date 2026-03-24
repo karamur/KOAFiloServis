@@ -435,11 +435,31 @@ public class FaturaService : IFaturaService
                     
                     if (cari == null)
                     {
+                        // Benzersiz CariKodu olustur
+                        var sonCariKodu = await _context.Cariler
+                            .Where(c => c.CariKodu.StartsWith("C"))
+                            .OrderByDescending(c => c.CariKodu)
+                            .Select(c => c.CariKodu)
+                            .FirstOrDefaultAsync();
+                        
+                        int nextNum = 1;
+                        if (!string.IsNullOrEmpty(sonCariKodu) && sonCariKodu.Length > 1)
+                        {
+                            if (int.TryParse(sonCariKodu.Substring(1), out var lastNum))
+                            {
+                                nextNum = lastNum + 1;
+                            }
+                        }
+                        
+                        var yeniCariKodu = $"C{nextNum:D5}"; // C00001, C00002, ...
+                        
                         cari = new Cari
                         {
+                            CariKodu = yeniCariKodu,
                             Unvan = cariUnvan,
                             VergiNo = cariVkn ?? "",
                             CariTipi = yon == FaturaYonu.Giden ? CariTipi.Musteri : CariTipi.Tedarikci,
+                            Aktif = true,
                             CreatedAt = DateTime.UtcNow
                         };
                         _context.Cariler.Add(cari);
