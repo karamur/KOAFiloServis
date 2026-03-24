@@ -174,16 +174,92 @@ public class LisansService : ILisansService
 
     private (LisansTuru Tur, int Gun, int KullaniciSayisi) ParseLisansAnahtari(string anahtar)
     {
-        // Basit bir lisans parse islemi
-        if (anahtar.StartsWith("TRIAL"))
-            return (LisansTuru.Trial, 30, 5);
-        if (anahtar.StartsWith("BASIC"))
-            return (LisansTuru.Basic, 365, 5);
-        if (anahtar.StartsWith("PRO"))
-            return (LisansTuru.Professional, 365, 10);
-        if (anahtar.StartsWith("ENT"))
-            return (LisansTuru.Enterprise, 365, 999);
+        try
+        {
+            // Þifrelenmiþ lisans anahtarýný çöz
+            var lisansJson = DecryptString(anahtar);
+            
+            // JSON'dan LisansBilgi deserialize et
+            var lisansBilgi = System.Text.Json.JsonSerializer.Deserialize<DesktopLisansBilgi>(lisansJson);
+            
+            if (lisansBilgi == null)
+                throw new Exception("Geçersiz lisans formatý");
+            
+            // Makine kodu kontrolü
+            var currentMakineKodu = GetMakineKoduAsync().Result;
+            if (lisansBilgi.MakineKodu != currentMakineKodu)
+            {
+                throw new Exception($"Bu lisans baþka bir bilgisayar için oluþturulmuþ!\n\nLisans Makine Kodu: {lisansBilgi.MakineKodu}\nBu PC Makine Kodu: {currentMakineKodu}");
+            }
+            
+            // Tarih kontrolü
+            if (DateTime.UtcNow > lisansBilgi.BitisTarihi)
+            {
+                throw new Exception($"Lisans süresi dolmuþ! Bitiþ Tarihi: {lisansBilgi.BitisTarihi:dd.MM.yyyy}");
+            }
+            
+            // Lisans tipine göre enum deðeri
+            var tur = lisansBilgi.LisansTipi.ToLower() switch
+            {
+                "trial" => LisansTuru.Trial,
+                "standard" => LisansTuru.Basic,
+                "professional" => LisansTuru.Professional,
+                "enterprise" => LisansTuru.Enterprise,
+                _ => LisansTuru.Trial
+            };
+            
+            // Kalan gün hesapla
+            var kalanGun = (int)(lisansBilgi.BitisTarihi - DateTime.UtcNow).TotalDays;
+            
+            return (tur, kalanGun, lisansBilgi.MaxKullaniciSayisi);
+        }
+        catch (Exception ex)
+        {
+            // Hata durumunda Exception fýrlat
+            throw new Exception($"Lisans aktive edilemedi: {ex.Message}");
+        }
+    }
 
-        return (LisansTuru.Trial, 30, 5);
+    private const string LisansAnahtar = "CRMFiloServis2026SecretKey!@#";
+
+    private string DecryptString(string cipherText)
+    {
+        var fullCipher = Convert.FromBase64String(cipherText);
+
+        using var aes = Aes.Create();
+        var key = SHA256.HashData(Encoding.UTF8.GetBytes(LisansAnahtar));
+        aes.Key = key;
+
+        var iv = new byte[aes.IV.Length];
+        var cipher = new byte[fullCipher.Length - iv.Length];
+
+        Array.Copy(fullCipher, iv, iv.Length);
+        Array.Copy(fullCipher, iv.Length, cipher, 0, cipher.Length);
+
+        aes.IV = iv;
+
+        using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
+        using var msDecrypt = new MemoryStream(cipher);
+        using var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read);
+        using var srDecrypt = new StreamReader(csDecrypt);
+
+        return srDecrypt.ReadToEnd();
+    }
+
+    // Desktop lisans bilgisi için model
+    private class DesktopLisansBilgi
+    {
+        public string LisansKodu { get; set; } = "";
+        public string FirmaAdi { get; set; } = "";
+        public string YetkiliKisi { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Telefon { get; set; } = "";
+        public string LisansTipi { get; set; } = "";
+        public DateTime BaslangicTarihi { get; set; }
+        public DateTime BitisTarihi { get; set; }
+        public int MaxKullaniciSayisi { get; set; }
+        public int MaxAracSayisi { get; set; }
+        public string MakineKodu { get; set; } = "";
+        public bool Aktif { get; set; }
     }
 }
