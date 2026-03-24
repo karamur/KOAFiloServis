@@ -1,0 +1,381 @@
+using CRMFiloServis.Shared.Entities;
+using CRMFiloServis.Web.Data;
+using Microsoft.EntityFrameworkCore;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
+using System.Drawing;
+
+namespace CRMFiloServis.Web.Services;
+
+public class PuantajService : IPuantajService
+{
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+
+    public PuantajService(IDbContextFactory<ApplicationDbContext> contextFactory)
+    {
+        _contextFactory = contextFactory;
+    }
+
+    public async Task<List<PersonelPuantaj>> GetAylikPuantajAsync(int firmaId, int yil, int ay)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelPuantajlar
+            .Include(p => p.Personel)
+            .Where(p => p.FirmaId == firmaId && p.Yil == yil && p.Ay == ay && !p.IsDeleted)
+            .OrderBy(p => p.Personel!.Ad).ThenBy(p => p.Personel!.Soyad)
+            .ToListAsync();
+    }
+
+    public async Task<PersonelPuantaj?> GetPuantajByIdAsync(int id)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelPuantajlar
+            .Include(p => p.Personel)
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+    }
+
+    public async Task<PersonelPuantaj?> GetPersonelAylikPuantajAsync(int personelId, int yil, int ay)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelPuantajlar
+            .Include(p => p.Personel)
+            .FirstOrDefaultAsync(p => p.PersonelId == personelId && p.Yil == yil && p.Ay == ay && !p.IsDeleted);
+    }
+
+    public async Task<PersonelPuantaj> CreateOrUpdatePuantajAsync(PersonelPuantaj puantaj)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+
+        var mevcut = await context.PersonelPuantajlar
+            .FirstOrDefaultAsync(p => p.PersonelId == puantaj.PersonelId && 
+                                     p.Yil == puantaj.Yil && 
+                                     p.Ay == puantaj.Ay);
+
+        if (mevcut != null)
+        {
+            mevcut.CalisilanGun = puantaj.CalisilanGun;
+            mevcut.FazlaMesaiSaat = puantaj.FazlaMesaiSaat;
+            mevcut.IzinGunu = puantaj.IzinGunu;
+            mevcut.MazeretGunu = puantaj.MazeretGunu;
+            mevcut.BrutMaas = puantaj.BrutMaas;
+            mevcut.YemekUcreti = puantaj.YemekUcreti;
+            mevcut.YolUcreti = puantaj.YolUcreti;
+            mevcut.Prim = puantaj.Prim;
+            mevcut.DigerOdeme = puantaj.DigerOdeme;
+            mevcut.SgkKesinti = puantaj.SgkKesinti;
+            mevcut.GelirVergisi = puantaj.GelirVergisi;
+            mevcut.DamgaVergisi = puantaj.DamgaVergisi;
+            mevcut.DigerKesinti = puantaj.DigerKesinti;
+            mevcut.NetOdeme = puantaj.NetOdeme;
+            mevcut.BankaHesapNo = puantaj.BankaHesapNo;
+            mevcut.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+            return mevcut;
+        }
+        else
+        {
+            puantaj.CreatedAt = DateTime.UtcNow;
+            context.PersonelPuantajlar.Add(puantaj);
+            await context.SaveChangesAsync();
+            return puantaj;
+        }
+    }
+
+    public async Task DeletePuantajAsync(int id)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var puantaj = await context.PersonelPuantajlar.FindAsync(id);
+        if (puantaj != null)
+        {
+            puantaj.IsDeleted = true;
+            await context.SaveChangesAsync();
+        }
+    }
+
+    public async Task<List<GunlukPuantaj>> GetGunlukPuantajlarAsync(int puantajId)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.GunlukPuantajlar
+            .Include(g => g.ServisCalisma)
+            .Where(g => g.PersonelPuantajId == puantajId && !g.IsDeleted)
+            .OrderBy(g => g.Tarih)
+            .ToListAsync();
+    }
+
+    public async Task<GunlukPuantaj> SaveGunlukPuantajAsync(GunlukPuantaj gunluk)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+
+        if (gunluk.Id > 0)
+        {
+            context.GunlukPuantajlar.Update(gunluk);
+        }
+        else
+        {
+            gunluk.CreatedAt = DateTime.UtcNow;
+            context.GunlukPuantajlar.Add(gunluk);
+        }
+
+        await context.SaveChangesAsync();
+        return gunluk;
+    }
+
+    public async Task OtomatikGunlukPuantajOlusturAsync(int puantajId, int yil, int ay)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+
+        var puantaj = await context.PersonelPuantajlar.FindAsync(puantajId);
+        if (puantaj == null) return;
+
+        var gunSayisi = DateTime.DaysInMonth(yil, ay);
+
+        for (int gun = 1; gun <= gunSayisi; gun++)
+        {
+            var tarih = new DateTime(yil, ay, gun);
+
+            var mevcut = await context.GunlukPuantajlar
+                .AnyAsync(g => g.PersonelPuantajId == puantajId && g.Tarih.Date == tarih.Date);
+
+            if (!mevcut)
+            {
+                var gunluk = new GunlukPuantaj
+                {
+                    PersonelPuantajId = puantajId,
+                    Tarih = tarih,
+                    Calisti = tarih.DayOfWeek != DayOfWeek.Sunday, // Pazar çalýþmasýz
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.GunlukPuantajlar.Add(gunluk);
+            }
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    public async Task<PersonelPuantaj> HesaplaAsync(int puantajId)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var puantaj = await context.PersonelPuantajlar.FindAsync(puantajId);
+        if (puantaj == null) throw new Exception("Puantaj bulunamadý");
+
+        // Toplam brüt gelir
+        var toplamBrut = puantaj.BrutMaas + puantaj.YemekUcreti + puantaj.YolUcreti + 
+                        puantaj.Prim + puantaj.DigerOdeme;
+
+        // SGK kesintisi (%14)
+        puantaj.SgkKesinti = toplamBrut * 0.14m;
+
+        // Gelir vergisi (basit hesaplama - gerçekte dilimli)
+        var gelirVergisiMatrahi = toplamBrut - puantaj.SgkKesinti;
+        puantaj.GelirVergisi = gelirVergisiMatrahi * 0.15m;
+
+        // Damga vergisi (%0.759)
+        puantaj.DamgaVergisi = toplamBrut * 0.00759m;
+
+        // Net ödeme
+        puantaj.NetOdeme = toplamBrut - puantaj.SgkKesinti - puantaj.GelirVergisi - 
+                          puantaj.DamgaVergisi - puantaj.DigerKesinti;
+
+        puantaj.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+
+        return puantaj;
+    }
+
+    public async Task<decimal> ToplamBrutMaasHesaplaAsync(int firmaId, int yil, int ay)
+    {
+        var puantajlar = await GetAylikPuantajAsync(firmaId, yil, ay);
+        return puantajlar.Sum(p => p.BrutMaas + p.YemekUcreti + p.YolUcreti + p.Prim + p.DigerOdeme);
+    }
+
+    public async Task<decimal> ToplamNetOdemeHesaplaAsync(int firmaId, int yil, int ay)
+    {
+        var puantajlar = await GetAylikPuantajAsync(firmaId, yil, ay);
+        return puantajlar.Sum(p => p.NetOdeme);
+    }
+
+    public async Task<byte[]> ExportPuantajListesiAsync(int firmaId, int yil, int ay)
+    {
+        var puantajlar = await GetAylikPuantajAsync(firmaId, yil, ay);
+
+        using var package = new ExcelPackage();
+        var worksheet = package.Workbook.Worksheets.Add($"{ay:00}-{yil} Puantaj");
+
+        // Baþlýk
+        worksheet.Cells["A1"].Value = "PUANTAJ LÝSTESÝ";
+        worksheet.Cells["A1:P1"].Merge = true;
+        worksheet.Cells["A1"].Style.Font.Size = 16;
+        worksheet.Cells["A1"].Style.Font.Bold = true;
+        worksheet.Cells["A1"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+        worksheet.Cells["A2"].Value = $"{GetAyAdi(ay)} {yil}";
+        worksheet.Cells["A2:P2"].Merge = true;
+        worksheet.Cells["A2"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+        // Kolon baþlýklarý
+        int row = 4;
+        worksheet.Cells[row, 1].Value = "Sýra";
+        worksheet.Cells[row, 2].Value = "Ad Soyad";
+        worksheet.Cells[row, 3].Value = "Çalýþýlan Gün";
+        worksheet.Cells[row, 4].Value = "Fazla Mesai";
+        worksheet.Cells[row, 5].Value = "Ýzin";
+        worksheet.Cells[row, 6].Value = "Brüt Maaþ";
+        worksheet.Cells[row, 7].Value = "Yemek";
+        worksheet.Cells[row, 8].Value = "Yol";
+        worksheet.Cells[row, 9].Value = "Prim";
+        worksheet.Cells[row, 10].Value = "Diðer";
+        worksheet.Cells[row, 11].Value = "Toplam Brüt";
+        worksheet.Cells[row, 12].Value = "SGK Kesinti";
+        worksheet.Cells[row, 13].Value = "Gelir Vergisi";
+        worksheet.Cells[row, 14].Value = "Damga Vergisi";
+        worksheet.Cells[row, 15].Value = "Diðer Kesinti";
+        worksheet.Cells[row, 16].Value = "Net Ödeme";
+
+        worksheet.Cells[row, 1, row, 16].Style.Font.Bold = true;
+        worksheet.Cells[row, 1, row, 16].Style.Fill.PatternType = ExcelFillStyle.Solid;
+        worksheet.Cells[row, 1, row, 16].Style.Fill.BackgroundColor.SetColor(Color.LightBlue);
+
+        // Veriler
+        int sira = 1;
+        row = 5;
+        foreach (var p in puantajlar)
+        {
+            var toplamBrut = p.BrutMaas + p.YemekUcreti + p.YolUcreti + p.Prim + p.DigerOdeme;
+
+            worksheet.Cells[row, 1].Value = sira++;
+            worksheet.Cells[row, 2].Value = $"{p.Personel?.Ad} {p.Personel?.Soyad}";
+            worksheet.Cells[row, 3].Value = p.CalisilanGun;
+            worksheet.Cells[row, 4].Value = p.FazlaMesaiSaat;
+            worksheet.Cells[row, 5].Value = p.IzinGunu;
+            worksheet.Cells[row, 6].Value = p.BrutMaas;
+            worksheet.Cells[row, 7].Value = p.YemekUcreti;
+            worksheet.Cells[row, 8].Value = p.YolUcreti;
+            worksheet.Cells[row, 9].Value = p.Prim;
+            worksheet.Cells[row, 10].Value = p.DigerOdeme;
+            worksheet.Cells[row, 11].Value = toplamBrut;
+            worksheet.Cells[row, 12].Value = p.SgkKesinti;
+            worksheet.Cells[row, 13].Value = p.GelirVergisi;
+            worksheet.Cells[row, 14].Value = p.DamgaVergisi;
+            worksheet.Cells[row, 15].Value = p.DigerKesinti;
+            worksheet.Cells[row, 16].Value = p.NetOdeme;
+
+            // Para birimi formatý
+            for (int col = 6; col <= 16; col++)
+            {
+                worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
+            }
+
+            row++;
+        }
+
+        // Toplam satýrý
+        worksheet.Cells[row, 1].Value = "TOPLAM";
+        worksheet.Cells[row, 1, row, 5].Merge = true;
+        worksheet.Cells[row, 6].Formula = $"SUM(F5:F{row-1})";
+        worksheet.Cells[row, 7].Formula = $"SUM(G5:G{row-1})";
+        worksheet.Cells[row, 8].Formula = $"SUM(H5:H{row-1})";
+        worksheet.Cells[row, 9].Formula = $"SUM(I5:I{row-1})";
+        worksheet.Cells[row, 10].Formula = $"SUM(J5:J{row-1})";
+        worksheet.Cells[row, 11].Formula = $"SUM(K5:K{row-1})";
+        worksheet.Cells[row, 12].Formula = $"SUM(L5:L{row-1})";
+        worksheet.Cells[row, 13].Formula = $"SUM(M5:M{row-1})";
+        worksheet.Cells[row, 14].Formula = $"SUM(N5:N{row-1})";
+        worksheet.Cells[row, 15].Formula = $"SUM(O5:O{row-1})";
+        worksheet.Cells[row, 16].Formula = $"SUM(P5:P{row-1})";
+
+        worksheet.Cells[row, 1, row, 16].Style.Font.Bold = true;
+        worksheet.Cells[row, 1, row, 16].Style.Fill.PatternType = ExcelFillStyle.Solid;
+        worksheet.Cells[row, 1, row, 16].Style.Fill.BackgroundColor.SetColor(Color.Yellow);
+
+        for (int col = 6; col <= 16; col++)
+        {
+            worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
+        }
+
+        // Otomatik geniþlik
+        worksheet.Cells.AutoFitColumns();
+
+        return package.GetAsByteArray();
+    }
+
+    public async Task<byte[]> ExportVakifbankOdemeListesiAsync(int firmaId, int yil, int ay)
+    {
+        var puantajlar = await GetAylikPuantajAsync(firmaId, yil, ay);
+
+        using var package = new ExcelPackage();
+        var worksheet = package.Workbook.Worksheets.Add("Vakýfbank Ödeme");
+
+        // Baþlýk
+        worksheet.Cells["A1"].Value = "VakýfBank Toplu Ödeme Listesi";
+        worksheet.Cells["A1:E1"].Merge = true;
+        worksheet.Cells["A1"].Style.Font.Size = 14;
+        worksheet.Cells["A1"].Style.Font.Bold = true;
+
+        // Kolon baþlýklarý (VakýfBank formatý)
+        worksheet.Cells["A3"].Value = "Sýra";
+        worksheet.Cells["B3"].Value = "Alýcý Adý Soyadý";
+        worksheet.Cells["C3"].Value = "IBAN";
+        worksheet.Cells["D3"].Value = "Tutar";
+        worksheet.Cells["E3"].Value = "Açýklama";
+
+        worksheet.Cells["A3:E3"].Style.Font.Bold = true;
+        worksheet.Cells["A3:E3"].Style.Fill.PatternType = ExcelFillStyle.Solid;
+        worksheet.Cells["A3:E3"].Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+
+        // Veriler
+        int sira = 1;
+        int row = 4;
+        foreach (var p in puantajlar.Where(x => !string.IsNullOrEmpty(x.BankaHesapNo)))
+        {
+            worksheet.Cells[row, 1].Value = sira++;
+            worksheet.Cells[row, 2].Value = $"{p.Personel?.Ad} {p.Personel?.Soyad}";
+            worksheet.Cells[row, 3].Value = p.BankaHesapNo;
+            worksheet.Cells[row, 4].Value = p.NetOdeme;
+            worksheet.Cells[row, 5].Value = $"{GetAyAdi(ay)} {yil} Maaþ Ödemesi";
+
+            worksheet.Cells[row, 4].Style.Numberformat.Format = "#,##0.00";
+            row++;
+        }
+
+        // Toplam
+        worksheet.Cells[row, 1].Value = "TOPLAM";
+        worksheet.Cells[row, 1, row, 3].Merge = true;
+        worksheet.Cells[row, 4].Formula = $"SUM(D4:D{row-1})";
+        worksheet.Cells[row, 4].Style.Numberformat.Format = "#,##0.00";
+        worksheet.Cells[row, 1, row, 5].Style.Font.Bold = true;
+
+        worksheet.Cells.AutoFitColumns();
+
+        return package.GetAsByteArray();
+    }
+
+    public async Task<int> GetToplamPersonelSayisiAsync(int firmaId)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Soforler.CountAsync(s => s.Aktif && !s.IsDeleted);
+    }
+
+    public async Task<Dictionary<int, decimal>> GetAylikMaasGrafigiAsync(int firmaId, int yil)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+
+        var sonuc = new Dictionary<int, decimal>();
+        for (int ay = 1; ay <= 12; ay++)
+        {
+            var toplam = await context.PersonelPuantajlar
+                .Where(p => p.FirmaId == firmaId && p.Yil == yil && p.Ay == ay && !p.IsDeleted)
+                .SumAsync(p => p.NetOdeme);
+            sonuc[ay] = toplam;
+        }
+
+        return sonuc;
+    }
+
+    private string GetAyAdi(int ay) => ay switch
+    {
+        1 => "Ocak", 2 => "Þubat", 3 => "Mart", 4 => "Nisan",
+        5 => "Mayýs", 6 => "Haziran", 7 => "Temmuz", 8 => "Aðustos",
+        9 => "Eylül", 10 => "Ekim", 11 => "Kasým", 12 => "Aralýk",
+        _ => ""
+    };
+}

@@ -1,6 +1,9 @@
 using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
+using System.Drawing;
 
 namespace CRMFiloServis.Web.Services;
 

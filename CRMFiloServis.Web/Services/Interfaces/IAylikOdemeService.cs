@@ -30,4 +30,8 @@ public interface IAylikOdemeService
     Task<decimal> GetToplamAylikOdemeAsync(int firmaId);
     Task<int> GetBekleyenOdemeSayisiAsync(int firmaId);
     Task<decimal> GetBuAyOdenecekTutarAsync(int firmaId);
+    
+    // Excel Export
+    Task<byte[]> ExportAylikOdemeTablosuAsync(int yil, int ay);
+    Task<byte[]> ExportYillikOdemeTablosuAsync(int yil);
 }
