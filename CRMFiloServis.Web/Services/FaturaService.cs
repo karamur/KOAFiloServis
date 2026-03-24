@@ -326,6 +326,12 @@ public class FaturaService : IFaturaService
 
             var rowCount = worksheet.Dimension?.Rows ?? 0;
             
+            if (rowCount < 2)
+            {
+                result.Errors.Add("Excel dosyasinda veri bulunamadi. (Sadece baslik satiri var)");
+                return result;
+            }
+
             for (int row = 2; row <= rowCount; row++)
             {
                 try
@@ -340,6 +346,26 @@ public class FaturaService : IFaturaService
                     var faturaTipiStr = worksheet.Cells[row, 3].Text?.Trim();
                     var tarihStr = worksheet.Cells[row, 4].Text?.Trim();
                     var faturaNo = worksheet.Cells[row, 5].Text?.Trim();
+                    
+                    // Bos satiri atla
+                    if (string.IsNullOrEmpty(faturaNo) && string.IsNullOrEmpty(cariUnvan)) 
+                        continue;
+
+                    // Zorunlu alan kontrolu
+                    if (string.IsNullOrEmpty(faturaNo))
+                    {
+                        result.Errors.Add($"Satir {row}: Fatura No bos.");
+                        result.ErrorCount++;
+                        continue;
+                    }
+                    
+                    if (string.IsNullOrEmpty(cariUnvan))
+                    {
+                        result.Errors.Add($"Satir {row}: Cari Unvan bos.");
+                        result.ErrorCount++;
+                        continue;
+                    }
+
                     var iskonto = ParseDecimal(worksheet.Cells[row, 6].Text);
                     var kdvMatrah0 = ParseDecimal(worksheet.Cells[row, 7].Text);
                     var kdvMatrah1 = ParseDecimal(worksheet.Cells[row, 8].Text);
@@ -350,26 +376,41 @@ public class FaturaService : IFaturaService
                     var kdv20 = ParseDecimal(worksheet.Cells[row, 13].Text);
                     var odenecekTutar = ParseDecimal(worksheet.Cells[row, 14].Text);
 
-                    if (string.IsNullOrEmpty(faturaNo) || string.IsNullOrEmpty(cariUnvan)) continue;
-
                     // Tarihi parse et
                     DateTime faturaTarihi = DateTime.UtcNow;
                     if (!string.IsNullOrEmpty(tarihStr))
                     {
-                        if (DateTime.TryParseExact(tarihStr, new[] { "dd.MM.yyyy", "d.MM.yyyy", "dd.M.yyyy", "d.M.yyyy" }, 
-                            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedTarih))
+                        // Turkce tarih formatlari
+                        var formats = new[] { 
+                            "dd.MM.yyyy", "d.MM.yyyy", "dd.M.yyyy", "d.M.yyyy",
+                            "dd/MM/yyyy", "d/MM/yyyy", "dd/M/yyyy", "d/M/yyyy",
+                            "yyyy-MM-dd"
+                        };
+                        
+                        if (DateTime.TryParseExact(tarihStr, formats, 
+                            new System.Globalization.CultureInfo("tr-TR"), 
+                            System.Globalization.DateTimeStyles.None, out var parsedTarih))
                         {
                             faturaTarihi = DateTime.SpecifyKind(parsedTarih.Date, DateTimeKind.Utc);
                         }
-                        else if (DateTime.TryParse(tarihStr, out parsedTarih))
+                        else if (DateTime.TryParse(tarihStr, new System.Globalization.CultureInfo("tr-TR"), out parsedTarih))
                         {
                             faturaTarihi = DateTime.SpecifyKind(parsedTarih.Date, DateTimeKind.Utc);
+                        }
+                        else
+                        {
+                            // Excel sayisal tarih formati
+                            if (double.TryParse(tarihStr, out var excelDate) && excelDate > 1)
+                            {
+                                faturaTarihi = DateTime.SpecifyKind(DateTime.FromOADate(excelDate).Date, DateTimeKind.Utc);
+                            }
                         }
                     }
 
                     // KONTROL: Fatura no VE tarih ayni olan kayit var mi?
-                    var existingFatura = await _context.Faturalar.FirstOrDefaultAsync(f => 
-                        f.FaturaNo == faturaNo && f.FaturaTarihi.Date == faturaTarihi.Date);
+                    var existingFatura = await _context.Faturalar
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(f => f.FaturaNo == faturaNo);
                     
                     if (existingFatura != null)
                     {
@@ -381,7 +422,7 @@ public class FaturaService : IFaturaService
                     // CARÝ KONTROL: VKN ile bul, yoksa unvan ile bul, yoksa olustur
                     Cari? cari = null;
                     
-                    if (!string.IsNullOrEmpty(cariVkn))
+                    if (!string.IsNullOrEmpty(cariVkn) && cariVkn.Length >= 10)
                     {
                         cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
                     }
@@ -410,6 +451,14 @@ public class FaturaService : IFaturaService
                     var toplamKdv = kdv1 + kdv10 + kdv20;
                     var genelToplam = odenecekTutar > 0 ? odenecekTutar : (toplamMatrah + toplamKdv - iskonto);
 
+                    // Tutar kontrolu
+                    if (genelToplam <= 0 && toplamMatrah <= 0)
+                    {
+                        result.Errors.Add($"Satir {row}: Tutar bilgisi eksik.");
+                        result.ErrorCount++;
+                        continue;
+                    }
+
                     var fatura = new Fatura
                     {
                         FaturaNo = faturaNo,
@@ -418,8 +467,8 @@ public class FaturaService : IFaturaService
                         FirmaId = firmaId,
                         FaturaYonu = yon,
                         FaturaTipi = yon == FaturaYonu.Giden ? FaturaTipi.SatisFaturasi : FaturaTipi.AlisFaturasi,
-                        EFaturaTipi = faturaTipiStr?.ToUpper() == "SATIS" ? EFaturaTipi.EFatura : EFaturaTipi.EArsiv,
-                        AraToplam = toplamMatrah,
+                        EFaturaTipi = EFaturaTipi.EArsiv,
+                        AraToplam = toplamMatrah > 0 ? toplamMatrah : genelToplam,
                         IskontoTutar = iskonto,
                         KdvTutar = toplamKdv,
                         GenelToplam = genelToplam,
@@ -439,7 +488,11 @@ public class FaturaService : IFaturaService
                 }
             }
 
-            await _context.SaveChangesAsync();
+            if (result.ImportedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+            
             result.Success = result.ImportedCount > 0;
         }
         catch (Exception ex)
