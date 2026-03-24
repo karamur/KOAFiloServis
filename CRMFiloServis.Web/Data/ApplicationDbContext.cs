@@ -88,7 +88,10 @@ public class ApplicationDbContext : DbContext
         // Cari
         modelBuilder.Entity<Cari>(entity =>
         {
-            entity.HasIndex(e => e.CariKodu).IsUnique();
+            // CariKodu unique - sadece silinmemis kayitlar icin
+            entity.HasIndex(e => e.CariKodu)
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = false");
             entity.Property(e => e.CariKodu).HasMaxLength(50);
             entity.Property(e => e.Unvan).HasMaxLength(250);
             entity.Property(e => e.VergiNo).HasMaxLength(20);
