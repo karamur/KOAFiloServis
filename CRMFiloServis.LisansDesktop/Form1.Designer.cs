@@ -11,6 +11,11 @@ namespace CRMFiloServis.LisansDesktop
         private System.Windows.Forms.Label lblGun;
         private System.Windows.Forms.Label lblAy;
         private System.Windows.Forms.Label lblYil;
+        
+        // Makine kodu kontrolleri
+        private System.Windows.Forms.TextBox txtMusteriMakineKodu;
+        private System.Windows.Forms.Label lblMusteriMakineKodu;
+        private System.Windows.Forms.Button btnMakineKoduAl;
 
         protected override void Dispose(bool disposing)
         {
@@ -40,6 +45,11 @@ namespace CRMFiloServis.LisansDesktop
             this.lblGun = new System.Windows.Forms.Label();
             this.lblAy = new System.Windows.Forms.Label();
             this.lblYil = new System.Windows.Forms.Label();
+            
+            // Makine kodu kontrolleri
+            this.txtMusteriMakineKodu = new System.Windows.Forms.TextBox();
+            this.lblMusteriMakineKodu = new System.Windows.Forms.Label();
+            this.btnMakineKoduAl = new System.Windows.Forms.Button();
 
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.label5 = new System.Windows.Forms.Label();
@@ -120,6 +130,9 @@ namespace CRMFiloServis.LisansDesktop
             // 
             // groupBox1 - Lisans Tipi ve Süre
             // 
+            this.groupBox1.Controls.Add(this.btnMakineKoduAl);
+            this.groupBox1.Controls.Add(this.txtMusteriMakineKodu);
+            this.groupBox1.Controls.Add(this.lblMusteriMakineKodu);
             this.groupBox1.Controls.Add(this.lblYil);
             this.groupBox1.Controls.Add(this.numYil);
             this.groupBox1.Controls.Add(this.lblAy);
@@ -132,7 +145,7 @@ namespace CRMFiloServis.LisansDesktop
             this.groupBox1.Controls.Add(this.radioTrial);
             this.groupBox1.Location = new System.Drawing.Point(20, 20);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(450, 200);
+            this.groupBox1.Size = new System.Drawing.Size(450, 280);
             this.groupBox1.TabIndex = 0;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Lisans Tipi ve Süre";
@@ -242,6 +255,35 @@ namespace CRMFiloServis.LisansDesktop
             this.numGun.TabIndex = 9;
 
             // 
+            // lblMusteriMakineKodu
+            // 
+            this.lblMusteriMakineKodu.AutoSize = true;
+            this.lblMusteriMakineKodu.Location = new System.Drawing.Point(20, 175);
+            this.lblMusteriMakineKodu.Name = "lblMusteriMakineKodu";
+            this.lblMusteriMakineKodu.Size = new System.Drawing.Size(130, 15);
+            this.lblMusteriMakineKodu.TabIndex = 10;
+            this.lblMusteriMakineKodu.Text = "Müþteri Makine Kodu:";
+
+            // 
+            // txtMusteriMakineKodu
+            // 
+            this.txtMusteriMakineKodu.Location = new System.Drawing.Point(160, 172);
+            this.txtMusteriMakineKodu.Name = "txtMusteriMakineKodu";
+            this.txtMusteriMakineKodu.Size = new System.Drawing.Size(220, 23);
+            this.txtMusteriMakineKodu.TabIndex = 11;
+
+            // 
+            // btnMakineKoduAl
+            // 
+            this.btnMakineKoduAl.Location = new System.Drawing.Point(390, 172);
+            this.btnMakineKoduAl.Name = "btnMakineKoduAl";
+            this.btnMakineKoduAl.Size = new System.Drawing.Size(50, 30);
+            this.btnMakineKoduAl.TabIndex = 12;
+            this.btnMakineKoduAl.Text = "Al";
+            this.btnMakineKoduAl.UseVisualStyleBackColor = true;
+            this.btnMakineKoduAl.Click += new System.EventHandler(this.btnMakineKoduAl_Click);
+
+            // 
             // groupBox2 - Firma Bilgileri
             // 
             this.groupBox2.Controls.Add(this.label5);
@@ -258,7 +300,7 @@ namespace CRMFiloServis.LisansDesktop
             this.groupBox2.Controls.Add(this.lblFirmaAdi);
             this.groupBox2.Location = new System.Drawing.Point(490, 20);
             this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(480, 200);
+            this.groupBox2.Size = new System.Drawing.Size(480, 280);
             this.groupBox2.TabIndex = 1;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Firma Bilgileri";
@@ -383,7 +425,7 @@ namespace CRMFiloServis.LisansDesktop
             this.btnOlustur.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnOlustur.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
             this.btnOlustur.ForeColor = System.Drawing.Color.White;
-            this.btnOlustur.Location = new System.Drawing.Point(20, 240);
+            this.btnOlustur.Location = new System.Drawing.Point(20, 320);
             this.btnOlustur.Name = "btnOlustur";
             this.btnOlustur.Size = new System.Drawing.Size(950, 50);
             this.btnOlustur.TabIndex = 2;
@@ -398,9 +440,9 @@ namespace CRMFiloServis.LisansDesktop
             this.groupBox3.Controls.Add(this.txtLisansAnahtari);
             this.groupBox3.Controls.Add(this.btnKaydet);
             this.groupBox3.Controls.Add(this.btnKopyala);
-            this.groupBox3.Location = new System.Drawing.Point(20, 310);
+            this.groupBox3.Location = new System.Drawing.Point(20, 390);
             this.groupBox3.Name = "groupBox3";
-            this.groupBox3.Size = new System.Drawing.Size(950, 340);
+            this.groupBox3.Size = new System.Drawing.Size(950, 260);
             this.groupBox3.TabIndex = 3;
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "Lisans Bilgileri";

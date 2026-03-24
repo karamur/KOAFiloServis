@@ -27,6 +27,24 @@ namespace CRMFiloServis.LisansDesktop
                 return;
             }
 
+            // Makine kodu kontrolü
+            if (string.IsNullOrWhiteSpace(txtMusteriMakineKodu.Text))
+            {
+                MessageBox.Show("Müþteri makine kodu boþ olamaz!\n\nMüþteri, programda 'Makine Kodunu Al' butonuna týklayarak kendi makine kodunu size göndermelidir.", 
+                    "Uyarý", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtMusteriMakineKodu.Focus();
+                return;
+            }
+
+            // Makine kodu formatý kontrolü (en az 16 karakter)
+            if (txtMusteriMakineKodu.Text.Trim().Length < 16)
+            {
+                MessageBox.Show("Geçersiz makine kodu formatý!\n\nMakine kodu en az 16 karakter olmalýdýr.", 
+                    "Uyarý", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtMusteriMakineKodu.Focus();
+                return;
+            }
+
             try
             {
                 // Lisans Tipi - Sadece isim için
@@ -84,6 +102,7 @@ namespace CRMFiloServis.LisansDesktop
                     BitisTarihi = bitisTarihi,
                     MaxKullaniciSayisi = (int)numMaxKullanici.Value,
                     MaxAracSayisi = (int)numMaxArac.Value,
+                    MakineKodu = txtMusteriMakineKodu.Text.Trim(), // Müþteri makine kodu
                     Aktif = true
                 };
 
@@ -110,6 +129,10 @@ Lisans Süresi     : {toplamYil} yýl, {toplamAy} ay, {toplamGun} gün
 Toplam Gün        : {toplamSure} gün
 Max Kullanýcý     : {lisans.MaxKullaniciSayisi}
 Max Araç          : {lisans.MaxAracSayisi}
+Makine Kodu       : {FormatMachineCode(lisans.MakineKodu)}
+
+??  ÖNEMLÝ: Bu lisans SADECE belirtilen makine koduna sahip 
+             bilgisayarda geçerlidir!
 
 ???????????????????????????????????????????????????????
 LÝSANS ANAHTARI (Aþaðýda):
@@ -126,6 +149,28 @@ LÝSANS ANAHTARI (Aþaðýda):
             catch (Exception ex)
             {
                 MessageBox.Show($"Hata: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnMakineKoduAl_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Bu PC'nin makine kodunu al (test amaçlý)
+                var machineCode = GetMachineCode();
+                txtMusteriMakineKodu.Text = machineCode;
+                
+                MessageBox.Show($"Bu bilgisayarýn makine kodu alýndý:\n\n{FormatMachineCode(machineCode)}\n\n?? NOT: Gerçek lisans oluþturmada MÜÞTERÝNÝN makine kodunu kullanmalýsýnýz!\n\nMüþteri, programda 'Lisans Bilgileri' sayfasýndaki makine kodunu size göndermelidir.", 
+                    "Makine Kodu", 
+                    MessageBoxButtons.OK, 
+                    MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Makine kodu alýnamadý:\n{ex.Message}", 
+                    "Hata", 
+                    MessageBoxButtons.OK, 
+                    MessageBoxIcon.Error);
             }
         }
 
@@ -300,6 +345,99 @@ Durum             : {(lisans.Aktif ? "Aktif" : "Pasif")}
 
             return srDecrypt.ReadToEnd();
         }
+
+        private string FormatMachineCode(string code)
+        {
+            // Makine kodunu belirli bir formatta göster
+            if (string.IsNullOrEmpty(code) || code.Length < 4)
+                return code;
+                
+            return string.Join("-", Enumerable.Range(0, code.Length / 4)
+                .Select(i => code.Substring(i * 4, Math.Min(4, code.Length - i * 4))));
+        }
+
+        private static string GetMachineCode()
+        {
+            try
+            {
+                // Windows için System.Management kullan
+                if (OperatingSystem.IsWindows())
+                {
+                    var cpuId = GetCpuId();
+                    var mbSerial = GetMotherboardSerial();
+                    var diskSerial = GetDiskSerial();
+                    
+                    var combined = $"{cpuId}-{mbSerial}-{diskSerial}";
+                    using var sha = SHA256.Create();
+                    var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(combined));
+                    return Convert.ToBase64String(hash).Substring(0, 32).Replace("/", "").Replace("+", "");
+                }
+                
+                // Diðer platformlar için basit kod
+                var machineName = Environment.MachineName;
+                var userName = Environment.UserName;
+                var osVersion = Environment.OSVersion.ToString();
+                
+                var fallbackCombined = $"{machineName}-{userName}-{osVersion}";
+                using var fallbackSha = SHA256.Create();
+                var fallbackHash = fallbackSha.ComputeHash(Encoding.UTF8.GetBytes(fallbackCombined));
+                return Convert.ToBase64String(fallbackHash).Substring(0, 32).Replace("/", "").Replace("+", "");
+            }
+            catch
+            {
+                return "LOCAL-DEV-MODE-00000000";
+            }
+        }
+
+        private static string GetCpuId()
+        {
+            try
+            {
+                if (!OperatingSystem.IsWindows()) return "CPU-UNKNOWN";
+                
+                using var searcher = new System.Management.ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor");
+                foreach (var obj in searcher.Get())
+                {
+                    return obj["ProcessorId"]?.ToString() ?? "CPU-UNKNOWN";
+                }
+            }
+            catch { }
+            return "CPU-UNKNOWN";
+        }
+
+        private static string GetMotherboardSerial()
+        {
+            try
+            {
+                if (!OperatingSystem.IsWindows()) return "MB-UNKNOWN";
+                
+                using var searcher = new System.Management.ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
+                foreach (var obj in searcher.Get())
+                {
+                    return obj["SerialNumber"]?.ToString() ?? "MB-UNKNOWN";
+                }
+            }
+            catch { }
+            return "MB-UNKNOWN";
+        }
+
+        private static string GetDiskSerial()
+        {
+            try
+            {
+                if (!OperatingSystem.IsWindows()) return "DISK-UNKNOWN";
+                
+                using var searcher = new System.Management.ManagementObjectSearcher("SELECT SerialNumber FROM Win32_PhysicalMedia");
+                foreach (var obj in searcher.Get())
+                {
+                    var serial = obj["SerialNumber"]?.ToString()?.Trim();
+                    if (!string.IsNullOrEmpty(serial))
+                        return serial;
+                }
+            }
+            catch { }
+            return "DISK-UNKNOWN";
+        }
     }
 
     public class LisansBilgi
@@ -314,6 +452,7 @@ Durum             : {(lisans.Aktif ? "Aktif" : "Pasif")}
         public DateTime BitisTarihi { get; set; }
         public int MaxKullaniciSayisi { get; set; }
         public int MaxAracSayisi { get; set; }
+        public string MakineKodu { get; set; } = ""; // Müþteri makine kodu
         public bool Aktif { get; set; }
     }
 }
