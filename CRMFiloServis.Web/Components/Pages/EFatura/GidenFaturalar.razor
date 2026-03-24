@@ -18,19 +18,14 @@
             <button class="btn btn-primary" @onclick="YeniFaturaAc">
                 <i class="bi bi-plus-lg me-1"></i>Yeni Fatura
             </button>
-            <div class="dropdown">
-                <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#" @onclick="SablonIndir" @onclick:preventDefault><i class="bi bi-download me-2"></i>Sablon Indir</a></li>
-                    <li><a class="dropdown-item" href="#" @onclick="ExcelImportAc" @onclick:preventDefault><i class="bi bi-upload me-2"></i>Excel Yukle</a></li>
-                    <li><hr class="dropdown-divider" /></li>
-                    <li><a class="dropdown-item" href="#" @onclick="ExcelExport" @onclick:preventDefault><i class="bi bi-file-earmark-arrow-down me-2"></i>Excel Indir</a></li>
-                </ul>
-            </div>
-            <button class="btn btn-outline-info" @onclick="LucaImportAc">
-                <i class="bi bi-cloud-download me-1"></i>Luca
+            <button class="btn btn-outline-info" @onclick="SablonIndir" title="Excel Sablon Indir">
+                <i class="bi bi-download"></i>
+            </button>
+            <button class="btn btn-outline-success" @onclick="ExcelImportAc" title="Excel Yukle">
+                <i class="bi bi-upload"></i>
+            </button>
+            <button class="btn btn-success" @onclick="ExcelExport" disabled="@(!filtreliFaturalar.Any())" title="Excel Indir">
+                <i class="bi bi-file-earmark-excel"></i>
             </button>
         </div>
     </div>
@@ -314,13 +309,13 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-upload me-2"></i>@importBaslik</h5>
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-excel me-2"></i>Excel'den Fatura Yukle</h5>
                     <button type="button" class="btn-close" @onclick="ModalKapat"></button>
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info py-2">
-                        <strong>Excel Format:</strong><br />
-                        <small>A: Fatura No, B: Tarih, C: VKN/TCKN, D: Unvan, E: Matrah, F: KDV, G: Toplam, H: ETTN, I: Tip (E-Fatura/E-Arsiv)</small>
+                        <i class="bi bi-info-circle me-1"></i>
+                        Sablon dosyasini indirip doldurduktan sonra yukleyin.
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Excel Dosyasi Secin *</label>
@@ -343,13 +338,16 @@
                     }
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-info" @onclick="SablonIndir">
+                        <i class="bi bi-download me-1"></i>Sablon Indir
+                    </button>
                     <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
                     <button type="button" class="btn btn-primary" @onclick="ImportYap" disabled="@(importFile == null || isImporting)">
                         @if (isImporting)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        Aktar
+                        Yukle
                     </button>
                 </div>
             </div>
@@ -487,8 +485,6 @@
     private string tahsilatAciklama = "";
 
     // Import
-    private string importBaslik = "";
-    private string importTip = "";
     private IBrowserFile? importFile;
     private EFaturaImportResult? importResult;
     private bool isImporting = false;
@@ -672,17 +668,6 @@
 
     private void ExcelImportAc()
     {
-        importBaslik = "Excel'den Aktar";
-        importTip = "Excel";
-        importFile = null;
-        importResult = null;
-        showImportModal = true;
-    }
-
-    private void LucaImportAc()
-    {
-        importBaslik = "Luca'dan Aktar";
-        importTip = "Luca";
         importFile = null;
         importResult = null;
         showImportModal = true;
@@ -707,10 +692,7 @@
             await importFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
             var fileContent = stream.ToArray();
 
-            if (importTip == "Luca")
-                importResult = await FaturaService.ImportFromLucaAsync(fileContent, FaturaYonu.Giden);
-            else
-                importResult = await FaturaService.ImportFromExcelAsync(fileContent, FaturaYonu.Giden);
+            importResult = await FaturaService.ImportFromExcelAsync(fileContent, FaturaYonu.Giden);
 
             if (importResult.Success)
             {

@@ -295,9 +295,9 @@
                                     <td class="text-center">
                                         @if (!string.IsNullOrEmpty(sonuc.IlanUrl))
                                         {
-                                            <a href="@sonuc.IlanUrl" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => IlanAc(sonuc.IlanUrl)" title="Ilana Git">
                                                 <i class="bi bi-box-arrow-up-right"></i>
-                                            </a>
+                                            </button>
                                         }
                                         <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => IlanaEkle(sonuc)" title="Ilana Ekle">
                                             <i class="bi bi-plus-lg"></i>
@@ -466,6 +466,14 @@
 
         filtrelenmissonuclar = query.ToList();
         StateHasChanged();
+    }
+
+    private async Task IlanAc(string? url)
+    {
+        if (!string.IsNullOrEmpty(url))
+        {
+            await JS.InvokeVoidAsync("open", url, "_blank");
+        }
     }
 
     private void IlanaEkle(AramaSonuc sonuc)
