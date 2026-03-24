@@ -19,8 +19,13 @@ public class Fatura : BaseEntity
     public DateTime? GibOnayTarihi { get; set; }
     public string? ImportKaynak { get; set; } // Excel, Luca, Manuel
 
+    // Firma bilgisi
+    public int? FirmaId { get; set; }
+    public virtual Firma? Firma { get; set; }
+
     // Tutarlar
     public decimal AraToplam { get; set; }
+    public decimal IskontoTutar { get; set; } = 0;
     public decimal KdvOrani { get; set; } = 20;
     public decimal KdvTutar { get; set; }
     public decimal GenelToplam { get; set; }

@@ -20,14 +20,13 @@ public interface IFaturaService
     Task UpdateOdenenTutarAsync(int faturaId);
     
     // E-Fatura / E-Arsiv metodlari
-    Task<List<Fatura>> GetByYonAsync(FaturaYonu yon);
-    Task<List<Fatura>> GetByYonAndDateRangeAsync(FaturaYonu yon, DateTime? baslangic, DateTime? bitis);
+    Task<List<Fatura>> GetByYonAsync(FaturaYonu yon, int? firmaId = null);
+    Task<List<Fatura>> GetByYonAndDateRangeAsync(FaturaYonu yon, DateTime? baslangic, DateTime? bitis, int? firmaId = null);
     Task<List<Fatura>> GetByEFaturaTipiAsync(EFaturaTipi tip);
-    Task<EFaturaImportResult> ImportFromExcelAsync(byte[] fileContent, FaturaYonu yon);
-    Task<EFaturaImportResult> ImportFromLucaAsync(byte[] fileContent, FaturaYonu yon);
+    Task<EFaturaImportResult> ImportFromExcelAsync(byte[] fileContent, FaturaYonu yon, int? firmaId = null);
     
-    // Excel Sablon ve Export
-    Task<byte[]> GetExcelSablonAsync(FaturaYonu yon, List<Cari> cariler);
+    // Excel Sablon ve Export - Yeni format (ornek dosya ile uyumlu)
+    Task<byte[]> GetExcelSablonAsync(FaturaYonu yon);
     Task<byte[]> ExportToExcelAsync(List<Fatura> faturalar);
     
     // Dashboard optimized methods

@@ -5,6 +5,7 @@
 @inject IFaturaService FaturaService
 @inject ICariService CariService
 @inject IBankaKasaHareketService BankaKasaService
+@inject IFirmaService FirmaService
 @inject IToastService ToastService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -35,20 +36,25 @@
         <div class="card-body py-2">
             <div class="row g-2 align-items-end">
                 <div class="col-md-2">
+                    <label class="form-label small mb-1">Firma</label>
+                    <select class="form-select form-select-sm" @bind="filtreFirmaId" @bind:after="Filtrele">
+                        <option value="0">Tum Firmalar</option>
+                        @if (firmalar != null)
+                        {
+                            @foreach (var firma in firmalar)
+                            {
+                                <option value="@firma.Id">@firma.FirmaAdi</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label small mb-1">Baslangic</label>
                     <input type="date" class="form-control form-control-sm" @bind="filtreBaslangic" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-1">Bitis</label>
                     <input type="date" class="form-control form-control-sm" @bind="filtreBitis" />
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label small mb-1">E-Fatura Tipi</label>
-                    <select class="form-select form-select-sm" @bind="filtreEFaturaTipi">
-                        <option value="">Tumu</option>
-                        <option value="1">E-Fatura</option>
-                        <option value="2">E-Arsiv</option>
-                    </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-1">Tahsilat Durumu</label>
@@ -460,6 +466,7 @@
     private List<Fatura> filtreliFaturalar = new();
     private List<Cari> cariler = new();
     private List<BankaHesap> bankaHesaplari = new();
+    private List<Firma> firmalar = new();
     private bool isLoading = true;
 
     // Filtre
@@ -468,6 +475,7 @@
     private string filtreEFaturaTipi = "";
     private string filtreDurum = "";
     private string aramaMetni = "";
+    private int filtreFirmaId = 0;
 
     // Modals
     private bool showFaturaModal = false;
@@ -493,6 +501,7 @@
     {
         cariler = await CariService.GetAllAsync();
         bankaHesaplari = await BankaKasaService.GetAktifHesaplarAsync();
+        firmalar = await FirmaService.GetAllAsync();
         await YenileAsync();
     }
 
@@ -529,6 +538,9 @@
         if (!string.IsNullOrEmpty(filtreDurum) && int.TryParse(filtreDurum, out var durum))
             filtered = filtered.Where(f => (int)f.Durum == durum);
         
+        if (filtreFirmaId > 0)
+            filtered = filtered.Where(f => f.Cari != null && f.Cari.FirmaId == filtreFirmaId);
+        
         if (!string.IsNullOrEmpty(aramaMetni))
             filtered = filtered.Where(f => 
                 f.FaturaNo.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
@@ -545,6 +557,7 @@
         filtreEFaturaTipi = "";
         filtreDurum = "";
         aramaMetni = "";
+        filtreFirmaId = 0;
         Filtrele();
     }
 
@@ -692,7 +705,9 @@
             await importFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
             var fileContent = stream.ToArray();
 
-            importResult = await FaturaService.ImportFromExcelAsync(fileContent, FaturaYonu.Giden);
+            // Secili firmaya gore import
+            var firmaId = filtreFirmaId > 0 ? filtreFirmaId : (int?)null;
+            importResult = await FaturaService.ImportFromExcelAsync(fileContent, FaturaYonu.Giden, firmaId);
 
             if (importResult.Success)
             {
@@ -715,7 +730,7 @@
     {
         try
         {
-            var bytes = await FaturaService.GetExcelSablonAsync(FaturaYonu.Giden, cariler);
+            var bytes = await FaturaService.GetExcelSablonAsync(FaturaYonu.Giden);
             await JS.InvokeVoidAsync("downloadFileFromBase64", "kesilen_fatura_sablon.xlsx", Convert.ToBase64String(bytes));
             ToastService.ShowSuccess("Sablon indirildi!");
         }

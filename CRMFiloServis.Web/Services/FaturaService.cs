@@ -263,20 +263,26 @@ public class FaturaService : IFaturaService
 
     #region E-Fatura / E-Arsiv Metodlari
 
-    public async Task<List<Fatura>> GetByYonAsync(FaturaYonu yon)
-    {
-        return await _context.Faturalar
-            .Include(f => f.Cari)
-            .Where(f => f.FaturaYonu == yon)
-            .OrderByDescending(f => f.FaturaTarihi)
-            .ToListAsync();
-    }
-
-    public async Task<List<Fatura>> GetByYonAndDateRangeAsync(FaturaYonu yon, DateTime? baslangic, DateTime? bitis)
+    public async Task<List<Fatura>> GetByYonAsync(FaturaYonu yon, int? firmaId = null)
     {
         var query = _context.Faturalar
             .Include(f => f.Cari)
             .Where(f => f.FaturaYonu == yon);
+
+        if (firmaId.HasValue)
+            query = query.Where(f => f.FirmaId == firmaId.Value);
+
+        return await query.OrderByDescending(f => f.FaturaTarihi).ToListAsync();
+    }
+
+    public async Task<List<Fatura>> GetByYonAndDateRangeAsync(FaturaYonu yon, DateTime? baslangic, DateTime? bitis, int? firmaId = null)
+    {
+        var query = _context.Faturalar
+            .Include(f => f.Cari)
+            .Where(f => f.FaturaYonu == yon);
+
+        if (firmaId.HasValue)
+            query = query.Where(f => f.FirmaId == firmaId.Value);
 
         if (baslangic.HasValue)
             query = query.Where(f => f.FaturaTarihi >= baslangic.Value);
@@ -296,7 +302,13 @@ public class FaturaService : IFaturaService
             .ToListAsync();
     }
 
-    public async Task<EFaturaImportResult> ImportFromExcelAsync(byte[] fileContent, FaturaYonu yon)
+    /// <summary>
+    /// Excel Import - Ornek dosya formatina gore:
+    /// A: Unvani/Adi Soyadi, B: Vkn/Tckn, C: Fatura Tipi, D: Fatura Tarihi, E: Fatura No,
+    /// F: Iskonto, G: Kdv Matrahi %0, H: Kdv Matrahi %1, I: Kdv Matrahi %10, J: Kdv Matrahi %20,
+    /// K: Kdv%1, L: Kdv%10, M: Kdv%20, N: Odenecek Tutar Turk Lirasi
+    /// </summary>
+    public async Task<EFaturaImportResult> ImportFromExcelAsync(byte[] fileContent, FaturaYonu yon, int? firmaId = null)
     {
         var result = new EFaturaImportResult();
         
@@ -318,23 +330,41 @@ public class FaturaService : IFaturaService
             {
                 try
                 {
-                    var faturaNo = worksheet.Cells[row, 1].Text?.Trim();
-                    var tarihStr = worksheet.Cells[row, 2].Text?.Trim();
-                    var cariVkn = worksheet.Cells[row, 3].Text?.Trim();
-                    var cariUnvan = worksheet.Cells[row, 4].Text?.Trim();
-                    var araToplam = ParseDecimal(worksheet.Cells[row, 5].Text);
-                    var kdvTutar = ParseDecimal(worksheet.Cells[row, 6].Text);
-                    var genelToplam = ParseDecimal(worksheet.Cells[row, 7].Text);
-                    var ettnNo = worksheet.Cells[row, 8].Text?.Trim();
-                    var eFaturaTipiStr = worksheet.Cells[row, 9].Text?.Trim();
+                    // Ornek dosya formati:
+                    // A: Unvani/Adi Soyadi, B: Vkn/Tckn, C: Fatura Tipi, D: Fatura Tarihi, E: Fatura No
+                    // F: Iskonto, G: Kdv Matrahi %0, H: Kdv Matrahi %1, I: Kdv Matrahi %10, J: Kdv Matrahi %20
+                    // K: Kdv%1, L: Kdv%10, M: Kdv%20, N: Odenecek Tutar
+                    
+                    var cariUnvan = worksheet.Cells[row, 1].Text?.Trim();
+                    var cariVkn = worksheet.Cells[row, 2].Text?.Trim();
+                    var faturaTipiStr = worksheet.Cells[row, 3].Text?.Trim();
+                    var tarihStr = worksheet.Cells[row, 4].Text?.Trim();
+                    var faturaNo = worksheet.Cells[row, 5].Text?.Trim();
+                    var iskonto = ParseDecimal(worksheet.Cells[row, 6].Text);
+                    var kdvMatrah0 = ParseDecimal(worksheet.Cells[row, 7].Text);
+                    var kdvMatrah1 = ParseDecimal(worksheet.Cells[row, 8].Text);
+                    var kdvMatrah10 = ParseDecimal(worksheet.Cells[row, 9].Text);
+                    var kdvMatrah20 = ParseDecimal(worksheet.Cells[row, 10].Text);
+                    var kdv1 = ParseDecimal(worksheet.Cells[row, 11].Text);
+                    var kdv10 = ParseDecimal(worksheet.Cells[row, 12].Text);
+                    var kdv20 = ParseDecimal(worksheet.Cells[row, 13].Text);
+                    var odenecekTutar = ParseDecimal(worksheet.Cells[row, 14].Text);
 
-                    if (string.IsNullOrEmpty(faturaNo)) continue;
+                    if (string.IsNullOrEmpty(faturaNo) || string.IsNullOrEmpty(cariUnvan)) continue;
 
                     // Tarihi parse et
                     DateTime faturaTarihi = DateTime.UtcNow;
-                    if (DateTime.TryParse(tarihStr, out var parsedTarih))
+                    if (!string.IsNullOrEmpty(tarihStr))
                     {
-                        faturaTarihi = DateTime.SpecifyKind(parsedTarih.Date, DateTimeKind.Utc);
+                        if (DateTime.TryParseExact(tarihStr, new[] { "dd.MM.yyyy", "d.MM.yyyy", "dd.M.yyyy", "d.M.yyyy" }, 
+                            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedTarih))
+                        {
+                            faturaTarihi = DateTime.SpecifyKind(parsedTarih.Date, DateTimeKind.Utc);
+                        }
+                        else if (DateTime.TryParse(tarihStr, out parsedTarih))
+                        {
+                            faturaTarihi = DateTime.SpecifyKind(parsedTarih.Date, DateTimeKind.Utc);
+                        }
                     }
 
                     // KONTROL: Fatura no VE tarih ayni olan kayit var mi?
@@ -344,28 +374,25 @@ public class FaturaService : IFaturaService
                     if (existingFatura != null)
                     {
                         result.SkippedCount++;
-                        result.Errors.Add($"Satir {row}: '{faturaNo}' numarali fatura {faturaTarihi:dd.MM.yyyy} tarihinde zaten mevcut.");
+                        result.Errors.Add($"Satir {row}: '{faturaNo}' zaten mevcut.");
                         continue;
                     }
 
                     // CARÝ KONTROL: VKN ile bul, yoksa unvan ile bul, yoksa olustur
                     Cari? cari = null;
                     
-                    // Oncelikle VKN ile ara
                     if (!string.IsNullOrEmpty(cariVkn))
                     {
                         cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
                     }
                     
-                    // VKN ile bulunamadiysa unvan ile ara
                     if (cari == null && !string.IsNullOrEmpty(cariUnvan))
                     {
                         cari = await _context.Cariler.FirstOrDefaultAsync(c => 
                             c.Unvan.ToLower() == cariUnvan.ToLower());
                     }
                     
-                    // Hala bulunamadiysa yeni cari olustur
-                    if (cari == null && !string.IsNullOrEmpty(cariUnvan))
+                    if (cari == null)
                     {
                         cari = new Cari
                         {
@@ -378,25 +405,24 @@ public class FaturaService : IFaturaService
                         await _context.SaveChangesAsync();
                     }
 
-                    if (cari == null)
-                    {
-                        result.Errors.Add($"Satir {row}: Cari bulunamadi veya olusturulamadi.");
-                        result.ErrorCount++;
-                        continue;
-                    }
+                    // Toplam matrah ve KDV hesapla
+                    var toplamMatrah = kdvMatrah0 + kdvMatrah1 + kdvMatrah10 + kdvMatrah20;
+                    var toplamKdv = kdv1 + kdv10 + kdv20;
+                    var genelToplam = odenecekTutar > 0 ? odenecekTutar : (toplamMatrah + toplamKdv - iskonto);
 
                     var fatura = new Fatura
                     {
                         FaturaNo = faturaNo,
                         FaturaTarihi = faturaTarihi,
                         CariId = cari.Id,
+                        FirmaId = firmaId,
                         FaturaYonu = yon,
                         FaturaTipi = yon == FaturaYonu.Giden ? FaturaTipi.SatisFaturasi : FaturaTipi.AlisFaturasi,
-                        EFaturaTipi = eFaturaTipiStr?.ToLower() == "e-fatura" ? EFaturaTipi.EFatura : EFaturaTipi.EArsiv,
-                        AraToplam = araToplam,
-                        KdvTutar = kdvTutar,
-                        GenelToplam = genelToplam > 0 ? genelToplam : araToplam + kdvTutar,
-                        EttnNo = ettnNo,
+                        EFaturaTipi = faturaTipiStr?.ToUpper() == "SATIS" ? EFaturaTipi.EFatura : EFaturaTipi.EArsiv,
+                        AraToplam = toplamMatrah,
+                        IskontoTutar = iskonto,
+                        KdvTutar = toplamKdv,
+                        GenelToplam = genelToplam,
                         ImportKaynak = "Excel",
                         Durum = FaturaDurum.Beklemede,
                         CreatedAt = DateTime.UtcNow
@@ -424,143 +450,6 @@ public class FaturaService : IFaturaService
         return result;
     }
 
-    public async Task<EFaturaImportResult> ImportFromLucaAsync(byte[] fileContent, FaturaYonu yon)
-    {
-        var result = new EFaturaImportResult();
-        
-        try
-        {
-            using var stream = new MemoryStream(fileContent);
-            using var package = new OfficeOpenXml.ExcelPackage(stream);
-            var worksheet = package.Workbook.Worksheets.FirstOrDefault();
-            
-            if (worksheet == null)
-            {
-                result.Errors.Add("Excel dosyasinda sayfa bulunamadi.");
-                return result;
-            }
-
-            var rowCount = worksheet.Dimension?.Rows ?? 0;
-            
-            // Luca formatinda kolonlar:
-            // A: Fatura No, B: Tarih, C: VKN/TCKN, D: Unvan, E: Matrah, F: KDV, G: Toplam, H: ETTN, I: Fatura Tipi
-            for (int row = 2; row <= rowCount; row++)
-            {
-                try
-                {
-                    var faturaNo = worksheet.Cells[row, 1].Text?.Trim();
-                    if (string.IsNullOrEmpty(faturaNo)) continue;
-
-                    var tarihStr = worksheet.Cells[row, 2].Text?.Trim();
-                    
-                    // Tarihi parse et
-                    DateTime faturaTarihi = DateTime.UtcNow;
-                    if (DateTime.TryParse(tarihStr, out var parsedTarih))
-                    {
-                        faturaTarihi = DateTime.SpecifyKind(parsedTarih.Date, DateTimeKind.Utc);
-                    }
-
-                    // KONTROL: Fatura no VE tarih ayni olan kayit var mi?
-                    var existingFatura = await _context.Faturalar.FirstOrDefaultAsync(f => 
-                        f.FaturaNo == faturaNo && f.FaturaTarihi.Date == faturaTarihi.Date);
-                    
-                    if (existingFatura != null)
-                    {
-                        result.SkippedCount++;
-                        result.Errors.Add($"Satir {row}: '{faturaNo}' numarali fatura {faturaTarihi:dd.MM.yyyy} tarihinde zaten mevcut.");
-                        continue;
-                    }
-
-                    var cariVkn = worksheet.Cells[row, 3].Text?.Trim();
-                    var cariUnvan = worksheet.Cells[row, 4].Text?.Trim();
-                    var matrah = ParseDecimal(worksheet.Cells[row, 5].Text);
-                    var kdvTutar = ParseDecimal(worksheet.Cells[row, 6].Text);
-                    var genelToplam = ParseDecimal(worksheet.Cells[row, 7].Text);
-                    var ettnNo = worksheet.Cells[row, 8].Text?.Trim();
-                    var faturaTipiStr = worksheet.Cells[row, 9].Text?.Trim();
-
-                    // CARÝ KONTROL: VKN ile bul, yoksa unvan ile bul, yoksa olustur
-                    Cari? cari = null;
-                    
-                    // Oncelikle VKN ile ara
-                    if (!string.IsNullOrEmpty(cariVkn))
-                    {
-                        cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
-                    }
-                    
-                    // VKN ile bulunamadiysa unvan ile ara
-                    if (cari == null && !string.IsNullOrEmpty(cariUnvan))
-                    {
-                        cari = await _context.Cariler.FirstOrDefaultAsync(c => 
-                            c.Unvan.ToLower() == cariUnvan.ToLower());
-                    }
-                    
-                    // Hala bulunamadiysa yeni cari olustur
-                    if (cari == null && !string.IsNullOrEmpty(cariUnvan))
-                    {
-                        cari = new Cari
-                        {
-                            Unvan = cariUnvan,
-                            VergiNo = cariVkn ?? "",
-                            CariTipi = yon == FaturaYonu.Giden ? CariTipi.Musteri : CariTipi.Tedarikci,
-                            CreatedAt = DateTime.UtcNow
-                        };
-                        _context.Cariler.Add(cari);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    if (cari == null)
-                    {
-                        result.Errors.Add($"Satir {row}: Cari bulunamadi veya olusturulamadi.");
-                        result.ErrorCount++;
-                        continue;
-                    }
-
-                    var eFaturaTipi = faturaTipiStr?.ToLower() switch
-                    {
-                        "e-fatura" or "efatura" => EFaturaTipi.EFatura,
-                        _ => EFaturaTipi.EArsiv
-                    };
-
-                    var fatura = new Fatura
-                    {
-                        FaturaNo = faturaNo,
-                        FaturaTarihi = faturaTarihi,
-                        CariId = cari.Id,
-                        FaturaYonu = yon,
-                        FaturaTipi = yon == FaturaYonu.Giden ? FaturaTipi.SatisFaturasi : FaturaTipi.AlisFaturasi,
-                        EFaturaTipi = eFaturaTipi,
-                        AraToplam = matrah,
-                        KdvTutar = kdvTutar,
-                        GenelToplam = genelToplam > 0 ? genelToplam : matrah + kdvTutar,
-                        EttnNo = ettnNo,
-                        ImportKaynak = "Luca",
-                        Durum = FaturaDurum.Beklemede,
-                        CreatedAt = DateTime.UtcNow
-                    };
-
-                    _context.Faturalar.Add(fatura);
-                    result.ImportedItems.Add(fatura);
-                    result.ImportedCount++;
-                }
-                catch (Exception ex)
-                {
-                    result.Errors.Add($"Satir {row}: {ex.Message}");
-                    result.ErrorCount++;
-                }
-            }
-
-            await _context.SaveChangesAsync();
-            result.Success = result.ImportedCount > 0;
-        }
-        catch (Exception ex)
-        {
-            result.Errors.Add($"Luca dosyasi okuma hatasi: {ex.Message}");
-        }
-
-        return result;
-    }
-
     private static decimal ParseDecimal(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return 0;
@@ -568,17 +457,24 @@ public class FaturaService : IFaturaService
         return decimal.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : 0;
     }
 
-    #endregion
-
-    #region Excel Sablon ve Export
-
-    public async Task<byte[]> GetExcelSablonAsync(FaturaYonu yon, List<Cari> cariler)
+    /// <summary>
+    /// Excel Sablon - Ornek dosya formatina gore:
+    /// A: Unvani/Adi Soyadi, B: Vkn/Tckn, C: Fatura Tipi, D: Fatura Tarihi, E: Fatura No,
+    /// F: Iskonto, G: Kdv Matrahi %0, H: Kdv Matrahi %1, I: Kdv Matrahi %10, J: Kdv Matrahi %20,
+    /// K: Kdv%1, L: Kdv%10, M: Kdv%20, N: Odenecek Tutar Turk Lirasi
+    /// </summary>
+    public async Task<byte[]> GetExcelSablonAsync(FaturaYonu yon)
     {
         using var package = new ExcelPackage();
-        var ws = package.Workbook.Worksheets.Add("Fatura Sablonu");
+        var ws = package.Workbook.Worksheets.Add("Fatura Import");
 
-        // Basliklar
-        var headers = new[] { "Fatura No*", "Tarih*", "VKN/TCKN", "Cari Unvan*", "Matrah*", "KDV", "Toplam*", "ETTN No", "Vade Tarihi", "Tip (E-Fatura/E-Arsiv)", "Aciklama" };
+        // Basliklar - Ornek dosya formatinda
+        var headers = new[] { 
+            "Ünvaný/Adý Soyadý", "Vkn/Tckn", "Fatura Tipi", "Fatura Tarihi", "Fatura No.",
+            "Ýskonto", "Kdv Matrahý %0", "Kdv Matrahý %1", "Kdv Matrahý %10", "Kdv Matrahý %20",
+            "Kdv%1", "Kdv%10", "Kdv%20", "Ödenecek Tutar Türk Lirasý"
+        };
+        
         for (int i = 0; i < headers.Length; i++)
         {
             ws.Cells[1, i + 1].Value = headers[i];
@@ -588,40 +484,32 @@ public class FaturaService : IFaturaService
         }
 
         // Ornek satir
-        ws.Cells[2, 1].Value = $"FTR-{DateTime.Now:yyyyMM}-001";
-        ws.Cells[2, 2].Value = DateTime.Today.ToString("dd.MM.yyyy");
-        ws.Cells[2, 3].Value = "1234567890";
-        ws.Cells[2, 4].Value = "Ornek Firma A.S.";
-        ws.Cells[2, 5].Value = 1000;
-        ws.Cells[2, 6].Value = 200;
-        ws.Cells[2, 7].Value = 1200;
-        ws.Cells[2, 8].Value = "";
-        ws.Cells[2, 9].Value = DateTime.Today.AddDays(30).ToString("dd.MM.yyyy");
-        ws.Cells[2, 10].Value = "E-Arsiv";
-        ws.Cells[2, 11].Value = "";
+        ws.Cells[2, 1].Value = "ORNEK FIRMA A.S.";
+        ws.Cells[2, 2].Value = "1234567890";
+        ws.Cells[2, 3].Value = "SATIS";
+        ws.Cells[2, 4].Value = DateTime.Today.ToString("dd.MM.yyyy");
+        ws.Cells[2, 5].Value = $"FTR{DateTime.Now:yyyyMM}000001";
+        ws.Cells[2, 6].Value = "0,00";
+        ws.Cells[2, 7].Value = ""; // %0 matrah
+        ws.Cells[2, 8].Value = ""; // %1 matrah
+        ws.Cells[2, 9].Value = ""; // %10 matrah
+        ws.Cells[2, 10].Value = "1000,00"; // %20 matrah
+        ws.Cells[2, 11].Value = ""; // %1 kdv
+        ws.Cells[2, 12].Value = ""; // %10 kdv
+        ws.Cells[2, 13].Value = "200,00"; // %20 kdv
+        ws.Cells[2, 14].Value = "1200,00"; // Toplam
 
         // Aciklamalar
         ws.Cells[5, 1].Value = "ACIKLAMALAR:";
         ws.Cells[5, 1].Style.Font.Bold = true;
-        ws.Cells[6, 1].Value = "* Fatura No: Benzersiz fatura numarasi";
-        ws.Cells[7, 1].Value = "* Tarih: GG.AA.YYYY formatinda";
-        ws.Cells[8, 1].Value = "* VKN/TCKN: Vergi veya TC kimlik no (mevcut cari bulunur veya yeni olusturulur)";
-        ws.Cells[9, 1].Value = "* Tip: E-Fatura veya E-Arsiv";
-
-        // Cari listesi
-        ws.Cells[12, 1].Value = "MEVCUT CARILER:";
-        ws.Cells[12, 1].Style.Font.Bold = true;
-        int row = 13;
-        var filteredCariler = yon == FaturaYonu.Giden 
-            ? cariler.Where(c => c.CariTipi == CariTipi.Musteri).Take(50).ToList()
-            : cariler.Where(c => c.CariTipi == CariTipi.Tedarikci).Take(50).ToList();
-        
-        foreach (var cari in filteredCariler)
-        {
-            ws.Cells[row, 1].Value = cari.VergiNo;
-            ws.Cells[row, 2].Value = cari.Unvan;
-            row++;
-        }
+        ws.Cells[6, 1].Value = "* Ünvaný: Cari unvani (zorunlu)";
+        ws.Cells[7, 1].Value = "* Vkn/Tckn: Vergi veya TC kimlik no (varsa mevcut cari bulunur, yoksa yeni olusturulur)";
+        ws.Cells[8, 1].Value = "* Fatura Tipi: SATIS veya ALIS";
+        ws.Cells[9, 1].Value = "* Fatura Tarihi: GG.AA.YYYY formatinda";
+        ws.Cells[10, 1].Value = "* Fatura No: Benzersiz fatura numarasi (zorunlu)";
+        ws.Cells[11, 1].Value = "* KDV Matrahlari: Ýlgili KDV oranina gore matrah tutarlari";
+        ws.Cells[12, 1].Value = "* KDV Tutarlari: Her oran icin KDV tutarlari";
+        ws.Cells[13, 1].Value = "* Odenecek Tutar: Toplam fatura tutari";
 
         ws.Cells.AutoFitColumns();
         return await Task.FromResult(package.GetAsByteArray());
