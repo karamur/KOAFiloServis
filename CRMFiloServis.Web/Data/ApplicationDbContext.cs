@@ -95,6 +95,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CariKodu).HasMaxLength(50);
             entity.Property(e => e.Unvan).HasMaxLength(250);
             entity.Property(e => e.VergiNo).HasMaxLength(20);
+            entity.Property(e => e.TcKimlikNo).HasMaxLength(11);
             entity.Property(e => e.Telefon).HasMaxLength(20);
             entity.Property(e => e.Email).HasMaxLength(100);
             entity.HasQueryFilter(e => !e.IsDeleted);
