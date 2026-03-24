@@ -16,6 +16,7 @@ public class CariService : ICariService
     public async Task<List<Cari>> GetAllAsync()
     {
         return await _context.Cariler
+            .Where(c => !c.IsDeleted) // Soft delete filtresi
             .OrderBy(c => c.Unvan)
             .ToListAsync();
     }
@@ -23,6 +24,7 @@ public class CariService : ICariService
     public async Task<List<Cari>> GetAllWithBakiyeAsync()
     {
         var cariler = await _context.Cariler
+            .Where(c => !c.IsDeleted) // Soft delete filtresi
             .OrderBy(c => c.Unvan)
             .ToListAsync();
 
@@ -72,25 +74,30 @@ public class CariService : ICariService
 
     public async Task<int> GetCountAsync()
     {
-        return await _context.Cariler.CountAsync();
+        return await _context.Cariler
+            .Where(c => !c.IsDeleted)
+            .CountAsync();
     }
 
     public async Task<Cari?> GetByIdAsync(int id)
     {
         return await _context.Cariler
             .Include(c => c.Guzergahlar)
+            .Where(c => !c.IsDeleted)
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
     public async Task<Cari?> GetByKodAsync(string cariKodu)
     {
         return await _context.Cariler
+            .Where(c => !c.IsDeleted)
             .FirstOrDefaultAsync(c => c.CariKodu == cariKodu);
     }
 
     public async Task<List<Cari>> GetByTipAsync(CariTipi tip)
     {
         return await _context.Cariler
+            .Where(c => !c.IsDeleted)
             .Where(c => c.CariTipi == tip || c.CariTipi == CariTipi.MusteriTedarikci)
             .OrderBy(c => c.Unvan)
             .ToListAsync();
@@ -108,6 +115,8 @@ public class CariService : ICariService
             }
         }
         
+        cari.IsDeleted = false;
+        cari.CreatedAt = DateTime.UtcNow;
         _context.Cariler.Add(cari);
         await _context.SaveChangesAsync();
         return cari;
@@ -115,7 +124,10 @@ public class CariService : ICariService
 
     public async Task<Cari> UpdateAsync(Cari cari)
     {
-        var existing = await _context.Cariler.FindAsync(cari.Id);
+        var existing = await _context.Cariler
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == cari.Id && !c.IsDeleted);
+            
         if (existing == null) throw new Exception("Cari bulunamadi");
 
         existing.CariKodu = cari.CariKodu;
@@ -140,11 +152,17 @@ public class CariService : ICariService
 
     public async Task<bool> DeleteAsync(int id)
     {
-        var cari = await _context.Cariler.FindAsync(id);
-        if (cari != null)
+        // IgnoreQueryFilters ile bul
+        var cari = await _context.Cariler
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == id);
+            
+        if (cari != null && !cari.IsDeleted)
         {
             cari.IsDeleted = true;
+            cari.Aktif = false;
             cari.UpdatedAt = DateTime.UtcNow;
+            
             await _context.SaveChangesAsync();
             return true;
         }

@@ -17,6 +17,7 @@ public class GuzergahService : IGuzergahService
     {
         return await _context.Guzergahlar
             .Include(g => g.Cari)
+            .Where(g => g.Cari == null || !g.Cari.IsDeleted) // Silinmis cari kontrolu
             .OrderBy(g => g.GuzergahAdi)
             .ToListAsync();
     }
@@ -26,6 +27,7 @@ public class GuzergahService : IGuzergahService
         return await _context.Guzergahlar
             .Include(g => g.Cari)
             .Where(g => g.Aktif)
+            .Where(g => g.Cari == null || !g.Cari.IsDeleted) // Silinmis cari kontrolu
             .OrderBy(g => g.GuzergahAdi)
             .ToListAsync();
     }
