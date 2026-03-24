@@ -7,10 +7,10 @@ using OfficeOpenXml;
 // EPPlus lisans ayari (NonCommercial kullanim icin)
 ExcelPackage.License.SetNonCommercialPersonal("CRMFiloServis");
 
-// PostgreSQL timestamp ayari - DateTime.Kind = Unspecified olanlari UTC olarak kabul et
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-
 var builder = WebApplication.CreateBuilder(args);
+
+// Database Provider Secimi (appsettings.json'dan)
+var dbProvider = builder.Configuration.GetValue<string>("DatabaseProvider") ?? "SQLite";
 
 // Diger PC'lerden erisim icin tum IP'lerden dinle
 builder.WebHost.UseUrls("http://0.0.0.0:5190", "https://0.0.0.0:7113");
@@ -19,17 +19,28 @@ builder.WebHost.UseUrls("http://0.0.0.0:5190", "https://0.0.0.0:7113");
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// PostgreSQL Database - Pooled DbContextFactory kullan (thread-safe)
+// Database - Pooled DbContextFactory kullan (thread-safe)
 builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
+    if (dbProvider == "PostgreSQL")
     {
-        npgsqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 3,
-            maxRetryDelay: TimeSpan.FromSeconds(5),
-            errorCodesToAdd: null);
-        npgsqlOptions.CommandTimeout(30);
-    });
+        // PostgreSQL timestamp ayari
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+        
+        options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL"), npgsqlOptions =>
+        {
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
+            npgsqlOptions.CommandTimeout(30);
+        });
+    }
+    else // SQLite
+    {
+        options.UseSqlite(builder.Configuration.GetConnectionString("SQLite"));
+    }
+    
     options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     // Pending migration uyarisini devre disi birak

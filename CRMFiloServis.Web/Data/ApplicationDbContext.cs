@@ -74,6 +74,8 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        
+        var isSqlite = Database.IsSqlite();
 
         // Firma
         modelBuilder.Entity<Firma>(entity =>
@@ -88,10 +90,18 @@ public class ApplicationDbContext : DbContext
         // Cari
         modelBuilder.Entity<Cari>(entity =>
         {
-            // CariKodu unique - sadece silinmemis kayitlar icin
-            entity.HasIndex(e => e.CariKodu)
-                .IsUnique()
-                .HasFilter("\"IsDeleted\" = false");
+            // CariKodu unique - SQLite filter desteklemiyor, PostgreSQL destekliyor
+            if (isSqlite)
+            {
+                entity.HasIndex(e => e.CariKodu).IsUnique();
+            }
+            else
+            {
+                entity.HasIndex(e => e.CariKodu)
+                    .IsUnique()
+                    .HasFilter("\"IsDeleted\" = false");
+            }
+            
             entity.Property(e => e.CariKodu).HasMaxLength(50);
             entity.Property(e => e.Unvan).HasMaxLength(250);
             entity.Property(e => e.VergiNo).HasMaxLength(20);
