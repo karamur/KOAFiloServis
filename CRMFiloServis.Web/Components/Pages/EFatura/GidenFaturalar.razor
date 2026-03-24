@@ -312,7 +312,7 @@
 @if (showImportModal)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-file-earmark-excel me-2"></i>Excel'den Fatura Yukle</h5>
@@ -329,18 +329,69 @@
                     </div>
                     @if (importResult != null)
                     {
-                        <div class="alert @(importResult.Success ? "alert-success" : "alert-warning") py-2">
-                            <strong>Sonuc:</strong><br />
-                            Aktarilan: @importResult.ImportedCount, Atlanan: @importResult.SkippedCount, Hata: @importResult.ErrorCount
-                            @if (importResult.Errors.Any())
-                            {
-                                <hr class="my-1" />
-                                @foreach (var err in importResult.Errors.Take(5))
-                                {
-                                    <small class="d-block">@err</small>
-                                }
-                            }
+                        <!-- Ozet -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-4">
+                                <div class="card bg-success text-white text-center py-2">
+                                    <h4 class="mb-0">@importResult.ImportedCount</h4>
+                                    <small>Aktarilan</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card bg-warning text-dark text-center py-2">
+                                    <h4 class="mb-0">@importResult.SkippedCount</h4>
+                                    <small>Atlanan (Mevcut)</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card bg-danger text-white text-center py-2">
+                                    <h4 class="mb-0">@importResult.ErrorCount</h4>
+                                    <small>Hata</small>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- Hatalar Listesi -->
+                        @if (importResult.Errors.Any())
+                        {
+                            <div class="card">
+                                <div class="card-header bg-danger text-white py-2">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    Kaydedilemeyenler (@importResult.Errors.Count)
+                                </div>
+                                <div class="card-body p-0" style="max-height: 300px; overflow-y: auto;">
+                                    <table class="table table-sm table-striped mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th width="80">Satir</th>
+                                                <th>Hata Detayi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var err in importResult.Errors)
+                                            {
+                                                <tr>
+                                                    @{
+                                                        var parts = err.Split(':', 2);
+                                                        var satir = parts.Length > 0 ? parts[0].Trim() : "";
+                                                        var mesaj = parts.Length > 1 ? parts[1].Trim() : err;
+                                                    }
+                                                    <td><span class="badge bg-secondary">@satir</span></td>
+                                                    <td><small class="text-danger">@mesaj</small></td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        }
+                        else if (importResult.Success)
+                        {
+                            <div class="alert alert-success py-2 mb-0">
+                                <i class="bi bi-check-circle me-1"></i>
+                                Tum faturalar basariyla aktarildi!
+                            </div>
+                        }
                     }
                 </div>
                 <div class="modal-footer">

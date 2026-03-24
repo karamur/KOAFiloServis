@@ -415,7 +415,7 @@ public class FaturaService : IFaturaService
                     if (existingFatura != null)
                     {
                         result.SkippedCount++;
-                        result.Errors.Add $"Satir {row}: '{faturaNo}' zaten mevcut.");
+                        result.Errors.Add($"Satir {row}: '{faturaNo}' zaten mevcut.");
                         continue;
                     }
 
