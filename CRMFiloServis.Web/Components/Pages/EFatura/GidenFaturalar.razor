@@ -697,6 +697,7 @@
         if (importFile == null) return;
 
         isImporting = true;
+        importResult = null;
         StateHasChanged();
 
         try
@@ -711,13 +712,26 @@
 
             if (importResult.Success)
             {
-                ToastService.ShowSuccess(importResult.ImportedCount + " fatura aktarildi.");
+                ToastService.ShowSuccess($"{importResult.ImportedCount} fatura aktarildi.");
                 await YenileAsync();
+            }
+            else if (importResult.ImportedCount == 0 && importResult.SkippedCount > 0)
+            {
+                ToastService.ShowWarning($"{importResult.SkippedCount} fatura zaten mevcut.");
+            }
+            else if (importResult.Errors.Any())
+            {
+                ToastService.ShowError($"Hata: {importResult.Errors.FirstOrDefault()}");
             }
         }
         catch (Exception ex)
         {
-            ToastService.ShowError("Hata: " + ex.Message);
+            importResult = new EFaturaImportResult 
+            { 
+                Success = false, 
+                Errors = new List<string> { $"Import hatasi: {ex.Message}" } 
+            };
+            ToastService.ShowError($"Import hatasi: {ex.Message}");
         }
         finally
         {
