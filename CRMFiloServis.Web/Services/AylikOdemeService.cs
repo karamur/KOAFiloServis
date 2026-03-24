@@ -115,13 +115,15 @@ public class AylikOdemeService : IAylikOdemeService
     {
         using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
-
-        return await context.AylikOdemeGerceklesenler
+        
+        var veriler = await context.AylikOdemeGerceklesenler
             .Include(o => o.Plan)
             .Where(o => o.FirmaId == firmaId && 
                        o.Durum == OdemeDurumu.Bekleniyor &&
                        !o.IsDeleted)
-            .AsEnumerable()
+            .ToListAsync();
+            
+        return veriler
             .Where(o => new DateTime(o.Yil, o.Ay, o.Plan?.OdemeGunu ?? 1) < bugun)
             .OrderBy(o => o.Yil).ThenBy(o => o.Ay)
             .ToList();
@@ -273,4 +275,192 @@ public class AylikOdemeService : IAylikOdemeService
         var bugun = DateTime.Today;
         return await GetAylikToplamTutarAsync(firmaId, bugun.Year, bugun.Month);
     }
+
+    public async Task<byte[]> ExportAylikOdemeTablosuAsync(int yil, int ay)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        
+        // Tüm firmalarýn ödeme planlarýný al
+        var planlar = await context.AylikOdemePlanlari
+            .Include(p => p.Firma)
+            .Include(p => p.Cari)
+            .Where(p => p.Aktif && !p.IsDeleted)
+            .OrderBy(p => p.Firma!.FirmaAdi).ThenBy(p => p.OdemeGunu)
+            .ToListAsync();
+
+        using var package = new ExcelPackage();
+        var worksheet = package.Workbook.Worksheets.Add($"{ay:00}-{yil}");
+
+        // Baþlýk
+        worksheet.Cells["A1"].Value = "AYLIK ÖDEME TABLOSU";
+        worksheet.Cells["A1:H1"].Merge = true;
+        worksheet.Cells["A1"].Style.Font.Size = 14;
+        worksheet.Cells["A1"].Style.Font.Bold = true;
+        worksheet.Cells["A1"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+        worksheet.Cells["A2"].Value = $"{GetAyAdi(ay)} {yil}";
+        worksheet.Cells["A2:H2"].Merge = true;
+        worksheet.Cells["A2"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+        // Kolon baþlýklarý
+        int row = 4;
+        worksheet.Cells[row, 1].Value = "Firma";
+        worksheet.Cells[row, 2].Value = "Ödeme Türü";
+        worksheet.Cells[row, 3].Value = "Ödeme Adý";
+        worksheet.Cells[row, 4].Value = "Gün";
+        worksheet.Cells[row, 5].Value = "Planlanan";
+        worksheet.Cells[row, 6].Value = "Ödenen";
+        worksheet.Cells[row, 7].Value = "Kalan";
+        worksheet.Cells[row, 8].Value = "Durum";
+
+        worksheet.Cells[row, 1, row, 8].Style.Font.Bold = true;
+        worksheet.Cells[row, 1, row, 8].Style.Fill.PatternType = ExcelFillStyle.Solid;
+        worksheet.Cells[row, 1, row, 8].Style.Fill.BackgroundColor.SetColor(Color.LightBlue);
+
+        // Veriler
+        row = 5;
+        decimal toplamPlanlanan = 0;
+        decimal toplamOdenen = 0;
+
+        foreach (var plan in planlar)
+        {
+            var gerceklesen = await context.AylikOdemeGerceklesenler
+                .FirstOrDefaultAsync(o => o.AylikOdemePlaniId == plan.Id && o.Yil == yil && o.Ay == ay);
+
+            worksheet.Cells[row, 1].Value = plan.Firma?.FirmaAdi;
+            worksheet.Cells[row, 2].Value = plan.Turu.ToString();
+            worksheet.Cells[row, 3].Value = plan.OdemeAdi;
+            worksheet.Cells[row, 4].Value = plan.OdemeGunu;
+            worksheet.Cells[row, 5].Value = plan.AylikTutar;
+            worksheet.Cells[row, 6].Value = gerceklesen?.OdenenTutar ?? 0;
+            worksheet.Cells[row, 7].Value = plan.AylikTutar - (gerceklesen?.OdenenTutar ?? 0);
+            worksheet.Cells[row, 8].Value = gerceklesen?.Durum.ToString() ?? "Bekleniyor";
+
+            toplamPlanlanan += plan.AylikTutar;
+            toplamOdenen += gerceklesen?.OdenenTutar ?? 0;
+
+            for (int col = 5; col <= 7; col++)
+            {
+                worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
+            }
+
+            row++;
+        }
+
+        // Toplam
+        worksheet.Cells[row, 1].Value = "TOPLAM";
+        worksheet.Cells[row, 1, row, 4].Merge = true;
+        worksheet.Cells[row, 5].Value = toplamPlanlanan;
+        worksheet.Cells[row, 6].Value = toplamOdenen;
+        worksheet.Cells[row, 7].Value = toplamPlanlanan - toplamOdenen;
+
+        worksheet.Cells[row, 1, row, 8].Style.Font.Bold = true;
+        worksheet.Cells[row, 1, row, 8].Style.Fill.PatternType = ExcelFillStyle.Solid;
+        worksheet.Cells[row, 1, row, 8].Style.Fill.BackgroundColor.SetColor(Color.Yellow);
+
+        for (int col = 5; col <= 7; col++)
+        {
+            worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
+        }
+
+        worksheet.Cells.AutoFitColumns();
+
+        return package.GetAsByteArray();
+    }
+
+    public async Task<byte[]> ExportYillikOdemeTablosuAsync(int yil)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var planlar = await context.AylikOdemePlanlari
+            .Include(p => p.Firma)
+            .Where(p => p.Aktif && !p.IsDeleted)
+            .OrderBy(p => p.Firma!.FirmaAdi).ThenBy(p => p.OdemeAdi)
+            .ToListAsync();
+
+        using var package = new ExcelPackage();
+        var worksheet = package.Workbook.Worksheets.Add(yil.ToString());
+
+        // Baþlýk
+        worksheet.Cells["A1"].Value = $"{yil} YILI AYLIK ÖDEME TABLOSU";
+        worksheet.Cells["A1:O1"].Merge = true;
+        worksheet.Cells["A1"].Style.Font.Size = 16;
+        worksheet.Cells["A1"].Style.Font.Bold = true;
+        worksheet.Cells["A1"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+        // Kolon baþlýklarý
+        int row = 3;
+        worksheet.Cells[row, 1].Value = "Firma";
+        worksheet.Cells[row, 2].Value = "Ödeme Adý";
+        for (int ay = 1; ay <= 12; ay++)
+        {
+            worksheet.Cells[row, ay + 2].Value = GetAyAdi(ay);
+        }
+        worksheet.Cells[row, 15].Value = "Toplam";
+
+        worksheet.Cells[row, 1, row, 15].Style.Font.Bold = true;
+        worksheet.Cells[row, 1, row, 15].Style.Fill.PatternType = ExcelFillStyle.Solid;
+        worksheet.Cells[row, 1, row, 15].Style.Fill.BackgroundColor.SetColor(Color.LightBlue);
+
+        // Veriler
+        row = 4;
+        var aylikToplamlar = new decimal[12];
+
+        foreach (var plan in planlar)
+        {
+            worksheet.Cells[row, 1].Value = plan.Firma?.FirmaAdi;
+            worksheet.Cells[row, 2].Value = plan.OdemeAdi;
+
+            decimal yillikToplam = 0;
+            for (int ay = 1; ay <= 12; ay++)
+            {
+                var gerceklesen = await context.AylikOdemeGerceklesenler
+                    .FirstOrDefaultAsync(o => o.AylikOdemePlaniId == plan.Id && o.Yil == yil && o.Ay == ay);
+
+                var tutar = gerceklesen?.PlanlananTutar ?? 0;
+                worksheet.Cells[row, ay + 2].Value = tutar;
+                worksheet.Cells[row, ay + 2].Style.Numberformat.Format = "#,##0.00";
+                
+                yillikToplam += tutar;
+                aylikToplamlar[ay - 1] += tutar;
+            }
+
+            worksheet.Cells[row, 15].Value = yillikToplam;
+            worksheet.Cells[row, 15].Style.Numberformat.Format = "#,##0.00";
+            worksheet.Cells[row, 15].Style.Font.Bold = true;
+
+            row++;
+        }
+
+        // Toplam satýrý
+        worksheet.Cells[row, 1].Value = "TOPLAM";
+        worksheet.Cells[row, 1, row, 2].Merge = true;
+        
+        decimal grandTotal = 0;
+        for (int ay = 1; ay <= 12; ay++)
+        {
+            worksheet.Cells[row, ay + 2].Value = aylikToplamlar[ay - 1];
+            worksheet.Cells[row, ay + 2].Style.Numberformat.Format = "#,##0.00";
+            grandTotal += aylikToplamlar[ay - 1];
+        }
+
+        worksheet.Cells[row, 15].Value = grandTotal;
+        worksheet.Cells[row, 15].Style.Numberformat.Format = "#,##0.00";
+
+        worksheet.Cells[row, 1, row, 15].Style.Font.Bold = true;
+        worksheet.Cells[row, 1, row, 15].Style.Fill.PatternType = ExcelFillStyle.Solid;
+        worksheet.Cells[row, 1, row, 15].Style.Fill.BackgroundColor.SetColor(Color.Yellow);
+
+        worksheet.Cells.AutoFitColumns();
+
+        return package.GetAsByteArray();
+    }
+
+    private string GetAyAdi(int ay) => ay switch
+    {
+        1 => "Ocak", 2 => "Þubat", 3 => "Mart", 4 => "Nisan",
+        5 => "Mayýs", 6 => "Haziran", 7 => "Temmuz", 8 => "Aðustos",
+        9 => "Eylül", 10 => "Ekim", 11 => "Kasým", 12 => "Aralýk",
+        _ => ""
+    };
 }

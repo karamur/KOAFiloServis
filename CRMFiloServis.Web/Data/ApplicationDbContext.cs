@@ -75,6 +75,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<AylikOdemePlani> AylikOdemePlanlari { get; set; }
     public DbSet<AylikOdemeGerceklesen> AylikOdemeGerceklesenler { get; set; }
 
+    // Kiralama ve Servis Takip Modulu
+    public DbSet<KiralamaArac> KiralamaAraclar { get; set; }
+    public DbSet<ServisCalismaKiralama> ServisCalismaKiralamalar { get; set; }
+    
+    // Puantaj Modulu
+    public DbSet<PersonelPuantaj> PersonelPuantajlar { get; set; }
+    public DbSet<GunlukPuantaj> GunlukPuantajlar { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
