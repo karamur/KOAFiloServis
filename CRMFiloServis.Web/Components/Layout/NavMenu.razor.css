@@ -177,8 +177,28 @@
     }
 
     .nav-scrollable {
-        display: block;
+        display: flex;
+        flex-direction: column;
         height: calc(100vh - 3.5rem);
         overflow-y: auto;
     }
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+.sidebar-footer a {
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.sidebar-footer a:hover {
+    color: #ffffff !important;
+}
+
+.sidebar-footer i.bi-github {
+    font-size: 1rem;
 }

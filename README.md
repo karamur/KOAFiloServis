@@ -191,6 +191,13 @@ CRMFiloServis/
 4. Push yapin (`git push origin feature/amazing-feature`)
 5. Pull Request acin
 
+## ?? Ilgili Projeler
+
+| Proje | Aciklama | Link |
+|-------|----------|------|
+| CRM Filo Servis | Filo Yonetimi, Muhasebe ve CRM Uygulamasi | [GitHub](https://github.com/karamur/CRMFiloServis) |
+| AYDA Analiz | Mali Analiz ve Muhasebe Uygulamasi | [GitHub](https://github.com/karamur/AYDAAnaliz) |
+
 ## ?? Iletisim
 
 Sorulariniz icin: [GitHub Issues](https://github.com/karamur/CRMFiloServis/issues)
@@ -198,3 +205,7 @@ Sorulariniz icin: [GitHub Issues](https://github.com/karamur/CRMFiloServis/issue
 ## ?? Lisans
 
 Bu proje MIT lisansi altinda lisanslanmistir - detaylar icin [LICENSE](LICENSE) dosyasina bakin.
+
+---
+
+**© 2025 Allbatros Global Teknoloji - Tum Haklari Saklidir**
