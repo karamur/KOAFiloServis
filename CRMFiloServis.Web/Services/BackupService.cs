@@ -1,6 +1,7 @@
 using System.Text.Json;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
 
 namespace CRMFiloServis.Web.Services;
 
@@ -25,101 +26,58 @@ public class BackupService : IBackupService
         _settingsFile = Path.Combine(_environment.ContentRootPath, "backup_settings.json");
     }
 
-    public async Task<BackupResult> CreateBackupAsync()
+    public string GetCurrentDatabaseProvider()
+    {
+        return _configuration.GetValue<string>("DatabaseProvider") ?? "SQLite";
+    }
+
+    public async Task<BackupResult> CreateBackupAsync(string? customBackupFolder = null)
     {
         var result = new BackupResult();
+        var dbProvider = GetCurrentDatabaseProvider();
 
         try
         {
             var settings = GetSettings();
-            var backupFolder = GetBackupFolderPath(settings);
+            var backupFolder = customBackupFolder ?? GetBackupFolderPath(settings);
 
-            // Klasor yoksa olustur
             if (!Directory.Exists(backupFolder))
             {
                 Directory.CreateDirectory(backupFolder);
             }
 
-            // Connection string'den veritabani bilgilerini al
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
-            
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                result.ErrorMessage = "Veritabani baglanti bilgisi bulunamadi.";
-                return result;
-            }
-
-            // PostgreSQL icin pg_dump kullan
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var backupFileName = $"CRMFiloServis_Backup_{timestamp}.sql";
-            var backupFilePath = Path.Combine(backupFolder, backupFileName);
+            string backupFileName;
+            string backupFilePath;
 
-            // PostgreSQL baglanti bilgilerini parse et
-            var connParts = ParseConnectionString(connectionString);
-            
-            // pg_dump komutu olustur
-            var pgDumpPath = FindPgDump();
-            
-            if (string.IsNullOrEmpty(pgDumpPath))
+            switch (dbProvider.ToUpper())
             {
-                // pg_dump bulunamadiysa JSON export yap
-                await CreateJsonBackupAsync(backupFilePath.Replace(".sql", ".json"));
-                backupFileName = backupFileName.Replace(".sql", ".json");
-                backupFilePath = backupFilePath.Replace(".sql", ".json");
-            }
-            else
-            {
-                // pg_dump ile yedek al
-                var processInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = pgDumpPath,
-                    Arguments = $"-h {connParts["Host"]} -p {connParts["Port"]} -U {connParts["Username"]} -d {connParts["Database"]} -f \"{backupFilePath}\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    Environment = { ["PGPASSWORD"] = connParts["Password"] }
-                };
+                case "POSTGRESQL":
+                    backupFileName = $"CRMFiloServis_PostgreSQL_{timestamp}.sql";
+                    backupFilePath = Path.Combine(backupFolder, backupFileName);
+                    result = await CreatePostgreSqlBackupAsync(backupFilePath);
+                    break;
 
-                using var process = System.Diagnostics.Process.Start(processInfo);
-                if (process != null)
-                {
-                    await process.WaitForExitAsync();
-                    if (process.ExitCode != 0)
-                    {
-                        var error = await process.StandardError.ReadToEndAsync();
-                        _logger.LogWarning("pg_dump hatasi: {Error}, JSON backup yapiliyor...", error);
-                        
-                        // pg_dump basarisiz olursa JSON export yap
-                        await CreateJsonBackupAsync(backupFilePath.Replace(".sql", ".json"));
-                        backupFileName = backupFileName.Replace(".sql", ".json");
-                        backupFilePath = backupFilePath.Replace(".sql", ".json");
-                    }
-                }
+                case "MSSQL":
+                case "SQLSERVER":
+                    backupFileName = $"CRMFiloServis_MSSQL_{timestamp}.bak";
+                    backupFilePath = Path.Combine(backupFolder, backupFileName);
+                    result = await CreateMsSqlBackupAsync(backupFilePath);
+                    break;
+
+                case "SQLITE":
+                default:
+                    backupFileName = $"CRMFiloServis_SQLite_{timestamp}.db";
+                    backupFilePath = Path.Combine(backupFolder, backupFileName);
+                    result = await CreateSqliteBackupAsync(backupFilePath);
+                    break;
             }
 
-            if (File.Exists(backupFilePath))
+            if (result.Success)
             {
-                var fileInfo = new FileInfo(backupFilePath);
-                
-                result.Success = true;
-                result.FileName = backupFileName;
-                result.FilePath = backupFilePath;
-                result.FileSizeBytes = fileInfo.Length;
-                result.CreatedAt = DateTime.Now;
-
-                // Son yedekleme zamanini guncelle
                 settings.LastBackupTime = DateTime.Now;
                 await SaveSettingsAsync(settings);
-
-                // Eski yedekleri temizle
                 await CleanupOldBackupsAsync(settings.KeepBackupCount);
-
-                _logger.LogInformation("Yedekleme basarili: {FileName}, Boyut: {Size}", backupFileName, fileInfo.Length);
-            }
-            else
-            {
-                result.ErrorMessage = "Yedek dosyasi olusturulamadi.";
             }
         }
         catch (Exception ex)
@@ -131,12 +89,209 @@ public class BackupService : IBackupService
         return result;
     }
 
+    private async Task<BackupResult> CreateSqliteBackupAsync(string backupFilePath)
+    {
+        var result = new BackupResult();
+
+        try
+        {
+            var connectionString = _configuration.GetConnectionString("SQLite");
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                result.ErrorMessage = "SQLite connection string bulunamadi.";
+                return result;
+            }
+
+            // Data Source path'ini parse et
+            var sourcePath = connectionString.Replace("Data Source=", "").Trim();
+            if (!Path.IsPathRooted(sourcePath))
+            {
+                sourcePath = Path.Combine(_environment.ContentRootPath, sourcePath);
+            }
+
+            if (!File.Exists(sourcePath))
+            {
+                result.ErrorMessage = $"SQLite veritabani dosyasi bulunamadi: {sourcePath}";
+                return result;
+            }
+
+            // Veritabani dosyasini kopyala
+            File.Copy(sourcePath, backupFilePath, overwrite: true);
+
+            var fileInfo = new FileInfo(backupFilePath);
+            result.Success = true;
+            result.FileName = Path.GetFileName(backupFilePath);
+            result.FilePath = backupFilePath;
+            result.FileSizeBytes = fileInfo.Length;
+            result.CreatedAt = DateTime.Now;
+
+            _logger.LogInformation("SQLite yedekleme basarili: {FileName}", result.FileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SQLite yedekleme hatasi");
+            result.ErrorMessage = ex.Message;
+        }
+
+        return result;
+    }
+
+    private async Task<BackupResult> CreatePostgreSqlBackupAsync(string backupFilePath)
+    {
+        var result = new BackupResult();
+
+        try
+        {
+            var connectionString = _configuration.GetConnectionString("PostgreSQL");
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                result.ErrorMessage = "PostgreSQL connection string bulunamadi.";
+                return result;
+            }
+
+            var connParts = ParseConnectionString(connectionString);
+            var pgDumpPath = FindPgDump();
+
+            if (string.IsNullOrEmpty(pgDumpPath))
+            {
+                // pg_dump bulunamadiysa JSON export yap
+                var jsonPath = backupFilePath.Replace(".sql", ".json");
+                await CreateJsonBackupAsync(jsonPath);
+
+                var jsonFileInfo = new FileInfo(jsonPath);
+                result.Success = true;
+                result.FileName = Path.GetFileName(jsonPath);
+                result.FilePath = jsonPath;
+                result.FileSizeBytes = jsonFileInfo.Length;
+                result.CreatedAt = DateTime.Now;
+
+                _logger.LogInformation("PostgreSQL JSON yedekleme basarili: {FileName}", result.FileName);
+                return result;
+            }
+
+            var processInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = pgDumpPath,
+                Arguments = $"-h {connParts["Host"]} -p {connParts["Port"]} -U {connParts["Username"]} -d {connParts["Database"]} -f \"{backupFilePath}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                Environment = { ["PGPASSWORD"] = connParts["Password"] }
+            };
+
+            using var process = System.Diagnostics.Process.Start(processInfo);
+            if (process != null)
+            {
+                await process.WaitForExitAsync();
+                if (process.ExitCode != 0)
+                {
+                    var error = await process.StandardError.ReadToEndAsync();
+                    _logger.LogWarning("pg_dump hatasi: {Error}", error);
+
+                    // Fallback to JSON
+                    var jsonPath = backupFilePath.Replace(".sql", ".json");
+                    await CreateJsonBackupAsync(jsonPath);
+                    backupFilePath = jsonPath;
+                }
+            }
+
+            if (File.Exists(backupFilePath))
+            {
+                var fileInfo = new FileInfo(backupFilePath);
+                result.Success = true;
+                result.FileName = Path.GetFileName(backupFilePath);
+                result.FilePath = backupFilePath;
+                result.FileSizeBytes = fileInfo.Length;
+                result.CreatedAt = DateTime.Now;
+
+                _logger.LogInformation("PostgreSQL yedekleme basarili: {FileName}", result.FileName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "PostgreSQL yedekleme hatasi");
+            result.ErrorMessage = ex.Message;
+        }
+
+        return result;
+    }
+
+    private async Task<BackupResult> CreateMsSqlBackupAsync(string backupFilePath)
+    {
+        var result = new BackupResult();
+
+        try
+        {
+            var connectionString = _configuration.GetConnectionString("MSSQL") 
+                ?? _configuration.GetConnectionString("SqlServer");
+            
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                // JSON fallback
+                var jsonPath = backupFilePath.Replace(".bak", ".json");
+                await CreateJsonBackupAsync(jsonPath);
+
+                var jsonFileInfo = new FileInfo(jsonPath);
+                result.Success = true;
+                result.FileName = Path.GetFileName(jsonPath);
+                result.FilePath = jsonPath;
+                result.FileSizeBytes = jsonFileInfo.Length;
+                result.CreatedAt = DateTime.Now;
+                return result;
+            }
+
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            
+            var dbName = context.Database.GetDbConnection().Database;
+            var backupSql = $"BACKUP DATABASE [{dbName}] TO DISK = N'{backupFilePath}' WITH FORMAT, INIT, NAME = N'CRMFiloServis Backup'";
+
+            await context.Database.ExecuteSqlRawAsync(backupSql);
+
+            if (File.Exists(backupFilePath))
+            {
+                var fileInfo = new FileInfo(backupFilePath);
+                result.Success = true;
+                result.FileName = Path.GetFileName(backupFilePath);
+                result.FilePath = backupFilePath;
+                result.FileSizeBytes = fileInfo.Length;
+                result.CreatedAt = DateTime.Now;
+
+                _logger.LogInformation("MSSQL yedekleme basarili: {FileName}", result.FileName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "MSSQL yedekleme hatasi");
+            
+            // Fallback to JSON
+            try
+            {
+                var jsonPath = backupFilePath.Replace(".bak", ".json");
+                await CreateJsonBackupAsync(jsonPath);
+
+                var jsonFileInfo = new FileInfo(jsonPath);
+                result.Success = true;
+                result.FileName = Path.GetFileName(jsonPath);
+                result.FilePath = jsonPath;
+                result.FileSizeBytes = jsonFileInfo.Length;
+                result.CreatedAt = DateTime.Now;
+            }
+            catch
+            {
+                result.ErrorMessage = ex.Message;
+            }
+        }
+
+        return result;
+    }
+
     private async Task CreateJsonBackupAsync(string filePath)
     {
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        // Sirayla sorgula (concurrent DbContext kullanimi hatasi onlemek icin)
         var cariler = await context.Cariler.IgnoreQueryFilters().AsNoTracking().ToListAsync();
         var araclar = await context.Araclar.IgnoreQueryFilters().AsNoTracking().ToListAsync();
         var soforler = await context.Soforler.IgnoreQueryFilters().AsNoTracking().ToListAsync();
@@ -150,10 +305,13 @@ public class BackupService : IBackupService
         var servisCalismalari = await context.ServisCalismalari.IgnoreQueryFilters().AsNoTracking().ToListAsync();
         var aracMasraflari = await context.AracMasraflari.IgnoreQueryFilters().AsNoTracking().ToListAsync();
         var masrafKalemleri = await context.MasrafKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        var firmalar = await context.Firmalar.IgnoreQueryFilters().AsNoTracking().ToListAsync();
 
         var backup = new
         {
             ExportDate = DateTime.UtcNow,
+            DatabaseProvider = GetCurrentDatabaseProvider(),
+            Firmalar = firmalar,
             Cariler = cariler,
             Araclar = araclar,
             Soforler = soforler,
@@ -169,19 +327,19 @@ public class BackupService : IBackupService
             MasrafKalemleri = masrafKalemleri
         };
 
-        var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions 
-        { 
+        var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions
+        {
             WriteIndented = true,
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         });
-        
+
         await File.WriteAllTextAsync(filePath, json);
     }
 
     private Dictionary<string, string> ParseConnectionString(string connectionString)
     {
         var parts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        
+
         foreach (var part in connectionString.Split(';'))
         {
             var keyValue = part.Split('=', 2);
@@ -191,10 +349,9 @@ public class BackupService : IBackupService
             }
         }
 
-        // Varsayilan degerler
         if (!parts.ContainsKey("Port")) parts["Port"] = "5432";
         if (!parts.ContainsKey("Host")) parts["Host"] = "localhost";
-        
+
         return parts;
     }
 
@@ -202,6 +359,7 @@ public class BackupService : IBackupService
     {
         var possiblePaths = new[]
         {
+            @"C:\Program Files\PostgreSQL\17\bin\pg_dump.exe",
             @"C:\Program Files\PostgreSQL\16\bin\pg_dump.exe",
             @"C:\Program Files\PostgreSQL\15\bin\pg_dump.exe",
             @"C:\Program Files\PostgreSQL\14\bin\pg_dump.exe",
@@ -229,8 +387,8 @@ public class BackupService : IBackupService
 
         if (Directory.Exists(backupFolder))
         {
-            var files = Directory.GetFiles(backupFolder, "CRMFiloServis_Backup_*.*")
-                .Where(f => f.EndsWith(".sql") || f.EndsWith(".json") || f.EndsWith(".db"))
+            var files = Directory.GetFiles(backupFolder, "CRMFiloServis_*.*")
+                .Where(f => f.EndsWith(".sql") || f.EndsWith(".json") || f.EndsWith(".db") || f.EndsWith(".bak"))
                 .OrderByDescending(f => f);
 
             foreach (var file in files)
@@ -263,49 +421,62 @@ public class BackupService : IBackupService
                 return false;
             }
 
-            // JSON yedek ise
+            var dbProvider = GetCurrentDatabaseProvider();
+
+            // SQLite restore
+            if (backupFilePath.EndsWith(".db"))
+            {
+                var connectionString = _configuration.GetConnectionString("SQLite");
+                var targetPath = connectionString?.Replace("Data Source=", "").Trim();
+                if (!string.IsNullOrEmpty(targetPath))
+                {
+                    if (!Path.IsPathRooted(targetPath))
+                    {
+                        targetPath = Path.Combine(_environment.ContentRootPath, targetPath);
+                    }
+                    File.Copy(backupFilePath, targetPath, overwrite: true);
+                    _logger.LogInformation("SQLite restore basarili");
+                    return true;
+                }
+            }
+
+            // JSON restore desteklenmiyor (sadece bilgi amacli)
             if (backupFilePath.EndsWith(".json"))
             {
                 _logger.LogWarning("JSON yedekten geri yukleme henuz desteklenmiyor.");
                 return false;
             }
 
-            // SQL yedek ise psql ile geri yukle
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
-            var connParts = ParseConnectionString(connectionString!);
-            
-            var psqlPath = FindPgDump()?.Replace("pg_dump", "psql");
-            
-            if (string.IsNullOrEmpty(psqlPath) || !File.Exists(psqlPath))
+            // PostgreSQL restore
+            if (backupFilePath.EndsWith(".sql") && dbProvider == "PostgreSQL")
             {
-                _logger.LogError("psql bulunamadi");
-                return false;
-            }
+                var connectionString = _configuration.GetConnectionString("PostgreSQL");
+                var connParts = ParseConnectionString(connectionString!);
+                var psqlPath = FindPgDump()?.Replace("pg_dump", "psql");
 
-            var processInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = psqlPath,
-                Arguments = $"-h {connParts["Host"]} -p {connParts["Port"]} -U {connParts["Username"]} -d {connParts["Database"]} -f \"{backupFilePath}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                Environment = { ["PGPASSWORD"] = connParts["Password"] }
-            };
+                if (!string.IsNullOrEmpty(psqlPath) && File.Exists(psqlPath))
+                {
+                    var processInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = psqlPath,
+                        Arguments = $"-h {connParts["Host"]} -p {connParts["Port"]} -U {connParts["Username"]} -d {connParts["Database"]} -f \"{backupFilePath}\"",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        Environment = { ["PGPASSWORD"] = connParts["Password"] }
+                    };
 
-            using var process = System.Diagnostics.Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                if (process.ExitCode == 0)
-                {
-                    _logger.LogInformation("Veritabani geri yuklendi: {FileName}", backupFileName);
-                    return true;
-                }
-                else
-                {
-                    var error = await process.StandardError.ReadToEndAsync();
-                    _logger.LogError("Geri yukleme hatasi: {Error}", error);
+                    using var process = System.Diagnostics.Process.Start(processInfo);
+                    if (process != null)
+                    {
+                        await process.WaitForExitAsync();
+                        if (process.ExitCode == 0)
+                        {
+                            _logger.LogInformation("PostgreSQL restore basarili");
+                            return true;
+                        }
+                    }
                 }
             }
 
@@ -313,12 +484,12 @@ public class BackupService : IBackupService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Geri yukleme hatasi: {FileName}", backupFileName);
+            _logger.LogError(ex, "Restore hatasi");
             return false;
         }
     }
 
-    public Task<bool> DeleteBackupAsync(string backupFileName)
+    public async Task<bool> DeleteBackupAsync(string backupFileName)
     {
         try
         {
@@ -330,15 +501,15 @@ public class BackupService : IBackupService
             {
                 File.Delete(backupFilePath);
                 _logger.LogInformation("Yedek silindi: {FileName}", backupFileName);
-                return Task.FromResult(true);
+                return true;
             }
 
-            return Task.FromResult(false);
+            return false;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Yedek silme hatasi: {FileName}", backupFileName);
-            return Task.FromResult(false);
+            _logger.LogError(ex, "Yedek silme hatasi");
+            return false;
         }
     }
 
@@ -346,22 +517,26 @@ public class BackupService : IBackupService
     {
         try
         {
-            var backups = await GetBackupListAsync();
-            var toDelete = backups.Skip(keepCount).ToList();
+            var settings = GetSettings();
+            var backupFolder = GetBackupFolderPath(settings);
 
-            foreach (var backup in toDelete)
-            {
-                await DeleteBackupAsync(backup.FileName);
-            }
+            if (!Directory.Exists(backupFolder)) return;
 
-            if (toDelete.Any())
+            var files = Directory.GetFiles(backupFolder, "CRMFiloServis_*.*")
+                .Where(f => f.EndsWith(".sql") || f.EndsWith(".json") || f.EndsWith(".db") || f.EndsWith(".bak"))
+                .OrderByDescending(f => new FileInfo(f).CreationTime)
+                .Skip(keepCount)
+                .ToList();
+
+            foreach (var file in files)
             {
-                _logger.LogInformation("{Count} eski yedek temizlendi", toDelete.Count);
+                File.Delete(file);
+                _logger.LogInformation("Eski yedek silindi: {FileName}", Path.GetFileName(file));
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Eski yedek temizleme hatasi");
+            _logger.LogError(ex, "Eski yedekleri temizleme hatasi");
         }
     }
 
@@ -375,10 +550,7 @@ public class BackupService : IBackupService
                 return JsonSerializer.Deserialize<BackupSettings>(json) ?? new BackupSettings();
             }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ayarlar okunamadi");
-        }
+        catch { }
 
         return new BackupSettings();
     }
@@ -392,17 +564,24 @@ public class BackupService : IBackupService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ayarlar kaydedilemedi");
+            _logger.LogError(ex, "Ayar kaydetme hatasi");
         }
     }
 
     private string GetBackupFolderPath(BackupSettings settings)
     {
         var folder = settings.BackupFolder;
+
+        if (string.IsNullOrEmpty(folder))
+        {
+            folder = "Backups";
+        }
+
         if (!Path.IsPathRooted(folder))
         {
             folder = Path.Combine(_environment.ContentRootPath, folder);
         }
+
         return folder;
     }
 }

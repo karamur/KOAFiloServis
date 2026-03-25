@@ -421,8 +421,8 @@
                         <div class="col-md-6">
                             <label class="form-label">E-Fatura Tipi *</label>
                             <select class="form-select" @bind="importEFaturaTipi">
-                                <option value="2">E-Arsiv Fatura</option>
                                 <option value="1">E-Fatura</option>
+                                <option value="2">E-Arsiv Fatura</option>
                             </select>
                             <small class="text-muted">Tum aktarilan faturalara uygulanacak</small>
                         </div>
@@ -603,7 +603,7 @@
     private IBrowserFile? importFile;
     private EFaturaImportResult? importResult;
     private bool isImporting = false;
-    private int importEFaturaTipi = 2; // Default to E-Arsiv
+    private int importEFaturaTipi = 1; // Default to E-Fatura (1)
 
     protected override async Task OnInitializedAsync()
     {
@@ -830,7 +830,7 @@
         {
             var bytes = await FaturaService.GetExcelSablonAsync(FaturaYonu.Gelen);
             await JS.InvokeVoidAsync("downloadFileFromBase64", "gelen_fatura_sablon.xlsx", Convert.ToBase64String(bytes));
-            ToastService.ShowSuccess("Sablon indirildi!");
+            ToastService.ShowSuccess("Sablonindirildi!");
         }
         catch (Exception ex)
         {
@@ -940,5 +940,5 @@
         _ => "bg-secondary"
     };
 
-    private string FormatPara(decimal t) => t.ToString("N2") + " TL";
+    private string FormatPara(decimal t) => t.ToString("N2", new System.Globalization.CultureInfo("tr-TR")) + " ?";
 }

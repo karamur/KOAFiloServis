@@ -251,6 +251,31 @@ public static class DbSeeder
             await context.SaveChangesAsync();
         }
 
+        // Gelen Faturalarý E-Fatura olarak güncelle
+        await UpdateGelenFaturalarToEFaturaAsync(context);
+
         Console.WriteLine("? Seed verileri baþarýyla eklendi!");
+    }
+
+    /// <summary>
+    /// Tüm gelen faturalarý E-Fatura olarak günceller
+    /// </summary>
+    public static async Task UpdateGelenFaturalarToEFaturaAsync(ApplicationDbContext context)
+    {
+        var gelenFaturalar = await context.Faturalar
+            .Where(f => f.FaturaYonu == FaturaYonu.Gelen && f.EFaturaTipi != EFaturaTipi.EFatura)
+            .ToListAsync();
+
+        if (gelenFaturalar.Any())
+        {
+            foreach (var fatura in gelenFaturalar)
+            {
+                fatura.EFaturaTipi = EFaturaTipi.EFatura;
+                fatura.UpdatedAt = DateTime.Now;
+            }
+
+            await context.SaveChangesAsync();
+            Console.WriteLine($"? {gelenFaturalar.Count} adet gelen fatura E-Fatura olarak güncellendi!");
+        }
     }
 }

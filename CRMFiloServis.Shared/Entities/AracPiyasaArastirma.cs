@@ -32,13 +32,13 @@ public class AracPiyasaArastirma : BaseEntity
     public string? AIAnalizi { get; set; }
 
     // Navigation
-    public virtual ICollection<PiyasaIlan> Ilanlar { get; set; } = new List<PiyasaIlan>();
+    public virtual ICollection<PiyasaArastirmaIlan> Ilanlar { get; set; } = new List<PiyasaArastirmaIlan>();
 }
 
 /// <summary>
-/// Piyasadan toplanan ilan bilgileri
+/// Piyasadan toplanan ilan bilgileri (Araþtýrma için)
 /// </summary>
-public class PiyasaIlan : BaseEntity
+public class PiyasaArastirmaIlan : BaseEntity
 {
     public int ArastirmaId { get; set; }
 
@@ -102,14 +102,14 @@ public class AracMarkaModel : BaseEntity
 /// <summary>
 /// Piyasa araþtýrma favorileri
 /// </summary>
-public class PiyasaFavori : BaseEntity
+public class PiyasaArastirmaFavori : BaseEntity
 {
     public int IlanId { get; set; }
     public string? Notlar { get; set; }
     public FavoriDurum Durum { get; set; } = FavoriDurum.Inceleniyor;
     public decimal? TeklifFiyati { get; set; }
 
-    public virtual PiyasaIlan? Ilan { get; set; }
+    public virtual PiyasaArastirmaIlan? Ilan { get; set; }
 }
 
 public enum ArastirmaDurum

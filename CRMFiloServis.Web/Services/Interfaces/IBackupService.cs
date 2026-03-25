@@ -2,7 +2,8 @@ namespace CRMFiloServis.Web.Services;
 
 public interface IBackupService
 {
-    Task<BackupResult> CreateBackupAsync();
+    string GetCurrentDatabaseProvider();
+    Task<BackupResult> CreateBackupAsync(string? customBackupFolder = null);
     Task<List<BackupInfo>> GetBackupListAsync();
     Task<bool> RestoreBackupAsync(string backupFileName);
     Task<bool> DeleteBackupAsync(string backupFileName);

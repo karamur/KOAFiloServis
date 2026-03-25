@@ -78,10 +78,18 @@ public class ApplicationDbContext : DbContext
     // Kiralama ve Servis Takip Modulu
     public DbSet<KiralamaArac> KiralamaAraclar { get; set; }
     public DbSet<ServisCalismaKiralama> ServisCalismaKiralamalar { get; set; }
-    
+
+    // Müþteri Kiralama Modülü
+    public DbSet<MusteriKiralama> MusteriKiralamalar { get; set; }
+
     // Puantaj Modulu
     public DbSet<PersonelPuantaj> PersonelPuantajlar { get; set; }
     public DbSet<GunlukPuantaj> GunlukPuantajlar { get; set; }
+
+    // Piyasa Arastirma Modulu
+    public DbSet<AracPiyasaArastirma> PiyasaArastirmalar { get; set; }
+    public DbSet<PiyasaArastirmaIlan> PiyasaArastirmaIlanlar { get; set; }
+    public DbSet<AracMarkaModel> AracMarkaModeller { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

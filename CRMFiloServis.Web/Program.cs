@@ -83,6 +83,8 @@ builder.Services.AddScoped<IDatabaseSettingsService, DatabaseSettingsService>();
 builder.Services.AddScoped<IMuhasebeService, MuhasebeService>();
 builder.Services.AddScoped<ISatisService, SatisService>();
 builder.Services.AddScoped<IAracDegerlemeAIService, AracDegerlemeAIService>(); // AI Araç Deðerleme
+builder.Services.AddScoped<IAracPiyasaArastirmaService, AracPiyasaArastirmaService>(); // AI Piyasa Araþtýrma
+builder.Services.AddScoped<IMusteriKiralamaService, MusteriKiralamaService>(); // Müþteri Kiralama Servisi
 builder.Services.AddHttpClient("OpenAI"); // OpenAI için HttpClient
 builder.Services.AddHostedService<AutoBackupService>();
 builder.Services.AddHttpContextAccessor();
@@ -93,7 +95,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await DbInitializer.InitializeAsync(context);
+    var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    await DbInitializer.InitializeAsync(context, configuration);
     
     // Seed kritik verileri
     await DbSeeder.SeedAsync(context);

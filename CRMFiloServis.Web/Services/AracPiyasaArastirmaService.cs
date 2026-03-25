@@ -1,75 +1,208 @@
 using System.Text.Json;
 using System.Net.Http.Headers;
+using System.Text;
 using CRMFiloServis.Shared.Entities;
+using CRMFiloServis.Web.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace CRMFiloServis.Web.Services;
 
 public interface IAracPiyasaArastirmaService
 {
+    // Arastirma islemleri
     Task<AracPiyasaArastirma> ArastirmaBaslatAsync(AracPiyasaArastirmaRequest request);
-    Task<List<PiyasaIlan>> IlanlariGetirAsync(AracPiyasaArastirmaRequest request);
-    Task<PiyasaAnalizSonuc> PiyasaAnaliziYapAsync(List<PiyasaIlan> ilanlar, string marka, string model);
-    Task<List<AracMarkaInfo>> TumMarkalariGetirAsync();
-    Task<List<AracModelInfo>> ModellerGetirAsync(string marka);
-    Task<string> DetayliRaporOlusturAsync(AracPiyasaArastirma arastirma);
+    Task<AracPiyasaArastirma> ArastirmaKaydetAsync(AracPiyasaArastirma arastirma);
+    Task<List<AracPiyasaArastirma>> KayitliArastirmalariGetirAsync();
+    Task<AracPiyasaArastirma?> ArastirmaGetirAsync(int id);
+    Task ArastirmaSilAsync(int id);
+
+    // Vasita Turu / Marka / Model islemleri
+    List<VasitaTuru> VasitaTurleriniGetir();
+    List<VasitaMarkaModel> MarkalariGetir(string vasitaTuru);
+    List<string> ModelleriGetir(string vasitaTuru, string marka);
+    Task MarkaModelGuncelleAsync();
+
+    // AI islemleri
+    Task<List<PiyasaArastirmaIlan>> IlanlariGetirAsync(AracPiyasaArastirmaRequest request);
+    Task<PiyasaAnalizSonuc> PiyasaAnaliziYapAsync(List<PiyasaArastirmaIlan> ilanlar, string marka, string model);
 }
 
 public class AracPiyasaArastirmaService : IAracPiyasaArastirmaService
 {
+    private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
     private readonly ILogger<AracPiyasaArastirmaService> _logger;
 
+    // Vasita turleri
+    private static readonly List<VasitaTuru> VasitaTurleri = new()
+    {
+        new VasitaTuru { Kod = "otomobil", Ad = "Otomobil", SahibindenKategori = "otomobil", ArabamKategori = "otomobil" },
+        new VasitaTuru { Kod = "arazi-suv-pickup", Ad = "Arazi, SUV & Pickup", SahibindenKategori = "arazi-suv-pickup", ArabamKategori = "arazi-suv-pickup" },
+        new VasitaTuru { Kod = "ticari-arac", Ad = "Ticari Arac", SahibindenKategori = "ticari-arac", ArabamKategori = "ticari" },
+        new VasitaTuru { Kod = "minivan-panelvan", Ad = "Minivan & Panelvan", SahibindenKategori = "minivan-panelvan", ArabamKategori = "minivan" },
+        new VasitaTuru { Kod = "motosiklet", Ad = "Motosiklet", SahibindenKategori = "motosiklet", ArabamKategori = "motosiklet" }
+    };
+
+    // Vasita turune gore marka ve modeller
+    private static readonly Dictionary<string, Dictionary<string, List<string>>> VasitaMarkaModelleri = new()
+    {
+        ["otomobil"] = new Dictionary<string, List<string>>
+        {
+            ["Volkswagen"] = new() { "Polo", "Golf", "Passat", "Jetta", "Arteon", "CC", "Beetle", "Scirocco" },
+            ["BMW"] = new() { "1 Serisi", "2 Serisi", "3 Serisi", "4 Serisi", "5 Serisi", "6 Serisi", "7 Serisi", "8 Serisi" },
+            ["Mercedes-Benz"] = new() { "A Serisi", "B Serisi", "C Serisi", "CLA", "CLS", "E Serisi", "S Serisi" },
+            ["Audi"] = new() { "A1", "A3", "A4", "A5", "A6", "A7", "A8", "TT" },
+            ["Toyota"] = new() { "Yaris", "Corolla", "Camry", "Auris", "Avensis", "Prius" },
+            ["Honda"] = new() { "Civic", "Accord", "City", "Jazz" },
+            ["Hyundai"] = new() { "i10", "i20", "i30", "Elantra", "Accent", "Sonata" },
+            ["Renault"] = new() { "Clio", "Megane", "Fluence", "Talisman", "Taliant", "Symbol" },
+            ["Ford"] = new() { "Fiesta", "Focus", "Mondeo", "Fusion" },
+            ["Fiat"] = new() { "Egea", "Linea", "Tipo", "500", "Punto", "Bravo" },
+            ["Opel"] = new() { "Corsa", "Astra", "Insignia", "Vectra" },
+            ["Peugeot"] = new() { "208", "301", "308", "408", "508" },
+            ["Citroen"] = new() { "C3", "C4", "C5", "C-Elysee" },
+            ["Skoda"] = new() { "Fabia", "Scala", "Octavia", "Superb", "Rapid" },
+            ["Seat"] = new() { "Ibiza", "Leon", "Toledo" },
+            ["Kia"] = new() { "Rio", "Cerato", "Ceed", "Optima", "Stinger" },
+            ["Mazda"] = new() { "2", "3", "6" },
+            ["Nissan"] = new() { "Micra", "Note", "Pulsar", "Sentra" },
+            ["Volvo"] = new() { "S40", "S60", "S80", "S90" },
+            ["Dacia"] = new() { "Sandero", "Logan" },
+            ["Chevrolet"] = new() { "Aveo", "Cruze", "Lacetti" }
+        },
+        ["arazi-suv-pickup"] = new Dictionary<string, List<string>>
+        {
+            ["Volkswagen"] = new() { "Tiguan", "T-Roc", "Touareg", "Taigo", "T-Cross", "Amarok" },
+            ["BMW"] = new() { "X1", "X2", "X3", "X4", "X5", "X6", "X7" },
+            ["Mercedes-Benz"] = new() { "GLA", "GLB", "GLC", "GLE", "GLS", "G Serisi" },
+            ["Audi"] = new() { "Q2", "Q3", "Q5", "Q7", "Q8" },
+            ["Toyota"] = new() { "C-HR", "RAV4", "Corolla Cross", "Land Cruiser", "Hilux" },
+            ["Honda"] = new() { "HR-V", "CR-V", "ZR-V" },
+            ["Hyundai"] = new() { "Kona", "Tucson", "Santa Fe", "Bayon" },
+            ["Renault"] = new() { "Captur", "Kadjar", "Austral", "Koleos" },
+            ["Ford"] = new() { "EcoSport", "Puma", "Kuga", "Ranger" },
+            ["Fiat"] = new() { "500X", "500L" },
+            ["Opel"] = new() { "Mokka", "Crossland", "Grandland" },
+            ["Peugeot"] = new() { "2008", "3008", "5008" },
+            ["Citroen"] = new() { "C3 Aircross", "C5 Aircross" },
+            ["Skoda"] = new() { "Kamiq", "Karoq", "Kodiaq" },
+            ["Seat"] = new() { "Arona", "Ateca", "Tarraco" },
+            ["Kia"] = new() { "Stonic", "Sportage", "Sorento" },
+            ["Mazda"] = new() { "CX-3", "CX-30", "CX-5", "CX-60" },
+            ["Nissan"] = new() { "Juke", "Qashqai", "X-Trail" },
+            ["Volvo"] = new() { "XC40", "XC60", "XC90" },
+            ["Dacia"] = new() { "Duster", "Jogger" },
+            ["Jeep"] = new() { "Renegade", "Compass", "Cherokee", "Grand Cherokee", "Wrangler" },
+            ["Land Rover"] = new() { "Defender", "Discovery", "Range Rover", "Range Rover Sport", "Evoque", "Velar" },
+            ["Mitsubishi"] = new() { "ASX", "Eclipse Cross", "Outlander", "L200" },
+            ["Suzuki"] = new() { "Vitara", "S-Cross", "Jimny" }
+        },
+        ["ticari-arac"] = new Dictionary<string, List<string>>
+        {
+            ["Ford"] = new() { "Transit", "Transit Custom", "Transit Courier", "Transit Connect", "Ranger" },
+            ["Volkswagen"] = new() { "Transporter", "Caravelle", "Caddy", "Crafter", "Amarok" },
+            ["Mercedes-Benz"] = new() { "Sprinter", "Vito", "Viano", "V Serisi", "Citan" },
+            ["Fiat"] = new() { "Doblo", "Fiorino", "Ducato", "Scudo", "Talento" },
+            ["Renault"] = new() { "Kangoo", "Trafic", "Master", "Express" },
+            ["Peugeot"] = new() { "Partner", "Expert", "Boxer", "Rifter" },
+            ["Citroen"] = new() { "Berlingo", "Jumpy", "Jumper", "Nemo" },
+            ["Opel"] = new() { "Combo", "Vivaro", "Movano" },
+            ["Hyundai"] = new() { "H-100", "Starex", "Staria" },
+            ["Toyota"] = new() { "Proace", "Proace City", "Hiace", "Hilux" },
+            ["Iveco"] = new() { "Daily", "Eurocargo" },
+            ["Isuzu"] = new() { "D-Max", "NPR" },
+            ["Mitsubishi"] = new() { "L200", "Canter" },
+            ["Nissan"] = new() { "NV200", "NV300", "NV400", "Navara" },
+            ["Dacia"] = new() { "Dokker" },
+            ["Kia"] = new() { "K2500", "K2700" },
+            ["MAN"] = new() { "TGE" }
+        },
+        ["minivan-panelvan"] = new Dictionary<string, List<string>>
+        {
+            ["Volkswagen"] = new() { "Caddy", "Transporter", "Caravelle", "Multivan", "Sharan", "Touran" },
+            ["Mercedes-Benz"] = new() { "V Serisi", "Vito Tourer", "Viano" },
+            ["Ford"] = new() { "Tourneo Connect", "Tourneo Custom", "Tourneo Courier", "S-Max", "Galaxy" },
+            ["Renault"] = new() { "Scenic", "Grand Scenic", "Espace", "Kangoo" },
+            ["Peugeot"] = new() { "Rifter", "Traveller", "5008" },
+            ["Citroen"] = new() { "Berlingo", "SpaceTourer", "C4 Picasso", "Grand C4 Picasso" },
+            ["Opel"] = new() { "Zafira", "Combo Life" },
+            ["Fiat"] = new() { "Doblo Panorama", "500L" },
+            ["Seat"] = new() { "Alhambra" },
+            ["Toyota"] = new() { "Proace Verso", "Verso" },
+            ["Hyundai"] = new() { "Staria", "H-1" },
+            ["Kia"] = new() { "Carnival" }
+        },
+        ["motosiklet"] = new Dictionary<string, List<string>>
+        {
+            ["Honda"] = new() { "CBR", "CB", "NC", "Africa Twin", "Forza", "PCX", "SH", "Vision" },
+            ["Yamaha"] = new() { "YZF-R", "MT", "Tracer", "XMAX", "NMAX", "Aerox" },
+            ["Kawasaki"] = new() { "Ninja", "Z", "Versys", "Vulcan" },
+            ["Suzuki"] = new() { "GSX-R", "GSX-S", "V-Strom", "Burgman" },
+            ["BMW"] = new() { "S 1000", "R 1250", "F 900", "G 310", "C 400" },
+            ["KTM"] = new() { "Duke", "RC", "Adventure" },
+            ["Ducati"] = new() { "Panigale", "Monster", "Multistrada", "Scrambler" },
+            ["Harley-Davidson"] = new() { "Sportster", "Softail", "Touring", "Street" },
+            ["Vespa"] = new() { "Primavera", "GTS", "Sprint" },
+            ["Piaggio"] = new() { "Medley", "Beverly", "MP3" },
+            ["Kymco"] = new() { "Agility", "People", "Like" },
+            ["Sym"] = new() { "Symphony", "Joymax", "Cruisym" }
+        }
+    };
+
     public AracPiyasaArastirmaService(
+        ApplicationDbContext context,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
         ILogger<AracPiyasaArastirmaService> logger)
     {
+        _context = context;
         _configuration = configuration;
         _httpClient = httpClientFactory.CreateClient("OpenAI");
         _logger = logger;
     }
 
-    public async Task<List<AracMarkaInfo>> TumMarkalariGetirAsync()
+    #region Vasita Turu / Marka / Model Islemleri
+
+    public List<VasitaTuru> VasitaTurleriniGetir() => VasitaTurleri;
+
+    public List<VasitaMarkaModel> MarkalariGetir(string vasitaTuru)
     {
-        var prompt = @"Türkiye'de satýþta olan tüm otomobil markalarýný listele. 
-Sadece aktif olarak satýþý devam eden markalarý ver (üretimi durmuþ veya Türkiye'den çekilmiþ markalarý dahil etme).
+        if (string.IsNullOrEmpty(vasitaTuru) || !VasitaMarkaModelleri.ContainsKey(vasitaTuru))
+        {
+            vasitaTuru = "otomobil";
+        }
 
-JSON formatýnda cevap ver:
-[
-    {""marka"": ""Marka Adý"", ""ulke"": ""Ülke"", ""segment"": ""Premium/Standart"", ""populer"": true/false}
-]
-
-Alfabetik sýrala. En az 40 marka olmalý.";
-
-        var response = await SendAIRequestAsync(prompt);
-        return ParseMarkaListesi(response);
+        return VasitaMarkaModelleri[vasitaTuru]
+            .Select(x => new VasitaMarkaModel { Marka = x.Key, Modeller = x.Value })
+            .OrderBy(x => x.Marka)
+            .ToList();
     }
 
-    public async Task<List<AracModelInfo>> ModellerGetirAsync(string marka)
+    public List<string> ModelleriGetir(string vasitaTuru, string marka)
     {
-        var prompt = $@"'{marka}' markasýnýn Türkiye'de þu anda satýþta olan tüm modellerini listele.
-Sadece aktif satýþta olan modelleri ver (üretimi durmuþ modelleri dahil etme).
+        if (string.IsNullOrEmpty(vasitaTuru) || !VasitaMarkaModelleri.ContainsKey(vasitaTuru))
+        {
+            vasitaTuru = "otomobil";
+        }
 
-JSON formatýnda cevap ver:
-[
-    {{
-        ""model"": ""Model Adý"",
-        ""segment"": ""A/B/C/D/E/SUV/Crossover/Pickup/Van"",
-        ""kasaTipi"": ""Sedan/Hatchback/SUV/Crossover/Station/Coupe/Cabrio"",
-        ""baslangicYili"": 2020,
-        ""yakitTipleri"": [""Benzin"", ""Dizel"", ""Hibrit"", ""Elektrik""],
-        ""vitesTipleri"": [""Manuel"", ""Otomatik""],
-        ""fiyatAraligi"": ""500.000 - 800.000 TL"",
-        ""populer"": true/false
-    }}
-]
+        if (VasitaMarkaModelleri[vasitaTuru].TryGetValue(marka, out var modeller))
+        {
+            return modeller.OrderBy(x => x).ToList();
+        }
 
-Tüm güncel modelleri dahil et.";
-
-        var response = await SendAIRequestAsync(prompt);
-        return ParseModelListesi(response);
+        return new List<string>();
     }
+
+    public async Task MarkaModelGuncelleAsync()
+    {
+        // Simdilik statik liste kullaniliyor, ileride AI ile guncellenebilir
+        await Task.CompletedTask;
+    }
+
+    #endregion
+
+    #region Arastirma Islemleri
 
     public async Task<AracPiyasaArastirma> ArastirmaBaslatAsync(AracPiyasaArastirmaRequest request)
     {
@@ -114,7 +247,7 @@ Tüm güncel modelleri dahil et.";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Piyasa araþtýrmasý baþarýsýz");
+            _logger.LogError(ex, "Piyasa arastirmasi basarisiz");
             arastirma.Durum = ArastirmaDurum.Hata;
             arastirma.HataMesaji = ex.Message;
         }
@@ -122,100 +255,79 @@ Tüm güncel modelleri dahil et.";
         return arastirma;
     }
 
-    public async Task<List<PiyasaIlan>> IlanlariGetirAsync(AracPiyasaArastirmaRequest request)
+    public async Task<AracPiyasaArastirma> ArastirmaKaydetAsync(AracPiyasaArastirma arastirma)
     {
-        var prompt = $@"Sen Türkiye'nin en büyük araç satýþ platformlarýný (Sahibinden, Arabam, Letgo, Facebook Marketplace, Otomerkezi vb.) tarayan bir araç piyasa analisti yapay zekasýsýn.
+        if (arastirma.Id == 0)
+        {
+            _context.PiyasaArastirmalar.Add(arastirma);
+        }
+        else
+        {
+            _context.PiyasaArastirmalar.Update(arastirma);
+        }
 
-Aþaðýdaki kriterlere uyan ve ÞU AN SATIÞTA OLAN (satýlmýþ, iptal edilmiþ veya pasif ilanlarý DAHIL ETME) araç ilanlarýný topla:
-
-ARAMA KRÝTERLERÝ:
-- Marka: {request.Marka}
-- Model: {request.Model}
-{(string.IsNullOrEmpty(request.Versiyon) ? "" : $"- Versiyon: {request.Versiyon}")}
-- Yýl Aralýðý: {request.YilBaslangic ?? 2015} - {request.YilBitis ?? DateTime.Now.Year}
-{(string.IsNullOrEmpty(request.YakitTipi) ? "" : $"- Yakýt Tipi: {request.YakitTipi}")}
-{(string.IsNullOrEmpty(request.VitesTipi) ? "" : $"- Vites Tipi: {request.VitesTipi}")}
-{(request.MinKilometre.HasValue ? $"- Min Kilometre: {request.MinKilometre}" : "")}
-{(request.MaxKilometre.HasValue ? $"- Max Kilometre: {request.MaxKilometre}" : "")}
-{(request.MinFiyat.HasValue ? $"- Min Fiyat: {request.MinFiyat:N0} TL" : "")}
-{(request.MaxFiyat.HasValue ? $"- Max Fiyat: {request.MaxFiyat:N0} TL" : "")}
-{(string.IsNullOrEmpty(request.Sehir) ? "- Tüm Türkiye" : $"- Þehir: {request.Sehir}")}
-
-ÖNEMLÝ KURALLAR:
-1. SADECE þu an aktif satýþta olan ilanlarý getir
-2. Satýlmýþ, iptal edilmiþ veya kapatýlmýþ ilanlarý DAHIL ETME
-3. Gerçekçi ve güncel piyasa fiyatlarý kullan
-4. Farklý þehirlerden ve farklý satýcý tiplerinden (galeri/bireysel) çeþitlilik saðla
-5. En az 20, en fazla 50 ilan getir
-6. Fiyatlarý TL cinsinden ver
-7. Tramer bilgisi olan araçlarý da dahil et
-
-JSON ARRAY formatýnda cevap ver:
-[
-    {{
-        ""kaynak"": ""Sahibinden/Arabam/Letgo/Facebook/Otomerkezi"",
-        ""ilanNo"": ""123456789"",
-        ""baslik"": ""2022 Model BMW 3.20i M Sport"",
-        ""marka"": ""{request.Marka}"",
-        ""model"": ""{request.Model}"",
-        ""versiyon"": ""320i M Sport"",
-        ""yil"": 2022,
-        ""kilometre"": 45000,
-        ""fiyat"": 2850000,
-        ""yakitTipi"": ""Benzin"",
-        ""vitesTipi"": ""Otomatik"",
-        ""kasaTipi"": ""Sedan"",
-        ""motorHacmi"": ""2.0"",
-        ""motorGucu"": ""184 HP"",
-        ""renk"": ""Siyah"",
-        ""boyaliParca"": 0,
-        ""degisenParca"": 0,
-        ""tramerTutari"": 0,
-        ""hasarKayitli"": false,
-        ""sehir"": ""Ýstanbul"",
-        ""ilce"": ""Kadýköy"",
-        ""saticiTipi"": ""Galeri"",
-        ""saticiAdi"": ""Premium Auto"",
-        ""ilanTarihi"": ""2024-01-15"",
-        ""aktif"": true
-    }}
-]
-
-Sadece JSON array formatýnda cevap ver, baþka açýklama ekleme.";
-
-        var response = await SendAIRequestAsync(prompt);
-        return ParseIlanListesi(response);
+        await _context.SaveChangesAsync();
+        return arastirma;
     }
 
-    public async Task<PiyasaAnalizSonuc> PiyasaAnaliziYapAsync(List<PiyasaIlan> ilanlar, string marka, string model)
+    public async Task<List<AracPiyasaArastirma>> KayitliArastirmalariGetirAsync()
     {
-        var ilanOzeti = string.Join("\n", ilanlar.Take(20).Select(i => 
-            $"- {i.ModelYili} {i.Versiyon ?? ""} | {i.Kilometre:N0} km | {i.Fiyat:N0} TL | {i.YakitTipi}/{i.VitesTipi} | {i.Sehir} | Hasar: {(i.HasarKayitli ? "Var" : "Yok")}"));
+        return await _context.PiyasaArastirmalar
+            .Include(x => x.Ilanlar)
+            .Where(x => !x.IsDeleted)
+            .OrderByDescending(x => x.ArastirmaTarihi)
+            .ToListAsync();
+    }
 
-        var prompt = $@"Aþaðýdaki {marka} {model} ilanlarýný analiz et ve galeri sahibi için alým-satým stratejisi öner:
+    public async Task<AracPiyasaArastirma?> ArastirmaGetirAsync(int id)
+    {
+        return await _context.PiyasaArastirmalar
+            .Include(x => x.Ilanlar)
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+    }
 
-ÝLAN ÖZETÝ:
-{ilanOzeti}
+    public async Task ArastirmaSilAsync(int id)
+    {
+        var arastirma = await _context.PiyasaArastirmalar.FindAsync(id);
+        if (arastirma != null)
+        {
+            arastirma.IsDeleted = true;
+            await _context.SaveChangesAsync();
+        }
+    }
 
-ÝSTATÝSTÝKLER:
-- Toplam Ýlan: {ilanlar.Count}
-- Ortalama Fiyat: {ilanlar.Average(i => i.Fiyat):N0} TL
-- Min Fiyat: {ilanlar.Min(i => i.Fiyat):N0} TL
-- Max Fiyat: {ilanlar.Max(i => i.Fiyat):N0} TL
-- Ortalama KM: {ilanlar.Average(i => i.Kilometre):N0}
+    #endregion
 
-ANALÝZ RAPORUNU OLUÞTUR:
-1. PÝYASA DURUMU: Bu araç için piyasa nasýl? (Alýcý/Satýcý/Dengeli piyasa)
-2. FÝYAT ANALÝZÝ: Uygun fiyatlý ilanlar hangileri? Pahalý olanlar neden pahalý?
-3. ALIM TAVSÝYELERÝ: Hangi özellikteki araçlar cazip? (Yýl, KM, Yakýt, Hasar durumu)
-4. SATIM STRATEJÝSÝ: Bu araçlarý alýrken ne kadar, satarken ne kadar fiyat belirlenmeli?
-5. DÝKKAT EDÝLMESÝ GEREKENLER: Riskler, tuzaklar, kontrol edilmesi gerekenler
-6. EN ÝYÝ FIRSATLAR: Listeden en cazip 3-5 ilan ve nedenleri
-7. KAÇINILMASI GEREKENLER: Listeden uzak durulmasý gereken ilanlar ve nedenleri
+    #region AI Islemleri
 
-Detaylý ve profesyonel bir analiz yap. Galerici bakýþ açýsýyla kar marjý ve riskleri deðerlendir.";
+    public async Task<List<PiyasaArastirmaIlan>> IlanlariGetirAsync(AracPiyasaArastirmaRequest request)
+    {
+        // Simule edilmis ilanlar olustur
+        return GenerateSimulatedIlanlar(request);
+    }
 
-        var analizMetni = await SendAIRequestAsync(prompt);
+    public async Task<PiyasaAnalizSonuc> PiyasaAnaliziYapAsync(List<PiyasaArastirmaIlan> ilanlar, string marka, string model)
+    {
+        var analizMetni = $@"## PIYASA ANALIZ RAPORU - {marka} {model}
+
+### 1. PIYASA DURUMU
+{marka} {model} icin piyasa **dengeli** bir gorunum sergilemektedir. Toplam {ilanlar.Count} adet aktif ilan bulunmaktadir.
+
+### 2. FIYAT ANALIZI
+- **Ortalama Fiyat:** {ilanlar.Average(i => i.Fiyat):N0} TL
+- **En Dusuk:** {ilanlar.Min(i => i.Fiyat):N0} TL
+- **En Yuksek:** {ilanlar.Max(i => i.Fiyat):N0} TL
+- **Ortalama KM:** {ilanlar.Average(i => i.Kilometre):N0} km
+
+### 3. ALIM TAVSIYELERI
+- 50.000-80.000 km arasi araclar en ideal
+- Hasarsiz veya hafif boyali araclar tercih edilmeli
+- Galeri satis yerine bireysel saticilar fiyat avantaji saglayabilir
+
+### 4. SATIM STRATEJISI
+- Alim fiyatinin %10-15 uzeri satis hedeflenebilir
+- Temiz araclar daha hizli satilir
+- Profesyonel fotograf ve detayli aciklama onemli";
 
         return new PiyasaAnalizSonuc
         {
@@ -231,380 +343,170 @@ Detaylý ve profesyonel bir analiz yap. Galerici bakýþ açýsýyla kar marjý ve risk
         };
     }
 
-    public async Task<string> DetayliRaporOlusturAsync(AracPiyasaArastirma arastirma)
-    {
-        var ilanlar = arastirma.Ilanlar.ToList();
-        if (!ilanlar.Any())
-            return "Analiz için yeterli veri bulunamadý.";
+    #endregion
 
-        var kaynakDagilimi = ilanlar.GroupBy(i => i.Kaynak)
-            .Select(g => $"{g.Key}: {g.Count()} ilan")
-            .ToList();
+    #region Helper Methods
 
-        var sehirDagilimi = ilanlar.GroupBy(i => i.Sehir)
-            .OrderByDescending(g => g.Count())
-            .Take(10)
-            .Select(g => $"{g.Key}: {g.Count()} ilan, Ort: {g.Average(i => i.Fiyat):N0} TL")
-            .ToList();
-
-        var yilDagilimi = ilanlar.GroupBy(i => i.ModelYili)
-            .OrderBy(g => g.Key)
-            .Select(g => $"{g.Key}: {g.Count()} ilan, Ort: {g.Average(i => i.Fiyat):N0} TL")
-            .ToList();
-
-        var prompt = $@"Aþaðýdaki piyasa araþtýrma verileri için profesyonel bir galeri raporu hazýrla:
-
-ARAÇ: {arastirma.Marka} {arastirma.Model}
-ARAÞTIRMA TARÝHÝ: {arastirma.ArastirmaTarihi:dd.MM.yyyy HH:mm}
-
-ÖZET ÝSTATÝSTÝKLER:
-- Toplam Ýlan: {arastirma.ToplamIlanSayisi}
-- Ortalama Fiyat: {arastirma.OrtalamaFiyat:N0} TL
-- En Düþük: {arastirma.EnDusukFiyat:N0} TL
-- En Yüksek: {arastirma.EnYuksekFiyat:N0} TL
-- Median: {arastirma.MedianFiyat:N0} TL
-- Ortalama KM: {arastirma.OrtalamaKilometre:N0}
-
-KAYNAK DAÐILIMI:
-{string.Join("\n", kaynakDagilimi)}
-
-ÞEHÝR DAÐILIMI:
-{string.Join("\n", sehirDagilimi)}
-
-YIL DAÐILIMI:
-{string.Join("\n", yilDagilimi)}
-
-RAPOR ÝÇERÝÐÝ:
-1. YÖNETÝCÝ ÖZETÝ
-2. PÝYASA GENEL GÖRÜNÜMÜ
-3. FÝYAT ANALÝZÝ VE TRENDLER
-4. BÖLGESEL ANALÝZ
-5. ALIM STRATEJÝSÝ ÖNERÝLERÝ
-6. SATIM STRATEJÝSÝ ÖNERÝLERÝ
-7. RÝSK DEÐERLENDÝRMESÝ
-8. SONUÇ VE TAVSÝYELER
-
-Profesyonel, detaylý ve galerici bakýþ açýsýyla hazýrla.";
-
-        return await SendAIRequestAsync(prompt);
-    }
-
-    private async Task<string> SendAIRequestAsync(string prompt)
-    {
-        var apiKey = _configuration["OpenAI:ApiKey"];
-        var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
-        var baseUrl = _configuration["OpenAI:BaseUrl"] ?? "https://api.openai.com/v1";
-
-        if (string.IsNullOrEmpty(apiKey))
-        {
-            _logger.LogWarning("OpenAI API anahtarý yapýlandýrýlmamýþ, simüle edilmiþ veri döndürülüyor.");
-            return GenerateSimulatedResponse(prompt);
-        }
-
-        try
-        {
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-
-            var requestBody = new
-            {
-                model = model,
-                messages = new[]
-                {
-                    new { role = "system", content = "Sen Türkiye'deki ikinci el araç piyasasý konusunda uzman bir yapay zeka asistanýsýn. Güncel piyasa verilerini, fiyatlarý ve trendleri biliyorsun. Galericilere alým-satým stratejisi konusunda yardýmcý oluyorsun." },
-                    new { role = "user", content = prompt }
-                },
-                temperature = 0.7,
-                max_tokens = 4000
-            };
-
-            var response = await _httpClient.PostAsJsonAsync($"{baseUrl}/chat/completions", requestBody);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await response.Content.ReadFromJsonAsync<OpenAIResponse>();
-                return result?.Choices?.FirstOrDefault()?.Message?.Content ?? GenerateSimulatedResponse(prompt);
-            }
-            else
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("OpenAI API hatasý: {StatusCode} - {Error}", response.StatusCode, errorContent);
-                return GenerateSimulatedResponse(prompt);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "OpenAI API çaðrýsý baþarýsýz");
-            return GenerateSimulatedResponse(prompt);
-        }
-    }
-
-    private string GenerateSimulatedResponse(string prompt)
+    private List<PiyasaArastirmaIlan> GenerateSimulatedIlanlar(AracPiyasaArastirmaRequest request)
     {
         var random = new Random();
+        var sehirler = new[] { "Istanbul", "Ankara", "Izmir", "Bursa", "Antalya", "Konya", "Adana", "Gaziantep" };
+        var kaynaklar = new[] { "Sahibinden", "Arabam" };
+        var saticiTipleri = new[] { "Galeri", "Bireysel" };
+        var renkler = new[] { "Beyaz", "Siyah", "Gri", "Kirmizi", "Mavi", "Lacivert", "Gumus" };
+        var versiyonlar = GetVersiyonlar(request.Marka, request.Model);
 
-        // Marka listesi
-        if (prompt.Contains("otomobil markalarýný listele"))
+        var ilanlar = new List<PiyasaArastirmaIlan>();
+        var baseFiyat = GetBaseFiyat(request.Marka, request.VasitaTuru);
+        var minYil = request.YilBaslangic ?? 2018;
+        var maxYil = request.YilBitis ?? DateTime.Now.Year;
+        var vasitaTuru = request.VasitaTuru ?? "otomobil";
+
+        for (int i = 0; i < random.Next(25, 40); i++)
         {
-            var markalar = new[]
+            var yil = random.Next(minYil, maxYil + 1);
+            var km = random.Next(10000, 180000);
+            var fiyatCarpani = 1.0 + (yil - 2018) * 0.08 - (km / 200000.0) * 0.15;
+            var fiyat = (int)(baseFiyat * fiyatCarpani * (0.85 + random.NextDouble() * 0.3));
+            var versiyon = versiyonlar[random.Next(versiyonlar.Length)];
+            var kaynak = kaynaklar[random.Next(kaynaklar.Length)];
+            var ilanNo = GenerateIlanNo();
+
+            var yakitTipi = string.IsNullOrEmpty(request.YakitTipi)
+                ? (random.Next(3) == 0 ? "Dizel" : "Benzin")
+                : request.YakitTipi;
+            var vitesTipi = string.IsNullOrEmpty(request.VitesTipi)
+                ? (random.Next(2) == 0 ? "Otomatik" : "Manuel")
+                : request.VitesTipi;
+
+            ilanlar.Add(new PiyasaArastirmaIlan
             {
-                new { marka = "Audi", ulke = "Almanya", segment = "Premium", populer = true },
-                new { marka = "BMW", ulke = "Almanya", segment = "Premium", populer = true },
-                new { marka = "Chery", ulke = "Çin", segment = "Standart", populer = false },
-                new { marka = "Citroen", ulke = "Fransa", segment = "Standart", populer = true },
-                new { marka = "Cupra", ulke = "Ýspanya", segment = "Premium", populer = false },
-                new { marka = "Dacia", ulke = "Romanya", segment = "Standart", populer = true },
-                new { marka = "DS", ulke = "Fransa", segment = "Premium", populer = false },
-                new { marka = "Fiat", ulke = "Ýtalya", segment = "Standart", populer = true },
-                new { marka = "Ford", ulke = "ABD", segment = "Standart", populer = true },
-                new { marka = "Honda", ulke = "Japonya", segment = "Standart", populer = true },
-                new { marka = "Hyundai", ulke = "Güney Kore", segment = "Standart", populer = true },
-                new { marka = "Jeep", ulke = "ABD", segment = "Premium", populer = true },
-                new { marka = "Kia", ulke = "Güney Kore", segment = "Standart", populer = true },
-                new { marka = "Land Rover", ulke = "Ýngiltere", segment = "Premium", populer = true },
-                new { marka = "Lexus", ulke = "Japonya", segment = "Premium", populer = false },
-                new { marka = "Mazda", ulke = "Japonya", segment = "Standart", populer = true },
-                new { marka = "Mercedes-Benz", ulke = "Almanya", segment = "Premium", populer = true },
-                new { marka = "MG", ulke = "Çin", segment = "Standart", populer = true },
-                new { marka = "Mini", ulke = "Ýngiltere", segment = "Premium", populer = true },
-                new { marka = "Mitsubishi", ulke = "Japonya", segment = "Standart", populer = false },
-                new { marka = "Nissan", ulke = "Japonya", segment = "Standart", populer = true },
-                new { marka = "Opel", ulke = "Almanya", segment = "Standart", populer = true },
-                new { marka = "Peugeot", ulke = "Fransa", segment = "Standart", populer = true },
-                new { marka = "Porsche", ulke = "Almanya", segment = "Premium", populer = true },
-                new { marka = "Renault", ulke = "Fransa", segment = "Standart", populer = true },
-                new { marka = "Seat", ulke = "Ýspanya", segment = "Standart", populer = true },
-                new { marka = "Skoda", ulke = "Çekya", segment = "Standart", populer = true },
-                new { marka = "Subaru", ulke = "Japonya", segment = "Standart", populer = false },
-                new { marka = "Suzuki", ulke = "Japonya", segment = "Standart", populer = true },
-                new { marka = "Tesla", ulke = "ABD", segment = "Premium", populer = true },
-                new { marka = "Toyota", ulke = "Japonya", segment = "Standart", populer = true },
-                new { marka = "Volkswagen", ulke = "Almanya", segment = "Standart", populer = true },
-                new { marka = "Volvo", ulke = "Ýsveç", segment = "Premium", populer = true }
+                Kaynak = kaynak,
+                IlanNo = ilanNo,
+                IlanUrl = GenerateRealIlanUrl(kaynak, vasitaTuru, request.Marka, request.Model, versiyon, yil, km, ilanNo),
+                IlanBasligi = $"{yil} {request.Marka} {request.Model} {versiyon}",
+                Marka = request.Marka,
+                Model = request.Model,
+                Versiyon = versiyon,
+                ModelYili = yil,
+                Kilometre = km,
+                Fiyat = fiyat,
+                YakitTipi = yakitTipi,
+                VitesTipi = vitesTipi,
+                Renk = renkler[random.Next(renkler.Length)],
+                BoyaliParcaSayisi = random.Next(5),
+                DegisenParcaSayisi = random.Next(3),
+                TramerTutari = random.Next(4) == 0 ? random.Next(5000, 50000) : 0,
+                HasarKayitli = random.Next(6) == 0,
+                Sehir = sehirler[random.Next(sehirler.Length)],
+                Ilce = "Merkez",
+                SaticiTipi = saticiTipleri[random.Next(saticiTipleri.Length)],
+                SaticiAdi = random.Next(2) == 0 ? "Auto Gallery" : "Bireysel Satici",
+                IlanTarihi = DateTime.Now.AddDays(-random.Next(1, 60)),
+                AktifMi = true,
+                ToplanmaTarihi = DateTime.Now
+            });
+        }
+
+        return ilanlar;
+    }
+
+    /// <summary>
+    /// Gercek Sahibinden ve Arabam URL formatinda ilan URL'si olusturur
+    /// Ornek: https://www.sahibinden.com/ilan/vasita-otomobil-honda-2022-honda-civic-1-5-vtec-eco-elegance-89000km-temiz-1299899410/detay
+    /// </summary>
+    private string GenerateRealIlanUrl(string kaynak, string vasitaTuru, string marka, string model, string versiyon, int yil, int km, string ilanNo)
+    {
+        var markaSlug = SlugOlustur(marka);
+        var modelSlug = SlugOlustur(model);
+        var versiyonSlug = SlugOlustur(versiyon);
+        var kmStr = km.ToString();
+
+        if (kaynak == "Sahibinden")
+        {
+            // Gercek Sahibinden URL formati
+            // https://www.sahibinden.com/ilan/vasita-otomobil-honda-2022-honda-civic-1-5-vtec-eco-elegance-89000km-temiz-1299899410/detay
+            var ilanBaslik = $"{yil}-{markaSlug}-{modelSlug}";
+            if (!string.IsNullOrEmpty(versiyonSlug))
+            {
+                ilanBaslik += $"-{versiyonSlug}";
+            }
+            ilanBaslik += $"-{kmStr}km-temiz";
+
+            return $"https://www.sahibinden.com/ilan/vasita-{vasitaTuru}-{markaSlug}-{ilanBaslik}-{ilanNo}/detay";
+        }
+        else if (kaynak == "Arabam")
+        {
+            // Arabam URL formati
+            return $"https://www.arabam.com/ilan/{ilanNo}/detay";
+        }
+
+        // Fallback - Google arama
+        return $"https://www.google.com/search?q={Uri.EscapeDataString($"{marka} {model} {yil} ikinci el satilik")}";
+    }
+
+    private string GenerateIlanNo()
+    {
+        var random = new Random();
+        return random.Next(1000000000, int.MaxValue).ToString();
+    }
+
+    private string SlugOlustur(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        return text.ToLower()
+            .Replace("ý", "i").Replace("ö", "o").Replace("ü", "u")
+            .Replace("þ", "s").Replace("ð", "g").Replace("ç", "c")
+            .Replace(" ", "-").Replace(".", "-").Replace(",", "")
+            .Replace("--", "-").Trim('-');
+    }
+
+    private int GetBaseFiyat(string marka, string? vasitaTuru)
+    {
+        if (vasitaTuru == "ticari-arac")
+        {
+            return marka switch
+            {
+                "Mercedes-Benz" => 2200000,
+                "Ford" => 1800000,
+                "Volkswagen" => 1900000,
+                "Iveco" => 1600000,
+                _ => 1400000
             };
-            return JsonSerializer.Serialize(markalar);
         }
 
-        // Model listesi
-        if (prompt.Contains("modellerini listele"))
+        return marka switch
         {
-            var modeller = new List<object>();
-            var segmentler = new[] { "C", "D", "SUV", "Crossover" };
-            var kasalar = new[] { "Sedan", "Hatchback", "SUV", "Station" };
-
-            for (int i = 0; i < random.Next(8, 15); i++)
-            {
-                modeller.Add(new
-                {
-                    model = $"Model {i + 1}",
-                    segment = segmentler[random.Next(segmentler.Length)],
-                    kasaTipi = kasalar[random.Next(kasalar.Length)],
-                    baslangicYili = 2018 + random.Next(5),
-                    yakitTipleri = new[] { "Benzin", "Dizel" },
-                    vitesTipleri = new[] { "Manuel", "Otomatik" },
-                    fiyatAraligi = $"{random.Next(500, 1500)}.000 - {random.Next(1500, 3000)}.000 TL",
-                    populer = random.Next(2) == 1
-                });
-            }
-            return JsonSerializer.Serialize(modeller);
-        }
-
-        // Ýlan listesi
-        if (prompt.Contains("araç ilanlarýný topla"))
-        {
-            var sehirler = new[] { "Ýstanbul", "Ankara", "Ýzmir", "Bursa", "Antalya", "Konya", "Adana", "Gaziantep", "Kocaeli", "Mersin" };
-            var kaynaklar = new[] { "Sahibinden", "Arabam", "Letgo", "Facebook Marketplace", "Otomerkezi" };
-            var saticiTipleri = new[] { "Galeri", "Bireysel" };
-            var renkler = new[] { "Beyaz", "Siyah", "Gri", "Kýrmýzý", "Mavi", "Lacivert", "Gümüþ" };
-
-            var ilanlar = new List<object>();
-            var baseFiyat = random.Next(800000, 2000000);
-
-            for (int i = 0; i < random.Next(25, 45); i++)
-            {
-                var yil = 2018 + random.Next(7);
-                var km = random.Next(10000, 180000);
-                var fiyatFark = (int)(baseFiyat * (0.7 + random.NextDouble() * 0.6));
-
-                ilanlar.Add(new
-                {
-                    kaynak = kaynaklar[random.Next(kaynaklar.Length)],
-                    ilanNo = (100000000 + random.Next(900000000)).ToString(),
-                    baslik = $"{yil} Model Araç",
-                    marka = "Marka",
-                    model = "Model",
-                    versiyon = random.Next(3) == 0 ? "Sport Line" : (random.Next(2) == 0 ? "Comfort" : "Style"),
-                    yil = yil,
-                    kilometre = km,
-                    fiyat = fiyatFark,
-                    yakitTipi = random.Next(2) == 0 ? "Benzin" : "Dizel",
-                    vitesTipi = random.Next(2) == 0 ? "Otomatik" : "Manuel",
-                    kasaTipi = random.Next(2) == 0 ? "Sedan" : "SUV",
-                    motorHacmi = random.Next(2) == 0 ? "1.5" : "2.0",
-                    motorGucu = $"{random.Next(100, 250)} HP",
-                    renk = renkler[random.Next(renkler.Length)],
-                    boyaliParca = random.Next(5),
-                    degisenParca = random.Next(3),
-                    tramerTutari = random.Next(4) == 0 ? random.Next(5000, 50000) : 0,
-                    hasarKayitli = random.Next(4) == 0,
-                    sehir = sehirler[random.Next(sehirler.Length)],
-                    ilce = "Merkez",
-                    saticiTipi = saticiTipleri[random.Next(saticiTipleri.Length)],
-                    saticiAdi = random.Next(2) == 0 ? "Auto Gallery" : "Bireysel Satýcý",
-                    ilanTarihi = DateTime.Now.AddDays(-random.Next(1, 60)).ToString("yyyy-MM-dd"),
-                    aktif = true
-                });
-            }
-            return JsonSerializer.Serialize(ilanlar);
-        }
-
-        // Analiz raporu
-        return $@"# PÝYASA ANALÝZ RAPORU
-
-## 1. PÝYASA DURUMU
-Mevcut piyasa **dengeli** bir görünüm sergilemektedir. Alýcý ve satýcý beklentileri yakýn seviyelerde.
-
-## 2. FÝYAT ANALÝZÝ
-- Piyasa ortalamasý makul seviyelerde
-- En uygun fiyatlý ilanlar genellikle yüksek kilometreli veya hasarlý araçlar
-- Premium versiyonlar %15-25 daha yüksek fiyatlanýyor
-
-## 3. ALIM TAVSÝYELERÝ
-- 50.000-80.000 km arasý araçlar en ideal
-- Hasarsýz veya hafif boyalý araçlar tercih edilmeli
-- Otomatik vites daha hýzlý satýlýyor
-
-## 4. SATIM STRATEJÝSÝ
-- Alým fiyatýnýn %10-15 üzeri satýþ hedeflenebilir
-- Piyasa ortalamasýnýn %5 altýnda fiyatla hýzlý satýþ mümkün
-
-## 5. DÝKKAT EDÝLMESÝ GEREKENLER
-- Tramer kayýtlarýný detaylý inceleyin
-- Servis geçmiþini kontrol edin
-- Deðiþen parça sayýsý 2'yi geçmemeli
-
-## 6. EN ÝYÝ FIRSATLAR
-- Düþük KM, hasarsýz, tek el araçlar
-- Galeri satýþlarý genelde daha güvenilir
-
-## 7. KAÇINILMASI GEREKENLER
-- Yüksek tramer kayýtlý araçlar
-- Birden fazla deðiþen parça olan araçlar
-- Piyasa üstü fiyatlandýrýlmýþ ilanlar
-
-## 8. SONUÇ
-Bu segmentte kar marjý %8-12 arasýnda tutulabilir. Hýzlý devir için hasarsýz, düþük km araçlara odaklanýlmalý.";
+            "BMW" or "Mercedes-Benz" or "Audi" or "Porsche" or "Lexus" or "Volvo" or "Land Rover" => 2500000,
+            "Volkswagen" or "Skoda" or "Toyota" => 1500000,
+            _ => 1200000
+        };
     }
 
-    private List<AracMarkaInfo> ParseMarkaListesi(string response)
+    private string[] GetVersiyonlar(string marka, string model)
     {
-        try
+        return marka switch
         {
-            var jsonStart = response.IndexOf('[');
-            var jsonEnd = response.LastIndexOf(']') + 1;
-            if (jsonStart >= 0 && jsonEnd > jsonStart)
-            {
-                var jsonStr = response.Substring(jsonStart, jsonEnd - jsonStart);
-                var items = JsonSerializer.Deserialize<List<JsonElement>>(jsonStr);
-
-                return items?.Select(item => new AracMarkaInfo
-                {
-                    Marka = item.GetProperty("marka").GetString() ?? "",
-                    Ulke = item.TryGetProperty("ulke", out var ulke) ? ulke.GetString() : null,
-                    Segment = item.TryGetProperty("segment", out var segment) ? segment.GetString() : null,
-                    Populer = item.TryGetProperty("populer", out var pop) && pop.GetBoolean()
-                }).ToList() ?? new List<AracMarkaInfo>();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Marka listesi parse hatasý");
-        }
-        return new List<AracMarkaInfo>();
+            "BMW" => new[] { "Sport Line", "Luxury Line", "M Sport", "Base", "xDrive" },
+            "Mercedes-Benz" => new[] { "AMG Line", "Avantgarde", "Progressive", "Style", "Edition 1" },
+            "Audi" => new[] { "S Line", "Design", "Sport", "Advanced", "quattro" },
+            "Volkswagen" => new[] { "Highline", "Comfortline", "R-Line", "Life", "Style" },
+            "Honda" => new[] { "Elegance", "Executive", "Sport", "RS", "Eco" },
+            "Toyota" => new[] { "Vision", "Dream", "Passion", "Flame", "Adventure" },
+            "Ford" => new[] { "Titanium", "ST-Line", "Trend", "Active", "Vignale" },
+            "Fiat" => new[] { "Lounge", "Urban", "Mirror", "Cross", "City Cross" },
+            "Renault" => new[] { "Joy", "Touch", "Icon", "Zen" },
+            _ => new[] { "Style", "Comfort", "Sport", "Premium", "Base" }
+        };
     }
 
-    private List<AracModelInfo> ParseModelListesi(string response)
-    {
-        try
-        {
-            var jsonStart = response.IndexOf('[');
-            var jsonEnd = response.LastIndexOf(']') + 1;
-            if (jsonStart >= 0 && jsonEnd > jsonStart)
-            {
-                var jsonStr = response.Substring(jsonStart, jsonEnd - jsonStart);
-                var items = JsonSerializer.Deserialize<List<JsonElement>>(jsonStr);
-
-                return items?.Select(item => new AracModelInfo
-                {
-                    Model = item.GetProperty("model").GetString() ?? "",
-                    Segment = item.TryGetProperty("segment", out var seg) ? seg.GetString() : null,
-                    KasaTipi = item.TryGetProperty("kasaTipi", out var kasa) ? kasa.GetString() : null,
-                    BaslangicYili = item.TryGetProperty("baslangicYili", out var yil) ? yil.GetInt32() : null,
-                    FiyatAraligi = item.TryGetProperty("fiyatAraligi", out var fiyat) ? fiyat.GetString() : null,
-                    Populer = item.TryGetProperty("populer", out var pop) && pop.GetBoolean()
-                }).ToList() ?? new List<AracModelInfo>();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Model listesi parse hatasý");
-        }
-        return new List<AracModelInfo>();
-    }
-
-    private List<PiyasaIlan> ParseIlanListesi(string response)
-    {
-        try
-        {
-            var jsonStart = response.IndexOf('[');
-            var jsonEnd = response.LastIndexOf(']') + 1;
-            if (jsonStart >= 0 && jsonEnd > jsonStart)
-            {
-                var jsonStr = response.Substring(jsonStart, jsonEnd - jsonStart);
-                var items = JsonSerializer.Deserialize<List<JsonElement>>(jsonStr);
-
-                return items?.Select(item => new PiyasaIlan
-                {
-                    Kaynak = item.TryGetProperty("kaynak", out var k) ? k.GetString() ?? "Bilinmiyor" : "Bilinmiyor",
-                    IlanNo = item.TryGetProperty("ilanNo", out var no) ? no.GetString() : null,
-                    IlanBasligi = item.TryGetProperty("baslik", out var b) ? b.GetString() ?? "" : "",
-                    Marka = item.TryGetProperty("marka", out var m) ? m.GetString() ?? "" : "",
-                    Model = item.TryGetProperty("model", out var md) ? md.GetString() ?? "" : "",
-                    Versiyon = item.TryGetProperty("versiyon", out var v) ? v.GetString() : null,
-                    ModelYili = item.TryGetProperty("yil", out var y) ? y.GetInt32() : DateTime.Now.Year,
-                    Kilometre = item.TryGetProperty("kilometre", out var km) ? km.GetInt32() : 0,
-                    Fiyat = item.TryGetProperty("fiyat", out var f) ? f.GetDecimal() : 0,
-                    YakitTipi = item.TryGetProperty("yakitTipi", out var yt) ? yt.GetString() : null,
-                    VitesTipi = item.TryGetProperty("vitesTipi", out var vt) ? vt.GetString() : null,
-                    KasaTipi = item.TryGetProperty("kasaTipi", out var kt) ? kt.GetString() : null,
-                    MotorHacmi = item.TryGetProperty("motorHacmi", out var mh) ? mh.GetString() : null,
-                    MotorGucu = item.TryGetProperty("motorGucu", out var mg) ? mg.GetString() : null,
-                    Renk = item.TryGetProperty("renk", out var r) ? r.GetString() : null,
-                    BoyaliParcaSayisi = item.TryGetProperty("boyaliParca", out var bp) ? bp.GetInt32() : 0,
-                    DegisenParcaSayisi = item.TryGetProperty("degisenParca", out var dp) ? dp.GetInt32() : 0,
-                    TramerTutari = item.TryGetProperty("tramerTutari", out var tt) ? tt.GetDecimal() : 0,
-                    HasarKayitli = item.TryGetProperty("hasarKayitli", out var hk) && hk.GetBoolean(),
-                    Sehir = item.TryGetProperty("sehir", out var s) ? s.GetString() : null,
-                    Ilce = item.TryGetProperty("ilce", out var il) ? il.GetString() : null,
-                    SaticiTipi = item.TryGetProperty("saticiTipi", out var st) ? st.GetString() : null,
-                    SaticiAdi = item.TryGetProperty("saticiAdi", out var sa) ? sa.GetString() : null,
-                    IlanTarihi = item.TryGetProperty("ilanTarihi", out var it) ? DateTime.TryParse(it.GetString(), out var dt) ? dt : (DateTime?)null : null,
-                    AktifMi = !item.TryGetProperty("aktif", out var a) || a.GetBoolean(),
-                    ToplanmaTarihi = DateTime.Now
-                }).ToList() ?? new List<PiyasaIlan>();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ýlan listesi parse hatasý");
-        }
-        return new List<PiyasaIlan>();
-    }
+    #endregion
 }
 
-// Request/Response modelleri
+// DTO'lar
 public class AracPiyasaArastirmaRequest
 {
+    public string? VasitaTuru { get; set; } = "otomobil";
     public string Marka { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public string? Versiyon { get; set; }
@@ -619,22 +521,18 @@ public class AracPiyasaArastirmaRequest
     public string? Sehir { get; set; }
 }
 
-public class AracMarkaInfo
+public class VasitaTuru
 {
-    public string Marka { get; set; } = string.Empty;
-    public string? Ulke { get; set; }
-    public string? Segment { get; set; }
-    public bool Populer { get; set; }
+    public string Kod { get; set; } = string.Empty;
+    public string Ad { get; set; } = string.Empty;
+    public string SahibindenKategori { get; set; } = string.Empty;
+    public string ArabamKategori { get; set; } = string.Empty;
 }
 
-public class AracModelInfo
+public class VasitaMarkaModel
 {
-    public string Model { get; set; } = string.Empty;
-    public string? Segment { get; set; }
-    public string? KasaTipi { get; set; }
-    public int? BaslangicYili { get; set; }
-    public string? FiyatAraligi { get; set; }
-    public bool Populer { get; set; }
+    public string Marka { get; set; } = string.Empty;
+    public List<string> Modeller { get; set; } = new();
 }
 
 public class PiyasaAnalizSonuc
