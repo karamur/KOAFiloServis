@@ -52,6 +52,7 @@ public class CariService : ICariService
 
             // Musteri icin: Giden fatura = Alacak, Tahsilat = Borc azaltir
             // Tedarikci icin: Gelen fatura = Borc, Odeme = Borc azaltir
+            // Personel icin: Maas = Borc, Odeme = Borc azaltir
             if (cari.CariTipi == CariTipi.Musteri)
             {
                 cari.Alacak = gidenFaturalar; // Musteriye kesilen fatura (alacak)
@@ -61,6 +62,13 @@ public class CariService : ICariService
             {
                 cari.Borc = gelenFaturalar; // Tedarikci faturasi (borc)
                 cari.Alacak = odemeler; // Tedarikci odemesi (alacak)
+            }
+            else if (cari.CariTipi == CariTipi.Personel)
+            {
+                // Personel icin: Maas bordrosu = Borc (personele borcumuz)
+                // Odeme yapildiginda = Alacak (borcumuz azalir)
+                cari.Borc = gelenFaturalar; // Personel maas bordrosu gibi
+                cari.Alacak = odemeler; // Personele yapilan odeme
             }
             else // MusteriTedarikci
             {
@@ -184,6 +192,7 @@ public class CariService : ICariService
     /// Cari icin muhasebe hesabi olusturur
     /// Musteri: 120.01.xxx (Alicilar)
     /// Tedarikci: 320.01.xxx (Saticilar)
+    /// Personel: 335.XX.PRSXXXXX (Personel Borclari - XX = FirmaId)
     /// </summary>
     private async Task<MuhasebeHesap?> CreateMuhasebeHesapAsync(Cari cari)
     {
@@ -191,21 +200,57 @@ public class CariService : ICariService
         {
             string anaHesapKodu;
             string anaHesapAdi;
+            HesapGrubu hesapGrubu;
 
-            if (cari.CariTipi == CariTipi.Musteri)
+            if (cari.CariTipi == CariTipi.Personel)
+            {
+                // Personel icin 335.XX.PRSXXXXX formatinda hesap
+                var firmaId = cari.FirmaId ?? 1;
+                anaHesapKodu = $"335.{firmaId:D2}";
+                anaHesapAdi = "Personel Borclari";
+                hesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar;
+            }
+            else if (cari.CariTipi == CariTipi.Musteri)
             {
                 anaHesapKodu = "120.01";
                 anaHesapAdi = "Alicilar";
+                hesapGrubu = HesapGrubu.DonenVarliklar;
             }
             else if (cari.CariTipi == CariTipi.Tedarikci)
             {
                 anaHesapKodu = "320.01";
                 anaHesapAdi = "Saticilar";
+                hesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar;
             }
             else // MusteriTedarikci
             {
                 anaHesapKodu = "120.01";
                 anaHesapAdi = "Alicilar";
+                hesapGrubu = HesapGrubu.DonenVarliklar;
+            }
+
+            // 335 ana hesabini kontrol et (personel icin)
+            if (cari.CariTipi == CariTipi.Personel)
+            {
+                var ana335 = await _context.MuhasebeHesaplari
+                    .FirstOrDefaultAsync(h => h.HesapKodu == "335");
+                
+                if (ana335 == null)
+                {
+                    // 335 - Personele Borclar ana hesabini olustur
+                    ana335 = new MuhasebeHesap
+                    {
+                        HesapKodu = "335",
+                        HesapAdi = "Personele Borclar",
+                        HesapTuru = HesapTuru.Pasif,
+                        HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar,
+                        AltHesapVar = true,
+                        Aktif = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.MuhasebeHesaplari.Add(ana335);
+                    await _context.SaveChangesAsync();
+                }
             }
 
             // Ana hesabi bul veya olustur
@@ -214,7 +259,7 @@ public class CariService : ICariService
 
             if (anaHesap == null)
             {
-                // 120 veya 320 ana hesabini bul
+                // Ust hesabi bul
                 var ustHesapKodu = anaHesapKodu.Split('.')[0];
                 var ustHesap = await _context.MuhasebeHesaplari
                     .FirstOrDefaultAsync(h => h.HesapKodu == ustHesapKodu);
@@ -223,8 +268,8 @@ public class CariService : ICariService
                 {
                     HesapKodu = anaHesapKodu,
                     HesapAdi = anaHesapAdi,
-                    HesapTuru = HesapTuru.Aktif,
-                    HesapGrubu = HesapGrubu.DonenVarliklar,
+                    HesapTuru = cari.CariTipi == CariTipi.Personel ? HesapTuru.Pasif : HesapTuru.Aktif,
+                    HesapGrubu = hesapGrubu,
                     UstHesapId = ustHesap?.Id,
                     AltHesapVar = true,
                     Aktif = true,
@@ -235,28 +280,58 @@ public class CariService : ICariService
             }
 
             // Alt hesap numarasini bul
-            var sonAltHesap = await _context.MuhasebeHesaplari
-                .Where(h => h.HesapKodu.StartsWith(anaHesapKodu + "."))
-                .OrderByDescending(h => h.HesapKodu)
-                .FirstOrDefaultAsync();
-
-            int nextNum = 1;
-            if (sonAltHesap != null)
+            string yeniHesapKodu;
+            
+            if (cari.CariTipi == CariTipi.Personel)
             {
-                var parts = sonAltHesap.HesapKodu.Split('.');
-                if (parts.Length >= 3 && int.TryParse(parts[2], out var lastNum))
+                // Personel icin PRS00001 formatinda
+                var sonPersonelHesap = await _context.MuhasebeHesaplari
+                    .Where(h => h.HesapKodu.StartsWith(anaHesapKodu + ".PRS"))
+                    .OrderByDescending(h => h.HesapKodu)
+                    .FirstOrDefaultAsync();
+
+                int nextNum = 1;
+                if (sonPersonelHesap != null)
                 {
-                    nextNum = lastNum + 1;
+                    var parts = sonPersonelHesap.HesapKodu.Split('.');
+                    if (parts.Length >= 3)
+                    {
+                        var prsKod = parts[2].Replace("PRS", "");
+                        if (int.TryParse(prsKod, out var lastNum))
+                        {
+                            nextNum = lastNum + 1;
+                        }
+                    }
                 }
+                yeniHesapKodu = $"{anaHesapKodu}.PRS{nextNum:D5}";
+            }
+            else
+            {
+                // Diger cariler icin sayisal format
+                var sonAltHesap = await _context.MuhasebeHesaplari
+                    .Where(h => h.HesapKodu.StartsWith(anaHesapKodu + "."))
+                    .OrderByDescending(h => h.HesapKodu)
+                    .FirstOrDefaultAsync();
+
+                int nextNum = 1;
+                if (sonAltHesap != null)
+                {
+                    var parts = sonAltHesap.HesapKodu.Split('.');
+                    if (parts.Length >= 3 && int.TryParse(parts[2], out var lastNum))
+                    {
+                        nextNum = lastNum + 1;
+                    }
+                }
+                yeniHesapKodu = $"{anaHesapKodu}.{nextNum:D3}";
             }
 
             // Cari icin alt hesap olustur
             var cariHesap = new MuhasebeHesap
             {
-                HesapKodu = $"{anaHesapKodu}.{nextNum:D3}",
+                HesapKodu = yeniHesapKodu,
                 HesapAdi = cari.Unvan,
-                HesapTuru = HesapTuru.Aktif,
-                HesapGrubu = HesapGrubu.DonenVarliklar,
+                HesapTuru = cari.CariTipi == CariTipi.Personel ? HesapTuru.Pasif : HesapTuru.Aktif,
+                HesapGrubu = hesapGrubu,
                 UstHesapId = anaHesap.Id,
                 AltHesapVar = false,
                 Aktif = true,

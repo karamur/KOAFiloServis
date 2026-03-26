@@ -404,13 +404,8 @@ public class CRMService : ICRMService
 
     public async Task<KullaniciCari> AddKullaniciCariAsync(KullaniciCari kullaniciCari)
     {
-        // Zaten baðlý mý kontrol et
-        var mevcut = await _context.KullaniciCariler
-            .AnyAsync(kc => kc.KullaniciId == kullaniciCari.KullaniciId && kc.CariId == kullaniciCari.CariId);
-
-        if (mevcut)
-            throw new InvalidOperationException("Bu cari zaten kullanýcýya baðlý.");
-
+        // Coka-cok iliski oldugu icin duplicate kontrolu KALDIRILDI
+        // Ayni kullanici-cari cifti birden fazla kez eklenebilir (farkli izinlerle)
         _context.KullaniciCariler.Add(kullaniciCari);
         await _context.SaveChangesAsync();
         return kullaniciCari;

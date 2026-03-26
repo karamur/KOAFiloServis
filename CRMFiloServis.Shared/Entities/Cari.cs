@@ -1,7 +1,7 @@
 namespace CRMFiloServis.Shared.Entities;
 
 /// <summary>
-/// Cari hesap (Musteri/Tedarikci/Firma)
+/// Cari hesap (Musteri/Tedarikci/Firma/Personel)
 /// </summary>
 public class Cari : BaseEntity
 {
@@ -23,22 +23,28 @@ public class Cari : BaseEntity
     public decimal Alacak { get; set; }
 
     // Muhasebe Hesap Eslestirme
-    public int? MuhasebeHesapId { get; set; } // 120.xxx veya 320.xxx
+    public int? MuhasebeHesapId { get; set; } // 120.xxx veya 320.xxx veya 335.xx.xxx (personel)
     public virtual MuhasebeHesap? MuhasebeHesap { get; set; }
 
     // Firma iliskisi (coklu firma destegi)
     public int? FirmaId { get; set; }
     public virtual Firma? Firma { get; set; }
+    
+    // Personel iliskisi (Personel carisi ise sofor/personel ile eslestir)
+    public int? SoforId { get; set; }
+    public virtual Sofor? Sofor { get; set; }
 
     // Navigation Properties
     public virtual ICollection<Fatura> Faturalar { get; set; } = new List<Fatura>();
     public virtual ICollection<Guzergah> Guzergahlar { get; set; } = new List<Guzergah>();
     public virtual ICollection<BankaKasaHareket> BankaKasaHareketler { get; set; } = new List<BankaKasaHareket>();
+    public virtual ICollection<KullaniciCari> KullaniciEslestirmeleri { get; set; } = new List<KullaniciCari>();
 }
 
 public enum CariTipi
 {
     Musteri = 1,
     Tedarikci = 2,
-    MusteriTedarikci = 3
+    MusteriTedarikci = 3,
+    Personel = 4
 }

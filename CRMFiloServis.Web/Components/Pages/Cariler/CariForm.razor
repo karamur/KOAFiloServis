@@ -27,7 +27,8 @@
                     <div class="col-md-4">
                         <div class="mb-3">
                             <label class="form-label">Cari Kodu *</label>
-                            <InputText @bind-Value="cari.CariKodu" class="form-control" readonly="@IsEdit" />
+                            <InputText @bind-Value="cari.CariKodu" class="form-control"
+                                       readonly="@IsEdit" />
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -68,13 +69,15 @@
                     <div class="col-md-4">
                         <div class="mb-3">
                             <label class="form-label">Vergi No (VKN)</label>
-                            <InputText @bind-Value="cari.VergiNo" class="form-control" maxlength="11" placeholder="10 veya 11 hane" />
+                            <InputText @bind-Value="cari.VergiNo" class="form-control" maxlength="11"
+                                       placeholder="10 veya 11 hane" />
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="mb-3">
                             <label class="form-label">TC Kimlik No</label>
-                            <InputText @bind-Value="cari.TcKimlikNo" class="form-control" maxlength="11" placeholder="11 hane" />
+                            <InputText @bind-Value="cari.TcKimlikNo" class="form-control" maxlength="11"
+                                       placeholder="11 hane" />
                         </div>
                     </div>
                 </div>
@@ -120,7 +123,7 @@
                                 }
                             </select>
                             <small class="text-muted">
-                                Bos birakirsaniz otomatik olusturulur (Musteri: 120.01.xxx, Tedarikci: 320.01.xxx)
+                                @GetMuhasebeAciklama()
                             </small>
                         </div>
                     </div>
@@ -131,6 +134,15 @@
                         </div>
                     </div>
                 </div>
+
+                @if (cari.CariTipi == CariTipi.Personel)
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Personel carisi icin <strong>335.XX.PRSXXXXX</strong> formatinda muhasebe hesabi otomatik
+                        olusturulacaktir.
+                    </div>
+                }
 
                 <hr />
 
@@ -162,7 +174,7 @@
         {
             var tumHesaplar = await MuhasebeService.GetHesapPlaniAsync();
             muhasebeHesaplar = tumHesaplar
-                .Where(h => h.HesapKodu.StartsWith("120.") || h.HesapKodu.StartsWith("320."))
+                .Where(h => h.HesapKodu.StartsWith("120.") || h.HesapKodu.StartsWith("320.") || h.HesapKodu.StartsWith("335."))
                 .OrderBy(h => h.HesapKodu)
                 .ToList();
         }
@@ -223,6 +235,15 @@
         CariTipi.Musteri => "Musteri",
         CariTipi.Tedarikci => "Tedarikci",
         CariTipi.MusteriTedarikci => "Musteri + Tedarikci",
+        CariTipi.Personel => "Personel",
         _ => tip.ToString()
+    };
+    
+    private string GetMuhasebeAciklama() => cari.CariTipi switch
+    {
+        CariTipi.Musteri => "Bos birakirsaniz otomatik olusturulur (120.01.xxx)",
+        CariTipi.Tedarikci => "Bos birakirsaniz otomatik olusturulur (320.01.xxx)",
+        CariTipi.Personel => "Bos birakirsaniz otomatik olusturulur (335.XX.PRSXXXXX)",
+        _ => "Bos birakirsaniz otomatik olusturulur"
     };
 }

@@ -139,6 +139,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TcKimlikNo).HasMaxLength(11);
             entity.Property(e => e.Telefon).HasMaxLength(20);
             entity.Property(e => e.Email).HasMaxLength(100);
+            
+            // Personel (Sofor) iliskisi
+            entity.HasOne(e => e.Sofor)
+                .WithMany()
+                .HasForeignKey(e => e.SoforId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
@@ -770,17 +777,19 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // KullaniciCari
+        // KullaniciCari - Coka-Cok iliski (1 kullanici birden fazla cari, 1 cari birden fazla kullanici)
         modelBuilder.Entity<KullaniciCari>(entity =>
         {
-            entity.HasIndex(e => new { e.KullaniciId, e.CariId }).IsUnique();
+            // Unique constraint KALDIRILDI - ayni kullanici-cari cifti birden fazla kayit olabilir
+            // Sadece index var, unique degil
+            entity.HasIndex(e => new { e.KullaniciId, e.CariId });
             entity.Property(e => e.Not).HasMaxLength(500);
             entity.HasOne(e => e.Kullanici)
                 .WithMany(k => k.BagliCariler)
                 .HasForeignKey(e => e.KullaniciId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Cari)
-                .WithMany()
+                .WithMany(c => c.KullaniciEslestirmeleri)
                 .HasForeignKey(e => e.CariId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasQueryFilter(e => !e.IsDeleted);
