@@ -1,0 +1,466 @@
+@page "/crm/whatsapp"
+@page "/crm/email"
+@using CRMFiloServis.Web.Services
+@using CRMFiloServis.Shared.Entities
+@inject ICRMService CRMService
+@inject ICariService CariService
+@inject AppAuthenticationStateProvider AuthProvider
+@inject IToastService ToastService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+@{
+    var isWhatsApp = NavigationManager.Uri.Contains("/whatsapp");
+    var pageTitle = isWhatsApp ? "WhatsApp" : "E-Posta";
+    var pageIcon = isWhatsApp ? "bi-whatsapp" : "bi-envelope-fill";
+    var iconColor = isWhatsApp ? "text-success" : "text-info";
+}
+
+<PageTitle>@pageTitle - CRM</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-0"><i class="bi @pageIcon me-2 @iconColor"></i>@pageTitle</h3>
+            <small class="text-muted">@(isWhatsApp ? "WhatsApp mesajlarý gönderin" : "E-posta gönderin")</small>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="AyarlariAc">
+            <i class="bi bi-gear me-1"></i>Ayarlar
+        </button>
+    </div>
+
+    <div class="row">
+        <!-- Sol Panel - Hýzlý Gönderim -->
+        <div class="col-md-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-send me-2"></i>Yeni @pageTitle Gönder</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Alýcý</label>
+                        <div class="input-group">
+                            <select class="form-select" @bind="secilenCariId" @bind:after="CariSecildi">
+                                <option value="0">Cari Seçin...</option>
+                                @foreach (var cari in cariler.Where(c => isWhatsApp ? !string.IsNullOrEmpty(c.Telefon) : !string.IsNullOrEmpty(c.Email)))
+                                {
+                                    <option value="@cari.Id">@cari.Unvan</option>
+                                }
+                            </select>
+                        </div>
+                        <small class="text-muted">veya</small>
+                        <input type="text" class="form-control mt-1" 
+                               @bind="aliciAdres" 
+                               placeholder="@(isWhatsApp ? "Telefon numarasý (5XX XXX XX XX)" : "E-posta adresi")" />
+                    </div>
+
+                    @if (!isWhatsApp)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Konu</label>
+                            <input type="text" class="form-control" @bind="konu" placeholder="E-posta konusu" />
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Mesaj</label>
+                        <textarea class="form-control" rows="5" @bind="mesajIcerik" placeholder="Mesajýnýzý yazýn..."></textarea>
+                    </div>
+
+                    <!-- Hýzlý Þablonlar -->
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Hýzlý Þablonlar</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Merhaba, sipariþiniz hazýrlanmýþtýr.")'>
+                                Sipariþ Hazýr
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Ödeme hatýrlatmasý: Vadesi geçmiþ faturanýz bulunmaktadýr.")'>
+                                Ödeme Hatýrlatma
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Randevunuz için teþekkür ederiz. Görüþmek üzere.")'>
+                                Randevu Onay
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+                        <button class="btn btn-primary" @onclick="MesajGonder" disabled="@isSending">
+                            @if (isSending)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-send me-1"></i>Gönder
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sað Panel - Gönderim Geçmiþi -->
+        <div class="col-md-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Gönderim Geçmiþi</h6>
+                </div>
+                <div class="card-body p-0">
+                    @if (isLoading)
+                    {
+                        <div class="text-center p-4">
+                            <div class="spinner-border text-primary"></div>
+                        </div>
+                    }
+                    else if (!gonderilenMesajlar.Any())
+                    {
+                        <div class="text-center p-5 text-muted">
+                            <i class="bi @pageIcon" style="font-size: 3rem;"></i>
+                            <p class="mt-2">Henüz @pageTitle mesajý gönderilmemiþ</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Tarih</th>
+                                        <th>Alýcý</th>
+                                        @if (!isWhatsApp)
+                                        {
+                                            <th>Konu</th>
+                                        }
+                                        <th>Durum</th>
+                                        <th>Mesaj</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var mesaj in gonderilenMesajlar)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <small>@mesaj.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                                            </td>
+                                            <td>
+                                                <strong>@mesaj.DisAlici</strong>
+                                            </td>
+                                            @if (!isWhatsApp)
+                                            {
+                                                <td>@mesaj.Konu</td>
+                                            }
+                                            <td>
+                                                <span class="badge @GetDurumBadge(mesaj.Durum)">
+                                                    @GetDurumAdi(mesaj.Durum)
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">@(mesaj.Icerik.Length > 50 ? mesaj.Icerik[..50] + "..." : mesaj.Icerik)</small>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ayarlar Modal -->
+@if (showAyarModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi @pageIcon me-2"></i>@pageTitle Ayarlarý
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="AyarModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    @if (isWhatsApp)
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            WhatsApp Business API entegrasyonu için API anahtarý gereklidir.
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Telefon Numarasý</label>
+                            <input type="text" class="form-control" @bind="whatsappAyar!.Telefon" placeholder="5XXXXXXXXX" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">API Anahtarý</label>
+                            <input type="password" class="form-control" @bind="whatsappAyar.ApiKey" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Webhook URL (Opsiyonel)</label>
+                            <input type="text" class="form-control" @bind="whatsappAyar.WebhookUrl" />
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" @bind="whatsappAyar.Aktif" />
+                            <label class="form-check-label">Aktif</label>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">SMTP Sunucu</label>
+                            <input type="text" class="form-control" @bind="emailAyar!.SmtpSunucu" placeholder="smtp.gmail.com" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Port</label>
+                                    <input type="number" class="form-control" @bind="emailAyar.SmtpPort" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">SSL</label>
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" @bind="emailAyar.SslKullan" />
+                                        <label class="form-check-label">SSL Kullan</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">E-Posta Adresi</label>
+                            <input type="email" class="form-control" @bind="emailAyar.Email" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Þifre / Uygulama Þifresi</label>
+                            <input type="password" class="form-control" @bind="emailAyar.Sifre" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Gönderen Adý</label>
+                            <input type="text" class="form-control" @bind="emailAyar.GonderenAdi" placeholder="CRM Filo Servis" />
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" @bind="emailAyar.Aktif" />
+                            <label class="form-check-label">Aktif</label>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="AyarModalKapat">Ýptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="AyarlariKaydet" disabled="@isSavingAyar">
+                        @if (isSavingAyar)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isSending = false;
+    private bool isSavingAyar = false;
+    private bool showAyarModal = false;
+    private List<Cari> cariler = new();
+    private List<Mesaj> gonderilenMesajlar = new();
+    private int? aktifKullaniciId;
+
+    // Gönderim
+    private int secilenCariId = 0;
+    private string aliciAdres = "";
+    private string konu = "";
+    private string mesajIcerik = "";
+
+    // Ayarlar
+    private EmailAyar? emailAyar;
+    private WhatsAppAyar? whatsappAyar;
+
+    private bool IsWhatsApp => NavigationManager.Uri.Contains("/whatsapp");
+
+    protected override async Task OnInitializedAsync()
+    {
+        var kullanici = AuthProvider.GetAktifKullanici();
+        if (kullanici != null)
+        {
+            aktifKullaniciId = kullanici.Id;
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            cariler = await CariService.GetAllAsync();
+
+            if (aktifKullaniciId.HasValue)
+            {
+                var tumMesajlar = await CRMService.GetGonderilenMesajlarAsync(aktifKullaniciId.Value);
+                gonderilenMesajlar = tumMesajlar
+                    .Where(m => m.Tip == (IsWhatsApp ? MesajTipi.WhatsApp : MesajTipi.Email))
+                    .OrderByDescending(m => m.CreatedAt)
+                    .Take(50)
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Veriler yüklenirken hata: " + ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void CariSecildi()
+    {
+        if (secilenCariId > 0)
+        {
+            var cari = cariler.FirstOrDefault(c => c.Id == secilenCariId);
+            if (cari != null)
+            {
+                aliciAdres = IsWhatsApp ? (cari.Telefon ?? "") : (cari.Email ?? "");
+            }
+        }
+    }
+
+    private void SablonUygula(string sablon)
+    {
+        mesajIcerik = sablon;
+    }
+
+    private async Task MesajGonder()
+    {
+        if (string.IsNullOrWhiteSpace(aliciAdres))
+        {
+            ToastService.ShowWarning("Alýcý bilgisi zorunludur.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(mesajIcerik))
+        {
+            ToastService.ShowWarning("Mesaj içeriði zorunludur.");
+            return;
+        }
+
+        isSending = true;
+        try
+        {
+            bool basarili;
+            if (IsWhatsApp)
+            {
+                basarili = await CRMService.SendWhatsAppAsync(aktifKullaniciId ?? 0, aliciAdres, mesajIcerik);
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(konu))
+                {
+                    ToastService.ShowWarning("E-posta konusu zorunludur.");
+                    return;
+                }
+                basarili = await CRMService.SendEmailAsync(aktifKullaniciId ?? 0, aliciAdres, konu, mesajIcerik);
+            }
+
+            if (basarili)
+            {
+                ToastService.ShowSuccess($"{(IsWhatsApp ? "WhatsApp" : "E-posta")} gönderildi.");
+                aliciAdres = "";
+                konu = "";
+                mesajIcerik = "";
+                secilenCariId = 0;
+                await LoadData();
+            }
+            else
+            {
+                ToastService.ShowError("Gönderim baþarýsýz. Ayarlarý kontrol edin.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
+        finally
+        {
+            isSending = false;
+        }
+    }
+
+    private async Task AyarlariAc()
+    {
+        if (IsWhatsApp)
+        {
+            whatsappAyar = await CRMService.GetWhatsAppAyarAsync(aktifKullaniciId) ?? new WhatsAppAyar
+            {
+                KullaniciId = aktifKullaniciId,
+                Aktif = false
+            };
+        }
+        else
+        {
+            emailAyar = await CRMService.GetEmailAyarAsync(aktifKullaniciId) ?? new EmailAyar
+            {
+                KullaniciId = aktifKullaniciId,
+                SmtpPort = 587,
+                SslKullan = true,
+                Aktif = false
+            };
+        }
+        showAyarModal = true;
+    }
+
+    private void AyarModalKapat()
+    {
+        showAyarModal = false;
+    }
+
+    private async Task AyarlariKaydet()
+    {
+        isSavingAyar = true;
+        try
+        {
+            if (IsWhatsApp && whatsappAyar != null)
+            {
+                await CRMService.SaveWhatsAppAyarAsync(whatsappAyar);
+            }
+            else if (!IsWhatsApp && emailAyar != null)
+            {
+                await CRMService.SaveEmailAyarAsync(emailAyar);
+            }
+
+            ToastService.ShowSuccess("Ayarlar kaydedildi.");
+            AyarModalKapat();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
+        finally
+        {
+            isSavingAyar = false;
+        }
+    }
+
+    private string GetDurumAdi(MesajDurum durum) => durum switch
+    {
+        MesajDurum.Taslak => "Taslak",
+        MesajDurum.Gonderildi => "Gönderildi",
+        MesajDurum.Iletildi => "Ýletildi",
+        MesajDurum.Okundu => "Okundu",
+        MesajDurum.Hata => "Hata",
+        _ => "Bilinmiyor"
+    };
+
+    private string GetDurumBadge(MesajDurum durum) => durum switch
+    {
+        MesajDurum.Taslak => "bg-secondary",
+        MesajDurum.Gonderildi => "bg-primary",
+        MesajDurum.Iletildi => "bg-info",
+        MesajDurum.Okundu => "bg-success",
+        MesajDurum.Hata => "bg-danger",
+        _ => "bg-light text-dark"
+    };
+}
