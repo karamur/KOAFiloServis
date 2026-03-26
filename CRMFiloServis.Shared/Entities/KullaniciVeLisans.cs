@@ -259,14 +259,97 @@ public class RolTanim
 #region Yetki Tanimlari
 
 /// <summary>
-/// Yetki Tanimlari - modullere gore gruplanmis
-/// crmdestek projesindeki Permissions yapisýndan uyarlandi
+/// Yetki Tanimlari - modullere ve menulere gore gruplanmis
+/// Ana menu ve alt menu bazinda yetkilendirme destegi
 /// </summary>
 public static class Yetkiler
 {
     // Genel
     public const string Dashboard = "dashboard";
 
+    // === MENU YETKILERI ===
+    
+    // Ana Sayfa
+    public const string MenuAnaSayfa = "menu.anasayfa";
+    public const string MenuBelgeUyarilari = "menu.belgeuyarilari";
+    
+    // Cari Modulu
+    public const string MenuCariModulu = "menu.cari";
+    public const string MenuCariler = "menu.cari.cariler";
+    public const string MenuKesilenFaturalar = "menu.cari.kesilenFaturalar";
+    public const string MenuGelenFaturalar = "menu.cari.gelenFaturalar";
+    
+    // Filo Servis
+    public const string MenuFiloServis = "menu.filoservis";
+    public const string MenuAraclar = "menu.filoservis.araclar";
+    public const string MenuGuzergahlar = "menu.filoservis.guzergahlar";
+    public const string MenuServisCalismalari = "menu.filoservis.serviscalismalari";
+    public const string MenuTopluCalisma = "menu.filoservis.toplucalisma";
+    public const string MenuMasrafKalemleri = "menu.filoservis.masrafkalemleri";
+    public const string MenuAracMasraflari = "menu.filoservis.aracmasraflari";
+    
+    // Muhasebe
+    public const string MenuMuhasebe = "menu.muhasebe";
+    public const string MenuMuhasebeDashboard = "menu.muhasebe.dashboard";
+    public const string MenuHesapPlani = "menu.muhasebe.hesapplani";
+    public const string MenuMuhasebeFisleri = "menu.muhasebe.fisler";
+    public const string MenuMuhasebeRaporlari = "menu.muhasebe.raporlar";
+    public const string MenuMaliAnaliz = "menu.muhasebe.malianaliz";
+    
+    // Personel
+    public const string MenuPersonel = "menu.personel";
+    public const string MenuPersonelListesi = "menu.personel.liste";
+    public const string MenuMaasYonetimi = "menu.personel.maas";
+    public const string MenuIzinYonetimi = "menu.personel.izin";
+    
+    // Fatura Modulu
+    public const string MenuFaturaModulu = "menu.fatura";
+    public const string MenuFaturalar = "menu.fatura.faturalar";
+    public const string MenuFaturaHazirlik = "menu.fatura.hazirlik";
+    
+    // Banka/Kasa
+    public const string MenuBankaKasa = "menu.bankakasa";
+    public const string MenuBankaHesaplari = "menu.bankakasa.hesaplar";
+    public const string MenuBankaHareketleri = "menu.bankakasa.hareketler";
+    public const string MenuOdemeEslestirme = "menu.bankakasa.eslestirme";
+    
+    // Raporlar
+    public const string MenuRaporlar = "menu.raporlar";
+    public const string MenuButceAnaliz = "menu.raporlar.butce";
+    public const string MenuOdemeYonetimi = "menu.raporlar.odemeyonetimi";
+    public const string MenuMaliAnalizRapor = "menu.raporlar.malianaliz";
+    public const string MenuAylikChecklist = "menu.raporlar.checklist";
+    public const string MenuOzmalAracRaporu = "menu.raporlar.ozmalarac";
+    public const string MenuKiralikAracRaporu = "menu.raporlar.kiraliakarac";
+    public const string MenuKomisyonRaporu = "menu.raporlar.komisyon";
+    public const string MenuServisRaporu = "menu.raporlar.servis";
+    public const string MenuFaturaOdemeRaporu = "menu.raporlar.faturaodeme";
+    public const string MenuAracMasrafRaporu = "menu.raporlar.aracmasraf";
+    public const string MenuCariEkstre = "menu.raporlar.cariekstre";
+    
+    // Satis Modulu
+    public const string MenuSatisModulu = "menu.satis";
+    public const string MenuSatisDashboard = "menu.satis.dashboard";
+    public const string MenuPiyasaArastirma = "menu.satis.arastirma";
+    public const string MenuYeniIlan = "menu.satis.yeniilan";
+    public const string MenuSatisPersoneli = "menu.satis.personel";
+    
+    // Ayarlar
+    public const string MenuAyarlar = "menu.ayarlar";
+    public const string MenuFirmaYonetimi = "menu.ayarlar.firma";
+    public const string MenuVeritabaniAyarlari = "menu.ayarlar.veritabani";
+    public const string MenuServisRaporlari = "menu.ayarlar.servisraporlari";
+    public const string MenuLisansBilgileri = "menu.ayarlar.lisans";
+    public const string MenuKullaniciYonetimi = "menu.ayarlar.kullanicilar";
+    public const string MenuRolYonetimi = "menu.ayarlar.roller";
+    public const string MenuPiyasaKaynaklari = "menu.ayarlar.piyasakaynaklari";
+    public const string MenuSistemDurumu = "menu.ayarlar.sistemdurumu";
+    public const string MenuAktiviteLog = "menu.ayarlar.aktivitelog";
+    public const string MenuYedekleme = "menu.ayarlar.yedekleme";
+    public const string MenuGuncelleme = "menu.ayarlar.guncelleme";
+
+    // === ISLEM YETKILERI ===
+    
     // Cari
     public const string CariGoruntule = "cari.goruntule";
     public const string CariEkle = "cari.ekle";
@@ -350,9 +433,23 @@ public static class Yetkiler
     /// </summary>
     public static List<string> GetAll()
     {
-        return new List<string>
+        var yetkiler = new List<string>
         {
             Dashboard,
+            // Menu yetkileri
+            MenuAnaSayfa, MenuBelgeUyarilari,
+            MenuCariModulu, MenuCariler, MenuKesilenFaturalar, MenuGelenFaturalar,
+            MenuFiloServis, MenuAraclar, MenuGuzergahlar, MenuServisCalismalari, MenuTopluCalisma, MenuMasrafKalemleri, MenuAracMasraflari,
+            MenuMuhasebe, MenuMuhasebeDashboard, MenuHesapPlani, MenuMuhasebeFisleri, MenuMuhasebeRaporlari, MenuMaliAnaliz,
+            MenuPersonel, MenuPersonelListesi, MenuMaasYonetimi, MenuIzinYonetimi,
+            MenuFaturaModulu, MenuFaturalar, MenuFaturaHazirlik,
+            MenuBankaKasa, MenuBankaHesaplari, MenuBankaHareketleri, MenuOdemeEslestirme,
+            MenuRaporlar, MenuButceAnaliz, MenuOdemeYonetimi, MenuMaliAnalizRapor, MenuAylikChecklist, 
+            MenuOzmalAracRaporu, MenuKiralikAracRaporu, MenuKomisyonRaporu, MenuServisRaporu, MenuFaturaOdemeRaporu, MenuAracMasrafRaporu, MenuCariEkstre,
+            MenuSatisModulu, MenuSatisDashboard, MenuPiyasaArastirma, MenuYeniIlan, MenuSatisPersoneli,
+            MenuAyarlar, MenuFirmaYonetimi, MenuVeritabaniAyarlari, MenuServisRaporlari, MenuLisansBilgileri, 
+            MenuKullaniciYonetimi, MenuRolYonetimi, MenuPiyasaKaynaklari, MenuSistemDurumu, MenuAktiviteLog, MenuYedekleme, MenuGuncelleme,
+            // Islem yetkileri
             CariGoruntule, CariEkle, CariDuzenle, CariSil,
             FaturaGoruntule, FaturaEkle, FaturaDuzenle, FaturaSil,
             BankaGoruntule, BankaEkle, BankaDuzenle, BankaSil,
@@ -370,93 +467,198 @@ public static class Yetkiler
             YedeklemeGoruntule, YedeklemeOlustur,
             LisansYonetimi, GuncellemeYonetimi
         };
+        return yetkiler;
     }
 
     /// <summary>
-    /// Yetkileri modullere gore gruplar
+    /// Menu bazli yetkileri gruplar - Rol yonetimi icin
     /// </summary>
-    public static Dictionary<string, List<YetkiTanim>> GetGrouped()
+    public static List<MenuYetkiGrup> GetMenuYetkileri()
+    {
+        return new List<MenuYetkiGrup>
+        {
+            new("Ana Sayfa", "bi-house-door", new List<YetkiTanim>
+            {
+                new(MenuAnaSayfa, "Ana Sayfa", "bi-house-door-fill"),
+                new(MenuBelgeUyarilari, "Belge Uyarilari", "bi-exclamation-triangle"),
+            }),
+            
+            new("Cari Modulu", "bi-people", new List<YetkiTanim>
+            {
+                new(MenuCariModulu, "Cari Modulu (Ana Menu)", "bi-people-fill"),
+                new(MenuCariler, "Cariler", "bi-person-lines-fill"),
+                new(MenuKesilenFaturalar, "Kesilen Faturalar", "bi-file-earmark-arrow-up"),
+                new(MenuGelenFaturalar, "Gelen Faturalar", "bi-file-earmark-arrow-down"),
+            }),
+            
+            new("Filo Servis", "bi-truck", new List<YetkiTanim>
+            {
+                new(MenuFiloServis, "Filo Servis (Ana Menu)", "bi-truck"),
+                new(MenuAraclar, "Araclar", "bi-car-front-fill"),
+                new(MenuGuzergahlar, "Guzergahlar", "bi-signpost-split-fill"),
+                new(MenuServisCalismalari, "Servis Calismalari", "bi-calendar-check-fill"),
+                new(MenuTopluCalisma, "Toplu Calisma Girisi", "bi-list-check"),
+                new(MenuMasrafKalemleri, "Masraf Kalemleri", "bi-list-task"),
+                new(MenuAracMasraflari, "Arac Masraflari", "bi-receipt"),
+            }),
+            
+            new("Muhasebe", "bi-journal-text", new List<YetkiTanim>
+            {
+                new(MenuMuhasebe, "Muhasebe (Ana Menu)", "bi-journal-text"),
+                new(MenuMuhasebeDashboard, "Muhasebe Dashboard", "bi-speedometer2"),
+                new(MenuHesapPlani, "Hesap Plani", "bi-list-nested"),
+                new(MenuMuhasebeFisleri, "Muhasebe Fisleri", "bi-receipt"),
+                new(MenuMuhasebeRaporlari, "Muhasebe Raporlari", "bi-file-earmark-bar-graph"),
+                new(MenuMaliAnaliz, "Mali Analiz", "bi-graph-up"),
+            }),
+            
+            new("Personel", "bi-people", new List<YetkiTanim>
+            {
+                new(MenuPersonel, "Personel (Ana Menu)", "bi-people-fill"),
+                new(MenuPersonelListesi, "Personel Listesi", "bi-people"),
+                new(MenuMaasYonetimi, "Maas Yonetimi", "bi-cash-stack"),
+                new(MenuIzinYonetimi, "Izin Yonetimi", "bi-calendar-check"),
+            }),
+            
+            new("Fatura Modulu", "bi-receipt", new List<YetkiTanim>
+            {
+                new(MenuFaturaModulu, "Fatura Modulu (Ana Menu)", "bi-receipt"),
+                new(MenuFaturalar, "Faturalar", "bi-file-earmark-text-fill"),
+                new(MenuFaturaHazirlik, "Fatura Hazirlik", "bi-clipboard-check"),
+            }),
+            
+            new("Banka / Kasa", "bi-bank", new List<YetkiTanim>
+            {
+                new(MenuBankaKasa, "Banka/Kasa (Ana Menu)", "bi-bank"),
+                new(MenuBankaHesaplari, "Banka Hesaplari", "bi-bank2"),
+                new(MenuBankaHareketleri, "Hareketler", "bi-arrow-left-right"),
+                new(MenuOdemeEslestirme, "Odeme Eslestirme", "bi-link-45deg"),
+            }),
+            
+            new("Raporlar", "bi-bar-chart", new List<YetkiTanim>
+            {
+                new(MenuRaporlar, "Raporlar (Ana Menu)", "bi-bar-chart-fill"),
+                new(MenuButceAnaliz, "Butce Analiz", "bi-wallet2"),
+                new(MenuOdemeYonetimi, "Odeme Yonetimi", "bi-credit-card"),
+                new(MenuMaliAnalizRapor, "Mali Analiz", "bi-graph-up-arrow"),
+                new(MenuAylikChecklist, "Aylik Checklist", "bi-clipboard-check"),
+                new(MenuOzmalAracRaporu, "Ozmal Arac Raporu", "bi-truck"),
+                new(MenuKiralikAracRaporu, "Kiralik Arac Raporu", "bi-building"),
+                new(MenuKomisyonRaporu, "Komisyon Raporu", "bi-percent"),
+                new(MenuServisRaporu, "Servis Raporu", "bi-file-earmark-bar-graph"),
+                new(MenuFaturaOdemeRaporu, "Fatura Odeme", "bi-file-earmark-text"),
+                new(MenuAracMasrafRaporu, "Arac Masraf", "bi-file-earmark-spreadsheet"),
+                new(MenuCariEkstre, "Cari Ekstre", "bi-file-earmark-ruled"),
+            }),
+            
+            new("Satis Modulu", "bi-car-front", new List<YetkiTanim>
+            {
+                new(MenuSatisModulu, "Satis Modulu (Ana Menu)", "bi-car-front-fill"),
+                new(MenuSatisDashboard, "Satis Dashboard", "bi-speedometer2"),
+                new(MenuPiyasaArastirma, "Piyasa Arastirma", "bi-search"),
+                new(MenuYeniIlan, "Yeni Ilan", "bi-plus-circle"),
+                new(MenuSatisPersoneli, "Satis Personeli", "bi-people"),
+            }),
+            
+            new("Ayarlar", "bi-gear", new List<YetkiTanim>
+            {
+                new(MenuAyarlar, "Ayarlar (Ana Menu)", "bi-gear-fill"),
+                new(MenuFirmaYonetimi, "Firma Yonetimi", "bi-building"),
+                new(MenuVeritabaniAyarlari, "Veritabani Ayarlari", "bi-database-gear"),
+                new(MenuServisRaporlari, "Servis Raporlari", "bi-file-earmark-bar-graph"),
+                new(MenuLisansBilgileri, "Lisans Bilgileri", "bi-key"),
+                new(MenuKullaniciYonetimi, "Kullanici Yonetimi", "bi-person-badge"),
+                new(MenuRolYonetimi, "Rol Yonetimi", "bi-shield-check"),
+                new(MenuPiyasaKaynaklari, "Piyasa Kaynaklari", "bi-globe"),
+                new(MenuSistemDurumu, "Sistem Durumu", "bi-heart-pulse"),
+                new(MenuAktiviteLog, "Aktivite Logu", "bi-clock-history"),
+                new(MenuYedekleme, "Yedekleme", "bi-database-fill-gear"),
+                new(MenuGuncelleme, "Uygulama Guncelleme", "bi-cloud-arrow-down"),
+            }),
+        };
+    }
+
+    /// <summary>
+    /// Islem bazli yetkileri gruplar
+    /// </summary>
+    public static Dictionary<string, List<YetkiTanim>> GetIslemYetkileri()
     {
         return new Dictionary<string, List<YetkiTanim>>
         {
-            ["Genel"] = new()
-            {
-                new(Dashboard, "Dashboard", "bi-speedometer2"),
-            },
-            ["Cari Hesaplar"] = new()
+            ["Cari Islemleri"] = new()
             {
                 new(CariGoruntule, "Goruntule", "bi-eye"),
                 new(CariEkle, "Ekle", "bi-plus"),
                 new(CariDuzenle, "Duzenle", "bi-pencil"),
                 new(CariSil, "Sil", "bi-trash"),
             },
-            ["Fatura"] = new()
+            ["Fatura Islemleri"] = new()
             {
                 new(FaturaGoruntule, "Goruntule", "bi-eye"),
                 new(FaturaEkle, "Ekle", "bi-plus"),
                 new(FaturaDuzenle, "Duzenle", "bi-pencil"),
                 new(FaturaSil, "Sil", "bi-trash"),
             },
-            ["Banka/Kasa"] = new()
+            ["Banka/Kasa Islemleri"] = new()
             {
                 new(BankaGoruntule, "Goruntule", "bi-eye"),
                 new(BankaEkle, "Ekle", "bi-plus"),
                 new(BankaDuzenle, "Duzenle", "bi-pencil"),
                 new(BankaSil, "Sil", "bi-trash"),
             },
-            ["Butce"] = new()
+            ["Butce Islemleri"] = new()
             {
                 new(ButceGoruntule, "Goruntule", "bi-eye"),
                 new(ButceEkle, "Ekle", "bi-plus"),
                 new(ButceDuzenle, "Duzenle", "bi-pencil"),
                 new(ButceSil, "Sil", "bi-trash"),
             },
-            ["Muhasebe"] = new()
+            ["Muhasebe Islemleri"] = new()
             {
                 new(MuhasebeGoruntule, "Goruntule", "bi-eye"),
                 new(MuhasebeEkle, "Ekle", "bi-plus"),
                 new(MuhasebeDuzenle, "Duzenle", "bi-pencil"),
             },
-            ["Arac Yonetimi"] = new()
+            ["Arac Islemleri"] = new()
             {
                 new(AracGoruntule, "Goruntule", "bi-eye"),
                 new(AracEkle, "Ekle", "bi-plus"),
                 new(AracDuzenle, "Duzenle", "bi-pencil"),
                 new(AracSil, "Sil", "bi-trash"),
             },
-            ["Sofor Yonetimi"] = new()
+            ["Sofor Islemleri"] = new()
             {
                 new(SoforGoruntule, "Goruntule", "bi-eye"),
                 new(SoforEkle, "Ekle", "bi-plus"),
                 new(SoforDuzenle, "Duzenle", "bi-pencil"),
                 new(SoforSil, "Sil", "bi-trash"),
             },
-            ["Guzergah"] = new()
+            ["Guzergah Islemleri"] = new()
             {
                 new(GuzergahGoruntule, "Goruntule", "bi-eye"),
                 new(GuzergahEkle, "Ekle", "bi-plus"),
                 new(GuzergahDuzenle, "Duzenle", "bi-pencil"),
             },
-            ["Servis Calisma"] = new()
+            ["Servis Islemleri"] = new()
             {
                 new(ServisGoruntule, "Goruntule", "bi-eye"),
                 new(ServisEkle, "Ekle", "bi-plus"),
                 new(ServisDuzenle, "Duzenle", "bi-pencil"),
             },
-            ["Masraf"] = new()
+            ["Masraf Islemleri"] = new()
             {
                 new(MasrafGoruntule, "Goruntule", "bi-eye"),
                 new(MasrafEkle, "Ekle", "bi-plus"),
                 new(MasrafDuzenle, "Duzenle", "bi-pencil"),
             },
-            ["Satis Modulu"] = new()
+            ["Satis Islemleri"] = new()
             {
                 new(SatisGoruntule, "Goruntule", "bi-eye"),
                 new(SatisEkle, "Ekle", "bi-plus"),
                 new(SatisDuzenle, "Duzenle", "bi-pencil"),
                 new(SatisSil, "Sil", "bi-trash"),
             },
-            ["Raporlar"] = new()
+            ["Rapor Islemleri"] = new()
             {
                 new(RaporGoruntule, "Goruntule", "bi-eye"),
                 new(RaporExport, "Export", "bi-download"),
@@ -473,6 +675,31 @@ public static class Yetkiler
                 new(GuncellemeYonetimi, "Guncelleme Yonetimi", "bi-cloud-arrow-down"),
             },
         };
+    }
+
+    /// <summary>
+    /// Eski GetGrouped metodu - geriye uyumluluk icin
+    /// </summary>
+    public static Dictionary<string, List<YetkiTanim>> GetGrouped()
+    {
+        return GetIslemYetkileri();
+    }
+}
+
+/// <summary>
+/// Menu bazli yetki grubu
+/// </summary>
+public class MenuYetkiGrup
+{
+    public string GrupAdi { get; set; }
+    public string Icon { get; set; }
+    public List<YetkiTanim> Yetkiler { get; set; }
+
+    public MenuYetkiGrup(string grupAdi, string icon, List<YetkiTanim> yetkiler)
+    {
+        GrupAdi = grupAdi;
+        Icon = icon;
+        Yetkiler = yetkiler;
     }
 }
 

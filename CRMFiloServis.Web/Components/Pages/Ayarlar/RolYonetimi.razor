@@ -1,0 +1,464 @@
+@page "/ayarlar/roller"
+@using CRMFiloServis.Web.Services
+@using CRMFiloServis.Shared.Entities
+@inject IKullaniciService KullaniciService
+@inject IToastService ToastService
+@rendermode InteractiveServer
+
+<PageTitle>Rol Yonetimi - CRM Filo Servis</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-0"><i class="bi bi-shield-check me-2"></i>Rol Yonetimi</h3>
+            <small class="text-muted">Sistem rollerini ve yetkilerini yonetin</small>
+        </div>
+        <button class="btn btn-primary" @onclick="YeniRolEkle">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Rol
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Yukleniyor...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Rol Listesi -->
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0"><i class="bi bi-list me-2"></i>Roller</h6>
+                    </div>
+                    <div class="list-group list-group-flush" style="max-height: 600px; overflow-y: auto;">
+                        @foreach (var rol in roller)
+                        {
+                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(seciliRol?.Id == rol.Id ? "active" : "")"
+                                    @onclick="() => RolSec(rol)">
+                                <div>
+                                    <i class="bi bi-shield-fill me-2" style="color: @(seciliRol?.Id == rol.Id ? "white" : rol.Renk ?? "#6c757d")"></i>
+                                    <strong>@rol.RolAdi</strong>
+                                    @if (rol.SistemRolu)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-2">Sistem</span>
+                                    }
+                                </div>
+                                <span class="badge @(seciliRol?.Id == rol.Id ? "bg-light text-dark" : "bg-secondary")">
+                                    @(rol.Kullanicilar?.Count ?? 0) kullanici
+                                </span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Yetki Duzenleyici -->
+            <div class="col-md-8">
+                @if (seciliRol != null)
+                {
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-0">
+                                    <i class="bi bi-shield-fill me-2" style="color: @(seciliRol.Renk ?? "#6c757d")"></i>
+                                    @seciliRol.RolAdi
+                                </h5>
+                                <small class="text-muted">@seciliRol.Aciklama</small>
+                            </div>
+                            <div>
+                                @if (!seciliRol.SistemRolu || seciliRol.RolAdi != "Admin")
+                                {
+                                    <button class="btn btn-outline-primary btn-sm me-2" @onclick="TumMenuleriSec">
+                                        <i class="bi bi-check-all me-1"></i>Tumu Sec
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm me-2" @onclick="TumMenuleriKaldir">
+                                        <i class="bi bi-x-lg me-1"></i>Tumu Kaldir
+                                    </button>
+                                }
+                                <button class="btn btn-success btn-sm" @onclick="YetkileriKaydet" disabled="@isSaving">
+                                    @if (isSaving)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="bi bi-check-lg me-1"></i>Kaydet
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body" style="max-height: 550px; overflow-y: auto;">
+                            @if (seciliRol.RolAdi == "Admin")
+                            {
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Admin rolu tum yetkilere sahiptir ve degistirilemez.
+                                </div>
+                            }
+                            else
+                            {
+                                <!-- Tab Navigation -->
+                                <ul class="nav nav-tabs mb-3" role="tablist">
+                                    <li class="nav-item">
+                                        <button class="nav-link @(activeTab == "menu" ? "active" : "")" @onclick="SetMenuTab">
+                                            <i class="bi bi-list me-1"></i>Menu Yetkileri
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link @(activeTab == "islem" ? "active" : "")" @onclick="SetIslemTab">
+                                            <i class="bi bi-gear me-1"></i>Islem Yetkileri
+                                        </button>
+                                    </li>
+                                </ul>
+
+                                @if (activeTab == "menu")
+                                {
+                                    <!-- Menu Yetkileri -->
+                                    <div class="accordion" id="menuYetkiAccordion">
+                                        @foreach (var grup in menuYetkileri)
+                                        {
+                                            var grupId = grup.GrupAdi.Replace(" ", "").Replace("/", "");
+                                            <div class="accordion-item">
+                                                <h2 class="accordion-header">
+                                                    <button class="accordion-button @(IsGrupAcik(grupId) ? "" : "collapsed")" type="button"
+                                                            @onclick="() => ToggleGrup(grupId)">
+                                                        <i class="bi @grup.Icon me-2"></i>
+                                                        <strong>@grup.GrupAdi</strong>
+                                                        <span class="badge bg-primary ms-2">
+                                                            @grup.Yetkiler.Count(y => seciliYetkiler.Contains(y.Kod)) / @grup.Yetkiler.Count
+                                                        </span>
+                                                    </button>
+                                                </h2>
+                                                <div class="accordion-collapse collapse @(IsGrupAcik(grupId) ? "show" : "")">
+                                                    <div class="accordion-body">
+                                                        <div class="row">
+                                                            @foreach (var yetki in grup.Yetkiler)
+                                                            {
+                                                                <div class="col-md-6 col-lg-4 mb-2">
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="checkbox" 
+                                                                               id="@yetki.Kod" 
+                                                                               checked="@seciliYetkiler.Contains(yetki.Kod)"
+                                                                               @onchange="(e) => YetkiDegistir(yetki.Kod, (bool)e.Value!)" />
+                                                                        <label class="form-check-label" for="@yetki.Kod">
+                                                                            <i class="bi @yetki.Icon me-1 text-primary"></i>
+                                                                            @yetki.Adi
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                        <div class="mt-2">
+                                                            <button class="btn btn-outline-primary btn-sm" @onclick="() => GrupYetkileriniSec(grup)">
+                                                                <i class="bi bi-check-all me-1"></i>Grubu Sec
+                                                            </button>
+                                                            <button class="btn btn-outline-secondary btn-sm ms-1" @onclick="() => GrupYetkileriniKaldir(grup)">
+                                                                <i class="bi bi-x me-1"></i>Grubu Kaldir
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <!-- Islem Yetkileri -->
+                                    <div class="accordion" id="islemYetkiAccordion">
+                                        @foreach (var grup in islemYetkileri)
+                                        {
+                                            var grupId = "islem_" + grup.Key.Replace(" ", "").Replace("/", "");
+                                            <div class="accordion-item">
+                                                <h2 class="accordion-header">
+                                                    <button class="accordion-button @(IsGrupAcik(grupId) ? "" : "collapsed")" type="button"
+                                                            @onclick="() => ToggleGrup(grupId)">
+                                                        <strong>@grup.Key</strong>
+                                                        <span class="badge bg-success ms-2">
+                                                            @grup.Value.Count(y => seciliYetkiler.Contains(y.Kod)) / @grup.Value.Count
+                                                        </span>
+                                                    </button>
+                                                </h2>
+                                                <div class="accordion-collapse collapse @(IsGrupAcik(grupId) ? "show" : "")">
+                                                    <div class="accordion-body">
+                                                        <div class="row">
+                                                            @foreach (var yetki in grup.Value)
+                                                            {
+                                                                <div class="col-md-6 col-lg-3 mb-2">
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="checkbox" 
+                                                                               id="@yetki.Kod" 
+                                                                               checked="@seciliYetkiler.Contains(yetki.Kod)"
+                                                                               @onchange="(e) => YetkiDegistir(yetki.Kod, (bool)e.Value!)" />
+                                                                        <label class="form-check-label" for="@yetki.Kod">
+                                                                            <i class="bi @yetki.Icon me-1 text-success"></i>
+                                                                            @yetki.Adi
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="card shadow-sm">
+                        <div class="card-body text-center py-5">
+                            <i class="bi bi-shield-exclamation text-muted" style="font-size: 4rem;"></i>
+                            <h5 class="mt-3 text-muted">Rol Secin</h5>
+                            <p class="text-muted">Yetkileri duzenlemek icin sol taraftan bir rol secin.</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Yeni Rol Modal -->
+@if (showRolModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-shield-plus me-2"></i>
+                        @(editingRol?.Id > 0 ? "Rol Duzenle" : "Yeni Rol")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="ModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Rol Adi *</label>
+                        <input type="text" class="form-control" @bind="editingRol!.RolAdi" placeholder="Ornek: Muhasebeci" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Aciklama</label>
+                        <textarea class="form-control" rows="2" @bind="editingRol.Aciklama" placeholder="Rol hakkinda kisa aciklama"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Renk</label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            @foreach (var renk in renkSecenekleri)
+                            {
+                                <button type="button" 
+                                        class="btn btn-sm @(editingRol.Renk == renk ? "border-3 border-dark" : "")" 
+                                        style="background-color: @renk; width: 35px; height: 35px;"
+                                        @onclick="() => editingRol.Renk = renk">
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Iptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="RolKaydet">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private List<Rol> roller = new();
+    private Rol? seciliRol;
+    private HashSet<string> seciliYetkiler = new();
+    private HashSet<string> acikGruplar = new();
+    private string activeTab = "menu";
+
+    private List<MenuYetkiGrup> menuYetkileri = new();
+    private Dictionary<string, List<YetkiTanim>> islemYetkileri = new();
+
+    // Modal
+    private bool showRolModal = false;
+    private Rol? editingRol;
+
+    private string[] renkSecenekleri = new[]
+    {
+        "#dc3545", "#fd7e14", "#ffc107", "#198754", "#20c997", 
+        "#0dcaf0", "#0d6efd", "#6f42c1", "#d63384", "#6c757d"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        menuYetkileri = Yetkiler.GetMenuYetkileri();
+        islemYetkileri = Yetkiler.GetIslemYetkileri();
+        await LoadRoller();
+    }
+
+    private async Task LoadRoller()
+    {
+        isLoading = true;
+        try
+        {
+            roller = await KullaniciService.GetRollerAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Roller yuklenirken hata: " + ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RolSec(Rol rol)
+    {
+        seciliRol = rol;
+        seciliYetkiler.Clear();
+
+        // Rol yetkilerini yukle
+        if (rol.RolAdi == "Admin")
+        {
+            // Admin tum yetkilere sahip
+            seciliYetkiler = Yetkiler.GetAll().ToHashSet();
+        }
+        else
+        {
+            var yetkiler = await KullaniciService.GetKullaniciYetkileriAsync(rol.Id);
+            // Rol bazli yetkileri al (kullanici degil rol yetkileri)
+            if (rol.Yetkiler != null)
+            {
+                foreach (var yetki in rol.Yetkiler.Where(y => y.Izin))
+                {
+                    seciliYetkiler.Add(yetki.YetkiKodu);
+                }
+            }
+        }
+    }
+
+    private void YetkiDegistir(string yetkiKodu, bool secili)
+    {
+        if (secili)
+            seciliYetkiler.Add(yetkiKodu);
+        else
+            seciliYetkiler.Remove(yetkiKodu);
+    }
+
+    private void ToggleGrup(string grupId)
+    {
+        if (acikGruplar.Contains(grupId))
+            acikGruplar.Remove(grupId);
+        else
+            acikGruplar.Add(grupId);
+    }
+
+    private bool IsGrupAcik(string grupId) => acikGruplar.Contains(grupId);
+
+    private void GrupYetkileriniSec(MenuYetkiGrup grup)
+    {
+        foreach (var yetki in grup.Yetkiler)
+        {
+            seciliYetkiler.Add(yetki.Kod);
+        }
+    }
+
+    private void GrupYetkileriniKaldir(MenuYetkiGrup grup)
+    {
+        foreach (var yetki in grup.Yetkiler)
+        {
+            seciliYetkiler.Remove(yetki.Kod);
+        }
+    }
+
+    private void TumMenuleriSec()
+    {
+        foreach (var yetki in Yetkiler.GetAll())
+        {
+            seciliYetkiler.Add(yetki);
+        }
+    }
+
+    private void TumMenuleriKaldir()
+    {
+        seciliYetkiler.Clear();
+    }
+
+    private async Task YetkileriKaydet()
+    {
+        if (seciliRol == null) return;
+
+        isSaving = true;
+        try
+        {
+            await KullaniciService.SetRolYetkileriAsync(seciliRol.Id, seciliYetkiler.ToList());
+            ToastService.ShowSuccess($"{seciliRol.RolAdi} yetkileri kaydedildi.");
+            await LoadRoller();
+
+            // Secili rolu guncelle
+            seciliRol = roller.FirstOrDefault(r => r.Id == seciliRol.Id);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Yetkiler kaydedilirken hata: " + ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void YeniRolEkle()
+    {
+        editingRol = new Rol
+        {
+            Renk = "#0d6efd"
+        };
+        showRolModal = true;
+    }
+
+    private void ModalKapat()
+    {
+        showRolModal = false;
+        editingRol = null;
+    }
+
+    private async Task RolKaydet()
+    {
+        if (editingRol == null || string.IsNullOrWhiteSpace(editingRol.RolAdi))
+        {
+            ToastService.ShowWarning("Rol adi zorunludur.");
+            return;
+        }
+
+        try
+        {
+            if (editingRol.Id == 0)
+            {
+                await KullaniciService.CreateRolAsync(editingRol);
+                ToastService.ShowSuccess("Rol olusturuldu.");
+            }
+            else
+            {
+                await KullaniciService.UpdateRolAsync(editingRol);
+                ToastService.ShowSuccess("Rol guncellendi.");
+            }
+
+            ModalKapat();
+            await LoadRoller();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
+    }
+
+    private void SetMenuTab() => activeTab = "menu";
+    private void SetIslemTab() => activeTab = "islem";
+}
