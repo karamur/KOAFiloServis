@@ -10,13 +10,16 @@ public class KullaniciService : IKullaniciService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly AppAuthenticationStateProvider _authProvider;
+    private readonly ILogger<KullaniciService> _logger;
 
     public KullaniciService(
         IDbContextFactory<ApplicationDbContext> contextFactory,
-        AppAuthenticationStateProvider authProvider)
+        AppAuthenticationStateProvider authProvider,
+        ILogger<KullaniciService> logger)
     {
         _contextFactory = contextFactory;
         _authProvider = authProvider;
+        _logger = logger;
     }
 
     #region CRUD
@@ -107,22 +110,35 @@ public class KullaniciService : IKullaniciService
             .FirstOrDefaultAsync(k => k.KullaniciAdi == kullaniciAdi);
 
         if (kullanici == null)
+        {
+            _logger.LogWarning("Giris basarisiz - kullanici bulunamadi: {KullaniciAdi}", kullaniciAdi);
             return new KullaniciGirisSonuc { Basarili = false, Mesaj = "Kullanici bulunamadi" };
+        }
 
         if (!kullanici.Aktif)
+        {
+            _logger.LogWarning("Giris basarisiz - kullanici aktif degil: {KullaniciAdi}", kullaniciAdi);
             return new KullaniciGirisSonuc { Basarili = false, Mesaj = "Kullanici aktif degil" };
+        }
 
         if (kullanici.Kilitli)
+        {
+            _logger.LogWarning("Giris basarisiz - kullanici kilitli: {KullaniciAdi}", kullaniciAdi);
             return new KullaniciGirisSonuc { Basarili = false, Mesaj = "Kullanici kilitli. Yoneticiye basvurun." };
+        }
 
         if (!VerifyPassword(sifre, kullanici.SifreHash))
         {
             kullanici.BasarisizGirisSayisi++;
             if (kullanici.BasarisizGirisSayisi >= 5)
+            {
                 kullanici.Kilitli = true;
+                _logger.LogWarning("Kullanici kilitlendi (5 basarisiz deneme): {KullaniciAdi}", kullaniciAdi);
+            }
             context.Kullanicilar.Update(kullanici);
             await context.SaveChangesAsync();
 
+            _logger.LogWarning("Giris basarisiz - sifre hatali: {KullaniciAdi}", kullaniciAdi);
             return new KullaniciGirisSonuc { Basarili = false, Mesaj = "Sifre hatali" };
         }
 
@@ -132,16 +148,24 @@ public class KullaniciService : IKullaniciService
         context.Kullanicilar.Update(kullanici);
         await context.SaveChangesAsync();
 
-        // Authentication state guncelle
-        _authProvider.GirisYap(kullanici);
+        // Authentication state guncelle - async versiyon
+        await _authProvider.GirisYapAsync(kullanici);
+
+        _logger.LogInformation("Basarili giris: {KullaniciAdi}, Rol: {Rol}",
+            kullaniciAdi, kullanici.Rol?.RolAdi);
 
         return new KullaniciGirisSonuc { Basarili = true, Kullanici = kullanici };
     }
 
-    public Task CikisYapAsync()
+    public async Task CikisYapAsync()
     {
-        _authProvider.CikisYap();
-        return Task.CompletedTask;
+        var aktifKullanici = _authProvider.GetAktifKullanici();
+        var sessionId = _authProvider.GetSessionId();
+
+        _logger.LogInformation("Cikis yapiliyor: {KullaniciAdi}, SessionId: {SessionId}",
+            aktifKullanici?.KullaniciAdi, sessionId);
+
+        await _authProvider.CikisYapAsync();
     }
 
     public Task<Kullanici?> GetAktifKullaniciAsync()

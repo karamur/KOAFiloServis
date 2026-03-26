@@ -1,0 +1,266 @@
+# Çoklu Kullanýcý Oturum Testi Senaryolarý
+
+## ?? Test Ortamý Hazýrlýðý
+
+### Gereksinimler
+- En az 2 farklý PC veya tarayýcý (Chrome, Firefox, Edge)
+- 3 farklý kullanýcý hesabý (Admin, Muhasebeci, Þoför)
+
+### Test Kullanýcýlarý
+| Kullanýcý Adý | Þifre    | Rol           | Test PC |
+|---------------|----------|---------------|---------|
+| admin         | admin123 | Admin         | PC-1    |
+| muhasebe      | test123  | Muhasebeci    | PC-2    |
+| sofor1        | test123  | Þoför         | PC-3    |
+
+### Yapýlan Güvenlik Deðiþiklikleri
+
+#### 1. Circuit-Scoped Oturum Yönetimi
+- **Önceki:** `static` deðiþkenler kullanýlýyordu - tüm kullanýcýlar ayný oturumu paylaþýyordu
+- **Þimdi:** Her Blazor circuit (tarayýcý baðlantýsý) kendi oturumunu yönetiyor
+
+#### 2. Session Storage Kullanýmý
+- Her tarayýcý/PC kendi Session Storage'ýný kullanýyor
+- Tarayýcý kapatýldýðýnda oturum otomatik sonlanýyor
+- 24 saatlik session süresi
+
+#### 3. Benzersiz Session ID
+- Her giriþ için benzersiz GUID oluþturuluyor
+- Oturum izleme ve güvenlik loglarý
+
+#### 4. API Token Güvenliði (Mobil)
+- Her cihaz için benzersiz Device ID
+- HMAC imzalý tokenlar
+- 7 günlük token süresi
+
+---
+
+## ?? Test Senaryolarý
+
+### Senaryo 1: Baðýmsýz Oturum Kontrolü
+**Amaç:** Farklý PC'lerdeki kullanýcýlarýn oturumlarýnýn birbirini etkilemediðini doðrulamak.
+
+**Adýmlar:**
+1. **PC-1'de** `admin` kullanýcýsý ile giriþ yap
+2. **PC-2'de** `muhasebe` kullanýcýsý ile giriþ yap
+3. **PC-1'de** sayfayý yenile (F5)
+4. **PC-1'de** kullanýcýnýn hala `admin` olduðunu doðrula
+5. **PC-2'de** sayfayý yenile (F5)
+6. **PC-2'de** kullanýcýnýn hala `muhasebe` olduðunu doðrula
+
+**Beklenen Sonuç:** Her PC kendi kullanýcý oturumunu korumalý ?
+
+---
+
+### Senaryo 2: Yetki Ýzolasyonu
+**Amaç:** Bir kullanýcýnýn yetkilerinin baþka bir kullanýcýyý etkilemediðini doðrulamak.
+
+**Adýmlar:**
+1. **PC-1'de** `admin` ile giriþ yap ? Tüm menüler görünür olmalý
+2. **PC-2'de** `sofor1` ile giriþ yap ? Sadece þoför menüleri görünür olmalý
+3. **PC-1'de** Admin paneline git ? Eriþim olmalý
+4. **PC-2'de** Admin paneline gitmeyi dene ? Eriþim engellenmeli
+5. **PC-1'de** yeni bir kullanýcý oluþtur
+6. **PC-2'de** kullanýcý listesine eriþim olmamalý
+
+**Beklenen Sonuç:** Her kullanýcý kendi rolüne uygun yetkilere sahip olmalý ?
+
+---
+
+### Senaryo 3: Tarayýcý Kapatma ve Oturum Sonlandýrma
+**Amaç:** Tarayýcý kapatýldýðýnda oturumun sonlanmasýný doðrulamak.
+
+**Adýmlar:**
+1. **PC-1'de** `admin` ile giriþ yap
+2. **PC-1'de** tarayýcýyý tamamen kapat
+3. **PC-1'de** tarayýcýyý tekrar aç ve uygulamaya git
+4. Login sayfasý gösterilmeli
+
+**Beklenen Sonuç:** Session storage temizlenmeli ve yeni giriþ istenmeli ?
+
+---
+
+### Senaryo 4: Ayný PC'de Farklý Tarayýcýlar
+**Amaç:** Ayný PC'de farklý tarayýcýlarda baðýmsýz oturum kontrolü.
+
+**Adýmlar:**
+1. **Chrome'da** `admin` ile giriþ yap
+2. **Firefox'ta** `muhasebe` ile giriþ yap
+3. Her iki tarayýcýda da kullanýcý bilgilerini kontrol et
+4. Chrome'da çýkýþ yap
+5. Firefox'ta oturum devam etmeli
+
+**Beklenen Sonuç:** Her tarayýcý baðýmsýz oturum yönetmeli ?
+
+---
+
+### Senaryo 5: Ayný Kullanýcý Farklý PC'lerde
+**Amaç:** Ayný kullanýcýnýn farklý PC'lerde baðýmsýz oturum açabilmesini doðrulamak.
+
+**Adýmlar:**
+1. **PC-1'de** `admin` ile giriþ yap
+2. **PC-2'de** `admin` ile giriþ yap (ayný kullanýcý)
+3. Her iki PC'de de oturum aktif olmalý
+4. **PC-1'de** çýkýþ yap
+5. **PC-2'de** oturum devam etmeli
+
+**Beklenen Sonuç:** Her PC baðýmsýz session ID'ye sahip olmalý ?
+
+---
+
+### Senaryo 6: Sayfa Yenileme Sonrasý Yetki Kontrolü
+**Amaç:** Sayfa yenilendiðinde yetkilerin korunduðunu doðrulamak.
+
+**Adýmlar:**
+1. **PC-1'de** `admin` ile giriþ yap
+2. Kullanýcý yönetimi sayfasýna git
+3. Sayfayý 5 kez yenile (F5)
+4. Her yenilemede admin yetkilerinin korunduðunu doðrula
+5. **PC-2'de** `sofor1` ile giriþ yap
+6. Ana sayfada 5 kez yenile
+7. Her yenilemede þoför rolünün korunduðunu doðrula
+
+**Beklenen Sonuç:** Yetkiler tutarlý kalmalý ?
+
+---
+
+### Senaryo 7: Eþzamanlý Ýþlem Testi
+**Amaç:** Farklý kullanýcýlarýn eþzamanlý iþlemlerinde veri bütünlüðünü doðrulamak.
+
+**Adýmlar:**
+1. **PC-1'de** `admin` ile giriþ yap
+2. **PC-2'de** `muhasebe` ile giriþ yap
+3. Her iki PC'de ayný anda farklý iþlemler yap:
+   - PC-1: Yeni araç ekle
+   - PC-2: Mevcut fatura oluþtur
+4. Ýþlemlerin baþarýlý olduðunu doðrula
+5. Her kullanýcýnýn kendi iþlemini gördüðünü doðrula
+
+**Beklenen Sonuç:** Ýþlemler birbirini etkilememeli ?
+
+---
+
+### Senaryo 8: Session Süresi Testi (24 saat)
+**Amaç:** 24 saatlik session süresinin çalýþtýðýný doðrulamak.
+
+**Adýmlar:**
+1. Giriþ yap ve session bilgilerini kaydet
+2. 24 saatten fazla bekle (veya sistem saatini deðiþtir - test için)
+3. Sayfayý yenile
+4. Yeniden giriþ istenmeli
+
+**Beklenen Sonuç:** Session süresi dolunca oturum sonlanmalý ?
+
+---
+
+### Senaryo 9: "Beni Hatýrla" Özelliði
+**Amaç:** Kullanýcý adýnýn hatýrlanmasýný doðrulamak.
+
+**Adýmlar:**
+1. Login sayfasýnda "Beni Hatýrla" seçeneðini iþaretle
+2. `admin` ile giriþ yap
+3. Çýkýþ yap
+4. Login sayfasýna dön
+5. Kullanýcý adý alaný `admin` ile dolu olmalý
+
+**Beklenen Sonuç:** Local Storage'da kullanýcý adý saklanmalý ?
+
+---
+
+### Senaryo 10: Mobil API Token Güvenliði
+**Amaç:** API token'larýnýn cihaz bazlý çalýþtýðýný doðrulamak.
+
+**Adýmlar:**
+1. Mobil cihaz 1'den `/api/auth/login` çaðýr
+2. Mobil cihaz 2'den `/api/auth/login` çaðýr (ayný kullanýcý)
+3. Her cihazýn farklý token aldýðýný doðrula
+4. Cihaz 1'in tokenýný cihaz 2'de kullanmaya çalýþ
+5. Her cihaz kendi tokený ile çalýþmalý
+
+**Beklenen Sonuç:** Token'lar cihaz bazlý ve baðýmsýz ?
+
+---
+
+## ? Test Kontrol Listesi
+
+| Test Senaryosu | PC-1 | PC-2 | PC-3 | Sonuç |
+|----------------|------|------|------|-------|
+| Senaryo 1: Baðýmsýz Oturum | ? | ? | - | ? |
+| Senaryo 2: Yetki Ýzolasyonu | ? | ? | ? | ? |
+| Senaryo 3: Tarayýcý Kapatma | ? | - | - | ? |
+| Senaryo 4: Farklý Tarayýcýlar | ? | - | - | ? |
+| Senaryo 5: Ayný Kullanýcý | ? | ? | - | ? |
+| Senaryo 6: Sayfa Yenileme | ? | ? | - | ? |
+| Senaryo 7: Eþzamanlý Ýþlem | ? | ? | - | ? |
+| Senaryo 8: Session Süresi | ? | - | - | ? |
+| Senaryo 9: Beni Hatýrla | ? | - | - | ? |
+| Senaryo 10: Mobil API | ? | ? | - | ? |
+
+---
+
+## ?? Hata Durumunda
+
+Eðer test baþarýsýz olursa:
+
+1. Tarayýcý geliþtirici araçlarýný aç (F12)
+2. **Application ? Session Storage** ? `CRMFiloServis_Session` anahtarýný kontrol et
+3. **Application ? Local Storage** ? `CRMFiloServis_RememberMe` anahtarýný kontrol et
+4. **Console'da** hata mesajlarýný incele
+5. **Network** sekmesinde API çaðrýlarýný kontrol et
+
+### Session Storage Ýçeriði
+```json
+{
+  "SessionId": "abc123...",
+  "KullaniciId": 1,
+  "GirisTarihi": "2024-01-15T10:30:00Z",
+  "Expiry": "2024-01-16T10:30:00Z",
+  "ClientInfo": "Circuit_..."
+}
+```
+
+### Log Kontrolü
+Uygulama loglarýnda oturum bilgileri:
+```
+[INF] Kullanici giris yapti: admin, Rol: Admin, SessionId: abc123...
+[INF] Oturum yuklendi: admin, SessionId: abc123...
+[INF] Kullanici cikis yapti: admin
+```
+
+---
+
+## ?? Teknik Notlar
+
+### Oturum Yönetimi Mimarisi
+```
+                    ???????????????????????????????????????
+                    ?           Blazor Server             ?
+                    ???????????????????????????????????????
+                                    ?
+            ?????????????????????????????????????????????????
+            ?                       ?                       ?
+    ?????????????????       ?????????????????       ?????????????????
+    ?   Circuit 1   ?       ?   Circuit 2   ?       ?   Circuit 3   ?
+    ?   (PC-1)      ?       ?   (PC-2)      ?       ?   (PC-3)      ?
+    ?????????????????       ?????????????????       ?????????????????
+            ?                       ?                       ?
+    ?????????????????       ?????????????????       ?????????????????
+    ? Scoped        ?       ? Scoped        ?       ? Scoped        ?
+    ? AuthProvider  ?       ? AuthProvider  ?       ? AuthProvider  ?
+    ? Session: A1   ?       ? Session: B2   ?       ? Session: C3   ?
+    ? User: Admin   ?       ? User: Muhasebe?       ? User: Sofor   ?
+    ?????????????????       ?????????????????       ?????????????????
+```
+
+### Storage Kullanýmý
+- **Session Storage:** Oturum verileri (tarayýcý kapatýlýnca silinir)
+- **Local Storage:** "Beni Hatýrla" tercihi (kalýcý)
+- **Protected Storage:** Veriler þifreli saklanýr
+
+### Güvenlik Özellikleri
+1. Her circuit baðýmsýz oturum (static deðiþken yok)
+2. Session ID ile oturum takibi
+3. 24 saatlik session süresi
+4. HMAC imzalý API tokenlarý
+5. Cihaz bazlý token yönetimi
+6. Baþarýsýz giriþ denemesi sayacý (5 deneme sonrasý kilitleme)

@@ -57,9 +57,10 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
 builder.Services.AddScoped<ApplicationDbContext>(sp =>
     sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
 
-// Authentication - Tum platformlarda (Web, Desktop, Linux, Android, iOS) guvenli calisir
-builder.Services.AddSingleton<AppAuthenticationStateProvider>();
-builder.Services.AddSingleton<AuthenticationStateProvider>(sp => 
+// Authentication - Her circuit (tarayici baglantisi) icin bagimsiz oturum yonetimi
+// Scoped: Her Blazor circuit kendi oturumunu yonetir - farkli PC/tarayicilar birbirini etkilemez
+builder.Services.AddScoped<AppAuthenticationStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp => 
     sp.GetRequiredService<AppAuthenticationStateProvider>());
 builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();

@@ -3,10 +3,12 @@
 @attribute [AllowAnonymous]
 @using CRMFiloServis.Web.Services
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject IKullaniciService KullaniciService
 @inject ILisansService LisansService
 @inject NavigationManager Navigation
 @inject AppAuthenticationStateProvider AuthProvider
+@inject ProtectedLocalStorage LocalStorage
 @rendermode InteractiveServer
 
 <PageTitle>Giris - CRM Filo Servis</PageTitle>
@@ -359,16 +361,34 @@
     private string? errorMessage;
     private string? successMessage;
     private CRMFiloServis.Shared.Entities.Lisans? lisans;
+    
+    private const string REMEMBER_KEY = "CRMFiloServis_RememberMe";
 
     protected override async Task OnInitializedAsync()
     {
-        // Login sayfasina gelindiginde oturumu temizle (cikis yapilmis demektir)
-        if (AuthProvider.IsAuthenticated)
-        {
-            AuthProvider.CikisYap();
-        }
-
         lisans = await LisansService.GetAktifLisansAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // "Beni Hatirla" seciliyse kullanici adini yukle
+            try
+            {
+                var result = await LocalStorage.GetAsync<string>(REMEMBER_KEY);
+                if (result.Success && !string.IsNullOrEmpty(result.Value))
+                {
+                    kullaniciAdi = result.Value;
+                    beniHatirla = true;
+                    StateHasChanged();
+                }
+            }
+            catch
+            {
+                // Local storage erisim hatasi - sessizce devam et
+            }
+        }
     }
 
     private async Task GirisYapAsync()
@@ -390,11 +410,29 @@
 
             if (sonuc.Basarili)
             {
+                // "Beni Hatirla" tercihini kaydet
+                try
+                {
+                    if (beniHatirla)
+                    {
+                        await LocalStorage.SetAsync(REMEMBER_KEY, kullaniciAdi);
+                    }
+                    else
+                    {
+                        await LocalStorage.DeleteAsync(REMEMBER_KEY);
+                    }
+                }
+                catch
+                {
+                    // Local storage hatasi - kritik degil
+                }
+                
                 successMessage = "Giris basarili! Yonlendiriliyorsunuz...";
                 StateHasChanged();
 
-                await Task.Delay(300);
-                Navigation.NavigateTo("/", false);
+                // Ana sayfaya yonlendir
+                await Task.Delay(200);
+                Navigation.NavigateTo("/", replace: true);
             }
             else
             {
