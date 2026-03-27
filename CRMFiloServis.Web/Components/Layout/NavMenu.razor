@@ -1,4 +1,4 @@
-ï»¿@rendermode InteractiveServer
+@rendermode InteractiveServer
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Shared.Entities
 @inject IKullaniciService KullaniciService
@@ -71,7 +71,7 @@
                             </div>
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="crm/whatsapp">
-                                    <i class="bi bi-send-fill me-2 text-success"></i> WA GÃ¶nderim
+                                    <i class="bi bi-send-fill me-2 text-success"></i> WA Gönderim
                                 </NavLink>
                             </div>
                         }
@@ -167,7 +167,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="servis-calismalari">
-                                    <i class="bi bi-calendar-check-fill me-2"></i> Servis Ã‡alÄ±ÅŸmalarÄ±
+                                    <i class="bi bi-calendar-check-fill me-2"></i> Servis Çalýþmalarý
                                 </NavLink>
                             </div>
                         }
@@ -175,7 +175,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="servis-calismalari/toplu-ekle">
-                                    <i class="bi bi-list-check me-2"></i> Toplu Ã‡alÄ±ÅŸma GiriÅŸi
+                                    <i class="bi bi-list-check me-2"></i> Toplu Çalýþma Giriþi
                                 </NavLink>
                             </div>
                         }
@@ -191,7 +191,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="arac-masraflari">
-                                    <i class="bi bi-receipt me-2"></i> AraÃ§ MasraflarÄ±
+                                    <i class="bi bi-receipt me-2"></i> Araç Masraflarý
                                 </NavLink>
                             </div>
                         }
@@ -256,7 +256,7 @@
             </div>
         }
 
-        <!-- PERSONEL YÃ–NETÄ°MÄ° -->
+        <!-- PERSONEL YÖNETÝMÝ -->
         @if (HasMenuYetki("menu.personel"))
         {
             <div class="nav-section">
@@ -279,7 +279,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="personel/maas">
-                                    <i class="bi bi-cash-stack me-2"></i> MaaÅŸ YÃ¶netimi
+                                    <i class="bi bi-cash-stack me-2"></i> Maaþ Yönetimi
                                 </NavLink>
                             </div>
                         }
@@ -287,7 +287,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="personel/izin">
-                                    <i class="bi bi-calendar-check me-2"></i> Ä°zin YÃ¶netimi
+                                    <i class="bi bi-calendar-check me-2"></i> Ýzin Yönetimi
                                 </NavLink>
                             </div>
                         }
@@ -296,12 +296,12 @@
             </div>
         }
 
-        <!-- FATURA MODÃœLÃœ -->
+        <!-- FATURA MODÜLÜ -->
         @if (HasMenuYetki("menu.fatura"))
         {
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(2)" style="cursor: pointer;">
-                    <span><i class="bi bi-receipt me-2"></i>FATURA MODÃœLÃœ</span>
+                    <span><i class="bi bi-receipt me-2"></i>FATURA MODÜLÜ</span>
                     <i class="bi @(expandedSections[2] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
                 @if (expandedSections[2])
@@ -319,7 +319,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="fatura-hazirlik">
-                                    <i class="bi bi-clipboard-check me-2"></i> Fatura HazÄ±rlÄ±k
+                                    <i class="bi bi-clipboard-check me-2"></i> Fatura Hazýrlýk
                                 </NavLink>
                             </div>
                         }
@@ -343,7 +343,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="banka-hesaplari">
-                                    <i class="bi bi-bank2 me-2"></i> Banka HesaplarÄ±
+                                    <i class="bi bi-bank2 me-2"></i> Banka Hesaplarý
                                 </NavLink>
                             </div>
                         }
@@ -359,7 +359,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="odeme-eslestirme">
-                                    <i class="bi bi-link-45deg me-2"></i> Ã–deme EÅŸleÅŸtirme
+                                    <i class="bi bi-link-45deg me-2"></i> Ödeme Eþleþtirme
                                 </NavLink>
                             </div>
                         }
@@ -368,12 +368,12 @@
             </div>
         }
 
-        <!-- BÃœTÃ‡E MODÃœLÃœ -->
+        <!-- BÜTÇE MODÜLÜ -->
         @if (HasMenuYetki("menu.butce"))
         {
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(11)" style="cursor: pointer;">
-                    <span><i class="bi bi-wallet2 me-2"></i>BÃœTÃ‡E MODÃœLÃœ</span>
+                    <span><i class="bi bi-wallet2 me-2"></i>BÜTÇE MODÜLÜ</span>
                     <i class="bi @(expandedSections.Length > 11 && expandedSections[11] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
                 @if (expandedSections.Length > 11 && expandedSections[11])
@@ -383,7 +383,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="butce">
-                                    <i class="bi bi-graph-up me-2 text-primary"></i> BÃ¼tÃ§e Analiz
+                                    <i class="bi bi-graph-up me-2 text-primary"></i> Bütçe Analiz
                                 </NavLink>
                             </div>
                         }
@@ -391,7 +391,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="butce/odemeler">
-                                    <i class="bi bi-credit-card me-2 text-warning"></i> Ã–deme YÃ¶netimi
+                                    <i class="bi bi-credit-card me-2 text-warning"></i> Ödeme Yönetimi
                                 </NavLink>
                             </div>
                         }
@@ -408,12 +408,12 @@
             </div>
         }
 
-        <!-- ARAÃ‡ MASRAFLARI & RAPORLAR -->
+        <!-- ARAÇ MASRAFLARI & RAPORLAR -->
         @if (HasMenuYetki("menu.araclar"))
         {
             <div class="nav-section">
-                <div class="nav-section-title" @onclick="() => ToggleSection(8)" style="cursor: pointer;">
-                    <span><i class="bi bi-file-earmark-text me-2"></i>ARAÃ‡ MASRAFLARI & RAPORLAR</span>
+                <div class="nav-section-header" @onclick="() => ToggleSection(8)" style="cursor: pointer;">
+                    <span><i class="bi bi-file-earmark-text me-2"></i>ARAÇ MASRAFLARI & RAPORLAR</span>
                     <i class="bi @(expandedSections[8] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
                 @if (expandedSections[8])
@@ -431,7 +431,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="masraf-raporlari">
-                                    <i class="bi bi-file-earmark-spreadsheet me-2"></i> Masraf RaporlarÄ±
+                                    <i class="bi bi-file-earmark-spreadsheet me-2"></i> Masraf Raporlarý
                                 </NavLink>
                             </div>
                         }
@@ -439,12 +439,12 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/analiz">
-                                    <i class="bi bi-graph-up me-2"></i> AraÃ§ Raporlama Sistemi
+                                    <i class="bi bi-graph-up me-2"></i> Araç Raporlama Sistemi
                                 </NavLink>
                             </div>
                         }
                         
-                        <!-- YENÄ° EKLENEN PUANTAJ LÄ°STESÄ° -->
+                        <!-- YENÝ EKLENEN PUANTAJ LÝSTESÝ -->
                         <div class="nav-item px-3">
                             <NavLink class="nav-link" href="rapor/servis-puantaj">
                                 <i class="bi bi-calendar3 me-2 text-success"></i> Servis Puantaj Sistemi
@@ -456,12 +456,12 @@
             </div>
         }
 
-        <!-- ARAÃ‡ SATIÅž / KÄ°RALAMA (GALERÄ°) -->
+        <!-- ARAÇ SATIÞ / KÝRALAMA (GALERÝ) -->
         @if (HasMenuYetki("menu.satis"))
         {
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(12)" style="cursor: pointer;">
-                    <span><i class="bi bi-car-front-fill me-2"></i>SATIÅž / KÄ°RALAMA</span>
+                    <span><i class="bi bi-car-front-fill me-2"></i>SATIÞ / KÝRALAMA</span>
                     <i class="bi @(expandedSections.Length > 12 && expandedSections[12] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
                 @if (expandedSections.Length > 12 && expandedSections[12])
@@ -471,7 +471,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="satis">
-                                    <i class="bi bi-speedometer2 me-2 text-primary"></i> SatÄ±ÅŸ Dashboard
+                                    <i class="bi bi-speedometer2 me-2 text-primary"></i> Satýþ Dashboard
                                 </NavLink>
                             </div>
                         }
@@ -479,7 +479,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="satis/piyasa-karsilastirma">
-                                    <i class="bi bi-bar-chart-line-fill me-2 text-info"></i> Piyasa AraÅŸtÄ±rma
+                                    <i class="bi bi-bar-chart-line-fill me-2 text-info"></i> Piyasa Araþtýrma
                                 </NavLink>
                             </div>
                         }
@@ -503,7 +503,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/checklist">
-                                    <i class="bi bi-calendar-check me-2 text-success"></i> AylÄ±k Checklist
+                                    <i class="bi bi-calendar-check me-2 text-success"></i> Aylýk Checklist
                                 </NavLink>
                             </div>
                         }
@@ -535,7 +535,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/ozmal-arac">
-                                    <i class="bi bi-truck me-2 text-primary"></i> Ã–zmal AraÃ§ Raporu
+                                    <i class="bi bi-truck me-2 text-primary"></i> Özmal Araç Raporu
                                 </NavLink>
                             </div>
                         }
@@ -543,7 +543,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/kiralik-arac">
-                                    <i class="bi bi-building me-2 text-info"></i> KiralÄ±k AraÃ§ Raporu
+                                    <i class="bi bi-building me-2 text-info"></i> Kiralýk Araç Raporu
                                 </NavLink>
                             </div>
                         }
@@ -567,7 +567,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/fatura-odeme">
-                                    <i class="bi bi-file-earmark-text me-2 text-danger"></i> Fatura Ã–deme
+                                    <i class="bi bi-file-earmark-text me-2 text-danger"></i> Fatura Ödeme
                                 </NavLink>
                             </div>
                         }
@@ -575,7 +575,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/arac-masraf">
-                                    <i class="bi bi-file-earmark-spreadsheet me-2 text-secondary"></i> AraÃ§ Masraf
+                                    <i class="bi bi-file-earmark-spreadsheet me-2 text-secondary"></i> Araç Masraf
                                 </NavLink>
                             </div>
                         }
