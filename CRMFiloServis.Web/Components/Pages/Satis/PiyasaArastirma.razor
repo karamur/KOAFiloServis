@@ -230,11 +230,18 @@
 
         for (int i = 0; i < r.Next(8, 15); i++)
         {
-            var pKm = r.Next(10000, aramaKriter.MaxKm);
+            var pKmMin = 10000;
+            var pKmMax = aramaKriter.MaxKm <= pKmMin ? pKmMin : aramaKriter.MaxKm;
+            var pKm = r.Next(pKmMin, pKmMax + 1);
+            
             var carpim = 1 - (pKm / 500000m); // KM arttıkça fiyat düşer
             
             var source = r.Next(10) > 5 ? "Sahibinden" : "Arabam";
             var url = source == "Sahibinden" ? "https://www.sahibinden.com/otomobil" : "https://www.arabam.com/ikinci-el/otomobil";
+
+            var maxYil = DateTime.Today.Year;
+            var minYil = aramaKriter.MinYil > maxYil ? maxYil : aramaKriter.MinYil;
+            var uretimYili = minYil == maxYil ? minYil : r.Next(minYil, maxYil + 1);
 
             bulunanIlanlar.Add(new TarananIlan
             {
@@ -242,7 +249,7 @@
                 Baslik = $"{aramaKriter.Marka} {aramaKriter.Model} Temiz Aile Aracı",
                 Marka = aramaKriter.Marka,
                 Model = aramaKriter.Model ?? "Grup",
-                Yil = r.Next(aramaKriter.MinYil, DateTime.Today.Year),
+                Yil = uretimYili,
                 Km = pKm,
                 Fiyat = bazFiyat * carpim + r.Next(-50000, 50000),
                 FotoUrl = $"https://picsum.photos/seed/car{r.Next(1, 100)}/140/100", // Dinamik random resim (Placeholder)
