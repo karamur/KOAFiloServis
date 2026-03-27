@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace CRMFiloServis.Shared.Entities;
 
@@ -131,6 +131,8 @@ public class MuhasebeFisKalem : BaseEntity
 
     public decimal Borc { get; set; }
     public decimal Alacak { get; set; }
+
+    public DateTime? Tarih { get; set; } = DateTime.Today;
 
     public string? Aciklama { get; set; }
 

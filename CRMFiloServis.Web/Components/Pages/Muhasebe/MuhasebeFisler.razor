@@ -143,6 +143,7 @@
                                 <tr>
                                     <th width="50" class="text-center">#</th>
                                     <th width="300">Hesap Kodu - Adı</th>
+                                    <th width="150">Tarih</th>
                                     <th>Satır Açıklaması</th>
                                     <th width="150" class="text-end">Borç (₺)</th>
                                     <th width="150" class="text-end">Alacak (₺)</th>
@@ -162,6 +163,9 @@
                                                     <option value="@hesap.Id">@hesap.HesapKodu - @hesap.HesapAdi</option>
                                                 }
                                             </select>
+                                        </td>
+                                        <td class="p-0 border-end">
+                                            <input type="date" class="form-control form-control-sm border-0 shadow-none bg-transparent" @bind="kalem.Tarih" />
                                         </td>
                                         <td class="p-0 border-end">
                                             <input class="form-control form-control-sm border-0 shadow-none bg-transparent" @bind="kalem.Aciklama" placeholder="Detay..." />

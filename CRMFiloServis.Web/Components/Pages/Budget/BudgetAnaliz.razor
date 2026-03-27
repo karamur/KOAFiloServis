@@ -910,50 +910,133 @@
                     <h5 class="modal-title"><i class="bi bi-printer me-2"></i>Aylık Liste Ön İzleme / Yazdır</h5>
                     <button type="button" class="btn-close" @onclick="ModalKapat"></button>
                 </div>
-                <div class="modal-body p-0">
+                <div class="modal-body p-0" style="max-height: 70vh; overflow-y: auto;">
                     <div id="printArea" class="p-4 bg-white text-dark">
-                        <div class="text-center mb-4">
-                            <h4>Ödeme Listesi</h4>
-                            <p class="text-muted">Dönem: @GetAyAdi(aktifTakvimAy) @secilenYil</p>
-                        </div>
-                        <table class="table table-bordered table-sm w-100" style="font-size: 0.9rem;">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Tarih</th>
-                                    <th>Masraf Kalemi</th>
-                                    <th>Açıklama</th>
-                                    <th class="text-center">Taksit</th>
-                                    <th class="text-end">Tutar</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var odeme in bekleyenOdemeler)
-                                {
-                                    <tr>
-                                        <td>@odeme.OdemeTarihi.ToString("dd.MM.yyyy")</td>
-                                        <td><strong>@odeme.MasrafKalemi</strong></td>
-                                        <td>@odeme.Aciklama</td>
-                                        <td class="text-center">
-                                            @if (odeme.TaksitliMi)
-                                            {
-                                                <span>@odeme.KacinciTaksit/@odeme.ToplamTaksitSayisi</span>
-                                            }
-                                            else
-                                            {
-                                                <span>-</span>
-                                            }
-                                        </td>
-                                        <td class="text-end">@odeme.Miktar.ToString("N2") TL</td>
+                        <!-- 1. SAYFA: TAKVİM -->
+                        <div class="print-page print-calendar">
+                            <div class="text-center mb-4">
+                                <h4>Bütçe Takvim Önizlemesi</h4>
+                                <p class="text-muted">Dönem: @GetAyAdi(aktifTakvimAy) @secilenYil</p>
+                            </div>
+                            
+                            <table class="table table-bordered table-sm mb-0 print-table" style="table-layout: fixed; width: 100%;">
+                                <thead>
+                                    <tr class="text-center bg-light">
+                                        <th style="width: 14.28%;">Pzt</th>
+                                        <th style="width: 14.28%;">Sal</th>
+                                        <th style="width: 14.28%;">Çar</th>
+                                        <th style="width: 14.28%;">Per</th>
+                                        <th style="width: 14.28%;">Cum</th>
+                                        <th style="width: 14.28%;">Cmt</th>
+                                        <th style="width: 14.28%;">Paz</th>
                                     </tr>
-                                }
-                            </tbody>
-                            <tfoot class="table-light fw-bold">
-                                <tr>
-                                    <td colspan="4" class="text-end">TOPLAM:</td>
-                                    <td class="text-end">@bekleyenOdemeler.Sum(o => o.Miktar).ToString("N2") TL</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    @{
+                                        var pIlkGun = new DateTime(secilenYil, aktifTakvimAy, 1);
+                                        var pIlkGunHafta = ((int)pIlkGun.DayOfWeek + 6) % 7;
+                                        var pGunSayisi = DateTime.DaysInMonth(secilenYil, aktifTakvimAy);
+                                        var pSatirSayisi = (int)Math.Ceiling((pIlkGunHafta + pGunSayisi) / 7.0);
+                                        var pGun = 1;
+                                    }
+                                    @for (int satir = 0; satir < pSatirSayisi; satir++)
+                                    {
+                                        <tr>
+                                            @for (int sutun = 0; sutun < 7; sutun++)
+                                            {
+                                                var hucreIndex = satir * 7 + sutun;
+                                                if (hucreIndex < pIlkGunHafta || pGun > pGunSayisi)
+                                                {
+                                                    <td class="bg-light p-1" style="height: 120px;"></td>
+                                                }
+                                                else
+                                                {
+                                                    var currentGun = pGun;
+                                                    var gunData = takvimData?.FirstOrDefault(t => t.Gun == currentGun);
+                                                    <td class="p-1" style="height: 120px; vertical-align: top; font-size: 0.75rem;">
+                                                        <div class="d-flex justify-content-between mb-1" style="border-bottom: 1px solid #ddd;">
+                                                            <strong>@currentGun</strong>
+                                                            @if (gunData != null && gunData.BekleyenToplamOdeme > 0)
+                                                            {
+                                                                <strong class="text-danger">@gunData.BekleyenToplamOdeme.ToString("N0") TL</strong>
+                                                            }
+                                                        </div>
+                                                        <div style="max-height: 90px; overflow: hidden;">
+                                                           @if (gunData != null && gunData.Odemeler != null)
+                                                           {
+                                                               foreach(var o in gunData.Odemeler.Where(x => x.Durum == OdemeDurum.Bekliyor).Take(4))
+                                                               {
+                                                                   <div class="text-truncate mb-1" title="@o.MasrafKalemi" style="line-height: 1.1;">
+                                                                       <small>@o.MasrafKalemi</small>
+                                                                   </div>
+                                                               }
+                                                               if (gunData.Odemeler.Count(x => x.Durum == OdemeDurum.Bekliyor) > 4)
+                                                               {
+                                                                   <div class="text-muted"><small>+@(gunData.Odemeler.Count(x => x.Durum == OdemeDurum.Bekliyor) - 4) daha</small></div>
+                                                               }
+                                                           }
+                                                        </div>
+                                                    </td>
+                                                    pGun++;
+                                                }
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 2. SAYFA ZORUNLU KESME -->
+                        <div style="page-break-before: always; border-top: 2px dashed #ccc; margin: 30px 0;" class="print-page-break d-print-none text-center text-muted">
+                            <small><i class="bi bi-scissors me-1"></i> Sayfa Kesimi (Yazdırırken aktif olur) <i class="bi bi-scissors ms-1"></i></small>
+                        </div>
+                        <div style="page-break-before: always;" class="d-none d-print-block"></div>
+
+                        <!-- 2. SAYFA: LİSTE -->
+                        <div class="print-page">
+                            <div class="text-center mb-4">
+                                <h4>Ödeme Listesi</h4>
+                                <p class="text-muted">Dönem: @GetAyAdi(aktifTakvimAy) @secilenYil</p>
+                            </div>
+                            <table class="table table-bordered table-sm w-100 print-table" style="font-size: 0.9rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tarih</th>
+                                        <th>Masraf Kalemi</th>
+                                        <th>Açıklama</th>
+                                        <th class="text-center">Taksit</th>
+                                        <th class="text-end">Tutar</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var odeme in bekleyenOdemeler)
+                                    {
+                                        <tr>
+                                            <td>@odeme.OdemeTarihi.ToString("dd.MM.yyyy")</td>
+                                            <td><strong>@odeme.MasrafKalemi</strong></td>
+                                            <td>@odeme.Aciklama</td>
+                                            <td class="text-center">
+                                                @if (odeme.TaksitliMi)
+                                                {
+                                                    <span>@odeme.KacinciTaksit/@odeme.ToplamTaksitSayisi</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>-</span>
+                                                }
+                                            </td>
+                                            <td class="text-end">@odeme.Miktar.ToString("N2") TL</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <td colspan="4" class="text-end">TOPLAM:</td>
+                                        <td class="text-end">@bekleyenOdemeler.Sum(o => o.Miktar).ToString("N2") TL</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1362,8 +1445,8 @@
             if (printElement) {
                 var printWindow = window.open('', '_blank');
                 if (printWindow) {
-                    printWindow.document.write('<html><head><title>Aylik Odeme Listesi</title>');
-                    printWindow.document.write('<style>body{font-family:Arial,sans-serif;margin:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #000;padding:6px;}</style>');
+                    printWindow.document.write('<html><head><title>Bütçe Raporu</title>');
+                    printWindow.document.write('<style>body{font-family:Arial,sans-serif;margin:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #000;padding:4px;} .page-break{page-break-before:always;} .d-print-none{display:none !important;} .d-none.d-print-block{display:block !important;} .text-center{text-align:center;} .text-end{text-align:right;} .text-danger{color:red;} .text-muted{color:#6c757d;} .mb-4{margin-bottom:1.5rem;} .mb-1{margin-bottom:0.25rem;} .fw-bold{font-weight:bold;} small{font-size:0.8rem;} h4{margin-bottom:5px;}</style>');
                     printWindow.document.write('</head><body>');
                     printWindow.document.write(printElement.innerHTML);
                     printWindow.document.write('</body></html>');

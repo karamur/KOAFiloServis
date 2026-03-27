@@ -1,4 +1,4 @@
-@page "/butce/takvim-raporu"
+﻿@page "/butce/takvim-raporu"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject IBudgetService BudgetService
@@ -166,9 +166,10 @@
             <!-- Takvim Gorunumu -->
             @if (raporTipi == "ay")
             {
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-calendar-week me-2"></i>Takvim Gorunumu</h6>
+                <div class="card mb-4 takvim-gorunumu">
+                    <div class="card-header d-flex justify-content-between">
+                        <h6 class="mb-0"><i class="bi bi-calendar-week me-2"></i>Takvim Gorunumu (Yatay A4)</h6>
+                        <span class="badge bg-secondary">Sayfa 1</span>
                     </div>
                     <div class="card-body p-2">
                         <table class="table table-bordered table-sm mb-0 takvim-table">
@@ -196,18 +197,40 @@
                                                     <div class="gun-baslik">@gun.Value</div>
                                                     @if (gunOdemeleri.Any())
                                                     {
-                                                        <div class="gun-odemeler">
-                                                            @foreach (var odeme in gunOdemeleri.Take(3))
+                                                        <div class="gun-odemeler d-flex flex-column gap-1">
+                                                            @foreach (var odeme in gunOdemeleri.OrderBy(o => o.Durum))
                                                             {
-                                                                <div class="odeme-item @GetDurumClass(odeme.Durum)" title="@odeme.MasrafKalemi - @FormatPara(odeme.Miktar)">
-                                                                    <small>@odeme.MasrafKalemi.Truncate(15)</small>
-                                                                    <span class="float-end">@FormatPara(odeme.Miktar)</span>
+                                                                int kalanGun = (odeme.OdemeTarihi.Date - DateTime.Today).Days;
+                                                                string bgClass = "bg-light text-dark";
+                                                                string timeText = "Odenen";
+
+                                                                if (odeme.Durum == OdemeDurum.Bekliyor || odeme.Durum == OdemeDurum.Ertelendi)
+                                                                {
+                                                                    if (kalanGun < 0) {
+                                                                        bgClass = "bg-danger text-white"; 
+                                                                        timeText = $"{Math.Abs(kalanGun)}g gecikti";
+                                                                    } else if (kalanGun == 0) {
+                                                                        bgClass = "bg-warning text-dark"; 
+                                                                        timeText = "Bugun";
+                                                                    } else {
+                                                                        bgClass = "bg-success text-white"; 
+                                                                        timeText = $"{kalanGun}g kaldi";
+                                                                    }
+                                                                }
+
+                                                                <div class="odeme-item @bgClass p-1 border rounded" title="@odeme.MasrafKalemi - @FormatPara(odeme.Miktar)">
+                                                                    <div class="d-flex justify-content-between mb-1" style="font-size:0.75rem;">
+                                                                        <span class="fw-bold text-truncate" style="max-width:80px;">@odeme.MasrafKalemi</span>
+                                                                        <span>@FormatPara(odeme.Miktar)</span>
+                                                                    </div>
+                                                                    <div class="text-end" style="font-size:0.65rem; opacity:0.9;">
+                                                                        @timeText
+                                                                    </div>
                                                                 </div>
                                                             }
-                                                            @if (gunOdemeleri.Count > 3)
-                                                            {
-                                                                <small class="text-muted">+@(gunOdemeleri.Count - 3) daha...</small>
-                                                            }
+                                                        </div>
+                                                        <div class="mt-2 pt-1 border-top text-end fw-bold" style="font-size: 0.85rem;">
+                                                            Top: @FormatPara(gunOdemeleri.Sum(o => o.Miktar))
                                                         </div>
                                                     }
                                                 }
@@ -221,10 +244,13 @@
                 </div>
             }
 
+            <div style="page-break-before: always;" class="d-none d-print-block"></div>
+
             <!-- Odeme Listesi -->
-            <div class="card">
-                <div class="card-header">
+            <div class="card liste-gorunumu">
+                <div class="card-header d-flex justify-content-between">
                     <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Odeme Listesi (Tarih Sirasina Gore)</h6>
+                    <span class="badge bg-secondary">Sayfa 2</span>
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-sm table-striped mb-0">
@@ -235,12 +261,23 @@
                                 <th>Aciklama</th>
                                 <th class="text-end" style="width: 120px;">Tutar</th>
                                 <th class="text-center" style="width: 100px;">Durum</th>
+                                <th style="width: 120px;">Zaman/Sure</th>
                                 <th style="width: 100px;">Odeme Tarihi</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var odeme in filtrelenmisOdemeler.OrderBy(o => o.OdemeTarihi))
                             {
+                                int kalanGun = (odeme.OdemeTarihi.Date - DateTime.Today).Days;
+                                string timeText = "-";
+                                string timeClass = "text-muted";
+                                if (odeme.Durum == OdemeDurum.Bekliyor || odeme.Durum == OdemeDurum.Ertelendi)
+                                {
+                                    if (kalanGun < 0) { timeText = $"{Math.Abs(kalanGun)} Gun Gecikti"; timeClass = "text-danger fw-bold"; }
+                                    else if (kalanGun == 0) { timeText = "Bugun"; timeClass = "text-warning fw-bold"; }
+                                    else { timeText = $"{kalanGun} Gun Kaldi"; timeClass = "text-success fw-bold"; }
+                                }
+
                                 <tr>
                                     <td>@odeme.OdemeTarihi.ToString("dd.MM.yyyy")</td>
                                     <td><strong>@odeme.MasrafKalemi</strong></td>
@@ -249,6 +286,7 @@
                                     <td class="text-center">
                                         <span class="badge @GetDurumBadgeClass(odeme.Durum)">@GetDurumAdi(odeme.Durum)</span>
                                     </td>
+                                    <td class="@timeClass">@timeText</td>
                                     <td>@(odeme.GercekOdemeTarihi?.ToString("dd.MM.yyyy") ?? "-")</td>
                                 </tr>
                             }
@@ -257,7 +295,7 @@
                             <tr class="fw-bold">
                                 <td colspan="3">TOPLAM</td>
                                 <td class="text-end">@FormatPara(filtrelenmisOdemeler.Sum(o => o.Miktar))</td>
-                                <td colspan="2"></td>
+                                <td colspan="3"></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -443,7 +481,7 @@
         table-layout: fixed;
     }
     .takvim-gun {
-        height: 120px;
+        height: 130px;
         vertical-align: top;
         padding: 4px !important;
     }
@@ -451,38 +489,44 @@
         font-weight: bold;
         font-size: 1.1rem;
         margin-bottom: 4px;
+        color: #555;
     }
     .gun-odemeler {
         font-size: 0.75rem;
     }
-    .odeme-item {
-        padding: 2px 4px;
-        margin-bottom: 2px;
-        border-radius: 3px;
+    .text-truncate {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-    }
-    .odeme-beklemede {
-        background-color: #fff3cd;
-    }
-    .odeme-odendi {
-        background-color: #d1e7dd;
-    }
-    .odeme-gecikti {
-        background-color: #f8d7da;
+        display: inline-block;
     }
 
     @@media print {
+        @@page {
+            size: A4 landscape;
+            margin: 1cm;
+        }
         .no-print {
             display: none !important;
         }
+        .takvim-gorunumu {
+            page-break-after: always;
+            width: 100%;
+        }
+        .liste-gorunumu {
+            page-break-before: always;
+            width: 100%;
+        }
+        .takvim-gun {
+            height: 110px !important;
+        }
         .rapor-container {
-            padding: 20px;
+            padding: 0px;
         }
         .card {
             border: 1px solid #ddd !important;
             box-shadow: none !important;
+            break-inside: avoid;
         }
         .page {
             display: block !important;
@@ -500,5 +544,18 @@
         .content {
             padding: 0 !important;
         }
+        /* Ozel yazdirma duzenlemeleri */
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .badge {
+            border: 1px solid #000;
+            color: #000 !important;
+            background-color: transparent !important;
+        }
+        .bg-danger { background-color: #f8d7da !important; color: #842029 !important; border: 1px solid #f5c2c7 !important; }
+        .bg-warning { background-color: #fff3cd !important; color: #664d03 !important; border: 1px solid #ffecb5 !important; }
+        .bg-success { background-color: #d1e7dd !important; color: #0f5132 !important; border: 1px solid #badbcc !important; }
     }
 </style>

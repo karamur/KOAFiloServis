@@ -55,6 +55,16 @@
             </button>
         </li>
         <li class="nav-item">
+            <button class="nav-link border-0 rounded-top @(aktifSekme == "karzarar" ? "bg-primary text-white" : "bg-light text-dark")" style="padding: 10px 20px; font-weight: 500;" @onclick='() => SekmeDegistir("karzarar")'>
+                <i class="bi bi-wallet2 me-1"></i>Kâr/Zarar
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link border-0 rounded-top @(aktifSekme == "swot" ? "bg-primary text-white" : "bg-light text-dark")" style="padding: 10px 20px; font-weight: 500;" @onclick='() => SekmeDegistir("swot")'>
+                <i class="bi bi-grid-1x2 me-1"></i>SWOT Analizi
+            </button>
+        </li>
+        <li class="nav-item">
             <button class="nav-link border-0 rounded-top @(aktifSekme == "trend" ? "bg-primary text-white" : "bg-light text-dark")" style="padding: 10px 20px; font-weight: 500;" @onclick='() => SekmeDegistir("trend")'>
                 <i class="bi bi-graph-up-arrow me-1"></i>Trend Karşılaştırma
             </button>
@@ -680,13 +690,195 @@
                 </div>
             </div>
         }
-        else if (aktifSekme == "trend")
+        else if (aktifSekme == "karzarar" && dashboard != null)
         {
             <div class="card shadow-sm border-0">
-                <div class="card-body text-center py-5">
-                    <i class="bi bi-graph-up-arrow text-primary opacity-50" style="font-size: 5rem;"></i>
-                    <h4 class="mt-3">Yıllara Sâri Trend Analizi</h4>
-                    <p class="text-muted">Son 5 yılın baz yıl ile karşılaştırılması yakında bu sekmede aktif olacaktır.</p>
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-wallet2 me-2"></i>Kâr / Zarar Analizi</h5>
+                    <span>@secilenYil - @(secilenAy == 0 ? "Tüm Aylar" : new DateTime(2024, secilenAy, 1).ToString("MMMM"))</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Gelir / Gider Kalemi</th>
+                                    <th class="text-end" style="width: 200px;">Tutar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="table-success fw-bold">
+                                    <td colspan="2">A - BRÜT SATIŞLAR (GELİRLER)</td>
+                                </tr>
+                                @foreach(var gelir in dashboard.GelirDagilimi)
+                                {
+                                    <tr>
+                                        <td class="ps-4">@gelir.Etiket</td>
+                                        <td class="text-end text-success">@FormatPara(gelir.Deger)</td>
+                                    </tr>
+                                }
+                                <tr class="fw-bold bg-light">
+                                    <td class="text-end">TOPLAM GELİR:</td>
+                                    <td class="text-end text-success">@FormatPara(dashboard.ToplamGelir)</td>
+                                </tr>
+
+                                <tr class="table-danger fw-bold mt-2">
+                                    <td colspan="2">B - GİDERLER & MASRAFLAR</td>
+                                </tr>
+                                @foreach(var gider in dashboard.GiderDagilimi)
+                                {
+                                    <tr>
+                                        <td class="ps-4">@gider.Etiket</td>
+                                        <td class="text-end text-danger">@FormatPara(gider.Deger)</td>
+                                    </tr>
+                                }
+                                <tr class="fw-bold bg-light">
+                                    <td class="text-end">TOPLAM GİDER:</td>
+                                    <td class="text-end text-danger">@FormatPara(dashboard.ToplamGider)</td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr class="@(dashboard.NetKar >= 0 ? "table-success text-success" : "table-danger text-danger") fs-5 fw-bold">
+                                    <td class="text-end">NET KAR / ZARAR:</td>
+                                    <td class="text-end">@FormatPara(dashboard.NetKar)</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (aktifSekme == "swot" && dashboard != null)
+        {
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card h-100 border-success shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="bi bi-arrow-up-circle me-2"></i>Güçlü Yönler (Strengths)</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Karlılık Oranı
+                                    @if(dashboard.KarlilikOrani > 15) { <span class="badge bg-success rounded-pill">Yüksek (%@dashboard.KarlilikOrani.ToString("N1"))</span> }
+                                    else { <span class="badge bg-secondary rounded-pill">Ortalama (%@dashboard.KarlilikOrani.ToString("N1"))</span> }
+                                </li>
+                                <li class="list-group-item">Geniş Müşteri Ağı ve Kiralık Araç Filosu.</li>
+                                <li class="list-group-item">Sabit Gelirli Komisyon İşlemleri.</li>
+                            </ul>
+                            <div class="mt-3">
+                                <textarea class="form-control" rows="2" placeholder="Yeni güçlü yön analizi yazın..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 border-danger shadow-sm">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0"><i class="bi bi-arrow-down-circle me-2"></i>Zayıf Yönler (Weaknesses)</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                @if(dashboard.OzmalAracAnaliz.Kar < 0) {
+                                    <li class="list-group-item text-danger">Özmal Araçlar Zararda (@FormatPara(dashboard.OzmalAracAnaliz.Kar))</li>
+                                }
+                                @if(dashboard.KiralikAracAnaliz.Kar < 0) {
+                                    <li class="list-group-item text-danger">Kiralık Araçlar Zararda (@FormatPara(dashboard.KiralikAracAnaliz.Kar))</li>
+                                }
+                                <li class="list-group-item">Artan yakıt ve bakım maliyetleri oranları.</li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Gider/Gelir Oranı
+                                    @if (dashboard.ToplamGelir > 0)
+                                    {
+                                        <span class="badge bg-danger rounded-pill">%(Math.Round((dashboard.ToplamGider / dashboard.ToplamGelir)*100,1))</span>
+                                    }
+                                </li>
+                            </ul>
+                            <div class="mt-3">
+                                <textarea class="form-control" rows="2" placeholder="Yeni zayıf yön analizi yazın..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 border-info shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Fırsatlar (Opportunities)</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item">En Karlı Güzergahları Büyütme: <strong>@(dashboard.EnKarliGuzergahlar.FirstOrDefault()?.Etiket ?? "Belirsiz")</strong></li>
+                                <li class="list-group-item">Araç sayısını optimize ederek marjı artırma potansiyeli.</li>
+                                <li class="list-group-item">Yeni lojistik anlaşmaları ve müşteri segmentleri.</li>
+                            </ul>
+                            <div class="mt-3">
+                                <textarea class="form-control" rows="2" placeholder="Yeni fırsat analizi yazın..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 border-warning shadow-sm">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Tehditler (Threats)</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item">
+                                    En Yüksek Gider Kalemi: <strong>@(dashboard.GiderDagilimi.OrderByDescending(x=>x.Deger).FirstOrDefault()?.Etiket ?? "Belirsiz")</strong> maliyetlerinde artış.
+                                </li>
+                                <li class="list-group-item">Sektörel enflasyon ve bölgesel yakıt fiyatları dengesizliği.</li>
+                                <li class="list-group-item">Araç arızaları kaynaklı sefer iptalleri ve gecikme cezaları.</li>
+                            </ul>
+                            <div class="mt-3">
+                                <textarea class="form-control" rows="2" placeholder="Yeni tehdit analizi yazın..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 text-end d-print-none">
+                <button class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer me-1"></i> SWOT Raporunu Yazdır</button>
+            </div>
+        }
+        else if (aktifSekme == "trend")
+        {
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>@secilenYil Yıllık Kar Trendi</h6>
+                </div>
+                <div class="card-body">
+                    @if (dashboard.AylikTrend.Any())
+                    {
+                        var maxDeger = dashboard.AylikTrend.Max(x => Math.Abs(x.Deger));
+
+                        <div class="d-flex align-items-end justify-content-between" style="height: 200px;">
+                            @foreach (var item in dashboard.AylikTrend)
+                            {
+                                var yukseklik = maxDeger > 0 ? (double)(Math.Abs(item.Deger) / maxDeger) * 100 : 0;
+                                var renk = item.Deger >= 0 ? "bg-success" : "bg-danger";
+
+                                <div class="text-center flex-fill px-1">
+                                    <div class="d-flex flex-column align-items-center">
+                                        <small class="@(item.Deger >= 0 ? "text-success" : "text-danger")">
+                                            @(item.Deger >= 0 ? "" : "-")@Math.Abs(item.Deger).ToString("N0")
+                                        </small>
+                                        <div style="width: 80%; height: @(yukseklik * 1.5)px; min-height: 10px;" 
+                                             class="@renk rounded-top mt-1" 
+                                             title="@item.EkBilgi">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">@item.Etiket</small>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">
+                            <p>Yıllık trend verisi bulunmuyor</p>
+                        </div>
+                    }
                 </div>
             </div>
         }
@@ -791,4 +983,20 @@
     }
 
     private string FormatPara(decimal tutar) => tutar.ToString("N0") + " TL";
+
+    private SWOTModel SWOTAnalizi = new SWOTModel
+    {
+        Guc = new List<string> { "Güçlü firma itibarı", "Tecrübeli yönetim kadrosu", "Yüksek müşteri memnuniyeti" },
+        Zayif = new List<string> { "Sınırlı bütçe", "Yetersiz dijital pazarlama", "Düşük marka bilinirliği" },
+        Firsat = new List<string> { "Pazar payını artırma fırsatı", "Yeni pazarlara açılım", "Ürün gamını genişletme imkanı" },
+        Tehtid = new List<string> { "Artan rekabet", "Ekonomik dalgalanmalar", "Değişen tüketici tercihleri" }
+    };
+
+    public class SWOTModel
+    {
+        public List<string> Guc { get; set; } = new List<string>();
+        public List<string> Zayif { get; set; } = new List<string>();
+        public List<string> Firsat { get; set; } = new List<string>();
+        public List<string> Tehtid { get; set; } = new List<string>();
+    }
 }

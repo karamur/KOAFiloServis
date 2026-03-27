@@ -199,23 +199,33 @@
                             {
                                 @foreach (var odeme in tekrarlayanOdemeler)
                                 {
-                                    <div class="list-group-item list-group-item-action p-2 @(!odeme.Aktif ? "bg-light text-muted" : "")" 
-                                         style="cursor: pointer;" @onclick="() => TekrarlayanOdemeDuzenleAc(odeme)">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <i class="bi @(odeme.Icon ?? "bi-calendar-event") me-2" style="color: @(odeme.Renk ?? "#6c757d")"></i>
-                                                <strong class="@(!odeme.Aktif ? "text-decoration-line-through" : "")">@odeme.OdemeAdi</strong>
-                                                @if (!odeme.Aktif)
-                                                {
-                                                    <span class="badge bg-secondary ms-1">Pasif</span>
-                                                }
-                                                <br />
-                                                <small class="text-muted ms-4">@odeme.MasrafKalemi - Her @GetPeriyodText(odeme.Periyod)</small>
+                                    <div class="list-group-item list-group-item-action p-2 @(!odeme.Aktif ? "bg-light text-muted" : "") @(secilenTekrarlayanOdemeRapor?.Id == odeme.Id ? "active text-white" : "")" 
+                                         style="cursor: pointer; @(secilenTekrarlayanOdemeRapor?.Id == odeme.Id ? "background-color: #0dcaf0; border-color: #0dcaf0;" : "")" 
+                                         @onclick="() => TekrarlayanOdemeSec(odeme)"
+                                         @ondblclick="() => TekrarlayanOdemeDuzenleAc(odeme)">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="bi @(odeme.Icon ?? "bi-calendar-event") me-2" style="color: @(secilenTekrarlayanOdemeRapor?.Id == odeme.Id ? "white" : (odeme.Renk ?? "#6c757d"))"></i>
+                                                    <strong class="@(!odeme.Aktif ? "text-decoration-line-through" : "") @(secilenTekrarlayanOdemeRapor?.Id == odeme.Id ? "text-white" : "")">@odeme.OdemeAdi</strong>
+                                                    @if (!odeme.Aktif)
+                                                    {
+                                                        <span class="badge bg-secondary ms-1">Pasif</span>
+                                                    }
+                                                    <button class="btn btn-sm ms-2 py-0 px-1 @(secilenTekrarlayanOdemeRapor?.Id == odeme.Id ? "btn-light" : "btn-outline-secondary")" 
+                                                            @onclick:stopPropagation="true"
+                                                            @onclick="() => TekrarlayanOdemeDuzenleAc(odeme)" title="Düzenle">
+                                                        <i class="bi bi-three-dots" style="font-size: 0.7rem;"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="ms-4 mt-1">
+                                                    <small class="@(secilenTekrarlayanOdemeRapor?.Id == odeme.Id ? "text-white-50" : "text-muted")">@odeme.MasrafKalemi - Her @GetPeriyodText(odeme.Periyod)</small>
+                                                </div>
                                             </div>
                                             <div class="text-end">
-                                                <span class="badge @(odeme.Aktif ? "bg-primary" : "bg-secondary")">@FormatPara(odeme.Tutar)</span>
+                                                <span class="badge @(secilenTekrarlayanOdemeRapor?.Id == odeme.Id ? "bg-light text-info" : (odeme.Aktif ? "bg-primary" : "bg-secondary"))">@FormatPara(odeme.Tutar)</span>
                                                 <br />
-                                                <small class="text-muted">@odeme.OdemeGunu. gün</small>
+                                                <small class="@(secilenTekrarlayanOdemeRapor?.Id == odeme.Id ? "text-white-50" : "text-muted")">@odeme.OdemeGunu. gün</small>
                                             </div>
                                         </div>
                                     </div>
@@ -233,12 +243,12 @@
                 </div>
             </div>
 
-            <!-- Sağ Taraf: Seçilen Kredinin Taksitleri -->
+            <!-- Sağ Taraf: Seçilen Kredinin/Tekrarlayanın Taksitleri -->
             <div class="col-md-7">
                 @if (secilenKredi != null)
                 {
                     <div class="card">
-                        <div class="card-header py-2 bg-dark text-white">
+                        <div class="card-header py-2 bg-primary text-white">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-0">
@@ -276,7 +286,7 @@
                                 </div>
                                 <div class="col-3 text-center">
                                     <small class="text-muted d-block">İlerleme</small>
-                                    <strong>%@secilenKredi.TamamlanmaYuzdesi.ToString("0")</strong>
+                                    <strong>%@secilenKredi.TamamlanmaYuzdesi.ToString("0")</strong><div class="progress mt-1 mx-2" style="height: 5px;"><div class="progress-bar bg-success" style="width: @secilenKredi.TamamlanmaYuzdesi%"></div></div>
                                 </div>
                             </div>
 
@@ -296,7 +306,7 @@
                                         @foreach (var taksit in secilenKrediTaksitler)
                                         {
                                             var gecikmisMi = taksit.Durum == OdemeDurum.Bekliyor && taksit.OdemeTarihi < DateTime.Today;
-                                            <tr class="@(taksit.Durum == OdemeDurum.Odendi ? "table-success" : gecikmisMi ? "table-danger" : "")">
+                                            <tr class="@(taksit.Durum == OdemeDurum.Odendi ? "table-success" : gecikmisMi ? "table-danger" : "")" style="@(taksit.Durum == OdemeDurum.Odendi ? "border-left: 3px solid #198754;" : gecikmisMi ? "border-left: 3px solid #dc3545;" : "border-left: 3px solid #ffc107;")">
                                                 <td>
                                                     <span class="badge @(taksit.Durum == OdemeDurum.Odendi ? "bg-success" : gecikmisMi ? "bg-danger" : "bg-secondary")">
                                                         @taksit.KacinciTaksit
@@ -348,12 +358,86 @@
                         </div>
                     </div>
                 }
+                else if (secilenTekrarlayanOdemeRapor != null)
+                {
+                    <div class="card border-info">
+                        <div class="card-header py-2 bg-info text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-arrow-repeat me-2"></i>@secilenTekrarlayanOdemeRapor.OdemeAdi
+                                        @if (!string.IsNullOrEmpty(secilenTekrarlayanOdemeRapor.Aciklama))
+                                        {
+                                            <small class="text-white-50">- @secilenTekrarlayanOdemeRapor.Aciklama</small>
+                                        }
+                                    </h6>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <span class="badge bg-light text-info align-self-center">Projeksiyon</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <!-- Özet Bilgiler -->
+                            <div class="row g-0 border-bottom p-2 bg-light">
+                                <div class="col-4 text-center border-end">
+                                    <small class="text-muted d-block">Tutar</small>
+                                    <strong>@FormatPara(secilenTekrarlayanOdemeRapor.Tutar)</strong>
+                                </div>
+                                <div class="col-4 text-center border-end">
+                                    <small class="text-muted d-block">Periyod</small>
+                                    <strong>Her @GetPeriyodText(secilenTekrarlayanOdemeRapor.Periyod)</strong>
+                                </div>
+                                <div class="col-4 text-center">
+                                    <small class="text-muted d-block">Gelecek 1 Yıl Toplamı</small>
+                                    <strong class="text-danger">@FormatPara(tekrarlayanProjeksiyonListesi.Sum(x => x.Tutar))</strong>
+                                </div>
+                            </div>
+
+                            <!-- Projeksiyon Listesi -->
+                            <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th style="width: 50px;">#</th>
+                                            <th>Öngörülen Tarih</th>
+                                            <th class="text-end">Tutar</th>
+                                            <th class="text-center">Durum</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var projeksiyon in tekrarlayanProjeksiyonListesi)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <span class="badge bg-secondary">
+                                                        @projeksiyon.Sira
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <i class="bi bi-calendar-event me-2 text-muted"></i>
+                                                    @projeksiyon.Tarih.ToString("dd.MM.yyyy")
+                                                </td>
+                                                <td class="text-end">
+                                                    <strong>@FormatPara(projeksiyon.Tutar)</strong>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge bg-light text-muted border"><i class="bi bi-eye text-info me-1"></i>Beklenen</span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                }
                 else
                 {
                     <div class="card">
                         <div class="card-body text-center py-5 text-muted">
                             <i class="bi bi-arrow-left-circle" style="font-size: 3rem;"></i>
-                            <p class="mt-3 mb-0">Taksit detaylarını görmek için sol taraftan bir kredi seçin</p>
+                            <p class="mt-3 mb-0">Detayları görmek için sol taraftan bir kayıt seçin</p>
                         </div>
                     </div>
                 }
@@ -377,11 +461,11 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Masraf Kalemi *</label>
-                                <input type="text" class="form-control" @bind="taksitRequest.MasrafKalemi" placeholder="Ürn: Kredi Kartı, Araç Kredisi" />
+                                <input type="text" class="form-control" @bind="taksitRequest.MasrafKalemi" placeholder="Örn: Kredi Kartı, Araç Kredisi" />
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Açıklama</label>
-                                <input type="text" class="form-control" @bind="taksitRequest.Aciklama" placeholder="Ürn: X Bankası, 12 ay vadeli" />
+                                <input type="text" class="form-control" @bind="taksitRequest.Aciklama" placeholder="Örn: X Bankası, 12 ay vadeli" />
                             </div>
                             <div class="row">
                                 <div class="col-6">
@@ -403,7 +487,7 @@
                                         <label class="form-label">Toplam Tutar *</label>
                                         <div class="input-group">
                                             <input type="number" class="form-control" @bind="taksitRequest.ToplamTutar" step="0.01" />
-                                            <span class="input-group-text">?</span>
+                                            <span class="input-group-text">₺</span>
                                         </div>
                                     </div>
                                 </div>
@@ -412,7 +496,7 @@
                                         <label class="form-label">Taksit Tutarı</label>
                                         <div class="input-group">
                                             <input type="text" class="form-control fw-bold text-primary" 
-                                                   value="@(taksitRequest.TaksitSayisi > 0 ? FormatPara(taksitRequest.ToplamTutar / taksitRequest.TaksitSayisi) : "0 ?")" readonly />
+                                                   value="@(taksitRequest.TaksitSayisi > 0 ? FormatPara(taksitRequest.ToplamTutar / taksitRequest.TaksitSayisi) : "0 ₺")" readonly />
                                         </div>
                                     </div>
                                 </div>
@@ -497,7 +581,7 @@
                                 <option value="0">Seçiniz...</option>
                                 @foreach (var hesap in bankaHesaplari.Where(h => odemeTipi == "Kasa" ? h.HesapTipi == HesapTipi.Kasa : h.HesapTipi != HesapTipi.Kasa))
                                 {
-                                    <option value="@hesap.Id">@hesap.HesapAdi ()</option>
+                                    <option value="@hesap.Id">@hesap.HesapAdi</option>
                                 }
                             </select>
                         </div>
@@ -779,6 +863,16 @@
     private TekrarlayanOdeme yeniTekrarlayanOdeme = new();
     private TekrarlayanOdeme? secilenTekrarlayanOdeme = null;
     private KrediOzet? secilenKrediDuzenleme = null;
+    
+    private TekrarlayanOdeme? secilenTekrarlayanOdemeRapor = null;
+    private List<TekrarlayanProjeksiyon> tekrarlayanProjeksiyonListesi = new();
+    
+    public class TekrarlayanProjeksiyon
+    {
+        public int Sira { get; set; }
+        public DateTime Tarih { get; set; }
+        public decimal Tutar { get; set; }
+    }
 
     // Ödeme yap form
     private string odemeTipi = "Banka";
@@ -859,9 +953,57 @@
 
     private async Task KrediSec(KrediOzet kredi)
     {
+        secilenTekrarlayanOdemeRapor = null;
+        tekrarlayanProjeksiyonListesi = new();
         secilenKredi = kredi;
         var tumTaksitler = await BudgetService.GetKrediTaksitDetaylariAsync(kredi.TaksitGrupId);
         secilenKrediTaksitler = FiltreleTaksitler(tumTaksitler);
+    }
+    
+    private void TekrarlayanOdemeSec(TekrarlayanOdeme odeme)
+    {
+        secilenKredi = null;
+        secilenKrediTaksitler = new();
+        secilenTekrarlayanOdemeRapor = odeme;
+        
+        tekrarlayanProjeksiyonListesi = new();
+        
+        DateTime baslangic = odeme.BaslangicTarihi > DateTime.Today ? odeme.BaslangicTarihi : DateTime.Today;
+        int artisAyi = GetAyCarpani(odeme.Periyod);
+        
+        DateTime siradakiTarih = new DateTime(baslangic.Year, baslangic.Month, Math.Min(odeme.OdemeGunu, DateTime.DaysInMonth(baslangic.Year, baslangic.Month)));
+        
+        if (siradakiTarih < DateTime.Today)
+        {
+            var nextMonth = DateTime.Today.AddMonths(1);
+            siradakiTarih = new DateTime(nextMonth.Year, nextMonth.Month, Math.Min(odeme.OdemeGunu, DateTime.DaysInMonth(nextMonth.Year, nextMonth.Month)));
+        }
+        
+        for (int i = 1; i <= 12; i++)
+        {
+            tekrarlayanProjeksiyonListesi.Add(new TekrarlayanProjeksiyon
+            {
+                Sira = i,
+                Tarih = siradakiTarih,
+                Tutar = odeme.Tutar
+            });
+            
+            var nextDate = siradakiTarih.AddMonths(artisAyi);
+            siradakiTarih = new DateTime(nextDate.Year, nextDate.Month, Math.Min(odeme.OdemeGunu, DateTime.DaysInMonth(nextDate.Year, nextDate.Month)));
+        }
+    }
+    
+    private int GetAyCarpani(TekrarPeriyodu periyod)
+    {
+        return periyod switch
+        {
+            TekrarPeriyodu.Aylik => 1,
+            TekrarPeriyodu.IkiAylik => 2,
+            TekrarPeriyodu.UcAylik => 3,
+            TekrarPeriyodu.AltiAylik => 6,
+            TekrarPeriyodu.Yillik => 12,
+            _ => 1
+        };
     }
 
     private List<KrediTaksitDetay> FiltreleTaksitler(IEnumerable<KrediTaksitDetay> taksitler)
@@ -1208,3 +1350,6 @@
         await LoadDataAsync();
     }
 }
+
+
+
