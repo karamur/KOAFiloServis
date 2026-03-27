@@ -78,7 +78,7 @@ public class DashboardGrafikService : IDashboardGrafikService
     {
         var calismalar = await _context.ServisCalismalari
             .Include(c => c.Arac)
-            .Where(c => c.CalismaTarihi.Year == yil && c.CalismaTarihi.Month == ay && c.AracId != null)
+            .Where(c => c.CalismaTarihi.Year == yil && c.CalismaTarihi.Month == ay)
             .GroupBy(c => new { c.AracId, Plaka = c.Arac!.AktifPlaka ?? "" })
             .Select(g => new
             {

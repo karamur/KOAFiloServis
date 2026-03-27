@@ -161,18 +161,19 @@ public class FaturaHazirlikService : IFaturaHazirlikService
             foreach (var aracGrup in aracGruplari)
             {
                 var arac = aracGrup.First().Arac;
+                var plakaGosterim = arac?.AktifPlaka ?? arac?.SaseNo ?? "Bilinmeyen";
 
                 var detay = new GelecekFaturaDetay
                 {
-                    AracPlaka = arac.AktifPlaka,
+                    AracPlaka = plakaGosterim,
                     SeferSayisi = aracGrup.Count(),
-                    Aciklama = $"{arac.AktifPlaka} plakalý araç kirasý"
+                    Aciklama = $"{plakaGosterim} plakalý araç kirasý"
                 };
 
                 foreach (var calisma in aracGrup)
                 {
-                    var seferFiyat = calisma.Fiyat ?? calisma.Guzergah.BirimFiyat;
-                    var kiraBedeli = HesaplaKiraBedeli(arac, seferFiyat);
+                    var seferFiyat = calisma.Fiyat ?? calisma.Guzergah?.BirimFiyat ?? 0;
+                    var kiraBedeli = arac != null ? HesaplaKiraBedeli(arac, seferFiyat) : 0;
 
                     detay.Seferler.Add(new SeferOzet
                     {
@@ -221,33 +222,34 @@ public class FaturaHazirlikService : IFaturaHazirlikService
             foreach (var aracGrup in aracGruplari)
             {
                 var arac = aracGrup.First().Arac;
+                var plakaGosterim = arac?.AktifPlaka ?? arac?.SaseNo ?? "Bilinmeyen";
 
                 var detay = new GelecekFaturaDetay
                 {
-                    AracPlaka = arac.AktifPlaka,
+                    AracPlaka = plakaGosterim,
                     SeferSayisi = aracGrup.Count(),
-                    Aciklama = $"{arac.AktifPlaka} plakalý araç komisyonu"
+                    Aciklama = $"{plakaGosterim} plakalý araç komisyonu"
                 };
 
                 foreach (var calisma in aracGrup)
                 {
-                    var seferFiyat = calisma.Fiyat ?? calisma.Guzergah.BirimFiyat;
-                    var komisyonTutari = HesaplaKomisyon(arac, seferFiyat);
+                    var seferFiyat = calisma.Fiyat ?? calisma.Guzergah?.BirimFiyat ?? 0;
+                    var komisyonTutari = arac != null ? HesaplaKomisyon(arac, seferFiyat) : 0;
 
                     detay.Seferler.Add(new SeferOzet
                     {
                         ServisCalismaId = calisma.Id,
                         Tarih = calisma.CalismaTarihi,
-                        GuzergahAdi = calisma.Guzergah.GuzergahAdi,
+                        GuzergahAdi = calisma.Guzergah?.GuzergahAdi ?? "Bilinmeyen",
                         SeferFiyati = seferFiyat,
                         HesaplananTutar = komisyonTutari
                     });
                 }
 
-                detay.BirimTutar = detay.Seferler.Average(s => s.HesaplananTutar);
+                detay.BirimTutar = detay.Seferler.Any() ? detay.Seferler.Average(s => s.HesaplananTutar) : 0;
                 detay.ToplamTutar = detay.Seferler.Sum(s => s.HesaplananTutar);
-                detay.MusteriUnvan = string.Join(", ", aracGrup.Select(c => c.Guzergah.Cari.Unvan).Distinct());
-                detay.GuzergahAdi = string.Join(", ", aracGrup.Select(c => c.Guzergah.GuzergahAdi).Distinct().Take(3));
+                detay.MusteriUnvan = string.Join(", ", aracGrup.Where(c => c.Guzergah?.Cari != null).Select(c => c.Guzergah!.Cari!.Unvan).Distinct());
+                detay.GuzergahAdi = string.Join(", ", aracGrup.Where(c => c.Guzergah != null).Select(c => c.Guzergah!.GuzergahAdi).Distinct().Take(3));
 
                 faturaItem.Detaylar.Add(detay);
             }

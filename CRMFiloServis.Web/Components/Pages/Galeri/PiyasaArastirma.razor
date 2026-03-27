@@ -679,11 +679,13 @@
     private string selectedMarka = "";
     private string selectedModel = "";
 
+#pragma warning disable CS0169, CS0414 // Field is never used / assigned but never used
     private bool isLoadingMarkalar;
     private bool isLoadingModeller;
+    private bool isUpdatingMarkaModel;
+#pragma warning restore CS0169, CS0414
     private bool isSearching;
     private bool isSaving;
-    private bool isUpdatingMarkaModel;
     private bool showKayitliAramalar;
     private bool isLoadingKayitliAramalar;
     private bool showResimModal;

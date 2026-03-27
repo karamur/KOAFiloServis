@@ -198,8 +198,8 @@ public class MaliAnalizService : IMaliAnalizService
 
                 var aracDetay = new KiralikAracDetay
                 {
-                    Plaka = arac.AktifPlaka,
-                    SoforAdSoyad = $"{sofor.Ad} {sofor.Soyad}"
+                    Plaka = arac?.AktifPlaka ?? arac?.SaseNo ?? "Bilinmeyen",
+                    SoforAdSoyad = $"{sofor?.Ad} {sofor?.Soyad}"
                 };
 
                 // Güzergah bazýnda grupla
@@ -289,9 +289,9 @@ public class MaliAnalizService : IMaliAnalizService
 
                 komisyoncuDetay.IsDetaylari.Add(new KomisyonIsDetay
                 {
-                    AracPlaka = calisma.Arac?.AktifPlaka,
-                    GuzergahAdi = calisma.Guzergah.GuzergahAdi,
-                    MusteriUnvan = calisma.Guzergah.Cari.Unvan,
+                    AracPlaka = calisma.Arac?.AktifPlaka ?? calisma.Arac?.SaseNo ?? "Bilinmeyen",
+                    GuzergahAdi = calisma.Guzergah?.GuzergahAdi ?? "Bilinmeyen",
+                    MusteriUnvan = calisma.Guzergah?.Cari?.Unvan ?? "Bilinmeyen",
                     SeferSayisi = seferSayisi,
                     SeferGeliri = seferGeliri,
                     KomisyonTutari = komisyonTutari
@@ -338,7 +338,7 @@ public class MaliAnalizService : IMaliAnalizService
             var aracChecklist = new AracChecklistOzet
             {
                 AracId = arac.Id,
-                Plaka = arac.AktifPlaka,
+                Plaka = arac.AktifPlaka ?? arac.SaseNo,
                 MarkaModel = $"{arac.Marka} {arac.Model}"
             };
 
@@ -614,11 +614,11 @@ public class MaliAnalizService : IMaliAnalizService
             .GroupBy(s => s.AracId)
             .Select(g => 
             {
-                var gelir = g.Sum(s => s.Fiyat ?? s.Guzergah.BirimFiyat);
+                var gelir = g.Sum(s => s.Fiyat ?? s.Guzergah?.BirimFiyat ?? 0);
                 var gider = masraflar.FirstOrDefault(m => m.AracId == g.Key)?.Toplam ?? 0;
                 return new GrafikVeri
                 {
-                    Etiket = g.First().Arac?.AktifPlaka,
+                    Etiket = g.First().Arac?.AktifPlaka ?? g.First().Arac?.SaseNo ?? "Bilinmeyen",
                     Deger = gelir - gider,
                     EkBilgi = $"Gelir: {gelir:N0}?"
                 };

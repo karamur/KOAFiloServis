@@ -664,7 +664,8 @@
     {
         try
         {
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            // EPPlus 8+ için yeni lisans ayarý
+            OfficeOpenXml.ExcelPackage.License.SetNonCommercialPersonal("CRMFiloServis");
             using var package = new ExcelPackage();
             var ws = package.Workbook.Worksheets.Add("Cari Ekstre");
 
