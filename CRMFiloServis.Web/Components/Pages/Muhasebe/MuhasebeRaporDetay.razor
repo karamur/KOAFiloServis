@@ -256,11 +256,45 @@
     {
         ToastService.ShowSuccess("Rapor arka planda Excel'e aktarılıyor...");
         
-        // CSV oluşturma simülasyonu
-        string csvContent = "Sutun1;Sutun2;Sutun3\nVeri1;Veri2;Veri3";
-        string fileName = $"{RaporTip}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+        string csvContent = "";
         
-        var bytes = System.Text.Encoding.UTF8.GetBytes(csvContent);
+        if (RaporTip == "muavin" && muavinRapor != null)
+        {
+            csvContent = "Tarih;Fiş No;Açıklama;Borç;Alacak;Bakiye\n";
+            foreach (var s in muavinRapor.Satirlar)
+            {
+                csvContent += $"{s.Tarih:dd.MM.yyyy};{s.FisNo};{s.Aciklama};{s.Borc};{s.Alacak};{s.Bakiye}\n";
+            }
+        }
+        else if (RaporTip == "yevmiye" && yevmiyeRapor != null)
+        {
+            csvContent = "Tarih;Fiş No;Hesap Kodu;Hesap Adı;Açıklama;Borç;Alacak\n";
+            foreach (var s in yevmiyeRapor.Satirlar)
+            {
+                csvContent += $"{s.Tarih:dd.MM.yyyy};{s.FisNo};{s.HesapKodu};{s.HesapAdi};{s.Aciklama};{s.Borc};{s.Alacak}\n";
+            }
+        }
+        else if (RaporTip == "mizan" && mizanRapor != null)
+        {
+            csvContent = "Hesap Kodu;Hesap Adı;Borç;Alacak;Borç Bakiye;Alacak Bakiye\n";
+            foreach (var s in mizanRapor.Satirlar)
+            {
+                csvContent += $"{s.HesapKodu};{s.HesapAdi};{s.Borc};{s.Alacak};{s.BorcBakiye};{s.AlacakBakiye}\n";
+            }
+        }
+        else if (RaporTip == "bilanco" && bilancoRapor != null)
+        {
+            csvContent = "Hesap Kodu;Hesap Adı;Tutar;Tip\n";
+            foreach (var k in bilancoRapor.DonenVarliklar) csvContent += $"{k.HesapKodu};{k.HesapAdi};{k.Tutar};Dönen Varlıklar\n";
+            foreach (var k in bilancoRapor.DuranVarliklar) csvContent += $"{k.HesapKodu};{k.HesapAdi};{k.Tutar};Duran Varlıklar\n";
+            foreach (var k in bilancoRapor.KisaVadeliYabanciKaynaklar) csvContent += $"{k.HesapKodu};{k.HesapAdi};{k.Tutar};Kısa Vadeli YK\n";
+            foreach (var k in bilancoRapor.UzunVadeliYabanciKaynaklar) csvContent += $"{k.HesapKodu};{k.HesapAdi};{k.Tutar};Uzun Vadeli YK\n";
+            foreach (var k in bilancoRapor.Ozkaynaklar) csvContent += $"{k.HesapKodu};{k.HesapAdi};{k.Tutar};Özkaynaklar\n";
+        }
+        
+        // BOM (Byte Order Mark) eklendi -> Türkçe karakterlerin Excel'de düzgün görünmesi için.
+        string fileName = $"{RaporTip}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+        var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(csvContent)).ToArray();
         var base64 = Convert.ToBase64String(bytes);
         
         // JS ile indirme tetikle

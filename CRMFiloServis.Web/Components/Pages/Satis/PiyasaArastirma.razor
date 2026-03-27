@@ -76,28 +76,42 @@
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light sticky-top">
                         <tr>
+                            <th width="80">Görsel</th>
                             <th>Kaynak</th>
                             <th>İlan Başlığı</th>
                             <th>Marka/Model</th>
                             <th>Yıl</th>
                             <th>KM</th>
                             <th class="text-end">Fiyat</th>
+                            <th class="text-center" width="80">İşlem</th>
                         </tr>
                     </thead>
                     <tbody>
                         @if (!bulunanIlanlar.Any() && !isScanning)
                         {
-                            <tr><td colspan="6" class="text-center text-muted py-4">Kriterlere uygun arama sonuçları listelenecektir.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">Kriterlere uygun arama sonuçları listelenecektir.</td></tr>
                         }
                         @foreach (var ilan in bulunanIlanlar)
                         {
                             <tr>
-                                <td><span class="badge bg-info">@ilan.Kaynak</span></td>
-                                <td>@ilan.Baslik</td>
-                                <td>@ilan.Marka @ilan.Model</td>
+                                <td>
+                                    <a href="@ilan.IlanUrl" target="_blank" title="Fotoğrafı büyütmek için ilana git">
+                                        <img src="@ilan.FotoUrl" class="img-thumbnail rounded" style="width: 70px; height: 50px; object-fit: cover; border: 1px solid #ddd;" alt="Araç Göreseli" />
+                                    </a>
+                                </td>
+                                <td><span class="badge @(ilan.Kaynak == "Sahibinden" ? "bg-warning text-dark" : "bg-info text-white")">@ilan.Kaynak</span></td>
+                                <td>
+                                    <a href="@ilan.IlanUrl" target="_blank" class="text-decoration-none fw-medium text-primary">@ilan.Baslik</a>
+                                </td>
+                                <td><small>@ilan.Marka @ilan.Model</small></td>
                                 <td>@ilan.Yil</td>
                                 <td>@ilan.Km.ToString("N0")</td>
                                 <td class="text-end fw-bold text-success">@FormatPara(ilan.Fiyat)</td>
+                                <td class="text-center">
+                                    <a href="@ilan.IlanUrl" target="_blank" class="btn btn-sm btn-outline-primary" title="İlanı İncele">
+                                        <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -192,6 +206,8 @@
         public int Yil { get; set; }
         public int Km { get; set; }
         public decimal Fiyat { get; set; }
+        public string FotoUrl { get; set; } = string.Empty;
+        public string IlanUrl { get; set; } = string.Empty;
     }
 
     private async Task Ara()
@@ -216,16 +232,21 @@
         {
             var pKm = r.Next(10000, aramaKriter.MaxKm);
             var carpim = 1 - (pKm / 500000m); // KM arttıkça fiyat düşer
+            
+            var source = r.Next(10) > 5 ? "Sahibinden" : "Arabam";
+            var url = source == "Sahibinden" ? "https://www.sahibinden.com/otomobil" : "https://www.arabam.com/ikinci-el/otomobil";
 
             bulunanIlanlar.Add(new TarananIlan
             {
-                Kaynak = r.Next(10) > 5 ? "Sahibinden" : "Arabam",
+                Kaynak = source,
                 Baslik = $"{aramaKriter.Marka} {aramaKriter.Model} Temiz Aile Aracı",
                 Marka = aramaKriter.Marka,
                 Model = aramaKriter.Model ?? "Grup",
                 Yil = r.Next(aramaKriter.MinYil, DateTime.Today.Year),
                 Km = pKm,
-                Fiyat = bazFiyat * carpim + r.Next(-50000, 50000)
+                Fiyat = bazFiyat * carpim + r.Next(-50000, 50000),
+                FotoUrl = $"https://picsum.photos/seed/car{r.Next(1, 100)}/140/100", // Dinamik random resim (Placeholder)
+                IlanUrl = url
             });
         }
 
