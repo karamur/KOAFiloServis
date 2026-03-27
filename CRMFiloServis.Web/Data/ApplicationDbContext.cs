@@ -792,6 +792,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Telefon).HasMaxLength(20);
             entity.Property(e => e.ApiKey).HasMaxLength(500);
             entity.Property(e => e.WebhookUrl).HasMaxLength(200);
+            entity.Property(e => e.HizliSablonlarJson).HasMaxLength(4000);
             entity.HasOne(e => e.Kullanici)
                 .WithMany()
                 .HasForeignKey(e => e.KullaniciId)

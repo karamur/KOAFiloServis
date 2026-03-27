@@ -1,5 +1,6 @@
 @page "/crm/whatsapp"
 @page "/crm/email"
+@using System.Text.Json
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Shared.Entities
 @inject ICRMService CRMService
@@ -39,19 +40,60 @@
                 <div class="card-body">
                     <div class="mb-3">
                         <label class="form-label">Alýcý</label>
-                        <div class="input-group">
-                            <select class="form-select" @bind="secilenCariId" @bind:after="CariSecildi">
-                                <option value="0">Cari Seçin...</option>
-                                @foreach (var cari in cariler.Where(c => isWhatsApp ? !string.IsNullOrEmpty(c.Telefon) : !string.IsNullOrEmpty(c.Email)))
-                                {
-                                    <option value="@cari.Id">@cari.Unvan</option>
-                                }
-                            </select>
-                        </div>
-                        <small class="text-muted">veya</small>
-                        <input type="text" class="form-control mt-1" 
-                               @bind="aliciAdres" 
-                               placeholder="@(isWhatsApp ? "Telefon numarasý (5XX XXX XX XX)" : "E-posta adresi")" />
+
+                        @if (isWhatsApp)
+                        {
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="topluGonderimCheck" @bind="topluGonderim" />
+                                <label class="form-check-label" for="topluGonderimCheck">Kiþilere toplu gönderim</label>
+                            </div>
+                        }
+
+                        @if (isWhatsApp && topluGonderim)
+                        {
+                            <div class="border rounded p-2 bg-light">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <small class="text-muted">Telefonu olan kiþilerden seçim yapýn</small>
+                                    <div class="d-flex gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="TumKisileriSec">Tümünü Seç</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="SecimleriTemizle">Temizle</button>
+                                    </div>
+                                </div>
+                                <div style="max-height: 220px; overflow-y: auto;">
+                                    @foreach (var cari in cariler.Where(c => !string.IsNullOrWhiteSpace(c.Telefon)).OrderBy(c => c.Unvan))
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   id="cari_@cari.Id"
+                                                   checked="@secilenCariIds.Contains(cari.Id)"
+                                                   @onchange="(e => CariSecimDegisti(cari.Id, e.Value))" />
+                                            <label class="form-check-label d-flex justify-content-between w-100" for="cari_@cari.Id">
+                                                <span>@cari.Unvan</span>
+                                                <small class="text-muted">@cari.Telefon</small>
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="mt-2 small text-muted">Seçilen kiþi: @secilenCariIds.Count</div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="input-group">
+                                <select class="form-select" @bind="secilenCariId" @bind:after="CariSecildi">
+                                    <option value="0">Cari Seçin...</option>
+                                    @foreach (var cari in cariler.Where(c => isWhatsApp ? !string.IsNullOrEmpty(c.Telefon) : !string.IsNullOrEmpty(c.Email)))
+                                    {
+                                        <option value="@cari.Id">@cari.Unvan</option>
+                                    }
+                                </select>
+                            </div>
+                            <small class="text-muted">veya</small>
+                            <input type="text" class="form-control mt-1" 
+                                   @bind="aliciAdres" 
+                                   placeholder="@(isWhatsApp ? "Telefon numarasý (5XX XXX XX XX)" : "E-posta adresi")" />
+                        }
                     </div>
 
                     @if (!isWhatsApp)
@@ -70,7 +112,7 @@
                     <!-- Hýzlý Þablonlar -->
                     <div class="mb-3">
                         <label class="form-label small text-muted">Hýzlý Þablonlar</label>
-                        <div class="d-flex flex-wrap gap-1">
+                        <div class="d-flex flex-wrap gap-1 mb-2">
                             <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Merhaba, sipariþiniz hazýrlanmýþtýr.")'>
                                 Sipariþ Hazýr
                             </button>
@@ -81,6 +123,38 @@
                                 Randevu Onay
                             </button>
                         </div>
+
+                        @if (isWhatsApp)
+                        {
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control form-control-sm" @bind="yeniSablonBaslik" placeholder="Þablon adý" />
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control form-control-sm" @bind="yeniSablonIcerik" placeholder="Þablon metni" />
+                                </div>
+                                <div class="col-md-2 d-grid">
+                                    <button type="button" class="btn btn-sm btn-success" @onclick="HizliSablonKaydet">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            @if (hizliSablonlar.Any())
+                            {
+                                <div class="d-flex flex-wrap gap-1">
+                                    @foreach (var sablon in hizliSablonlar)
+                                    {
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-success" @onclick="() => SablonUygula(sablon.Icerik)">@sablon.Baslik</button>
+                                            <button type="button" class="btn btn-outline-danger" title="Sil" @onclick="() => HizliSablonSil(sablon)">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
                     </div>
 
                     <div class="text-end">
@@ -263,8 +337,11 @@
     private bool isSending = false;
     private bool isSavingAyar = false;
     private bool showAyarModal = false;
+    private bool topluGonderim = false;
     private List<Cari> cariler = new();
     private List<Mesaj> gonderilenMesajlar = new();
+    private List<int> secilenCariIds = new();
+    private List<HizliSablonModel> hizliSablonlar = new();
     private int? aktifKullaniciId;
 
     // Gönderim
@@ -272,6 +349,8 @@
     private string aliciAdres = "";
     private string konu = "";
     private string mesajIcerik = "";
+    private string yeniSablonBaslik = "";
+    private string yeniSablonIcerik = "";
 
     // Ayarlar
     private EmailAyar? emailAyar;
@@ -304,6 +383,16 @@
                     .OrderByDescending(m => m.CreatedAt)
                     .Take(50)
                     .ToList();
+
+                if (IsWhatsApp)
+                {
+                    whatsappAyar = await CRMService.GetWhatsAppAyarAsync(aktifKullaniciId) ?? new WhatsAppAyar
+                    {
+                        KullaniciId = aktifKullaniciId,
+                        Aktif = false
+                    };
+                    HizliSablonlariYukle();
+                }
             }
         }
         catch (Exception ex)
@@ -328,19 +417,106 @@
         }
     }
 
+    private void CariSecimDegisti(int cariId, object? value)
+    {
+        var secili = value as bool? == true;
+        if (secili)
+        {
+            if (!secilenCariIds.Contains(cariId))
+            {
+                secilenCariIds.Add(cariId);
+            }
+        }
+        else
+        {
+            secilenCariIds.Remove(cariId);
+        }
+    }
+
+    private void TumKisileriSec()
+    {
+        secilenCariIds = cariler
+            .Where(c => !string.IsNullOrWhiteSpace(c.Telefon))
+            .Select(c => c.Id)
+            .ToList();
+    }
+
+    private void SecimleriTemizle()
+    {
+        secilenCariIds.Clear();
+    }
+
     private void SablonUygula(string sablon)
     {
         mesajIcerik = sablon;
     }
 
-    private async Task MesajGonder()
+    private void HizliSablonlariYukle()
     {
-        if (string.IsNullOrWhiteSpace(aliciAdres))
+        if (string.IsNullOrWhiteSpace(whatsappAyar?.HizliSablonlarJson))
         {
-            ToastService.ShowWarning("Alýcý bilgisi zorunludur.");
+            hizliSablonlar = new();
             return;
         }
 
+        try
+        {
+            hizliSablonlar = JsonSerializer.Deserialize<List<HizliSablonModel>>(whatsappAyar.HizliSablonlarJson) ?? new();
+        }
+        catch
+        {
+            hizliSablonlar = new();
+        }
+    }
+
+    private async Task HizliSablonKaydet()
+    {
+        if (!IsWhatsApp)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(yeniSablonBaslik) || string.IsNullOrWhiteSpace(yeniSablonIcerik))
+        {
+            ToastService.ShowWarning("Þablon adý ve içeriði zorunludur.");
+            return;
+        }
+
+        whatsappAyar ??= await CRMService.GetWhatsAppAyarAsync(aktifKullaniciId) ?? new WhatsAppAyar
+        {
+            KullaniciId = aktifKullaniciId,
+            Aktif = false
+        };
+
+        hizliSablonlar.Add(new HizliSablonModel
+        {
+            Baslik = yeniSablonBaslik.Trim(),
+            Icerik = yeniSablonIcerik.Trim()
+        });
+
+        whatsappAyar.HizliSablonlarJson = JsonSerializer.Serialize(hizliSablonlar);
+        await CRMService.SaveWhatsAppAyarAsync(whatsappAyar);
+
+        yeniSablonBaslik = "";
+        yeniSablonIcerik = "";
+        ToastService.ShowSuccess("Hýzlý þablon kaydedildi.");
+    }
+
+    private async Task HizliSablonSil(HizliSablonModel sablon)
+    {
+        if (whatsappAyar == null)
+        {
+            return;
+        }
+
+        hizliSablonlar.Remove(sablon);
+        whatsappAyar.HizliSablonlarJson = JsonSerializer.Serialize(hizliSablonlar);
+        await CRMService.SaveWhatsAppAyarAsync(whatsappAyar);
+        ToastService.ShowSuccess("Hýzlý þablon silindi.");
+    }
+
+    private async Task MesajGonder()
+    {
         if (string.IsNullOrWhiteSpace(mesajIcerik))
         {
             ToastService.ShowWarning("Mesaj içeriði zorunludur.");
@@ -350,6 +526,50 @@
         isSending = true;
         try
         {
+            if (IsWhatsApp && topluGonderim)
+            {
+                var alicilar = cariler
+                    .Where(c => secilenCariIds.Contains(c.Id) && !string.IsNullOrWhiteSpace(c.Telefon))
+                    .Select(c => c.Telefon!.Trim())
+                    .Distinct()
+                    .ToList();
+
+                if (!alicilar.Any())
+                {
+                    ToastService.ShowWarning("En az bir kiþi seçiniz.");
+                    return;
+                }
+
+                var basariliSayisi = 0;
+                foreach (var telefon in alicilar)
+                {
+                    if (await CRMService.SendWhatsAppAsync(aktifKullaniciId ?? 0, telefon, mesajIcerik))
+                    {
+                        basariliSayisi++;
+                    }
+                }
+
+                if (basariliSayisi == alicilar.Count)
+                {
+                    ToastService.ShowSuccess($"WhatsApp mesajý {basariliSayisi} kiþiye gönderildi.");
+                }
+                else
+                {
+                    ToastService.ShowWarning($"{basariliSayisi}/{alicilar.Count} kiþiye gönderim baþarýlý oldu.");
+                }
+
+                mesajIcerik = "";
+                secilenCariIds.Clear();
+                await LoadData();
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(aliciAdres))
+            {
+                ToastService.ShowWarning("Alýcý bilgisi zorunludur.");
+                return;
+            }
+
             bool basarili;
             if (IsWhatsApp)
             {
@@ -424,6 +644,7 @@
         {
             if (IsWhatsApp && whatsappAyar != null)
             {
+                whatsappAyar.HizliSablonlarJson = JsonSerializer.Serialize(hizliSablonlar);
                 await CRMService.SaveWhatsAppAyarAsync(whatsappAyar);
             }
             else if (!IsWhatsApp && emailAyar != null)
@@ -463,4 +684,10 @@
         MesajDurum.Hata => "bg-danger",
         _ => "bg-light text-dark"
     };
+
+    private sealed class HizliSablonModel
+    {
+        public string Baslik { get; set; } = string.Empty;
+        public string Icerik { get; set; } = string.Empty;
+    }
 }

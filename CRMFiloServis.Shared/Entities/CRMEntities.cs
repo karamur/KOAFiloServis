@@ -155,6 +155,8 @@ public class WhatsAppAyar : BaseEntity
     [StringLength(200)]
     public string? WebhookUrl { get; set; }
 
+    public string? HizliSablonlarJson { get; set; }
+
     public bool Aktif { get; set; } = false;
 }
 

@@ -1,6 +1,7 @@
 ﻿@page "/butce/kredi-taksitler"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
+@using System.Globalization
 @inject IBudgetService BudgetService
 @inject IBankaHesapService BankaHesapService
 @inject IToastService ToastService
@@ -16,17 +17,53 @@
             <small class="text-muted">Tüm kredi ve taksitli ödemeleri yönetin</small>
         </div>
         <div class="d-flex gap-2 align-items-center">
-            <!-- Yıl Filtresi -->
-            <select class="form-select form-select-sm" style="width: 100px;" @bind="secilenYil" @bind:after="LoadDataAsync">
-                <option value="0">Tüm Yıllar</option>
-                @for (int y = DateTime.Today.Year + 2; y >= DateTime.Today.Year - 5; y--)
-                {
-                    <option value="@y">@y</option>
-                }
-            </select>
             <button class="btn btn-success" @onclick="TaksitliOdemeAc">
                 <i class="bi bi-plus-circle me-1"></i>Yeni Taksitli Ödeme
             </button>
+        </div>
+    </div>
+
+    <!-- Filtreler -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="secilenYil" @bind:after="LoadDataAsync">
+                        <option value="0">Tüm Yıllar</option>
+                        @for (int y = DateTime.Today.Year + 1; y >= DateTime.Today.Year - 5; y--)
+                        {
+                            <option value="@y">@y</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filtreAy" @bind:after="LoadDataAsync">
+                        <option value="0">Tüm Aylar</option>
+                        @for (int m = 1; m <= 12; m++)
+                        {
+                            <option value="@m">@GetAyAdi(m)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filtreDurum" @bind:after="LoadDataAsync">
+                        <option value="">Tüm Durumlar</option>
+                        <option value="Bekliyor">Bekliyor</option>
+                        <option value="Odendi">Ödendi</option>
+                        <option value="Gecikmis">Gecikmiş</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm" placeholder="Masraf Kalemi veya Açıklama Ara..." 
+                           @bind="aramaMetni" @bind:after="LoadDataAsync" />
+                </div>
+                <div class="col-md-2 d-flex gap-2 justify-content-end">
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="FiltreTemizle" title="Filtreleri Temizle">
+                        <i class="bi bi-x-lg"></i> Temizle
+                    </button>
+                    <span class="badge bg-secondary align-self-center">@krediler.Count</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -710,6 +747,7 @@
 }
 
 @code {
+    private List<KrediOzet> tumKrediler = new();
     private List<KrediOzet> krediler = new();
     private List<KrediTaksitDetay> secilenKrediTaksitler = new();
     private List<BankaHesap> bankaHesaplari = new();
@@ -727,6 +765,9 @@
     private bool showKrediDuzenleModal = false;
 
     private int secilenYil = 0; // 0 = Tüm yıllar
+    private int filtreAy = 0; // 0 = Tüm aylar
+    private string filtreDurum = "";
+    private string aramaMetni = "";
 
     // Taksitli ödeme form
     private TaksitliOdemeRequest taksitRequest = new();
@@ -752,21 +793,25 @@
         isLoading = true;
         try
         {
-            krediler = await BudgetService.GetKrediOzetleriAsync(secilenYil > 0 ? secilenYil : null);
+            tumKrediler = await BudgetService.GetKrediOzetleriAsync(secilenYil > 0 ? secilenYil : null);
+            krediler = await FiltrelenmisKredileriGetirAsync(tumKrediler);
             tekrarlayanOdemeler = await BudgetService.GetTekrarlayanOdemelerAsync(null);
 
-            // İlk krediyi seç
-            if (krediler.Any() && secilenKredi == null)
+            if (krediler.Any() && (secilenKredi == null || !krediler.Any(k => k.TaksitGrupId == secilenKredi.TaksitGrupId)))
             {
                 await KrediSec(krediler.First());
             }
             else if (secilenKredi != null)
             {
-                // Seçili krediyi yenile
                 var guncel = krediler.FirstOrDefault(k => k.TaksitGrupId == secilenKredi.TaksitGrupId);
                 if (guncel != null)
                 {
                     await KrediSec(guncel);
+                }
+                else
+                {
+                    secilenKredi = null;
+                    secilenKrediTaksitler = new();
                 }
             }
         }
@@ -780,10 +825,75 @@
         }
     }
 
+    private async Task<List<KrediOzet>> FiltrelenmisKredileriGetirAsync(IEnumerable<KrediOzet> kaynakKrediler)
+    {
+        var filtrelenmisKrediler = kaynakKrediler;
+
+        if (!string.IsNullOrWhiteSpace(aramaMetni))
+        {
+            filtrelenmisKrediler = filtrelenmisKrediler.Where(k =>
+                k.MasrafKalemi.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(k.Aciklama) && k.Aciklama.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (filtreAy == 0 && string.IsNullOrWhiteSpace(filtreDurum))
+        {
+            return filtrelenmisKrediler.OrderBy(k => k.MasrafKalemi).ToList();
+        }
+
+        var sonuc = new List<KrediOzet>();
+        foreach (var kredi in filtrelenmisKrediler)
+        {
+            var taksitler = await BudgetService.GetKrediTaksitDetaylariAsync(kredi.TaksitGrupId);
+            if (FiltreleTaksitler(taksitler).Any())
+            {
+                sonuc.Add(kredi);
+            }
+        }
+
+        return sonuc.OrderBy(k => k.MasrafKalemi).ToList();
+    }
+
     private async Task KrediSec(KrediOzet kredi)
     {
         secilenKredi = kredi;
-        secilenKrediTaksitler = await BudgetService.GetKrediTaksitDetaylariAsync(kredi.TaksitGrupId);
+        var tumTaksitler = await BudgetService.GetKrediTaksitDetaylariAsync(kredi.TaksitGrupId);
+        secilenKrediTaksitler = FiltreleTaksitler(tumTaksitler);
+    }
+
+    private List<KrediTaksitDetay> FiltreleTaksitler(IEnumerable<KrediTaksitDetay> taksitler)
+    {
+        var query = taksitler;
+
+        if (!string.IsNullOrWhiteSpace(aramaMetni))
+        {
+            query = query.Where(t =>
+                t.MasrafKalemi.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(t.Aciklama) && t.Aciklama.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (filtreAy > 0)
+        {
+            query = query.Where(t => t.OdemeTarihi.Month == filtreAy);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtreDurum))
+        {
+            query = query.Where(DurumFiltresineUyuyor);
+        }
+
+        return query.ToList();
+    }
+
+    private bool DurumFiltresineUyuyor(KrediTaksitDetay taksit)
+    {
+        return filtreDurum switch
+        {
+            "Odendi" => taksit.Durum == OdemeDurum.Odendi,
+            "Bekliyor" => taksit.Durum == OdemeDurum.Bekliyor,
+            "Gecikmis" => taksit.Durum == OdemeDurum.Bekliyor && taksit.OdemeTarihi.Date < DateTime.Today,
+            _ => true
+        };
     }
 
     private decimal GetBuAyOdenecek()
@@ -1079,5 +1189,19 @@
     private string FormatPara(decimal tutar)
     {
         return tutar.ToString("N2", new System.Globalization.CultureInfo("tr-TR")) + " ₺";
+    }
+
+    private string GetAyAdi(int ay)
+    {
+        return new DateTime(2000, ay, 1).ToString("MMMM", new CultureInfo("tr-TR"));
+    }
+
+    private async Task FiltreTemizle()
+    {
+        secilenYil = 0;
+        filtreAy = 0;
+        filtreDurum = "";
+        aramaMetni = "";
+        await LoadDataAsync();
     }
 }
