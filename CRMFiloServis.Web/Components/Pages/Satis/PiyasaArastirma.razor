@@ -1,0 +1,237 @@
+﻿@page "/satis/piyasa-karsilastirma"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IToastService ToastService
+@rendermode InteractiveServer
+
+<PageTitle>Piyasa Araştırma</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="mb-0"><i class="bi bi-search me-2"></i>Piyasa Araştırma</h3>
+            <small class="text-muted">Web üzerinden güncel araç piyasa fiyatlarını çekip analiz edin.</small>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3 border-0" style="gap: 5px;">
+        <li class="nav-item">
+            <button class="nav-link border-0 rounded-top @(aktifSekme == "arastirma" ? "bg-primary text-white" : "bg-light text-dark")" style="padding: 10px 20px; font-weight: 500;" @onclick='() => aktifSekme = "arastirma"'>
+                <i class="bi bi-globe me-1"></i>Web Tarama
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link border-0 rounded-top @(aktifSekme == "analiz" ? "bg-primary text-white" : "bg-light text-dark")" style="padding: 10px 20px; font-weight: 500;" @onclick='() => aktifSekme = "analiz"'>
+                <i class="bi bi-graph-up me-1"></i>Piyasa Analizi
+            </button>
+        </li>
+    </ul>
+
+    @if (aktifSekme == "arastirma")
+    {
+        <div class="card shadow-sm mb-4">
+            <div class="card-body bg-light rounded">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label">Araç Türü</label>
+                        <select class="form-select" @bind="aramaKriter.AracTuru">
+                            <option value="Otomobil">Otomobil</option>
+                            <option value="Ticari">Ticari</option>
+                            <option value="Arazi/SUV">Arazi/SUV</option>
+                            <option value="Servis/Minibüs">Servis/Minibüs</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Marka</label>
+                        <input type="text" class="form-control" @bind="aramaKriter.Marka" placeholder="Örn: Renault" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Model</label>
+                        <input type="text" class="form-control" @bind="aramaKriter.Model" placeholder="Örn: Megane" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Yıl (Min)</label>
+                        <input type="number" class="form-control" @bind="aramaKriter.MinYil" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">KM (Max)</label>
+                        <input type="number" class="form-control" @bind="aramaKriter.MaxKm" step="10000" />
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" @onclick="Ara" disabled="@isScanning">
+                            @if (isScanning) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                            <i class="bi bi-search me-1"></i>Piyasayı Tara
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Bulunan İlanlar</h6>
+                <span class="badge bg-secondary">@bulunanIlanlar.Count Sonuç</span>
+            </div>
+            <div class="table-responsive" style="max-height: 500px;">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th>Kaynak</th>
+                            <th>İlan Başlığı</th>
+                            <th>Marka/Model</th>
+                            <th>Yıl</th>
+                            <th>KM</th>
+                            <th class="text-end">Fiyat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!bulunanIlanlar.Any() && !isScanning)
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-4">Kriterlere uygun arama sonuçları listelenecektir.</td></tr>
+                        }
+                        @foreach (var ilan in bulunanIlanlar)
+                        {
+                            <tr>
+                                <td><span class="badge bg-info">@ilan.Kaynak</span></td>
+                                <td>@ilan.Baslik</td>
+                                <td>@ilan.Marka @ilan.Model</td>
+                                <td>@ilan.Yil</td>
+                                <td>@ilan.Km.ToString("N0")</td>
+                                <td class="text-end fw-bold text-success">@FormatPara(ilan.Fiyat)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else if (aktifSekme == "analiz")
+    {
+        @if (bulunanIlanlar.Any())
+        {
+            var ortalamaFiyat = bulunanIlanlar.Average(i => i.Fiyat);
+            var minFiyat = bulunanIlanlar.Min(i => i.Fiyat);
+            var maxFiyat = bulunanIlanlar.Max(i => i.Fiyat);
+
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card border-info shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted">Piyasa Ortalama</h6>
+                            <h2 class="text-info my-3">@FormatPara(ortalamaFiyat)</h2>
+                            <small>@bulunanIlanlar.Count adet ilan baz alındı.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-success shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted">En Uygun Fiyat</h6>
+                            <h2 class="text-success my-3">@FormatPara(minFiyat)</h2>
+                            <small>Fırsat aracı olabilir.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-danger shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted">En Yüksek Fiyat</h6>
+                            <h2 class="text-danger my-3">@FormatPara(maxFiyat)</h2>
+                            <small>Piyasa tavanı.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white">Fiyat / KM Dağılım Grafiği (Simülasyon)</div>
+                        <div class="card-body d-flex align-items-end" style="height: 250px; gap: 4px;">
+                            @foreach(var v in bulunanIlanlar.OrderBy(x => x.Fiyat))
+                            {
+                                var h = (v.Fiyat / maxFiyat) * 100;
+                                <div class="bg-primary bg-opacity-75 rounded-top flex-fill position-relative" style="height: @(h)%;" title="@FormatPara(v.Fiyat) - @v.Km KM">
+                                    <div class="position-absolute bottom-0 w-100 text-center text-white" style="font-size: 10px; padding-bottom: 5px;">
+                                        @(v.Km / 1000)k
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning">Analiz yapabilmek için önce 'Web Tarama' sekmesinden arama yapınız.</div>
+        }
+    }
+</div>
+
+@code {
+    private string aktifSekme = "arastirma";
+    private bool isScanning = false;
+
+    private Kriter aramaKriter = new() { AracTuru = "Otomobil", MinYil = 2018, MaxKm = 150000 };
+    private List<TarananIlan> bulunanIlanlar = new();
+
+    public class Kriter
+    {
+        public string AracTuru { get; set; } = "Otomobil";
+        public string? Marka { get; set; }
+        public string? Model { get; set; }
+        public int MinYil { get; set; }
+        public int MaxKm { get; set; }
+    }
+
+    public class TarananIlan
+    {
+        public string Kaynak { get; set; } = string.Empty;
+        public string Baslik { get; set; } = string.Empty;
+        public string Marka { get; set; } = string.Empty;
+        public string Model { get; set; } = string.Empty;
+        public int Yil { get; set; }
+        public int Km { get; set; }
+        public decimal Fiyat { get; set; }
+    }
+
+    private async Task Ara()
+    {
+        if (string.IsNullOrWhiteSpace(aramaKriter.Marka)) 
+        {
+            ToastService.ShowWarning("Lütfen marka girin.");
+            return;
+        }
+
+        isScanning = true;
+        bulunanIlanlar.Clear();
+        StateHasChanged();
+
+        // Simülasyon Gecikmesi (Gerçek senaryoda API üzerinden çekilir)
+        await Task.Delay(2000);
+
+        var r = new Random();
+        var bazFiyat = r.Next(800000, 1500000);
+
+        for (int i = 0; i < r.Next(8, 15); i++)
+        {
+            var pKm = r.Next(10000, aramaKriter.MaxKm);
+            var carpim = 1 - (pKm / 500000m); // KM arttıkça fiyat düşer
+
+            bulunanIlanlar.Add(new TarananIlan
+            {
+                Kaynak = r.Next(10) > 5 ? "Sahibinden" : "Arabam",
+                Baslik = $"{aramaKriter.Marka} {aramaKriter.Model} Temiz Aile Aracı",
+                Marka = aramaKriter.Marka,
+                Model = aramaKriter.Model ?? "Grup",
+                Yil = r.Next(aramaKriter.MinYil, DateTime.Today.Year),
+                Km = pKm,
+                Fiyat = bazFiyat * carpim + r.Next(-50000, 50000)
+            });
+        }
+
+        isScanning = false;
+        ToastService.ShowSuccess($"{bulunanIlanlar.Count} ilan bulundu.");
+    }
+
+    private string FormatPara(decimal tutar) => tutar.ToString("C0");
+}

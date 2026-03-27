@@ -1,4 +1,4 @@
-@page "/muhasebe/fisler"
+ï»¿@page "/muhasebe/fisler"
 @page "/muhasebe/fisler/yeni"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
@@ -13,7 +13,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h3><i class="bi bi-receipt me-2"></i>Muhasebe Fisleri</h3>
-            <small class="text-muted">Fiþleri listeleyin, onaylayýn ve yeni fiþ oluþturun</small>
+            <small class="text-muted">FiÅŸleri listeleyin, onaylayÄ±n ve yeni fiÅŸ oluÅŸturun</small>
         </div>
         <div class="d-flex gap-2 align-items-center">
             <select class="form-select form-select-sm" style="width: 120px;" @bind="secilenYil">
@@ -23,7 +23,7 @@
                 }
             </select>
             <select class="form-select form-select-sm" style="width: 140px;" @bind="secilenAy">
-                <option value="0">Tüm Aylar</option>
+                <option value="0">TÃ¼m Aylar</option>
                 @for (int m = 1; m <= 12; m++)
                 {
                     <option value="@m">@GetAyAdi(m)</option>
@@ -33,7 +33,7 @@
                 <i class="bi bi-search me-1"></i>Ara
             </button>
             <button class="btn btn-primary btn-sm" @onclick="YeniFisAc">
-                <i class="bi bi-plus-lg me-1"></i>Yeni Fiþ
+                <i class="bi bi-plus-lg me-1"></i>Yeni FiÅŸ
             </button>
         </div>
     </div>
@@ -46,10 +46,10 @@
     {
         <div class="row g-3 mb-3">
             <div class="col-md-4">
-                <div class="card bg-primary text-white"><div class="card-body py-2"><small>Fiþ Sayýsý</small><h5 class="mb-0">@fisler.Count</h5></div></div>
+                <div class="card bg-primary text-white"><div class="card-body py-2"><small>FiÅŸ SayÄ±sÄ±</small><h5 class="mb-0">@fisler.Count</h5></div></div>
             </div>
             <div class="col-md-4">
-                <div class="card bg-success text-white"><div class="card-body py-2"><small>Onaylý</small><h5 class="mb-0">@fisler.Count(f => f.Durum == FisDurum.Onaylandi)</h5></div></div>
+                <div class="card bg-success text-white"><div class="card-body py-2"><small>OnaylÄ±</small><h5 class="mb-0">@fisler.Count(f => f.Durum == FisDurum.Onaylandi)</h5></div></div>
             </div>
             <div class="col-md-4">
                 <div class="card bg-warning text-dark"><div class="card-body py-2"><small>Taslak</small><h5 class="mb-0">@fisler.Count(f => f.Durum == FisDurum.Taslak)</h5></div></div>
@@ -62,19 +62,19 @@
                     <thead class="table-light">
                         <tr>
                             <th>Tarih</th>
-                            <th>Fiþ No</th>
+                            <th>FiÅŸ No</th>
                             <th>Tip</th>
-                            <th>Açýklama</th>
-                            <th class="text-end">Borç</th>
+                            <th>AÃ§Ä±klama</th>
+                            <th class="text-end">BorÃ§</th>
                             <th class="text-end">Alacak</th>
                             <th>Durum</th>
-                            <th class="text-center">Ýþlem</th>
+                            <th class="text-center">Ä°ÅŸlem</th>
                         </tr>
                     </thead>
                     <tbody>
                         @if (!fisler.Any())
                         {
-                            <tr><td colspan="8" class="text-center text-muted py-4">Fiþ bulunamadý.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">FiÅŸ bulunamadÄ±.</td></tr>
                         }
                         @foreach (var fis in fisler)
                         {
@@ -109,17 +109,17 @@
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">Yeni Muhasebe Fiþi</h5>
+                    <h5 class="modal-title">Yeni Muhasebe FiÅŸi</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="ModalKapat"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row g-3 mb-3">
                         <div class="col-md-3">
-                            <label class="form-label">Fiþ Tarihi</label>
+                            <label class="form-label fw-bold">FiÅŸ Tarihi</label>
                             <input type="date" class="form-control" @bind="yeniFis.FisTarihi" />
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Fiþ Tipi</label>
+                            <label class="form-label fw-bold">FiÅŸ Tipi</label>
                             <select class="form-select" @bind="yeniFis.FisTipi">
                                 @foreach (var tip in Enum.GetValues<FisTipi>())
                                 {
@@ -127,41 +127,53 @@
                                 }
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Açýklama</label>
-                            <input type="text" class="form-control" @bind="yeniFis.Aciklama" />
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">AÃ§Ä±klama / Belge</label>
+                            <input type="text" class="form-control" @bind="yeniFis.Aciklama" placeholder="FiÅŸ Geneli AÃ§Ä±klama..." />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">FiÅŸ No</label>
+                            <input type="text" class="form-control bg-light" @bind="yeniFis.FisNo" readonly placeholder="Oto" />
                         </div>
                     </div>
 
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle">
-                            <thead>
+                    <div class="table-responsive border border-secondary rounded" style="max-height: 400px;">
+                        <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size: 0.9rem;">
+                            <thead class="table-dark sticky-top">
                                 <tr>
-                                    <th>Hesap</th>
-                                    <th>Açýklama</th>
-                                    <th class="text-end">Borç</th>
-                                    <th class="text-end">Alacak</th>
-                                    <th></th>
+                                    <th width="50" class="text-center">#</th>
+                                    <th width="300">Hesap Kodu - AdÄ±</th>
+                                    <th>SatÄ±r AÃ§Ä±klamasÄ±</th>
+                                    <th width="150" class="text-end">BorÃ§ (â‚º)</th>
+                                    <th width="150" class="text-end">Alacak (â‚º)</th>
+                                    <th width="60" class="text-center">Ä°ÅŸlem</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var kalem in yeniFis.Kalemler.OrderBy(k => k.SiraNo).ToList())
                                 {
-                                    <tr>
-                                        <td>
-                                            <select class="form-select form-select-sm" @bind="kalem.HesapId">
-                                                <option value="0">Hesap seçin</option>
+                                    <tr class="@(kalem.Borc > 0 ? "table-success bg-opacity-10" : kalem.Alacak > 0 ? "table-warning bg-opacity-10" : "")">
+                                        <td class="text-center fw-bold text-muted border-end">@kalem.SiraNo</td>
+                                        <td class="p-0 border-end">
+                                            <select class="form-select form-select-sm border-0 shadow-none bg-transparent" @bind="kalem.HesapId">
+                                                <option value="0">--- Hesap SeÃ§iniz ---</option>
                                                 @foreach (var hesap in hesaplar)
                                                 {
                                                     <option value="@hesap.Id">@hesap.HesapKodu - @hesap.HesapAdi</option>
                                                 }
                                             </select>
                                         </td>
-                                        <td><input class="form-control form-control-sm" @bind="kalem.Aciklama" /></td>
-                                        <td><input type="number" step="0.01" class="form-control form-control-sm text-end" @bind="kalem.Borc" /></td>
-                                        <td><input type="number" step="0.01" class="form-control form-control-sm text-end" @bind="kalem.Alacak" /></td>
-                                        <td class="text-center">
-                                            <button class="btn btn-outline-danger btn-sm" @onclick="() => KalemSil(kalem)"><i class="bi bi-trash"></i></button>
+                                        <td class="p-0 border-end">
+                                            <input class="form-control form-control-sm border-0 shadow-none bg-transparent" @bind="kalem.Aciklama" placeholder="Detay..." />
+                                        </td>
+                                        <td class="p-0 border-end">
+                                            <input type="number" step="0.01" class="form-control form-control-sm border-0 shadow-none bg-transparent text-end fw-bold" @bind="kalem.Borc" @onblur="() => BakiyeHesapla()" />
+                                        </td>
+                                        <td class="p-0 border-end">
+                                            <input type="number" step="0.01" class="form-control form-control-sm border-0 shadow-none bg-transparent text-end fw-bold" @bind="kalem.Alacak" @onblur="() => BakiyeHesapla()" />
+                                        </td>
+                                        <td class="text-center p-1">
+                                            <button class="btn btn-outline-danger btn-sm p-0 px-2" @onclick="() => KalemSil(kalem)" title="SatÄ±rÄ± Sil"><i class="bi bi-x-lg"></i></button>
                                         </td>
                                     </tr>
                                 }
@@ -169,17 +181,36 @@
                         </table>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center">
-                        <button class="btn btn-outline-primary btn-sm" @onclick="KalemEkle"><i class="bi bi-plus-lg me-1"></i>Satýr Ekle</button>
-                        <div class="text-end">
-                            <div><strong>Borç:</strong> @FormatPara(yeniFis.Kalemler.Sum(x => x.Borc))</div>
-                            <div><strong>Alacak:</strong> @FormatPara(yeniFis.Kalemler.Sum(x => x.Alacak))</div>
+                    <div class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light border rounded">
+                        <button class="btn btn-outline-primary" @onclick="KalemEkle"><i class="bi bi-plus-lg me-1"></i>Yeni SatÄ±r Ekle (F2)</button>
+                        
+                        @{
+                            var tipBorcToplami = yeniFis.Kalemler.Sum(x => x.Borc);
+                            var tipAlacakToplami = yeniFis.Kalemler.Sum(x => x.Alacak);
+                            var bakiye = tipBorcToplami - tipAlacakToplami;
+                        }
+                        
+                        <div class="d-flex gap-4 fs-5 text-end">
+                            <div class="text-success"><small class="text-muted d-block" style="font-size: 0.7rem;">Toplam BorÃ§</small><strong>@FormatPara(tipBorcToplami)</strong></div>
+                            <div class="text-warning"><small class="text-muted d-block" style="font-size: 0.7rem;">Toplam Alacak</small><strong>@FormatPara(tipAlacakToplami)</strong></div>
+                            <div class=@(bakiye == 0 ? "text-primary" : "text-danger")>
+                                <small class="text-muted d-block" style="font-size: 0.7rem;">Bakiye FarkÄ±</small>
+                                <strong>@FormatPara(bakiye)</strong>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="ModalKapat">Ýptal</button>
-                    <button class="btn btn-primary" @onclick="FisKaydet" disabled="@isSaving">Kaydet</button>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div>
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Muhasebe fiÅŸini kaydetmek iÃ§in Bakiye FarkÄ±nÄ±n 0 olmasÄ± gerekir.</small>
+                    </div>
+                    <div>
+                        <button class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
+                        <button class="btn btn-success ms-2" @onclick="FisKaydet" disabled="@(isSaving || bakiye != 0)">
+                            @if(isSaving) { <span class="spinner-border spinner-border-sm"></span> } 
+                            <i class="bi bi-save me-1"></i>FiÅŸi Kaydet
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -215,7 +246,7 @@
         }
         catch (Exception ex)
         {
-            ToastService.ShowError("Fiþler yüklenemedi: " + ex.Message);
+            ToastService.ShowError("FiÅŸler yÃ¼klenemedi: " + ex.Message);
         }
         finally
         {
@@ -252,7 +283,7 @@
     {
         if (!yeniFis.Kalemler.Any(k => k.HesapId > 0))
         {
-            ToastService.ShowWarning("En az bir hesap seçin.");
+            ToastService.ShowWarning("En az bir hesap seÃ§in.");
             return;
         }
 
@@ -263,7 +294,7 @@
 
         if (!yeniFis.Kalemler.Any())
         {
-            ToastService.ShowWarning("Borç veya alacak tutarý girin.");
+            ToastService.ShowWarning("BorÃ§ veya alacak tutarÄ± girin.");
             return;
         }
 
@@ -272,14 +303,14 @@
         {
             yeniFis.FisNo = await MuhasebeService.GenerateNextFisNoAsync(yeniFis.FisTipi);
             await MuhasebeService.CreateFisAsync(yeniFis);
-            ToastService.ShowSuccess("Fiþ kaydedildi.");
+            ToastService.ShowSuccess("FiÅŸ kaydedildi.");
             ModalKapat();
             await LoadDataAsync();
             Navigation.NavigateTo("/muhasebe/fisler", false);
         }
         catch (Exception ex)
         {
-            ToastService.ShowError("Kaydetme hatasý: " + ex.Message);
+            ToastService.ShowError("Kaydetme hatasÄ±: " + ex.Message);
         }
         finally
         {
@@ -292,12 +323,12 @@
         try
         {
             await MuhasebeService.OnayliFisAsync(fisId);
-            ToastService.ShowSuccess("Fiþ onaylandý.");
+            ToastService.ShowSuccess("FiÅŸ onaylandÄ±.");
             await LoadDataAsync();
         }
         catch (Exception ex)
         {
-            ToastService.ShowError("Onay hatasý: " + ex.Message);
+            ToastService.ShowError("Onay hatasÄ±: " + ex.Message);
         }
     }
 
@@ -310,7 +341,20 @@
 
     private static string GetAyAdi(int ay) => new DateTime(2000, ay, 1).ToString("MMMM", new System.Globalization.CultureInfo("tr-TR"));
     private static string FormatPara(decimal value) => value.ToString("N2") + " TL";
-    private static string GetDurumAdi(FisDurum durum) => durum switch { FisDurum.Taslak => "Taslak", FisDurum.Onaylandi => "Onaylý", FisDurum.IptalEdildi => "Ýptal", _ => durum.ToString() };
+    private static string GetDurumAdi(FisDurum durum) => durum switch { FisDurum.Taslak => "Taslak", FisDurum.Onaylandi => "OnaylÄ±", FisDurum.IptalEdildi => "Ä°ptal", _ => durum.ToString() };
     private static string GetDurumBadge(FisDurum durum) => durum switch { FisDurum.Taslak => "bg-warning text-dark", FisDurum.Onaylandi => "bg-success", FisDurum.IptalEdildi => "bg-danger", _ => "bg-secondary" };
-    private static string GetFisTipAdi(FisTipi tip) => tip switch { FisTipi.Mahsup => "Mahsup", FisTipi.Tahsilat => "Tahsilat", FisTipi.Tediye => "Tediye", FisTipi.Acilis => "Açýlýþ", FisTipi.Kapanis => "Kapanýþ", FisTipi.Devir => "Devir", _ => tip.ToString() };
+    private static string GetFisTipAdi(FisTipi tip) => tip switch { FisTipi.Mahsup => "Mahsup", FisTipi.Tahsilat => "Tahsilat", FisTipi.Tediye => "Tediye", FisTipi.Acilis => "AÃ§Ä±lÄ±ÅŸ", FisTipi.Kapanis => "KapanÄ±ÅŸ", FisTipi.Devir => "Devir", _ => tip.ToString() };
+
+    private void BakiyeHesapla()
+    {
+        // Tetikleyici tetiklendiÄŸinde StateHasChanged Ã§alÄ±ÅŸÄ±r ve toplam bakiye yenilenir.
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "F2")
+        {
+            KalemEkle();
+        }
+    }
 }
