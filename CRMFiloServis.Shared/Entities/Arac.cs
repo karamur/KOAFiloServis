@@ -55,8 +55,11 @@ public class Arac : BaseEntity
     public virtual ICollection<AracMasraf> Masraflar { get; set; } = new List<AracMasraf>();
     public virtual ICollection<ServisCalisma> ServisCalismalari { get; set; } = new List<ServisCalisma>();
     
-    // Hesaplanan özellik - Aktif plakayý döner
-    public AracPlaka? AktifPlakaKaydi => PlakaGecmisi?.FirstOrDefault(p => p.CikisTarihi == null && !p.IsDeleted);
+    // Hesaplanan Özellik - Aktif plakayý döner (CikisTarihi null veya bugünden sonra)
+    public AracPlaka? AktifPlakaKaydi => PlakaGecmisi?
+        .Where(p => !p.IsDeleted && (p.CikisTarihi == null || p.CikisTarihi > DateTime.Today))
+        .OrderByDescending(p => p.GirisTarihi)
+        .FirstOrDefault();
 }
 
 /// <summary>
@@ -84,8 +87,8 @@ public class AracPlaka : BaseEntity
     public int? CariId { get; set; } // Kimden alýndý / Kime satýldý
     public virtual Cari? Cari { get; set; }
     
-    // Aktif mi? (CikisTarihi null ise aktif)
-    public bool Aktif => CikisTarihi == null;
+    // Aktif mi? (CikisTarihi null veya gelecek tarihli ise aktif)
+    public bool Aktif => CikisTarihi == null || CikisTarihi > DateTime.Today;
 }
 
 public enum PlakaIslemTipi

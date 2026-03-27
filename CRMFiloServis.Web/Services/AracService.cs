@@ -20,43 +20,92 @@ public class AracService : IAracService
 
     public async Task<List<Arac>> GetAllAsync()
     {
-        return await _context.Araclar
+        var araclar = await _context.Araclar
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
-            .OrderBy(a => a.AktifPlaka)
+            .Where(a => !a.IsDeleted)
             .ToListAsync();
+            
+        // Aktif plakalarý güncelle (CikisTarihi null veya gelecek tarihli olanlar)
+        foreach (var arac in araclar)
+        {
+            var aktifPlaka = arac.PlakaGecmisi
+                .Where(p => p.CikisTarihi == null || p.CikisTarihi > DateTime.Today)
+                .OrderByDescending(p => p.GirisTarihi)
+                .FirstOrDefault();
+            
+            if (aktifPlaka != null && arac.AktifPlaka != aktifPlaka.Plaka)
+            {
+                arac.AktifPlaka = aktifPlaka.Plaka;
+            }
+        }
+        
+        return araclar.OrderBy(a => a.AktifPlaka ?? a.SaseNo).ToList();
     }
 
     public async Task<List<Arac>> GetActiveAsync()
     {
-        return await _context.Araclar
+        var araclar = await _context.Araclar
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
-            .Where(a => a.Aktif)
-            .OrderBy(a => a.AktifPlaka)
+            .Where(a => a.Aktif && !a.IsDeleted)
             .ToListAsync();
+            
+        // Aktif plakalarý güncelle
+        foreach (var arac in araclar)
+        {
+            var aktifPlaka = arac.PlakaGecmisi
+                .Where(p => p.CikisTarihi == null || p.CikisTarihi > DateTime.Today)
+                .OrderByDescending(p => p.GirisTarihi)
+                .FirstOrDefault();
+            
+            if (aktifPlaka != null && arac.AktifPlaka != aktifPlaka.Plaka)
+            {
+                arac.AktifPlaka = aktifPlaka.Plaka;
+            }
+        }
+        
+        return araclar.OrderBy(a => a.AktifPlaka ?? a.SaseNo).ToList();
     }
 
     public async Task<int> GetActiveCountAsync()
     {
         return await _context.Araclar
-            .Where(a => a.Aktif)
+            .Where(a => a.Aktif && !a.IsDeleted)
             .CountAsync();
     }
 
     public async Task<Arac?> GetByIdAsync(int id)
     {
-        return await _context.Araclar
+        var arac = await _context.Araclar
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted).OrderByDescending(p => p.GirisTarihi))
             .Include(a => a.KiralikCari)
             .Include(a => a.KomisyoncuCari)
-            .FirstOrDefaultAsync(a => a.Id == id);
+            .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
+            
+        if (arac != null)
+        {
+            // Aktif plakayý güncelle
+            var aktifPlaka = arac.PlakaGecmisi
+                .Where(p => p.CikisTarihi == null || p.CikisTarihi > DateTime.Today)
+                .OrderByDescending(p => p.GirisTarihi)
+                .FirstOrDefault();
+            
+            if (aktifPlaka != null)
+            {
+                arac.AktifPlaka = aktifPlaka.Plaka;
+            }
+        }
+        
+        return arac;
     }
 
     public async Task<Arac?> GetByPlakaAsync(string plaka)
     {
-        // Aktif plakaya göre bul
+        // Aktif plakaya göre bul (CikisTarihi null veya gelecek tarihli)
         var aracPlaka = await _context.AracPlakalar
             .Include(ap => ap.Arac)
-            .FirstOrDefaultAsync(ap => ap.Plaka == plaka && ap.CikisTarihi == null);
+            .FirstOrDefaultAsync(ap => ap.Plaka == plaka && 
+                                       !ap.IsDeleted &&
+                                       (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today));
             
         return aracPlaka?.Arac;
     }
@@ -65,21 +114,24 @@ public class AracService : IAracService
     {
         return await _context.Araclar
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
-            .FirstOrDefaultAsync(a => a.SaseNo == saseNo);
+            .FirstOrDefaultAsync(a => a.SaseNo == saseNo && !a.IsDeleted);
     }
     
     public async Task<bool> SaseNoMevcutMu(string saseNo, int? haricAracId = null)
     {
         return await _context.Araclar
-            .AnyAsync(a => a.SaseNo == saseNo && (!haricAracId.HasValue || a.Id != haricAracId.Value));
+            .AnyAsync(a => a.SaseNo == saseNo && 
+                          !a.IsDeleted &&
+                          (!haricAracId.HasValue || a.Id != haricAracId.Value));
     }
     
     public async Task<bool> PlakaMevcutMu(string plaka, int? haricAracPlakaId = null)
     {
-        // Aktif plaka kontrolü
+        // Aktif plaka kontrolü (CikisTarihi null veya gelecek tarihli)
         return await _context.AracPlakalar
             .AnyAsync(ap => ap.Plaka == plaka && 
-                           ap.CikisTarihi == null && 
+                           !ap.IsDeleted &&
+                           (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today) && 
                            (!haricAracPlakaId.HasValue || ap.Id != haricAracPlakaId.Value));
     }
 
@@ -236,8 +288,11 @@ public class AracService : IAracService
         var arac = await _context.Araclar.FindAsync(aracId);
         if (arac == null) return;
         
+        // CikisTarihi null olan veya CikisTarihi bugünden sonra olan plakalardan en son eklenen
         var aktifPlaka = await _context.AracPlakalar
-            .Where(ap => ap.AracId == aracId && ap.CikisTarihi == null)
+            .Where(ap => ap.AracId == aracId && 
+                        !ap.IsDeleted &&
+                        (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today))
             .OrderByDescending(ap => ap.GirisTarihi)
             .FirstOrDefaultAsync();
             
