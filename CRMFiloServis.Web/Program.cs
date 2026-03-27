@@ -91,6 +91,7 @@ builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<IToastService, ToastService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
+builder.Services.AddScoped<ITekrarlayanOdemeService, TekrarlayanOdemeService>(); // Kredi/Taksit Yönetimi
 builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IAktiviteLogService, AktiviteLogService>();
 builder.Services.AddScoped<IDatabaseSettingsService, DatabaseSettingsService>();

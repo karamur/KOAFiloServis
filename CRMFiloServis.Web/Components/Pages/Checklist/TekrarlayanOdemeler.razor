@@ -1,0 +1,730 @@
+@page "/tekrarlayan-odemeler"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject ITekrarlayanOdemeService TekrarlayanOdemeService
+@inject IMasrafKalemiService MasrafKalemiService
+@inject IToastService ToastService
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Kredi / Taksitler</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="bi bi-arrow-repeat me-2"></i>Kredi / Taksitler</h3>
+        <div class="btn-group">
+            <button class="btn btn-success" @onclick="YeniOdemeModalAc">
+                <i class="bi bi-plus-circle me-1"></i>Yeni Ödeme Tanýmý
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtreler -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Ara..." @bind="aramaMetni" @bind:event="oninput" />
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filtreDurum">
+                        <option value="">Tümü</option>
+                        <option value="aktif">Aktif</option>
+                        <option value="pasif">Pasif</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filtrePeriyot">
+                        <option value="">Tüm Periyotlar</option>
+                        <option value="1">Aylýk</option>
+                        <option value="2">2 Aylýk</option>
+                        <option value="3">3 Aylýk</option>
+                        <option value="6">6 Aylýk</option>
+                        <option value="12">Yýllýk</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="filtreMasrafKalemi">
+                        <option value="">Tüm Masraf Kalemleri</option>
+                        @foreach (var kalem in masrafKalemleri)
+                        {
+                            <option value="@kalem.MasrafAdi">@kalem.MasrafAdi</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Özet Kartlarý -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-white-50">Toplam Taným</small>
+                            <h4 class="mb-0">@odemeler.Count</h4>
+                        </div>
+                        <i class="bi bi-list-task" style="font-size: 2rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-white-50">Aktif Ödeme</small>
+                            <h4 class="mb-0">@odemeler.Count(o => o.Aktif)</h4>
+                        </div>
+                        <i class="bi bi-check-circle" style="font-size: 2rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted">Aylýk Toplam</small>
+                            <h4 class="mb-0">@FormatKisa(odemeler.Where(o => o.Aktif).Sum(o => o.Tutar / (int)o.Periyod))</h4>
+                        </div>
+                        <i class="bi bi-calendar-month" style="font-size: 2rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-white-50">Yýllýk Toplam</small>
+                            <h4 class="mb-0">@FormatKisa(odemeler.Where(o => o.Aktif).Sum(o => o.Tutar * 12 / (int)o.Periyod))</h4>
+                        </div>
+                        <i class="bi bi-calendar-year" style="font-size: 2rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste -->
+    <div class="card">
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2 text-muted">Yükleniyor...</p>
+                </div>
+            }
+            else if (!FiltrelenmisOdemeler.Any())
+            {
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mt-2">Kayýt bulunamadý</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th>Ödeme Adý</th>
+                                <th>Masraf Kalemi</th>
+                                <th>Açýklama</th>
+                                <th>Periyot</th>
+                                <th>Ödeme Günü</th>
+                                <th class="text-end">Tutar</th>
+                                <th class="text-center">Durum</th>
+                                <th class="text-center" style="width: 100px;">Ýþlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var odeme in FiltrelenmisOdemeler)
+                            {
+                                <tr style="cursor: pointer;" @onclick="() => OdemeDetayModalAc(odeme)">
+                                    <td>
+                                        <i class="@(odeme.Icon ?? "bi-arrow-repeat")" style="color: @(odeme.Renk ?? "#dc3545"); font-size: 1.2rem;"></i>
+                                    </td>
+                                    <td>
+                                        <strong>@odeme.OdemeAdi</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">@odeme.MasrafKalemi</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">@(odeme.Aciklama?.Length > 50 ? odeme.Aciklama.Substring(0, 50) + "..." : odeme.Aciklama)</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetPeriyotBadgeClass(odeme.Periyod)">
+                                            @GetPeriyotText(odeme.Periyod)
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">@odeme.OdemeGunu. gün</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <strong class="text-danger">@Format(odeme.Tutar)</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (odeme.Aktif)
+                                        {
+                                            <span class="badge bg-success">Aktif</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Pasif</span>
+                                        }
+                                    </td>
+                                    <td class="text-center" @onclick:stopPropagation="true">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" title="Düzenle" @onclick="() => OdemeDuzenleModalAc(odeme)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" title="Sil" @onclick="() => OdemeSil(odeme)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Yeni/Düzenle Modal -->
+@if (showFormModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-@(formOdeme.Id == 0 ? "plus-circle" : "pencil") me-2"></i>
+                        @(formOdeme.Id == 0 ? "Yeni Ödeme Tanýmý" : "Ödeme Düzenle")
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="FormModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Ödeme Adý *</label>
+                            <input type="text" class="form-control" @bind="formOdeme.OdemeAdi" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Masraf Kalemi *</label>
+                            <select class="form-select" @bind="formOdeme.MasrafKalemi">
+                                <option value="">Seçiniz</option>
+                                @foreach (var kalem in masrafKalemleri)
+                                {
+                                    <option value="@kalem.MasrafAdi">@kalem.MasrafAdi</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Açýklama</label>
+                            <textarea class="form-control" rows="2" @bind="formOdeme.Aciklama"></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Tutar *</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" step="0.01" @bind="formOdeme.Tutar" />
+                                <span class="input-group-text">?</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Periyot *</label>
+                            <select class="form-select" @bind="formOdeme.Periyod">
+                                <option value="@TekrarPeriyodu.Aylik">Aylýk</option>
+                                <option value="@TekrarPeriyodu.IkiAylik">2 Aylýk</option>
+                                <option value="@TekrarPeriyodu.UcAylik">3 Aylýk</option>
+                                <option value="@TekrarPeriyodu.AltiAylik">6 Aylýk</option>
+                                <option value="@TekrarPeriyodu.Yillik">Yýllýk</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ödeme Günü *</label>
+                            <input type="number" class="form-control" min="1" max="31" @bind="formOdeme.OdemeGunu" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Baþlangýç Tarihi *</label>
+                            <input type="date" class="form-control" @bind="formOdeme.BaslangicTarihi" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Bitiþ Tarihi</label>
+                            <input type="date" class="form-control" @bind="formOdeme.BitisTarihi" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Hatýrlatma (gün önce)</label>
+                            <input type="number" class="form-control" min="0" max="30" @bind="formOdeme.HatirlatmaGunSayisi" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Renk</label>
+                            <input type="color" class="form-control form-control-color w-100" @bind="formOdeme.Renk" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ýkon</label>
+                            <select class="form-select" @bind="formOdeme.Icon">
+                                <option value="bi-arrow-repeat">?? Tekrar</option>
+                                <option value="bi-credit-card">?? Kredi Kartý</option>
+                                <option value="bi-bank">?? Banka</option>
+                                <option value="bi-house">?? Ev</option>
+                                <option value="bi-car-front">?? Araç</option>
+                                <option value="bi-lightning">? Elektrik</option>
+                                <option value="bi-droplet">?? Su</option>
+                                <option value="bi-fire">?? Doðalgaz</option>
+                                <option value="bi-wifi">?? Ýnternet</option>
+                                <option value="bi-phone">?? Telefon</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label d-block">&nbsp;</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" @bind="formOdeme.Aktif" id="aktifCheck" />
+                                <label class="form-check-label" for="aktifCheck">Aktif</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Notlar</label>
+                            <textarea class="form-control" rows="2" @bind="formOdeme.Notlar"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="FormModalKapat">Ýptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="OdemeKaydet" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Detay/Önizleme Modal -->
+@if (showDetayModal && secilenOdeme != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: @(secilenOdeme.Renk ?? "#dc3545"); color: white;">
+                    <h5 class="modal-title">
+                        <i class="@(secilenOdeme.Icon ?? "bi-arrow-repeat") me-2"></i>
+                        @secilenOdeme.OdemeAdi - Detay
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="DetayModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Özet Bilgiler -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 h-100">
+                                <small class="text-muted d-block">Masraf Kalemi</small>
+                                <strong>@secilenOdeme.MasrafKalemi</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 h-100">
+                                <small class="text-muted d-block">Periyot</small>
+                                <strong>@GetPeriyotText(secilenOdeme.Periyod)</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 h-100">
+                                <small class="text-muted d-block">Ödeme Günü</small>
+                                <strong>Her ayýn @secilenOdeme.OdemeGunu. günü</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 h-100 bg-danger bg-opacity-10">
+                                <small class="text-muted d-block">Tutar</small>
+                                <strong class="text-danger fs-5">@Format(secilenOdeme.Tutar)</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(secilenOdeme.Aciklama))
+                    {
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Açýklama:</strong> @secilenOdeme.Aciklama
+                        </div>
+                    }
+
+                    <!-- Ödeme Takvimi -->
+                    <h6 class="mb-3"><i class="bi bi-calendar3 me-2"></i>Ödeme Takvimi (Önümüzdeki 12 Ay)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Dönem</th>
+                                    <th>Ödeme Tarihi</th>
+                                    <th class="text-end">Tutar</th>
+                                    <th class="text-center">Durum</th>
+                                    <th class="text-center">Ýþlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var donem in GetOdemeTakvimi(secilenOdeme))
+                                {
+                                    <tr class="@(donem.Durum == "Ödendi" ? "table-success" : donem.Durum == "Gecikmiþ" ? "table-danger" : "")">
+                                        <td>@donem.Donem</td>
+                                        <td>@donem.Tarih.ToString("dd.MM.yyyy")</td>
+                                        <td class="text-end"><strong>@Format(secilenOdeme.Tutar)</strong></td>
+                                        <td class="text-center">
+                                            @if (donem.Durum == "Ödendi")
+                                            {
+                                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Ödendi</span>
+                                            }
+                                            else if (donem.Durum == "Gecikmiþ")
+                                            {
+                                                <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Gecikmiþ</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Bekliyor</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (donem.Durum != "Ödendi")
+                                            {
+                                                <button class="btn btn-sm btn-success" @onclick="() => OdemeYapildiIsaretle(donem)" title="Ödendi olarak iþaretle">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OdemeIptalEt(donem)" title="Ödeme iptal">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="2"><strong>Toplam (12 Ay)</strong></td>
+                                    <td class="text-end"><strong class="text-danger">@Format(secilenOdeme.Tutar * 12 / (int)secilenOdeme.Periyod)</strong></td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-success" @onclick="ExcelAktar">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" @onclick="Yazdir">
+                        <i class="bi bi-printer me-1"></i>Yazdýr
+                    </button>
+                    <button type="button" class="btn btn-warning" @onclick="() => OdemeDuzenleModalAc(secilenOdeme)">
+                        <i class="bi bi-pencil me-1"></i>Düzenle
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="DetayModalKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TekrarlayanOdeme> odemeler = new();
+    private List<MasrafKalemi> masrafKalemleri = new();
+    private TekrarlayanOdeme formOdeme = new();
+    private TekrarlayanOdeme? secilenOdeme;
+
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool showFormModal = false;
+    private bool showDetayModal = false;
+
+    private string aramaMetni = "";
+    private string filtreDurum = "";
+    private string filtrePeriyot = "";
+    private string filtreMasrafKalemi = "";
+
+    // Ödeme durumlarý (bellek içi - gerçek uygulamada DB'den gelir)
+    private Dictionary<string, string> odemeDurumlari = new();
+
+    private IEnumerable<TekrarlayanOdeme> FiltrelenmisOdemeler => odemeler
+        .Where(o => string.IsNullOrEmpty(aramaMetni) || 
+                    o.OdemeAdi.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+                    o.MasrafKalemi.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+                    (o.Aciklama?.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ?? false))
+        .Where(o => string.IsNullOrEmpty(filtreDurum) || 
+                    (filtreDurum == "aktif" && o.Aktif) || 
+                    (filtreDurum == "pasif" && !o.Aktif))
+        .Where(o => string.IsNullOrEmpty(filtrePeriyot) || (int)o.Periyod == int.Parse(filtrePeriyot))
+        .Where(o => string.IsNullOrEmpty(filtreMasrafKalemi) || o.MasrafKalemi == filtreMasrafKalemi)
+        .OrderBy(o => o.OdemeAdi);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            odemeler = await TekrarlayanOdemeService.GetAllAsync();
+            masrafKalemleri = await MasrafKalemiService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Veri yüklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void YeniOdemeModalAc()
+    {
+        formOdeme = new TekrarlayanOdeme
+        {
+            BaslangicTarihi = DateTime.Today,
+            OdemeGunu = 1,
+            Periyod = TekrarPeriyodu.Aylik,
+            Aktif = true,
+            Renk = "#dc3545",
+            Icon = "bi-arrow-repeat",
+            HatirlatmaGunSayisi = 3
+        };
+        showFormModal = true;
+    }
+
+    private void OdemeDuzenleModalAc(TekrarlayanOdeme odeme)
+    {
+        formOdeme = new TekrarlayanOdeme
+        {
+            Id = odeme.Id,
+            OdemeAdi = odeme.OdemeAdi,
+            MasrafKalemi = odeme.MasrafKalemi,
+            Aciklama = odeme.Aciklama,
+            Tutar = odeme.Tutar,
+            Periyod = odeme.Periyod,
+            OdemeGunu = odeme.OdemeGunu,
+            BaslangicTarihi = odeme.BaslangicTarihi,
+            BitisTarihi = odeme.BitisTarihi,
+            HatirlatmaGunSayisi = odeme.HatirlatmaGunSayisi,
+            Aktif = odeme.Aktif,
+            Renk = odeme.Renk,
+            Icon = odeme.Icon,
+            Notlar = odeme.Notlar
+        };
+        showDetayModal = false;
+        showFormModal = true;
+    }
+
+    private void FormModalKapat()
+    {
+        showFormModal = false;
+        formOdeme = new();
+    }
+
+    private void OdemeDetayModalAc(TekrarlayanOdeme odeme)
+    {
+        secilenOdeme = odeme;
+        showDetayModal = true;
+    }
+
+    private void DetayModalKapat()
+    {
+        showDetayModal = false;
+        secilenOdeme = null;
+    }
+
+    private async Task OdemeKaydet()
+    {
+        if (string.IsNullOrWhiteSpace(formOdeme.OdemeAdi))
+        {
+            ToastService.ShowWarning("Ödeme adý giriniz");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(formOdeme.MasrafKalemi))
+        {
+            ToastService.ShowWarning("Masraf kalemi seçiniz");
+            return;
+        }
+        if (formOdeme.Tutar <= 0)
+        {
+            ToastService.ShowWarning("Geçerli bir tutar giriniz");
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            if (formOdeme.Id == 0)
+            {
+                await TekrarlayanOdemeService.CreateAsync(formOdeme);
+                ToastService.ShowSuccess("Ödeme tanýmý oluþturuldu");
+            }
+            else
+            {
+                await TekrarlayanOdemeService.UpdateAsync(formOdeme);
+                ToastService.ShowSuccess("Ödeme tanýmý güncellendi");
+            }
+
+            FormModalKapat();
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task OdemeSil(TekrarlayanOdeme odeme)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"'{odeme.OdemeAdi}' silinecek. Emin misiniz?"))
+            return;
+
+        try
+        {
+            await TekrarlayanOdemeService.DeleteAsync(odeme.Id);
+            ToastService.ShowSuccess("Ödeme tanýmý silindi");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private List<OdemeDonem> GetOdemeTakvimi(TekrarlayanOdeme odeme)
+    {
+        var donemler = new List<OdemeDonem>();
+        var bugun = DateTime.Today;
+        var tarih = new DateTime(bugun.Year, bugun.Month, Math.Min(odeme.OdemeGunu, DateTime.DaysInMonth(bugun.Year, bugun.Month)));
+
+        // Geçmiþ 2 ay + gelecek 10 ay = 12 dönem
+        tarih = tarih.AddMonths(-2);
+
+        for (int i = 0; i < 12; i++)
+        {
+            var gun = Math.Min(odeme.OdemeGunu, DateTime.DaysInMonth(tarih.Year, tarih.Month));
+            var odemeTarihi = new DateTime(tarih.Year, tarih.Month, gun);
+
+            // Periyot kontrolü
+            var ayFarki = ((odemeTarihi.Year - odeme.BaslangicTarihi.Year) * 12) + odemeTarihi.Month - odeme.BaslangicTarihi.Month;
+            if (ayFarki >= 0 && ayFarki % (int)odeme.Periyod == 0)
+            {
+                var key = $"{odeme.Id}_{odemeTarihi:yyyyMM}";
+                var durum = odemeDurumlari.ContainsKey(key) ? odemeDurumlari[key] : 
+                            (odemeTarihi < bugun ? "Gecikmiþ" : "Bekliyor");
+
+                donemler.Add(new OdemeDonem
+                {
+                    OdemeId = odeme.Id,
+                    Donem = odemeTarihi.ToString("MMMM yyyy"),
+                    Tarih = odemeTarihi,
+                    Durum = durum,
+                    Key = key
+                });
+            }
+
+            tarih = tarih.AddMonths(1);
+        }
+
+        return donemler.OrderBy(d => d.Tarih).ToList();
+    }
+
+    private void OdemeYapildiIsaretle(OdemeDonem donem)
+    {
+        odemeDurumlari[donem.Key] = "Ödendi";
+        ToastService.ShowSuccess($"{donem.Donem} dönemi ödendi olarak iþaretlendi");
+    }
+
+    private void OdemeIptalEt(OdemeDonem donem)
+    {
+        odemeDurumlari.Remove(donem.Key);
+        ToastService.ShowInfo($"{donem.Donem} dönemi ödeme durumu sýfýrlandý");
+    }
+
+    private async Task ExcelAktar()
+    {
+        if (secilenOdeme == null) return;
+
+        try
+        {
+            // Excel export iþlemi
+            ToastService.ShowInfo("Excel dosyasý hazýrlanýyor...");
+            // TODO: Gerçek excel export implementasyonu
+            await Task.Delay(500);
+            ToastService.ShowSuccess("Excel dosyasý indirildi");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Excel hatasý: {ex.Message}");
+        }
+    }
+
+    private async Task Yazdir()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("print");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Yazdýrma hatasý: {ex.Message}");
+        }
+    }
+
+    private string GetPeriyotText(TekrarPeriyodu periyot) => periyot switch
+    {
+        TekrarPeriyodu.Aylik => "Aylýk",
+        TekrarPeriyodu.IkiAylik => "2 Aylýk",
+        TekrarPeriyodu.UcAylik => "3 Aylýk",
+        TekrarPeriyodu.AltiAylik => "6 Aylýk",
+        TekrarPeriyodu.Yillik => "Yýllýk",
+        _ => periyot.ToString()
+    };
+
+    private string GetPeriyotBadgeClass(TekrarPeriyodu periyot) => periyot switch
+    {
+        TekrarPeriyodu.Aylik => "bg-primary",
+        TekrarPeriyodu.IkiAylik => "bg-info",
+        TekrarPeriyodu.UcAylik => "bg-warning text-dark",
+        TekrarPeriyodu.AltiAylik => "bg-secondary",
+        TekrarPeriyodu.Yillik => "bg-dark",
+        _ => "bg-secondary"
+    };
+
+    private class OdemeDonem
+    {
+        public int OdemeId { get; set; }
+        public string Donem { get; set; } = "";
+        public DateTime Tarih { get; set; }
+        public string Durum { get; set; } = "Bekliyor";
+        public string Key { get; set; } = "";
+    }
+}

@@ -393,27 +393,11 @@
                                 </NavLink>
                             </div>
                         }
-                        @if (HasYetki("butceanaliz.oku"))
+                        @if (HasYetki("tekrarlayanodem.oku"))
                         {
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="butce">
-                                    <i class="bi bi-wallet2 me-2 text-primary"></i> Butce Analiz
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("odemeyonetim.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="butce/odemeler">
-                                    <i class="bi bi-credit-card me-2 text-warning"></i> Odeme Yonetimi
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("checklistmali.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="mali-analiz">
-                                    <i class="bi bi-graph-up-arrow me-2 text-info"></i> Mali Analiz
+                                <NavLink class="nav-link" href="tekrarlayan-odemeler">
+                                    <i class="bi bi-arrow-repeat me-2 text-info"></i> Kredi/Taksitler
                                 </NavLink>
                             </div>
                         }
@@ -433,11 +417,36 @@
                 @if (expandedSections[4])
                 {
                     <div class="nav-section-content">
+                        @if (HasYetki("butceanaliz.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="butce">
+                                    <i class="bi bi-wallet2 me-2 text-primary"></i> Bütçe Analiz
+                                </NavLink>
+                            </div>
+                        }
+                        @if (HasYetki("odemeyonetim.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="butce/odemeler">
+                                    <i class="bi bi-credit-card me-2 text-warning"></i> Ödeme Yönetimi
+                                </NavLink>
+                            </div>
+                        }
+                        @if (HasYetki("checklistmali.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="mali-analiz">
+                                    <i class="bi bi-graph-up-arrow me-2 text-info"></i> Mali Analiz
+                                </NavLink>
+                            </div>
+                        }
+                        <hr class="my-2 mx-3 border-secondary" />
                         @if (HasYetki("raporozmal.oku"))
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/ozmal-arac">
-                                    <i class="bi bi-truck me-2 text-primary"></i> Ozmal Arac Raporu
+                                    <i class="bi bi-truck me-2 text-primary"></i> Özmal Araç Raporu
                                 </NavLink>
                             </div>
                         }
@@ -445,7 +454,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/kiralik-arac">
-                                    <i class="bi bi-building me-2 text-info"></i> Kiralik Arac Raporu
+                                    <i class="bi bi-building me-2 text-info"></i> Kiralýk Araç Raporu
                                 </NavLink>
                             </div>
                         }
@@ -469,7 +478,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/fatura-odeme">
-                                    <i class="bi bi-file-earmark-text me-2 text-danger"></i> Fatura Odeme
+                                    <i class="bi bi-file-earmark-text me-2 text-danger"></i> Fatura Ödeme
                                 </NavLink>
                             </div>
                         }
@@ -477,7 +486,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/arac-masraf">
-                                    <i class="bi bi-file-earmark-spreadsheet me-2 text-secondary"></i> Arac Masraf
+                                    <i class="bi bi-file-earmark-spreadsheet me-2 text-secondary"></i> Araç Masraf
                                 </NavLink>
                             </div>
                         }
@@ -486,54 +495,6 @@
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="raporlar/cari-ekstre">
                                     <i class="bi bi-file-earmark-ruled me-2 text-dark"></i> Cari Ekstre
-                                </NavLink>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        }
-
-        <!-- SATIS MODULU -->
-        @if (HasMenuYetki("menu.satis"))
-        {
-            <div class="nav-section">
-                <div class="nav-section-header" @onclick="() => ToggleSection(8)" style="cursor: pointer;">
-                    <span><i class="bi bi-car-front-fill me-2"></i>SATIS MODULU</span>
-                    <i class="bi @(expandedSections[8] ? "bi-chevron-up" : "bi-chevron-down")"></i>
-                </div>
-                @if (expandedSections[8])
-                {
-                    <div class="nav-section-content">
-                        @if (HasYetki("satisdash.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="satis">
-                                    <i class="bi bi-speedometer2 me-2"></i> Satis Dashboard
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("piyasaarastir.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="satis/arastirma">
-                                    <i class="bi bi-search me-2 text-info"></i> Piyasa Arastirma
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("satisilan.yaz"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="satis/ilan/yeni">
-                                    <i class="bi bi-plus-circle me-2"></i> Yeni Ilan
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("satispersonel.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="satis/personel">
-                                    <i class="bi bi-people me-2"></i> Satis Personeli
                                 </NavLink>
                             </div>
                         }
