@@ -103,6 +103,13 @@ public class ApplicationDbContext : DbContext
     public DbSet<KullaniciCari> KullaniciCariler { get; set; }
     public DbSet<DashboardWidget> DashboardWidgetlar { get; set; }
 
+    // WhatsApp Iletisim Modulu
+    public DbSet<WhatsAppKisi> WhatsAppKisiler { get; set; }
+    public DbSet<WhatsAppGrup> WhatsAppGruplar { get; set; }
+    public DbSet<WhatsAppGrupUye> WhatsAppGrupUyeler { get; set; }
+    public DbSet<WhatsAppMesaj> WhatsAppMesajlar { get; set; }
+    public DbSet<WhatsAppSablon> WhatsAppSablonlar { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -779,6 +786,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Email).HasMaxLength(100);
             entity.Property(e => e.Sifre).HasMaxLength(100);
             entity.Property(e => e.GonderenAdi).HasMaxLength(100);
+            entity.Property(e => e.ImapSunucu).HasMaxLength(100);
+            entity.Property(e => e.GelenKlasoru).HasMaxLength(100);
             entity.HasOne(e => e.Kullanici)
                 .WithMany()
                 .HasForeignKey(e => e.KullaniciId)
@@ -819,34 +828,51 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // KullaniciCari - Coka-Cok iliski (1 kullanici birden fazla cari, 1 cari birden fazla kullanici)
-        modelBuilder.Entity<KullaniciCari>(entity =>
+        // WhatsApp Modelleri
+        modelBuilder.Entity<WhatsAppKisi>(entity =>
         {
-            // Unique constraint KALDIRILDI - ayni kullanici-cari cifti birden fazla kayit olabilir
-            // Sadece index var, unique degil
-            entity.HasIndex(e => new { e.KullaniciId, e.CariId });
-            entity.Property(e => e.Not).HasMaxLength(500);
-            entity.HasOne(e => e.Kullanici)
-                .WithMany(k => k.BagliCariler)
-                .HasForeignKey(e => e.KullaniciId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.Telefon).IsUnique().HasFilter("\"IsDeleted\" = false");
             entity.HasOne(e => e.Cari)
-                .WithMany(c => c.KullaniciEslestirmeleri)
+                .WithMany()
                 .HasForeignKey(e => e.CariId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.SetNull);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // DashboardWidget
-        modelBuilder.Entity<DashboardWidget>(entity =>
+        modelBuilder.Entity<WhatsAppGrupUye>(entity =>
         {
-            entity.HasIndex(e => new { e.KullaniciId, e.WidgetKodu }).IsUnique();
-            entity.Property(e => e.WidgetKodu).HasMaxLength(50);
-            entity.Property(e => e.Ayarlar).HasMaxLength(2000);
-            entity.HasOne(e => e.Kullanici)
-                .WithMany(k => k.DashboardWidgetlari)
-                .HasForeignKey(e => e.KullaniciId)
+            entity.HasIndex(e => new { e.GrupId, e.KisiId }).IsUnique().HasFilter("\"IsDeleted\" = false");
+            
+            entity.HasOne(e => e.Grup)
+                .WithMany(g => g.Uyeler)
+                .HasForeignKey(e => e.GrupId)
                 .OnDelete(DeleteBehavior.Cascade);
+                
+            entity.HasOne(e => e.Kisi)
+                .WithMany(k => k.Gruplari)
+                .HasForeignKey(e => e.KisiId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<WhatsAppMesaj>(entity =>
+        {
+            entity.HasOne(e => e.Gonderen)
+                .WithMany()
+                .HasForeignKey(e => e.GonderenId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Kisi)
+                .WithMany()
+                .HasForeignKey(e => e.KisiId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Grup)
+                .WithMany()
+                .HasForeignKey(e => e.GrupId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
     }

@@ -125,6 +125,16 @@ public class EmailAyar : BaseEntity
     public int SmtpPort { get; set; } = 587;
     public bool SslKullan { get; set; } = true;
 
+    [StringLength(100)]
+    public string? ImapSunucu { get; set; }
+
+    public int ImapPort { get; set; } = 993;
+    public bool ImapSslKullan { get; set; } = true;
+    public bool GelenKutusuAktif { get; set; } = false;
+
+    [StringLength(100)]
+    public string GelenKlasoru { get; set; } = "INBOX";
+
     [Required]
     [StringLength(100)]
     public string Email { get; set; } = string.Empty;

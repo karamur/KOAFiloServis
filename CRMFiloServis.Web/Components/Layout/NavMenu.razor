@@ -64,12 +64,14 @@
                                     <i class="bi bi-chat-dots-fill me-2 text-primary"></i> Mesajlar
                                 </NavLink>
                             </div>
-                        }
-                        @if (HasYetki("whatsapp.oku"))
-                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="crm/whatsapp-chat">
+                                    <i class="bi bi-whatsapp me-2 text-success"></i> WhatsApp Chat
+                                </NavLink>
+                            </div>
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="crm/whatsapp">
-                                    <i class="bi bi-whatsapp me-2 text-success"></i> WhatsApp
+                                    <i class="bi bi-send-fill me-2 text-success"></i> WA Gönderim
                                 </NavLink>
                             </div>
                         }
@@ -85,15 +87,7 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="crm/randevular">
-                                    <i class="bi bi-calendar-event-fill me-2 text-danger"></i> Randevu/Hatýrlatýcý
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("kullanicicari.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="crm/cari-eslestirme">
-                                    <i class="bi bi-person-lines-fill me-2 text-secondary"></i> Cari Eþleþtirme
+                                    <i class="bi bi-calendar-event-fill me-2 text-danger"></i> Randevu/Hatirlatici
                                 </NavLink>
                             </div>
                         }

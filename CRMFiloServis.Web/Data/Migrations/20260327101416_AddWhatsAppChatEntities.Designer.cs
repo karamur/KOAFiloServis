@@ -3,17 +3,20 @@ using System;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace CRMFiloServis.Web.Migrations
+namespace CRMFiloServis.Web.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260327101416_AddWhatsAppChatEntities")]
+    partial class AddWhatsAppChatEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1634,25 +1637,7 @@ namespace CRMFiloServis.Web.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<string>("GelenKlasoru")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("GelenKutusuAktif")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("GonderenAdi")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<int>("ImapPort")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("ImapSslKullan")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("ImapSunucu")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 

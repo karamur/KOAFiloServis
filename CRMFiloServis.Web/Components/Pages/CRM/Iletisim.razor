@@ -173,9 +173,28 @@
         <!-- Sað Panel - Gönderim Geçmiþi -->
         <div class="col-md-7">
             <div class="card shadow-sm">
-                <div class="card-header bg-white">
-                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Gönderim Geçmiþi</h6>
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>@(isWhatsApp ? "Gönderim Geçmiþi" : "E-Posta Listesi")</h6>
+                    @if (!isWhatsApp)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="EmailListeleriniYenile">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+                        </button>
+                    }
                 </div>
+                @if (!isWhatsApp)
+                {
+                    <div class="card-header bg-light p-0">
+                        <ul class="nav nav-tabs card-header-tabs ms-2 mt-2">
+                            <li class="nav-item">
+                                <button class="nav-link @(emailListeTab == "gonderilen" ? "active" : "")" @onclick='() => emailListeTab = "gonderilen"'>Gönderilen</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link @(emailListeTab == "gelen" ? "active" : "")" @onclick='() => emailListeTab = "gelen"'>Gelen</button>
+                            </li>
+                        </ul>
+                    </div>
+                }
                 <div class="card-body p-0">
                     @if (isLoading)
                     {
@@ -183,55 +202,79 @@
                             <div class="spinner-border text-primary"></div>
                         </div>
                     }
-                    else if (!gonderilenMesajlar.Any())
+                    else if (isWhatsApp && !gonderilenMesajlar.Any())
                     {
                         <div class="text-center p-5 text-muted">
                             <i class="bi @pageIcon" style="font-size: 3rem;"></i>
                             <p class="mt-2">Henüz @pageTitle mesajý gönderilmemiþ</p>
                         </div>
                     }
+                    else if (!isWhatsApp && !AktifEmailListesi.Any())
+                    {
+                        <div class="text-center p-5 text-muted">
+                            <i class="bi bi-envelope" style="font-size: 3rem;"></i>
+                            <p class="mt-2">@(emailListeTab == "gelen" ? "Gelen e-posta bulunamadý" : "Gönderilen e-posta bulunamadý")</p>
+                        </div>
+                    }
                     else
                     {
                         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th>Tarih</th>
-                                        <th>Alýcý</th>
-                                        @if (!isWhatsApp)
-                                        {
-                                            <th>Konu</th>
-                                        }
-                                        <th>Durum</th>
-                                        <th>Mesaj</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var mesaj in gonderilenMesajlar)
-                                    {
+                            @if (isWhatsApp)
+                            {
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light sticky-top">
                                         <tr>
-                                            <td>
-                                                <small>@mesaj.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
-                                            </td>
-                                            <td>
-                                                <strong>@mesaj.DisAlici</strong>
-                                            </td>
-                                            @if (!isWhatsApp)
-                                            {
-                                                <td>@mesaj.Konu</td>
-                                            }
-                                            <td>
-                                                <span class="badge @GetDurumBadge(mesaj.Durum)">
-                                                    @GetDurumAdi(mesaj.Durum)
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <small class="text-muted">@(mesaj.Icerik.Length > 50 ? mesaj.Icerik[..50] + "..." : mesaj.Icerik)</small>
-                                            </td>
+                                            <th>Tarih</th>
+                                            <th>Alýcý</th>
+                                            <th>Durum</th>
+                                            <th>Mesaj</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var mesaj in gonderilenMesajlar)
+                                        {
+                                            <tr>
+                                                <td><small>@mesaj.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
+                                                <td><strong>@mesaj.DisAlici</strong></td>
+                                                <td>
+                                                    <span class="badge @GetDurumBadge(mesaj.Durum)">@GetDurumAdi(mesaj.Durum)</span>
+                                                </td>
+                                                <td><small class="text-muted">@(mesaj.Icerik.Length > 50 ? mesaj.Icerik[..50] + "..." : mesaj.Icerik)</small></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                            else
+                            {
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th>Tarih</th>
+                                            <th>@(emailListeTab == "gelen" ? "Kimden" : "Kime")</th>
+                                            <th>Konu</th>
+                                            <th>Durum</th>
+                                            <th>Özet</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var mail in AktifEmailListesi)
+                                        {
+                                            <tr class="@(!mail.Okundu && emailListeTab == "gelen" ? "table-light" : "")">
+                                                <td><small>@mail.Tarih.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
+                                                <td><strong>@(emailListeTab == "gelen" ? mail.Kimden : mail.Kime)</strong></td>
+                                                <td>@mail.Baslik</td>
+                                                <td>
+                                                    <span class="badge @(mail.GelenMi ? (mail.Okundu ? "bg-success" : "bg-warning text-dark") : GetDurumBadge(mail.Durum))">
+                                                        @(mail.GelenMi ? (mail.Okundu ? "Okundu" : "Yeni") : GetDurumAdi(mail.Durum))
+                                                    </span>
+                                                </td>
+                                                <td><small class="text-muted">@mail.Ozet</small></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
                         </div>
                     }
                 </div>
@@ -285,15 +328,46 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Port</label>
+                                    <label class="form-label">SMTP Port</label>
                                     <input type="number" class="form-control" @bind="emailAyar.SmtpPort" />
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">SSL</label>
+                                    <label class="form-label">SMTP SSL</label>
                                     <div class="form-check mt-2">
                                         <input class="form-check-input" type="checkbox" @bind="emailAyar.SslKullan" />
+                                        <label class="form-check-label">SSL Kullan</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">IMAP Sunucu</label>
+                                    <input type="text" class="form-control" @bind="emailAyar.ImapSunucu" placeholder="imap.gmail.com" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">IMAP Port</label>
+                                    <input type="number" class="form-control" @bind="emailAyar.ImapPort" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Gelen Klasörü</label>
+                                    <input type="text" class="form-control" @bind="emailAyar.GelenKlasoru" placeholder="INBOX" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">IMAP SSL</label>
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" @bind="emailAyar.ImapSslKullan" />
                                         <label class="form-check-label">SSL Kullan</label>
                                     </div>
                                 </div>
@@ -310,6 +384,10 @@
                         <div class="mb-3">
                             <label class="form-label">Gönderen Adý</label>
                             <input type="text" class="form-control" @bind="emailAyar.GonderenAdi" placeholder="CRM Filo Servis" />
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" @bind="emailAyar.GelenKutusuAktif" />
+                            <label class="form-check-label">Gelen kutusu senkronizasyonu aktif</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" @bind="emailAyar.Aktif" />
@@ -340,9 +418,12 @@
     private bool topluGonderim = false;
     private List<Cari> cariler = new();
     private List<Mesaj> gonderilenMesajlar = new();
+    private List<EmailListeItem> gonderilenEmailListesi = new();
+    private List<EmailListeItem> gelenEmailListesi = new();
     private List<int> secilenCariIds = new();
     private List<HizliSablonModel> hizliSablonlar = new();
     private int? aktifKullaniciId;
+    private string emailListeTab = "gonderilen";
 
     // Gönderim
     private int secilenCariId = 0;
@@ -357,6 +438,7 @@
     private WhatsAppAyar? whatsappAyar;
 
     private bool IsWhatsApp => NavigationManager.Uri.Contains("/whatsapp");
+    private List<EmailListeItem> AktifEmailListesi => emailListeTab == "gelen" ? gelenEmailListesi : gonderilenEmailListesi;
 
     protected override async Task OnInitializedAsync()
     {
@@ -377,21 +459,36 @@
 
             if (aktifKullaniciId.HasValue)
             {
-                var tumMesajlar = await CRMService.GetGonderilenMesajlarAsync(aktifKullaniciId.Value);
-                gonderilenMesajlar = tumMesajlar
-                    .Where(m => m.Tip == (IsWhatsApp ? MesajTipi.WhatsApp : MesajTipi.Email))
-                    .OrderByDescending(m => m.CreatedAt)
-                    .Take(50)
-                    .ToList();
-
                 if (IsWhatsApp)
                 {
+                    var tumMesajlar = await CRMService.GetGonderilenMesajlarAsync(aktifKullaniciId.Value);
+                    gonderilenMesajlar = tumMesajlar
+                        .Where(m => m.Tip == MesajTipi.WhatsApp)
+                        .OrderByDescending(m => m.CreatedAt)
+                        .Take(50)
+                        .ToList();
+
                     whatsappAyar = await CRMService.GetWhatsAppAyarAsync(aktifKullaniciId) ?? new WhatsAppAyar
                     {
                         KullaniciId = aktifKullaniciId,
                         Aktif = false
                     };
                     HizliSablonlariYukle();
+                }
+                else
+                {
+                    emailAyar = await CRMService.GetEmailAyarAsync(aktifKullaniciId) ?? new EmailAyar
+                    {
+                        KullaniciId = aktifKullaniciId,
+                        SmtpPort = 587,
+                        SslKullan = true,
+                        ImapPort = 993,
+                        ImapSslKullan = true,
+                        GelenKlasoru = "INBOX",
+                        Aktif = false
+                    };
+
+                    await EmailListeleriniYenile();
                 }
             }
         }
@@ -403,6 +500,17 @@
         {
             isLoading = false;
         }
+    }
+
+    private async Task EmailListeleriniYenile()
+    {
+        if (!aktifKullaniciId.HasValue)
+        {
+            return;
+        }
+
+        gonderilenEmailListesi = await CRMService.GetGonderilenEmailListAsync(aktifKullaniciId.Value);
+        gelenEmailListesi = await CRMService.GetGelenEmailListAsync(aktifKullaniciId.Value);
     }
 
     private void CariSecildi()
@@ -626,6 +734,9 @@
                 KullaniciId = aktifKullaniciId,
                 SmtpPort = 587,
                 SslKullan = true,
+                ImapPort = 993,
+                ImapSslKullan = true,
+                GelenKlasoru = "INBOX",
                 Aktif = false
             };
         }
@@ -650,6 +761,7 @@
             else if (!IsWhatsApp && emailAyar != null)
             {
                 await CRMService.SaveEmailAyarAsync(emailAyar);
+                await EmailListeleriniYenile();
             }
 
             ToastService.ShowSuccess("Ayarlar kaydedildi.");

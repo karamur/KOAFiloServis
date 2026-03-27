@@ -1,6 +1,11 @@
 using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using MailKit.Net.Imap;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
+using MimeKit;
+using System.Text.RegularExpressions;
 
 namespace CRMFiloServis.Web.Services;
 
@@ -26,6 +31,8 @@ public interface ICRMService
     Task<EmailAyar?> GetEmailAyarAsync(int? kullaniciId = null);
     Task<EmailAyar> SaveEmailAyarAsync(EmailAyar ayar);
     Task<bool> SendEmailAsync(int gonderenId, string aliciEmail, string konu, string icerik);
+    Task<List<EmailListeItem>> GetGonderilenEmailListAsync(int kullaniciId, int maxCount = 50);
+    Task<List<EmailListeItem>> GetGelenEmailListAsync(int kullaniciId, int maxCount = 50);
 
     // WhatsApp
     Task<WhatsAppAyar?> GetWhatsAppAyarAsync(int? kullaniciId = null);
@@ -50,6 +57,18 @@ public interface ICRMService
     // Dashboard Widget
     Task<List<DashboardWidget>> GetDashboardWidgetlarAsync(int kullaniciId);
     Task SaveDashboardWidgetlarAsync(int kullaniciId, List<DashboardWidget> widgets);
+}
+
+public class EmailListeItem
+{
+    public string Baslik { get; set; } = string.Empty;
+    public string Kimden { get; set; } = string.Empty;
+    public string Kime { get; set; } = string.Empty;
+    public string Ozet { get; set; } = string.Empty;
+    public DateTime Tarih { get; set; }
+    public bool Okundu { get; set; }
+    public MesajDurum Durum { get; set; } = MesajDurum.Gonderildi;
+    public bool GelenMi { get; set; }
 }
 
 public class CRMService : ICRMService
@@ -231,14 +250,28 @@ public class CRMService : ICRMService
             var ayar = await GetEmailAyarAsync(gonderenId) ?? await GetEmailAyarAsync();
             if (ayar == null)
             {
-                _logger.LogWarning("Email ayarlarý bulunamadý");
+                _logger.LogWarning("Email ayarlari bulunamadi");
                 return false;
             }
 
-            // TODO: Email gönderme implementasyonu
-            // MailKit veya System.Net.Mail ile email gönder
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(ayar.GonderenAdi ?? ayar.Email, ayar.Email));
+            message.To.Add(MailboxAddress.Parse(aliciEmail));
+            message.Subject = konu;
+            message.Body = new TextPart("plain") { Text = icerik };
 
-            // Mesaj kaydý oluþtur
+            using var smtp = new SmtpClient();
+            var secureSocket = ayar.SslKullan ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
+            await smtp.ConnectAsync(ayar.SmtpSunucu, ayar.SmtpPort, secureSocket);
+
+            if (!string.IsNullOrWhiteSpace(ayar.Sifre))
+            {
+                await smtp.AuthenticateAsync(ayar.Email, ayar.Sifre);
+            }
+
+            await smtp.SendAsync(message);
+            await smtp.DisconnectAsync(true);
+
             await SendMesajAsync(new Mesaj
             {
                 GonderenId = gonderenId,
@@ -253,9 +286,115 @@ public class CRMService : ICRMService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Email gönderilirken hata");
+            _logger.LogError(ex, "Email gonderilirken hata");
+
+            try
+            {
+                await SendMesajAsync(new Mesaj
+                {
+                    GonderenId = gonderenId,
+                    Konu = konu,
+                    Icerik = icerik,
+                    Tip = MesajTipi.Email,
+                    DisAlici = aliciEmail,
+                    Durum = MesajDurum.Hata
+                });
+            }
+            catch
+            {
+            }
+
             return false;
         }
+    }
+
+    public async Task<List<EmailListeItem>> GetGonderilenEmailListAsync(int kullaniciId, int maxCount = 50)
+    {
+        return await _context.Mesajlar
+            .Where(m => m.GonderenId == kullaniciId && m.Tip == MesajTipi.Email)
+            .OrderByDescending(m => m.CreatedAt)
+            .Take(maxCount)
+            .Select(m => new EmailListeItem
+            {
+                Baslik = m.Konu,
+                Kimden = string.Empty,
+                Kime = m.DisAlici ?? string.Empty,
+                Ozet = m.Icerik.Length > 120 ? m.Icerik.Substring(0, 120) + "..." : m.Icerik,
+                Tarih = m.CreatedAt,
+                Okundu = m.Durum == MesajDurum.Okundu,
+                Durum = m.Durum,
+                GelenMi = false
+            })
+            .ToListAsync();
+    }
+
+    public async Task<List<EmailListeItem>> GetGelenEmailListAsync(int kullaniciId, int maxCount = 50)
+    {
+        var ayar = await GetEmailAyarAsync(kullaniciId) ?? await GetEmailAyarAsync();
+        if (ayar == null || !ayar.GelenKutusuAktif || string.IsNullOrWhiteSpace(ayar.ImapSunucu) || string.IsNullOrWhiteSpace(ayar.Email))
+        {
+            return new List<EmailListeItem>();
+        }
+
+        try
+        {
+            using var client = new ImapClient();
+            var secureSocket = ayar.ImapSslKullan ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable;
+            await client.ConnectAsync(ayar.ImapSunucu, ayar.ImapPort, secureSocket);
+
+            if (!string.IsNullOrWhiteSpace(ayar.Sifre))
+            {
+                await client.AuthenticateAsync(ayar.Email, ayar.Sifre);
+            }
+
+            var klasor = await client.GetFolderAsync(ayar.GelenKlasoru ?? "INBOX");
+            await klasor.OpenAsync(MailKit.FolderAccess.ReadOnly);
+
+            var sonuc = new List<EmailListeItem>();
+            var baslangic = Math.Max(0, klasor.Count - maxCount);
+
+            for (var i = klasor.Count - 1; i >= baslangic; i--)
+            {
+                var mail = await klasor.GetMessageAsync(i);
+                sonuc.Add(new EmailListeItem
+                {
+                    Baslik = mail.Subject ?? "(Konu yok)",
+                    Kimden = mail.From.ToString(),
+                    Kime = string.Join(", ", mail.To.Select(t => t.ToString())),
+                    Ozet = GetOzetMetin(mail),
+                    Tarih = mail.Date != DateTimeOffset.MinValue ? mail.Date.UtcDateTime : DateTime.UtcNow,
+                    Okundu = true,
+                    Durum = MesajDurum.Gonderildi,
+                    GelenMi = true
+                });
+            }
+
+            await client.DisconnectAsync(true);
+            return sonuc.OrderByDescending(x => x.Tarih).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Gelen emailler okunurken hata");
+            return new List<EmailListeItem>();
+        }
+    }
+
+    private static string GetOzetMetin(MimeMessage mail)
+    {
+        var icerik = mail.TextBody;
+
+        if (string.IsNullOrWhiteSpace(icerik) && !string.IsNullOrWhiteSpace(mail.HtmlBody))
+        {
+            icerik = Regex.Replace(mail.HtmlBody, "<.*?>", " ");
+        }
+
+        if (string.IsNullOrWhiteSpace(icerik))
+        {
+            return string.Empty;
+        }
+
+        icerik = Regex.Replace(icerik, "\\s+", " ").Trim();
+        return icerik.Length > 140 ? icerik[..140] + "..." : icerik;
     }
 
     #endregion
@@ -292,7 +431,7 @@ public class CRMService : ICRMService
             var ayar = await GetWhatsAppAyarAsync(gonderenId) ?? await GetWhatsAppAyarAsync();
             if (ayar == null || string.IsNullOrEmpty(ayar.ApiKey))
             {
-                _logger.LogWarning("WhatsApp ayarlarý bulunamadý");
+                _logger.LogWarning("WhatsApp ayarlari bulunamadi");
                 return false;
             }
 
