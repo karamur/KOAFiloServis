@@ -1,4 +1,4 @@
-@page "/butce"
+ï»¿@page "/butce"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
@@ -195,7 +195,7 @@
                 <div class="card">
                     <div class="card-header py-2 d-flex justify-content-between align-items-center">
                         <h6 class="mb-0"><i class="bi bi-credit-card me-2"></i>Kredi/Taksitler</h6>
-                        <a href="/butce/kredi-taksitler" class="btn btn-outline-info btn-sm py-0">Tümü</a>
+                        <a href="/butce/kredi-taksitler" class="btn btn-outline-info btn-sm py-0">TÃ¼mÃ¼</a>
                     </div>
                     <div class="card-body p-0">
                         <div class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;">
@@ -717,7 +717,7 @@
                                         {
                                             <div class="alert alert-warning py-1 px-2 mt-2 mb-0" style="font-size: 11px;">
                                                 <i class="bi bi-info-circle me-1"></i>
-                                                Taksit toplamý ile toplam tutar eþit olmalý!
+                                                Taksit toplamÄ± ile toplam tutar eÅŸit olmalÄ±!
                                             </div>
                                         }
                                     </div>
@@ -727,7 +727,7 @@
                             {
                                 <div class="alert alert-info text-center mt-5">
                                     <i class="bi bi-info-circle" style="font-size: 2rem;"></i>
-                                    <p class="mb-0 mt-2">Taksit sayisi 2 veya daha fazla olduðunda taksit plani burada gorunecek</p>
+                                    <p class="mb-0 mt-2">Taksit sayisi 2 veya daha fazla olduÄŸunda taksit plani burada gorunecek</p>
                                 </div>
                             }
                         </div>
@@ -900,245 +900,69 @@
     </div>
 }
 
-<!-- Tekrarlayan Odeme Listesi Modal -->
-@if (showTekrarlayanListeModal)
+<!-- Aylik Liste On Izleme/Yazdir Modal -->
+@if (showAylikListeModal)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>Tekrarlayan Odeme Planlari</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="ModalKapat"></button>
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-printer me-2"></i>AylÄ±k Liste Ã–n Ä°zleme / YazdÄ±r</h5>
+                    <button type="button" class="btn-close" @onclick="ModalKapat"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-                        <span class="text-muted">@(tekrarlayanOdemeler?.Count ?? 0) plan tanimli</span>
-                        <button class="btn btn-danger btn-sm" @onclick="YeniTekrarlayanOdemeAc">
-                            <i class="bi bi-plus-lg me-1"></i>Yeni Plan
-                        </button>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover table-sm mb-0">
+                    <div id="printArea" class="p-4 bg-white text-dark">
+                        <div class="text-center mb-4">
+                            <h4>Ã–deme Listesi</h4>
+                            <p class="text-muted">DÃ¶nem: @GetAyAdi(aktifTakvimAy) @secilenYil</p>
+                        </div>
+                        <table class="table table-bordered table-sm w-100" style="font-size: 0.9rem;">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Odeme Adi</th>
+                                    <th>Tarih</th>
                                     <th>Masraf Kalemi</th>
+                                    <th>AÃ§Ä±klama</th>
+                                    <th class="text-center">Taksit</th>
                                     <th class="text-end">Tutar</th>
-                                    <th class="text-center">Periyod</th>
-                                    <th class="text-center">Gun</th>
-                                    <th class="text-center">Durum</th>
-                                    <th class="text-center">Islem</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @if (tekrarlayanOdemeler != null)
+                                @foreach (var odeme in bekleyenOdemeler)
                                 {
-                                    @foreach (var plan in tekrarlayanOdemeler)
-                                    {
-                                        <tr class="@(!plan.Aktif ? "table-secondary" : "")">
-                                            <td>
-                                                <i class="@(plan.Icon ?? "bi-arrow-repeat") me-1" style="color: @(plan.Renk ?? "#dc3545")"></i>
-                                                <strong>@plan.OdemeAdi</strong>
-                                                @if (!string.IsNullOrEmpty(plan.Aciklama))
-                                                {
-                                                    <br /><small class="text-muted">@plan.Aciklama</small>
-                                                }
-                                            </td>
-                                            <td>@plan.MasrafKalemi</td>
-                                            <td class="text-end"><strong>@FormatPara(plan.Tutar)</strong></td>
-                                            <td class="text-center"><span class="badge bg-info">@GetPeriyodAdi(plan.Periyod)</span></td>
-                                            <td class="text-center">@plan.OdemeGunu</td>
-                                            <td class="text-center">
-                                                <span class="badge @(plan.Aktif ? "bg-success" : "bg-secondary")">
-                                                    @(plan.Aktif ? "Aktif" : "Pasif")
-                                                </span>
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-primary py-0" @onclick="() => TekrarlayanOdemeDuzenle(plan)">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-danger py-0" @onclick="() => TekrarlayanOdemeSilOnay(plan)">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
+                                    <tr>
+                                        <td>@odeme.OdemeTarihi.ToString("dd.MM.yyyy")</td>
+                                        <td><strong>@odeme.MasrafKalemi</strong></td>
+                                        <td>@odeme.Aciklama</td>
+                                        <td class="text-center">
+                                            @if (odeme.TaksitliMi)
+                                            {
+                                                <span>@odeme.KacinciTaksit/@odeme.ToplamTaksitSayisi</span>
+                                            }
+                                            else
+                                            {
+                                                <span>-</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">@odeme.Miktar.ToString("N2") TL</td>
+                                    </tr>
                                 }
                             </tbody>
+                            <tfoot class="table-light fw-bold">
+                                <tr>
+                                    <td colspan="4" class="text-end">TOPLAM:</td>
+                                    <td class="text-end">@bekleyenOdemeler.Sum(o => o.Miktar).ToString("N2") TL</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
-                    @if (tekrarlayanOdemeler != null && tekrarlayanOdemeler.Any())
-                    {
-                        <div class="p-3 bg-light border-top">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <small class="text-muted">
-                                    Aylik toplam: <strong>@FormatPara(tekrarlayanOdemeler.Where(t => t.Aktif && t.Periyod == TekrarPeriyodu.Aylik).Sum(t => t.Tutar))</strong>
-                                </small>
-                                <button class="btn btn-outline-danger btn-sm" @onclick="TekrarlayanOdemeleriSimdiOlustur">
-                                    <i class="bi bi-lightning me-1"></i>Bu Ay Icin Kayitlari Olustur
-                                </button>
-                            </div>
-                        </div>
-                    }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-<!-- Excel Yukle Modal -->
-@if (showExcelModal)
-{
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-file-earmark-excel me-2"></i>Excel'den Yukle</h5>
-                    <button type="button" class="btn-close" @onclick="ModalKapat"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Excel Dosyasi Sec</label>
-                        <InputFile class="form-control" OnChange="ExcelDosyaSecildi" accept=".xlsx,.xls" />
-                    </div>
-                    <div class="alert alert-info py-2">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Sablon dosyasiniindirip doldurduktan sonra yukleyin.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-info" @onclick="SablonIndir">
-                        <i class="bi bi-download me-1"></i>Sablon Indir
+                    <button type="button" class="btn btn-primary" @onclick="AylikListeExcelAktar">
+                        <i class="bi bi-file-excel me-1"></i>Excel Ä°ndir
                     </button>
-                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Iptal</button>
-                    <button type="button" class="btn btn-success" @onclick="ExcelYukle" disabled="@(excelDosya == null)">
-                        <i class="bi bi-upload me-1"></i>Yukle
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-<!-- Tekrarlayan Odeme Yeni/Duzenle Modal -->
-@if (showTekrarlayanModal)
-{
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>@(editTekrarlayan.Id > 0 ? "Tekrarlayan Odeme Duzenle" : "Yeni Tekrarlayan Odeme")</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="ModalKapat"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-info py-2 mb-3">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Tekrarlayan odemeler, belirlediginiz periyotta otomatik olarak takvime eklenir.
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Odeme Adi *</label>
-                        <input type="text" class="form-control" @bind="editTekrarlayan.OdemeAdi" placeholder="Ornek: Ofis Kirasi" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Masraf Kalemi *</label>
-                        <input type="text" class="form-control" @bind="editTekrarlayan.MasrafKalemi" list="masrafListTekrar" />
-                        <datalist id="masrafListTekrar">
-                            @if (masrafKalemleri != null)
-                            {
-                                @foreach (var k in masrafKalemleri)
-                                {
-                                    <option value="@k.KalemAdi" />
-                                }
-                            }
-                        </datalist>
-                    </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">Tutar *</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" @bind="editTekrarlayan.Tutar" step="0.01" />
-                                    <span class="input-group-text">TL</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">Odeme Gunu *</label>
-                                <input type="number" class="form-control" @bind="editTekrarlayan.OdemeGunu" min="1" max="31" />
-                                <small class="text-muted">Ayin kacinci gunu</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Tekrar Periyodu *</label>
-                        <select class="form-select" @bind="editTekrarlayan.Periyod">
-                            <option value="@TekrarPeriyodu.Aylik">Her Ay</option>
-                            <option value="@TekrarPeriyodu.IkiAylik">2 Ayda Bir</option>
-                            <option value="@TekrarPeriyodu.UcAylik">3 Ayda Bir</option>
-                            <option value="@TekrarPeriyodu.AltiAylik">6 Ayda Bir</option>
-                            <option value="@TekrarPeriyodu.Yillik">Yilda Bir</option>
-                        </select>
-                    </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">Baslangic Tarihi *</label>
-                                <input type="date" class="form-control" @bind="editTekrarlayan.BaslangicTarihi" />
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">Bitis Tarihi</label>
-                                <input type="date" class="form-control" @bind="editTekrarlayan.BitisTarihi" />
-                                <small class="text-muted">Bos birakilirsa suresiz</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Firma</label>
-                        <select class="form-select" @bind="editTekrarlayan.FirmaId">
-                            <option value="">Firma Secin...</option>
-                            @if (firmalar != null)
-                            {
-                                @foreach (var f in firmalar)
-                                {
-                                    <option value="@f.Id">@f.FirmaAdi</option>
-                                }
-                            }
-                        </select>
-                    </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">Hatirlatma (gun once)</label>
-                                <input type="number" class="form-control" @bind="editTekrarlayan.HatirlatmaGunSayisi" min="0" max="30" />
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">Durum</label>
-                                <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" @bind="editTekrarlayan.Aktif" />
-                                    <label class="form-check-label">@(editTekrarlayan.Aktif ? "Aktif" : "Pasif")</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Aciklama</label>
-                        <input type="text" class="form-control" @bind="editTekrarlayan.Aciklama" />
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Iptal</button>
-                    <button type="button" class="btn btn-danger" @onclick="TekrarlayanOdemeKaydet">
-                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    <button type="button" class="btn btn-success" @onclick="AylikListeYazdir">
+                        <i class="bi bi-printer me-1"></i>YazdÄ±r
                     </button>
                 </div>
             </div>
@@ -1434,7 +1258,7 @@
     {
         if (!TaksitKaydetmeGecerliMi())
         {
-            ToastService.ShowWarning("Lütfen taksit planýný kontrol edin!");
+            ToastService.ShowWarning("LÃ¼tfen taksit planÄ±nÄ± kontrol edin!");
             return;
         }
 
@@ -1575,7 +1399,7 @@
             link.click();
         ");
 
-        ToastService.ShowSuccess("Excel dosyasý indirildi!");
+        ToastService.ShowSuccess("Excel dosyasÄ± indirildi!");
     }
 
     private string GetAyAdi(int ay) => AyAdlari[ay];
@@ -1730,7 +1554,7 @@
 
             ToastService.ShowSuccess("Tekrarlayan odeme kaydedildi.");
             
-            // Modalý kapat, listeyi yenile
+            // ModalÄ± kapat, listeyi yenile
             showTekrarlayanModal = false;
             tekrarlayanOdemeler = await BudgetService.GetTekrarlayanOdemelerAsync(secilenFirmaId > 0 ? secilenFirmaId : null);
             StateHasChanged();
@@ -1769,7 +1593,7 @@
             
             if (olusturulan > 0)
             {
-                ToastService.ShowSuccess($"{olusturulan} tekrarlayan odeme kaydý olusturuldu.");
+                ToastService.ShowSuccess($"{olusturulan} tekrarlayan odeme kaydÄ± olusturuldu.");
                 ModalKapat();
                 await YenileDataAsync();
             }
