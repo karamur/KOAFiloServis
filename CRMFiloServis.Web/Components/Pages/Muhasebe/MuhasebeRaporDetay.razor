@@ -1,0 +1,246 @@
+@page "/muhasebe/raporlar/muavin"
+@page "/muhasebe/raporlar/yevmiye"
+@page "/muhasebe/raporlar/mizan"
+@page "/muhasebe/raporlar/bilanco"
+@page "/muhasebe/resmi-raporlar"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IMuhasebeService MuhasebeService
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Muhasebe Resmi Raporlar</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3><i class="bi bi-file-earmark-bar-graph me-2"></i>@Baslik</h3>
+            <small class="text-muted">Resmi muhasebe rapor görüntüleme ekraný</small>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/muhasebe/raporlar")'>
+                <i class="bi bi-arrow-left me-1"></i>Raporlara Dön
+            </button>
+            <button class="btn btn-primary" @onclick="YukleAsync">
+                <i class="bi bi-search me-1"></i>Raporu Getir
+            </button>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            @if (RaporTip == "muavin")
+            {
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Hesap Kodu</label>
+                        <input class="form-control" @bind="hesapKodu" placeholder="100, 120, 320..." />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Baþlangýç</label>
+                        <input type="date" class="form-control" @bind="baslangic" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Bitiþ</label>
+                        <input type="date" class="form-control" @bind="bitis" />
+                    </div>
+                </div>
+            }
+            else if (RaporTip == "bilanco")
+            {
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Tarih</label>
+                        <input type="date" class="form-control" @bind="tarih" />
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Baþlangýç</label>
+                        <input type="date" class="form-control" @bind="baslangic" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Bitiþ</label>
+                        <input type="date" class="form-control" @bind="bitis" />
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else if (RaporTip == "muavin" && muavinRapor != null)
+    {
+        <div class="card">
+            <div class="card-header bg-primary text-white">@muavinRapor.HesapKodu - @muavinRapor.HesapAdi</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>Tarih</th><th>Fiþ No</th><th>Açýklama</th><th class="text-end">Borç</th><th class="text-end">Alacak</th><th class="text-end">Bakiye</th></tr></thead>
+                    <tbody>
+                        @foreach (var s in muavinRapor.Satirlar)
+                        {
+                            <tr>
+                                <td>@s.Tarih.ToString("dd.MM.yyyy")</td>
+                                <td>@s.FisNo</td>
+                                <td>@s.Aciklama</td>
+                                <td class="text-end">@(s.Borc > 0 ? FormatPara(s.Borc) : "")</td>
+                                <td class="text-end">@(s.Alacak > 0 ? FormatPara(s.Alacak) : "")</td>
+                                <td class="text-end">@FormatPara(s.Bakiye)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else if (RaporTip == "yevmiye" && yevmiyeRapor != null)
+    {
+        <div class="card">
+            <div class="card-header bg-success text-white">Yevmiye Defteri</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>Tarih</th><th>Fiþ No</th><th>Hesap</th><th>Açýklama</th><th class="text-end">Borç</th><th class="text-end">Alacak</th></tr></thead>
+                    <tbody>
+                        @foreach (var s in yevmiyeRapor.Satirlar)
+                        {
+                            <tr>
+                                <td>@s.Tarih.ToString("dd.MM.yyyy")</td>
+                                <td>@s.FisNo</td>
+                                <td>@s.HesapKodu - @s.HesapAdi</td>
+                                <td>@s.Aciklama</td>
+                                <td class="text-end">@(s.Borc > 0 ? FormatPara(s.Borc) : "")</td>
+                                <td class="text-end">@(s.Alacak > 0 ? FormatPara(s.Alacak) : "")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else if (RaporTip == "mizan" && mizanRapor != null)
+    {
+        <div class="card">
+            <div class="card-header bg-info text-white">Mizan</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>Hesap Kodu</th><th>Hesap Adý</th><th class="text-end">Borç</th><th class="text-end">Alacak</th><th class="text-end">Borç Bakiye</th><th class="text-end">Alacak Bakiye</th></tr></thead>
+                    <tbody>
+                        @foreach (var s in mizanRapor.Satirlar)
+                        {
+                            <tr>
+                                <td>@s.HesapKodu</td>
+                                <td>@s.HesapAdi</td>
+                                <td class="text-end">@FormatPara(s.Borc)</td>
+                                <td class="text-end">@FormatPara(s.Alacak)</td>
+                                <td class="text-end">@FormatPara(s.BorcBakiye)</td>
+                                <td class="text-end">@FormatPara(s.AlacakBakiye)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else if (RaporTip == "bilanco" && bilancoRapor != null)
+    {
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light"><strong>Aktifler</strong></div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var k in bilancoRapor.DonenVarliklar.Concat(bilancoRapor.DuranVarliklar))
+                        {
+                            <li class="list-group-item d-flex justify-content-between"><span>@k.HesapKodu - @k.HesapAdi</span><strong>@FormatPara(k.Tutar)</strong></li>
+                        }
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light"><strong>Pasifler</strong></div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var k in bilancoRapor.KisaVadeliYabanciKaynaklar.Concat(bilancoRapor.UzunVadeliYabanciKaynaklar).Concat(bilancoRapor.Ozkaynaklar))
+                        {
+                            <li class="list-group-item d-flex justify-content-between"><span>@k.HesapKodu - @k.HesapAdi</span><strong>@FormatPara(k.Tutar)</strong></li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    }
+    else if (RaporTip == "resmi-raporlar")
+    {
+        <div class="row g-3">
+            <div class="col-md-3"><a class="btn btn-outline-primary w-100" href="/muhasebe/raporlar/muavin">Muavin</a></div>
+            <div class="col-md-3"><a class="btn btn-outline-success w-100" href="/muhasebe/raporlar/yevmiye">Yevmiye</a></div>
+            <div class="col-md-3"><a class="btn btn-outline-info w-100" href="/muhasebe/raporlar/mizan">Mizan</a></div>
+            <div class="col-md-3"><a class="btn btn-outline-danger w-100" href="/muhasebe/raporlar/bilanco">Bilanço</a></div>
+        </div>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? hesapKodu { get; set; }
+    [SupplyParameterFromQuery] public DateTime? baslangicQ { get; set; }
+    [SupplyParameterFromQuery] public DateTime? bitisQ { get; set; }
+
+    private string RaporTip => Navigation.ToBaseRelativePath(Navigation.Uri).Split('/').Last().ToLowerInvariant();
+    private string Baslik => RaporTip switch { "muavin" => "Muavin Raporu", "yevmiye" => "Yevmiye Defteri", "mizan" => "Mizan", "bilanco" => "Bilanço", _ => "Resmi Muhasebe Raporlarý" };
+    private bool isLoading;
+    private DateTime baslangic = new(DateTime.Today.Year, 1, 1);
+    private DateTime bitis = DateTime.Today;
+    private DateTime tarih = DateTime.Today;
+    private MuavinRapor? muavinRapor;
+    private YevmiyeRapor? yevmiyeRapor;
+    private MizanRapor? mizanRapor;
+    private BilancoRapor? bilancoRapor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (baslangicQ.HasValue) baslangic = baslangicQ.Value;
+        if (bitisQ.HasValue) bitis = bitisQ.Value;
+        if (RaporTip != "resmi-raporlar")
+            await YukleAsync();
+    }
+
+    private async Task YukleAsync()
+    {
+        isLoading = true;
+        try
+        {
+            switch (RaporTip)
+            {
+                case "muavin":
+                    if (string.IsNullOrWhiteSpace(hesapKodu)) { ToastService.ShowWarning("Hesap kodu girin."); return; }
+                    muavinRapor = await MuhasebeService.GetMuavinRaporuAsync(hesapKodu, baslangic, bitis);
+                    break;
+                case "yevmiye":
+                    yevmiyeRapor = await MuhasebeService.GetYevmiyeRaporuAsync(baslangic, bitis);
+                    break;
+                case "mizan":
+                    mizanRapor = await MuhasebeService.GetMizanRaporuAsync(baslangic, bitis);
+                    break;
+                case "bilanco":
+                    bilancoRapor = await MuhasebeService.GetBilancoRaporuAsync(tarih);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Rapor yüklenemedi: " + ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string FormatPara(decimal tutar) => tutar.ToString("N2") + " TL";
+}

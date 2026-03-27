@@ -1,14 +1,17 @@
-@page "/mali-analiz"
+﻿@page "/mali-analiz"
+@page "/muhasebe/analiz"
 @using CRMFiloServis.Web.Services
+@using CRMFiloServis.Shared.Entities
 @using Models = CRMFiloServis.Web.Models
 @inject IMaliAnalizService MaliAnalizService
+@inject IMuhasebeService MuhasebeService
 @rendermode InteractiveServer
 
 <PageTitle>Mali Analiz Dashboard</PageTitle>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3><i class="bi bi-graph-up-arrow me-2"></i>Mali Analiz Dashboard</h3>
+        <h3><i class="bi bi-graph-up-arrow me-2"></i>Mali Analiz ve Raporlar</h3>
         <div class="d-flex gap-2">
             <select class="form-select" style="width: 120px;" @bind="secilenYil" @bind:after="YenileData">
                 @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
@@ -17,6 +20,7 @@
                 }
             </select>
             <select class="form-select" style="width: 150px;" @bind="secilenAy" @bind:after="YenileData">
+                <option value="0">Tümü</option>
                 @for (int m = 1; m <= 12; m++)
                 {
                     <option value="@m">@(new DateTime(2024, m, 1).ToString("MMMM"))</option>
@@ -25,16 +29,42 @@
         </div>
     </div>
 
+    <!-- Sekmeler -->
+    <ul class="nav nav-tabs mb-4 border-0" style="gap: 5px;">
+        <li class="nav-item">
+            <button class="nav-link border-0 rounded-top @(aktifSekme == "genel" ? "bg-primary text-white" : "bg-light text-dark")" style="padding: 10px 20px; font-weight: 500;" @onclick='() => SekmeDegistir("genel")'>
+                <i class="bi bi-speedometer2 me-1"></i>Genel Özet
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link border-0 rounded-top @(aktifSekme == "gelirtablosu" ? "bg-primary text-white" : "bg-light text-dark")" style="padding: 10px 20px; font-weight: 500;" @onclick='() => SekmeDegistir("gelirtablosu")'>
+                <i class="bi bi-bar-chart-line me-1"></i>Gelir Tablosu
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link border-0 rounded-top @(aktifSekme == "bilanco" ? "bg-primary text-white" : "bg-light text-dark")" style="padding: 10px 20px; font-weight: 500;" @onclick='() => SekmeDegistir("bilanco")'>
+                <i class="bi bi-layout-split me-1"></i>Bilanço
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link border-0 rounded-top @(aktifSekme == "dupont" ? "bg-primary text-white" : "bg-light text-dark")" style="padding: 10px 20px; font-weight: 500;" @onclick='() => SekmeDegistir("dupont")'>
+                <i class="bi bi-diagram-3 me-1"></i>DuPont ve Rasyo Analizi
+            </button>
+        </li>
+    </ul>
+
     @if (isLoading)
     {
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Yukleniyor...</span>
+                <span class="visually-hidden">Yükleniyor...</span>
             </div>
         </div>
     }
-    else if (dashboard != null)
+    else
     {
+        @if (aktifSekme == "genel" && dashboard != null)
+        {
         <!-- Ozet Kartlar -->
         <div class="row mb-4">
             <div class="col-md-3">
@@ -49,7 +79,7 @@
                         </div>
                         <small class="@(dashboard.GelirDegisimOrani >= 0 ? "text-white" : "text-warning")">
                             <i class="bi @(dashboard.GelirDegisimOrani >= 0 ? "bi-arrow-up" : "bi-arrow-down")"></i>
-                            @Math.Abs(dashboard.GelirDegisimOrani).ToString("N1")% �nceki aya g�re
+                            @Math.Abs(dashboard.GelirDegisimOrani).ToString("N1")% önceki aya göre
                         </small>
                     </div>
                 </div>
@@ -66,7 +96,7 @@
                         </div>
                         <small class="@(dashboard.GiderDegisimOrani <= 0 ? "text-white" : "text-warning")">
                             <i class="bi @(dashboard.GiderDegisimOrani >= 0 ? "bi-arrow-up" : "bi-arrow-down")"></i>
-                            @Math.Abs(dashboard.GiderDegisimOrani).ToString("N1")% �nceki aya g�re
+                            @Math.Abs(dashboard.GiderDegisimOrani).ToString("N1")% önceki aya göre
                         </small>
                     </div>
                 </div>
@@ -89,7 +119,7 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h6 class="text-white-50">Karlilik Oran�</h6>
+                                <h6 class="text-white-50">Karlilik Oranı</h6>
                                 <h3 class="mb-0">%@dashboard.KarlilikOrani.ToString("N1")</h3>
                             </div>
                             <i class="bi bi-percent" style="font-size: 2.5rem; opacity: 0.5;"></i>
@@ -104,7 +134,7 @@
             <div class="col-md-4">
                 <div class="card h-100 border-success">
                     <div class="card-header bg-success text-white">
-                        <h6 class="mb-0"><i class="bi bi-truck me-2"></i>�zmal Ara�lar</h6>
+                        <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Özmal Araçlar</h6>
                     </div>
                     <div class="card-body">
                         <div class="row text-center mb-3">
@@ -123,17 +153,17 @@
                             <h4 class="@(dashboard.OzmalAracAnaliz.Kar >= 0 ? "text-success" : "text-danger") mb-0">
                                 @FormatPara(dashboard.OzmalAracAnaliz.Kar)
                             </h4>
-                            <small class="text-muted">Karl�l�k: %@dashboard.OzmalAracAnaliz.KarlilikOrani.ToString("N1")</small>
+                            <small class="text-muted">Karlılık: %@dashboard.OzmalAracAnaliz.KarlilikOrani.ToString("N1")</small>
                         </div>
                         <hr />
                         <div class="d-flex justify-content-between small">
-                            <span><i class="bi bi-truck me-1"></i>@dashboard.OzmalAracAnaliz.AracSayisi ara�</span>
+                            <span><i class="bi bi-truck me-1"></i>@dashboard.OzmalAracAnaliz.AracSayisi araç</span>
                             <span><i class="bi bi-arrow-repeat me-1"></i>@dashboard.OzmalAracAnaliz.SeferSayisi sefer</span>
                         </div>
                     </div>
                     <div class="card-footer bg-transparent">
                         <a href="/rapor/ozmal-arac" class="btn btn-outline-success btn-sm w-100">
-                            <i class="bi bi-file-earmark-text me-1"></i>Detayl� Rapor
+                            <i class="bi bi-file-earmark-text me-1"></i>Detaylı Rapor
                         </a>
                     </div>
                 </div>
@@ -141,12 +171,12 @@
             <div class="col-md-4">
                 <div class="card h-100 border-warning">
                     <div class="card-header bg-warning text-dark">
-                        <h6 class="mb-0"><i class="bi bi-building me-2"></i>Kiral�k Ara�lar</h6>
+                        <h6 class="mb-0"><i class="bi bi-building me-2"></i>Kiralık Araçlar</h6>
                     </div>
                     <div class="card-body">
                         <div class="row text-center mb-3">
                             <div class="col-6 border-end">
-                                <small class="text-muted">M��teriden</small>
+                                <small class="text-muted">Müşteriden</small>
                                 <h5 class="text-success mb-0">@FormatPara(dashboard.KiralikAracAnaliz.Gelir)</h5>
                             </div>
                             <div class="col-6">
@@ -160,17 +190,17 @@
                             <h4 class="@(dashboard.KiralikAracAnaliz.Kar >= 0 ? "text-success" : "text-danger") mb-0">
                                 @FormatPara(dashboard.KiralikAracAnaliz.Kar)
                             </h4>
-                            <small class="text-muted">Karl�l�k: %@dashboard.KiralikAracAnaliz.KarlilikOrani.ToString("N1")</small>
+                            <small class="text-muted">Karlılık: %@dashboard.KiralikAracAnaliz.KarlilikOrani.ToString("N1")</small>
                         </div>
                         <hr />
                         <div class="d-flex justify-content-between small">
-                            <span><i class="bi bi-truck me-1"></i>@dashboard.KiralikAracAnaliz.AracSayisi ara�</span>
+                            <span><i class="bi bi-truck me-1"></i>@dashboard.KiralikAracAnaliz.AracSayisi araç</span>
                             <span><i class="bi bi-arrow-repeat me-1"></i>@dashboard.KiralikAracAnaliz.SeferSayisi sefer</span>
                         </div>
                     </div>
                     <div class="card-footer bg-transparent">
                         <a href="/rapor/kiralik-arac" class="btn btn-outline-warning btn-sm w-100">
-                            <i class="bi bi-file-earmark-text me-1"></i>Detayl� Rapor
+                            <i class="bi bi-file-earmark-text me-1"></i>Detaylı Rapor
                         </a>
                     </div>
                 </div>
@@ -178,7 +208,7 @@
             <div class="col-md-4">
                 <div class="card h-100 border-info">
                     <div class="card-header bg-info text-white">
-                        <h6 class="mb-0"><i class="bi bi-percent me-2"></i>Komisyon ��leri</h6>
+                        <h6 class="mb-0"><i class="bi bi-percent me-2"></i>Komisyon İşleri</h6>
                     </div>
                     <div class="card-body">
                         <div class="row text-center mb-3">
@@ -197,17 +227,17 @@
                             <h4 class="@(dashboard.KomisyonAnaliz.Kar >= 0 ? "text-success" : "text-danger") mb-0">
                                 @FormatPara(dashboard.KomisyonAnaliz.Kar)
                             </h4>
-                            <small class="text-muted">Karl�l�k: %@dashboard.KomisyonAnaliz.KarlilikOrani.ToString("N1")</small>
+                            <small class="text-muted">Karlılık: %@dashboard.KomisyonAnaliz.KarlilikOrani.ToString("N1")</small>
                         </div>
                         <hr />
                         <div class="d-flex justify-content-between small">
-                            <span><i class="bi bi-truck me-1"></i>@dashboard.KomisyonAnaliz.AracSayisi ara�</span>
+                            <span><i class="bi bi-truck me-1"></i>@dashboard.KomisyonAnaliz.AracSayisi araç</span>
                             <span><i class="bi bi-arrow-repeat me-1"></i>@dashboard.KomisyonAnaliz.SeferSayisi sefer</span>
                         </div>
                     </div>
                     <div class="card-footer bg-transparent">
                         <a href="/rapor/komisyon" class="btn btn-outline-info btn-sm w-100">
-                            <i class="bi bi-file-earmark-text me-1"></i>Detayl� Rapor
+                            <i class="bi bi-file-earmark-text me-1"></i>Detaylı Rapor
                         </a>
                     </div>
                 </div>
@@ -216,11 +246,11 @@
 
         <!-- Grafikler -->
         <div class="row mb-4">
-            <!-- Gelir Da��l�m� -->
+            <!-- Gelir Dağılımı -->
             <div class="col-md-6">
                 <div class="card h-100">
                     <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Gelir Da��l�m�</h6>
+                        <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Gelir Dağılımı</h6>
                     </div>
                     <div class="card-body">
                         @foreach (var item in dashboard.GelirDagilimi)
@@ -243,11 +273,11 @@
                 </div>
             </div>
 
-            <!-- Gider Da��l�m� -->
+            <!-- Gider Dağılımı -->
             <div class="col-md-6">
                 <div class="card h-100">
                     <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-pie-chart-fill me-2"></i>Gider Da��l�m� (Masraf Kalemleri)</h6>
+                        <h6 class="mb-0"><i class="bi bi-pie-chart-fill me-2"></i>Gider Dağılımı (Masraf Kalemleri)</h6>
                     </div>
                     <div class="card-body">
                         @if (dashboard.GiderDagilimi.Any())
@@ -280,7 +310,7 @@
                         {
                             <div class="text-center text-muted py-4">
                                 <i class="bi bi-inbox" style="font-size: 3rem;"></i>
-                                <p>Bu d�nemde gider kayd� bulunmuyor</p>
+                                <p>Bu dönemde gider kaydı bulunmuyor</p>
                             </div>
                         }
                     </div>
@@ -288,12 +318,12 @@
             </div>
         </div>
 
-        <!-- En Karl� G�zergahlar ve Ara� Karl�l�k -->
+        <!-- En Karlı Güzergahlar ve Araç Karlılık -->
         <div class="row mb-4">
             <div class="col-md-6">
                 <div class="card h-100">
                     <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-trophy me-2"></i>En Karl� G�zergahlar</h6>
+                        <h6 class="mb-0"><i class="bi bi-trophy me-2"></i>En Karlı Güzergahlar</h6>
                     </div>
                     <div class="card-body">
                         @if (dashboard.EnKarliGuzergahlar.Any())
@@ -321,7 +351,7 @@
                         {
                             <div class="text-center text-muted py-4">
                                 <i class="bi bi-signpost" style="font-size: 3rem;"></i>
-                                <p>Bu d�nemde sefer bulunmuyor</p>
+                                <p>Bu dönemde sefer bulunmuyor</p>
                             </div>
                         }
                     </div>
@@ -331,7 +361,7 @@
             <div class="col-md-6">
                 <div class="card h-100">
                     <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Ara� Bazl� Karl�l�k</h6>
+                        <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Araç Bazlı Karlılık</h6>
                     </div>
                     <div class="card-body">
                         @if (dashboard.AracBazliKarlilik.Any())
@@ -368,7 +398,7 @@
                         {
                             <div class="text-center text-muted py-4">
                                 <i class="bi bi-truck" style="font-size: 3rem;"></i>
-                                <p>Bu d�nemde ara� verisi bulunmuyor</p>
+                                <p>Bu dönemde araç verisi bulunmuyor</p>
                             </div>
                         }
                     </div>
@@ -376,10 +406,10 @@
             </div>
         </div>
 
-        <!-- Y�ll�k Trend -->
+        <!-- Yıllık Trend -->
         <div class="card mb-4">
             <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>@secilenYil Y�ll�k Kar Trendi</h6>
+                <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>@secilenYil Yıllık Kar Trendi</h6>
             </div>
             <div class="card-body">
                 @if (dashboard.AylikTrend.Any())
@@ -410,20 +440,20 @@
                 else
                 {
                     <div class="text-center text-muted py-4">
-                        <p>Y�ll�k trend verisi bulunmuyor</p>
+                        <p>Yıllık trend verisi bulunmuyor</p>
                     </div>
                 }
             </div>
         </div>
 
-        <!-- H�zl� Linkler -->
+        <!-- Hızlı Linkler -->
         <div class="row">
             <div class="col-md-3">
                 <a href="/rapor/checklist" class="card text-decoration-none h-100">
                     <div class="card-body text-center">
                         <i class="bi bi-clipboard-check text-primary" style="font-size: 2.5rem;"></i>
-                        <h6 class="mt-2 mb-0 text-dark">Ayl�k Checklist</h6>
-                        <small class="text-muted">�of�r, Ara�, G�zergah</small>
+                        <h6 class="mt-2 mb-0 text-dark">Aylık Checklist</h6>
+                        <small class="text-muted">Şoför, Araç, Güzergah</small>
                     </div>
                 </a>
             </div>
@@ -431,8 +461,8 @@
                 <a href="/rapor/ozmal-arac" class="card text-decoration-none h-100">
                     <div class="card-body text-center">
                         <i class="bi bi-truck text-success" style="font-size: 2.5rem;"></i>
-                        <h6 class="mt-2 mb-0 text-dark">�zmal Ara� Raporu</h6>
-                        <small class="text-muted">Gelir/Gider Detay�</small>
+                        <h6 class="mt-2 mb-0 text-dark">Özmal Araç Raporu</h6>
+                        <small class="text-muted">Gelir/Gider Detayı</small>
                     </div>
                 </a>
             </div>
@@ -440,8 +470,8 @@
                 <a href="/rapor/kiralik-arac" class="card text-decoration-none h-100">
                     <div class="card-body text-center">
                         <i class="bi bi-building text-warning" style="font-size: 2.5rem;"></i>
-                        <h6 class="mt-2 mb-0 text-dark">Kiral�k Ara� Raporu</h6>
-                        <small class="text-muted">Firma Bazl� Analiz</small>
+                        <h6 class="mt-2 mb-0 text-dark">Kiralık Araç Raporu</h6>
+                        <small class="text-muted">Firma Bazlı Analiz</small>
                     </div>
                 </a>
             </div>
@@ -455,6 +485,331 @@
                 </a>
             </div>
         </div>
+        }
+        else if (aktifSekme == "gelirtablosu" && gelirGiderRapor != null)
+        {
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0 text-primary"><i class="bi bi-bar-chart-steps me-2"></i>Kar veya Zarar Tablosu (Gelir Tablosu)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-4">
+                                <!-- Gelirler -->
+                                <div class="col-md-6 border-end">
+                                    <h6 class="text-success border-bottom pb-2">Gelirler Tablosu (600'lü Hesaplar)</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Hesap Adı</th>
+                                                    <th class="text-end">Tutar</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var kalem in gelirGiderRapor.Gelirler.OrderBy(g => g.HesapKodu))
+                                                {
+                                                    <tr>
+                                                        <td><small>@kalem.HesapKodu - @kalem.HesapAdi</small></td>
+                                                        <td class="text-end fw-medium text-success">@FormatPara(kalem.Tutar)</td>
+                                                    </tr>
+                                                }
+                                                @if (!gelirGiderRapor.Gelirler.Any())
+                                                {
+                                                    <tr><td colspan="2" class="text-center text-muted">Aylık gelir kaydı bulunamadı.</td></tr>
+                                                }
+                                            </tbody>
+                                            <tfoot>
+                                                <tr>
+                                                    <th><strong>Brüt Satış Karı / Geliri</strong></th>
+                                                    <th class="text-end text-success fs-5">@FormatPara(gelirGiderRapor.ToplamGelir)</th>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                                <!-- Giderler -->
+                                <div class="col-md-6">
+                                    <h6 class="text-danger border-bottom pb-2">Gider/Maliyet Tablosu (700'lü Hesaplar)</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Hesap Adı</th>
+                                                    <th class="text-end">Tutar</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var kalem in gelirGiderRapor.Giderler.OrderBy(g => g.HesapKodu))
+                                                {
+                                                    <tr>
+                                                        <td><small>@kalem.HesapKodu - @kalem.HesapAdi</small></td>
+                                                        <td class="text-end fw-medium text-danger">@FormatPara(kalem.Tutar)</td>
+                                                    </tr>
+                                                }
+                                                @if (!gelirGiderRapor.Giderler.Any())
+                                                {
+                                                    <tr><td colspan="2" class="text-center text-muted">Aylık gider kaydı bulunamadı.</td></tr>
+                                                }
+                                            </tbody>
+                                            <tfoot>
+                                                <tr>
+                                                    <th><strong>Faaliyet Giderleri / Maliyeti</strong></th>
+                                                    <th class="text-end text-danger fs-5">@FormatPara(gelirGiderRapor.ToplamGider)</th>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <hr />
+                            <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded">
+                                <h4 class="mb-0">Dönem Net Karı veya Zararı</h4>
+                                <h2 class="mb-0 @(gelirGiderRapor.NetKar >= 0 ? "text-success" : "text-danger")">@FormatPara(gelirGiderRapor.NetKar)</h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (aktifSekme == "bilanco" && bilancoRapor != null)
+        {
+            <div class="row">
+                <!-- Aktif Kalemler (Varlıklar) -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-bank me-2"></i>AKTİF (Varlıklar)</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <!-- Dönen Varlıklar -->
+                            <div class="bg-light p-2 fw-bold text-primary border-bottom">1. Dönen Varlıklar</div>
+                            <ul class="list-group list-group-flush mb-3">
+                                @foreach (var k in bilancoRapor.DonenVarliklar)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <small>@k.HesapKodu - @k.HesapAdi</small>
+                                        <span class="fw-medium">@FormatPara(k.Tutar)</span>
+                                    </li>
+                                }
+                                @if (!bilancoRapor.DonenVarliklar.Any())
+                                {
+                                    <li class="list-group-item text-center text-muted py-3">Kayıt yok</li>
+                                }
+                            </ul>
+
+                            <!-- Duran Varlıklar -->
+                            <div class="bg-light p-2 fw-bold text-primary border-bottom border-top">2. Duran Varlıklar</div>
+                            <ul class="list-group list-group-flush">
+                                @foreach (var k in bilancoRapor.DuranVarliklar)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <small>@k.HesapKodu - @k.HesapAdi</small>
+                                        <span class="fw-medium">@FormatPara(k.Tutar)</span>
+                                    </li>
+                                }
+                                @if (!bilancoRapor.DuranVarliklar.Any())
+                                {
+                                    <li class="list-group-item text-center text-muted py-3">Kayıt yok</li>
+                                }
+                            </ul>
+                        </div>
+                        <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center p-3 border">
+                            <h5 class="mb-0 fw-bold">Aktif Toplamı</h5>
+                            <h5 class="mb-0 text-primary fw-bold">@FormatPara(bilancoRapor.ToplamAktif)</h5>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pasif Kalemler (Kaynaklar) -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0"><i class="bi bi-wallet2 me-2"></i>PASİF (Kaynaklar)</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <!-- Kısa Vadeli Yabancı Kaynaklar -->
+                            <div class="bg-light p-2 fw-bold text-danger border-bottom">3. Kısa Vadeli Yabancı Kaynaklar</div>
+                            <ul class="list-group list-group-flush mb-3">
+                                @foreach (var k in bilancoRapor.KisaVadeliYabanciKaynaklar)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <small>@k.HesapKodu - @k.HesapAdi</small>
+                                        <span class="fw-medium">@FormatPara(k.Tutar)</span>
+                                    </li>
+                                }
+                                @if (!bilancoRapor.KisaVadeliYabanciKaynaklar.Any())
+                                {
+                                    <li class="list-group-item text-center text-muted py-3">Kayıt yok</li>
+                                }
+                            </ul>
+
+                            <!-- Uzun Vadeli Yabancı Kaynaklar -->
+                            <div class="bg-light p-2 fw-bold text-danger border-bottom border-top">4. Uzun Vadeli Yabancı Kaynaklar</div>
+                            <ul class="list-group list-group-flush mb-3">
+                                @foreach (var k in bilancoRapor.UzunVadeliYabanciKaynaklar)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <small>@k.HesapKodu - @k.HesapAdi</small>
+                                        <span class="fw-medium">@FormatPara(k.Tutar)</span>
+                                    </li>
+                                }
+                                @if (!bilancoRapor.UzunVadeliYabanciKaynaklar.Any())
+                                {
+                                    <li class="list-group-item text-center text-muted py-2">Kayıt yok</li>
+                                }
+                            </ul>
+
+                            <!-- Özkaynaklar -->
+                            <div class="bg-light p-2 fw-bold text-danger border-bottom border-top">5. Özkaynaklar</div>
+                            <ul class="list-group list-group-flush">
+                                @foreach (var k in bilancoRapor.Ozkaynaklar)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <small>@k.HesapKodu - @k.HesapAdi</small>
+                                        <span class="fw-medium">@FormatPara(k.Tutar)</span>
+                                    </li>
+                                }
+                                @if (!bilancoRapor.Ozkaynaklar.Any())
+                                {
+                                    <li class="list-group-item text-center text-muted py-3">Kayıt yok</li>
+                                }
+                            </ul>
+                        </div>
+                        <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center p-3 border">
+                            <h5 class="mb-0 fw-bold">Pasif Toplamı</h5>
+                            <h5 class="mb-0 text-danger fw-bold">@FormatPara(bilancoRapor.ToplamPasif)</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            @if (Math.Abs(bilancoRapor.ToplamAktif - bilancoRapor.ToplamPasif) > 0)
+            {
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Bilançoda uyumsuzluk var! (Aktif-Pasif Farkı: @FormatPara(Math.Abs(bilancoRapor.ToplamAktif - bilancoRapor.ToplamPasif)))
+                </div>
+            }
+        }
+        else if (aktifSekme == "dupont")
+        {
+            <div class="row g-4">
+                <div class="col-md-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-gradient bg-primary text-white d-flex justify-content-between">
+                            <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>DuPont Analizi</h5>
+                            <span>ROI ve ROE İstatistikleri</span>
+                        </div>
+                        <div class="card-body bg-light">
+                            <div class="row text-center align-items-center mx-1">
+                                <!-- Net Kar Majı -->
+                                <div class="col-md-3">
+                                    <div class="p-3 border rounded shadow bg-white border-primary">
+                                        <small class="text-muted fw-bold">Net Kar Marjı</small>
+                                        <h4 class="text-primary mb-0 mt-2">%@(NetKarMarji.ToString("N2"))</h4>
+                                        <div class="small mt-1 text-muted">(Net Kar / Satışlar)</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-1 d-flex justify-content-center">
+                                    <i class="bi bi-x-lg text-muted fs-4"></i>
+                                </div>
+                                <!-- Aktif Devir Hızı -->
+                                <div class="col-md-3">
+                                    <div class="p-3 border rounded shadow bg-white border-primary">
+                                        <small class="text-muted fw-bold">Aktif Devir Hızı</small>
+                                        <h4 class="text-primary mb-0 mt-2">@(AktifDevirHizi.ToString("N2"))</h4>
+                                        <div class="small mt-1 text-muted">(Satışlar / Toplam Aktif)</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-1 d-flex justify-content-center">
+                                    <i class="bi bi-pause text-muted fs-4" style="transform: rotate(90deg);"></i>
+                                </div>
+                                <!-- Yaratılan Değer ROA / ROI -->
+                                <div class="col-md-4">
+                                    <div class="p-4 border rounded shadow bg-white border-success border-2 shadow-sm">
+                                        <h6 class="text-success fw-bold">ROA (Aktif Karlılığı)</h6>
+                                        <h1 class="text-success mb-0">%@((NetKarMarji * AktifDevirHizi).ToString("N2"))</h1>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-center my-3">
+                                <i class="bi bi-arrow-down fs-4 text-primary"></i>
+                            </div>
+                            
+                            <div class="row text-center align-items-center mx-1">
+                                <!-- ROA -->
+                                <div class="col-md-3">
+                                    <div class="p-3 border rounded shadow-sm bg-success text-white">
+                                        <small class="text-white-50 fw-bold">ROA (Aktif Karlılığı)</small>
+                                        <h4 class="text-white mb-0 mt-2">%@((NetKarMarji * AktifDevirHizi).ToString("N2"))</h4>
+                                    </div>
+                                </div>
+                                <div class="col-md-1 d-flex justify-content-center">
+                                    <i class="bi bi-x-lg text-muted fs-4"></i>
+                                </div>
+                                <!-- Özkaynak Çarpanı -->
+                                <div class="col-md-3">
+                                    <div class="p-3 border rounded shadow bg-white border-primary">
+                                        <small class="text-muted fw-bold">Özkaynak Çarpanı</small>
+                                        <h4 class="text-primary mb-0 mt-2">@(OzkaynakCarpani.ToString("N2"))</h4>
+                                        <div class="small mt-1 text-muted">(Toplam Aktif / Özkaynak)</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-1 d-flex justify-content-center">
+                                    <i class="bi bi-pause text-muted fs-4" style="transform: rotate(90deg);"></i>
+                                </div>
+                                <!-- Yaratılan Değer ROE -->
+                                <div class="col-md-4">
+                                    <div class="p-4 border rounded shadow bg-gradient bg-primary text-white border-2">
+                                        <h6 class="text-white-50 fw-bold">ROE (Özkaynak Karlılığı)</h6>
+                                        <h1 class="mb-0 text-white">%@((NetKarMarji * AktifDevirHizi * OzkaynakCarpani).ToString("N2"))</h1>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Temel Rasyolar -->
+                <div class="col-md-12 mt-3">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white"><h5 class="mb-0 text-dark"><i class="bi bi-file-ruled me-2"></i>Temel Finansal Rasyolar</h5></div>
+                        <div class="card-body p-0">
+                            <div class="row m-0">
+                                <div class="col-md-4 p-0 border-end">
+                                    <ul class="list-group list-group-flush h-100">
+                                        <li class="list-group-item d-flex justify-content-between text-muted bg-light"><strong>Likitide Oranları</strong></li>
+                                        <li class="list-group-item d-flex justify-content-between"><span>Cari Oran:</span> <strong>@(CariOran.ToString("N2"))</strong></li>
+                                        <li class="list-group-item d-flex justify-content-between"><span>Asit Test Oranı:</span> <strong>@(AsitTestOrani.ToString("N2"))</strong></li>
+                                        <li class="list-group-item d-flex justify-content-between"><span>Nakit Oran:</span> <strong>@(NakitOrani.ToString("N2"))</strong></li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-4 p-0 border-end">
+                                    <ul class="list-group list-group-flush h-100">
+                                        <li class="list-group-item d-flex justify-content-between text-muted bg-light"><strong>Mali Yapı Oranları</strong></li>
+                                        <li class="list-group-item d-flex justify-content-between"><span>Kaldıraç Oranı:</span> <strong>%@((DisKaynakOrani * 100).ToString("N2"))</strong></li>
+                                        <li class="list-group-item d-flex justify-content-between"><span>Özkaynak Oranı:</span> <strong>%@(((1 - DisKaynakOrani) * 100).ToString("N2"))</strong></li>
+                                        <li class="list-group-item d-flex justify-content-between"><span>Kısa Vadeli Borç Oranı:</span> <strong>%@((KisaVadeliBorcOrani * 100).ToString("N2"))</strong></li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-4 p-0">
+                                    <ul class="list-group list-group-flush h-100">
+                                        <li class="list-group-item d-flex justify-content-between text-muted bg-light"><strong>Açıklama</strong></li>
+                                        <li class="list-group-item text-muted small p-3">
+                                            DuPont Analizi, bir işletmenin özsermaye karlılığını (ROE) üç ana bileşene ayırarak inceleyen güçlü bir finansal araçtır: Kar marjı, varlık devir hızı ve finansal kaldıraç.<br/><br/>
+                                            Sol taraftaki rasyolar bilançonun ve gelir tablosunun temel yapısının sağlığını ölçmeye olanak tanır. Cari oran yüksek sıvılaşmayı gösterir.
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
     }
 </div>
 
@@ -462,24 +817,97 @@
     private int secilenYil = DateTime.Today.Year;
     private int secilenAy = DateTime.Today.Month;
     private Models.MaliAnalizDashboard? dashboard;
+    private GelirGiderRapor? gelirGiderRapor;
+    private BilancoRapor? bilancoRapor;
     private bool isLoading = false;
+    
+    private string aktifSekme = "genel";
 
     protected override async Task OnInitializedAsync()
     {
-        await YenileData();
+        await LoadDataAsync();
     }
 
     private async Task YenileData()
     {
+        await LoadDataAsync();
+    }
+    
+    private async Task SekmeDegistir(string sekme)
+    {
+        aktifSekme = sekme;
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
         isLoading = true;
         try
         {
-            dashboard = await MaliAnalizService.GetDashboardAsync(secilenYil, secilenAy);
+            if (aktifSekme == "genel")
+            {
+                dashboard = await MaliAnalizService.GetDashboardAsync(secilenYil, secilenAy > 0 ? secilenAy : DateTime.Today.Month);
+            }
+            if (aktifSekme == "gelirtablosu" || aktifSekme == "dupont")
+            {
+                gelirGiderRapor = await MuhasebeService.GetGelirGiderRaporuAsync(secilenYil, secilenAy > 0 ? secilenAy : null);
+            }
+            if (aktifSekme == "bilanco" || aktifSekme == "dupont")
+            {
+                var tarih = secilenAy > 0 
+                  ? new DateTime(secilenYil, secilenAy, DateTime.DaysInMonth(secilenYil, secilenAy)) 
+                  : new DateTime(secilenYil, 12, 31);
+                bilancoRapor = await MuhasebeService.GetBilancoRaporuAsync(tarih);
+            }
+            if (aktifSekme == "dupont")
+            {
+                HesaplaRasyo();
+            }
         }
         finally
         {
             isLoading = false;
         }
+    }
+
+    private decimal NetKarMarji = 0;
+    private decimal AktifDevirHizi = 0;
+    private decimal OzkaynakCarpani = 0;
+    private decimal CariOran = 0;
+    private decimal AsitTestOrani = 0;
+    private decimal NakitOrani = 0;
+    private decimal DisKaynakOrani = 0;
+    private decimal KisaVadeliBorcOrani = 0;
+
+    private void HesaplaRasyo()
+    {
+        if (gelirGiderRapor == null || bilancoRapor == null) return;
+        
+        decimal satislar = gelirGiderRapor.ToplamGelir > 0 ? gelirGiderRapor.ToplamGelir : 1m;
+        decimal netKar = gelirGiderRapor.NetKar;
+        
+        decimal toplamAktif = bilancoRapor.ToplamAktif > 0 ? bilancoRapor.ToplamAktif : 1m;
+        decimal ozkaynak = bilancoRapor.Ozkaynaklar.Sum(o => o.Tutar);
+        if (ozkaynak <= 0) ozkaynak = 1m;
+
+        decimal donenVarliklar = bilancoRapor.DonenVarliklar.Sum(k => k.Tutar);
+        decimal kisaVadeliBorclar = bilancoRapor.KisaVadeliYabanciKaynaklar.Sum(k => k.Tutar);
+        if (kisaVadeliBorclar <= 0) kisaVadeliBorclar = 1m;
+
+        NetKarMarji = (netKar / satislar) * 100;
+        AktifDevirHizi = satislar / toplamAktif;
+        OzkaynakCarpani = toplamAktif / ozkaynak;
+
+        CariOran = donenVarliklar / kisaVadeliBorclar;
+        
+        decimal stoklar = bilancoRapor.DonenVarliklar.FirstOrDefault(k => k.HesapKodu == "153")?.Tutar ?? 0;
+        AsitTestOrani = (donenVarliklar - stoklar) / kisaVadeliBorclar;
+        
+        decimal hazirDegerler = bilancoRapor.DonenVarliklar.Where(k => k.HesapKodu.StartsWith("100") || k.HesapKodu.StartsWith("102")).Sum(k => k.Tutar);
+        NakitOrani = hazirDegerler / kisaVadeliBorclar;
+
+        DisKaynakOrani = bilancoRapor.ToplamPasif > 0 ? ((bilancoRapor.KisaVadeliYabanciKaynaklar.Sum(x=>x.Tutar) + bilancoRapor.UzunVadeliYabanciKaynaklar.Sum(x=>x.Tutar)) / bilancoRapor.ToplamPasif) : 0;
+        KisaVadeliBorcOrani = bilancoRapor.ToplamPasif > 0 ? (kisaVadeliBorclar / bilancoRapor.ToplamPasif) : 0;
     }
 
     private string FormatPara(decimal tutar) => tutar.ToString("N0") + " TL";

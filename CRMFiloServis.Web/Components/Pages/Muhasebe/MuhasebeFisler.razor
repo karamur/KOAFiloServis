@@ -1,0 +1,316 @@
+@page "/muhasebe/fisler"
+@page "/muhasebe/fisler/yeni"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IMuhasebeService MuhasebeService
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Muhasebe Fisleri</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3><i class="bi bi-receipt me-2"></i>Muhasebe Fisleri</h3>
+            <small class="text-muted">Fiþleri listeleyin, onaylayýn ve yeni fiþ oluþturun</small>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <select class="form-select form-select-sm" style="width: 120px;" @bind="secilenYil">
+                @for (int y = DateTime.Today.Year + 1; y >= DateTime.Today.Year - 5; y--)
+                {
+                    <option value="@y">@y</option>
+                }
+            </select>
+            <select class="form-select form-select-sm" style="width: 140px;" @bind="secilenAy">
+                <option value="0">Tüm Aylar</option>
+                @for (int m = 1; m <= 12; m++)
+                {
+                    <option value="@m">@GetAyAdi(m)</option>
+                }
+            </select>
+            <button class="btn btn-outline-primary btn-sm" @onclick="LoadDataAsync">
+                <i class="bi bi-search me-1"></i>Ara
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="YeniFisAc">
+                <i class="bi bi-plus-lg me-1"></i>Yeni Fiþ
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="card bg-primary text-white"><div class="card-body py-2"><small>Fiþ Sayýsý</small><h5 class="mb-0">@fisler.Count</h5></div></div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-success text-white"><div class="card-body py-2"><small>Onaylý</small><h5 class="mb-0">@fisler.Count(f => f.Durum == FisDurum.Onaylandi)</h5></div></div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-warning text-dark"><div class="card-body py-2"><small>Taslak</small><h5 class="mb-0">@fisler.Count(f => f.Durum == FisDurum.Taslak)</h5></div></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Fiþ No</th>
+                            <th>Tip</th>
+                            <th>Açýklama</th>
+                            <th class="text-end">Borç</th>
+                            <th class="text-end">Alacak</th>
+                            <th>Durum</th>
+                            <th class="text-center">Ýþlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!fisler.Any())
+                        {
+                            <tr><td colspan="8" class="text-center text-muted py-4">Fiþ bulunamadý.</td></tr>
+                        }
+                        @foreach (var fis in fisler)
+                        {
+                            <tr>
+                                <td>@fis.FisTarihi.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                <td><strong>@fis.FisNo</strong></td>
+                                <td>@GetFisTipAdi(fis.FisTipi)</td>
+                                <td>@fis.Aciklama</td>
+                                <td class="text-end">@FormatPara(fis.ToplamBorc)</td>
+                                <td class="text-end">@FormatPara(fis.ToplamAlacak)</td>
+                                <td><span class="badge @GetDurumBadge(fis.Durum)">@GetDurumAdi(fis.Durum)</span></td>
+                                <td class="text-center">
+                                    @if (fis.Durum != FisDurum.Onaylandi)
+                                    {
+                                        <button class="btn btn-outline-success btn-sm" @onclick="() => FisOnayla(fis.Id)">
+                                            <i class="bi bi-check2-circle"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showYeniFisModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,.5)">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Yeni Muhasebe Fiþi</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="ModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Fiþ Tarihi</label>
+                            <input type="date" class="form-control" @bind="yeniFis.FisTarihi" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Fiþ Tipi</label>
+                            <select class="form-select" @bind="yeniFis.FisTipi">
+                                @foreach (var tip in Enum.GetValues<FisTipi>())
+                                {
+                                    <option value="@tip">@GetFisTipAdi(tip)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Açýklama</label>
+                            <input type="text" class="form-control" @bind="yeniFis.Aciklama" />
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Hesap</th>
+                                    <th>Açýklama</th>
+                                    <th class="text-end">Borç</th>
+                                    <th class="text-end">Alacak</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var kalem in yeniFis.Kalemler.OrderBy(k => k.SiraNo).ToList())
+                                {
+                                    <tr>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="kalem.HesapId">
+                                                <option value="0">Hesap seçin</option>
+                                                @foreach (var hesap in hesaplar)
+                                                {
+                                                    <option value="@hesap.Id">@hesap.HesapKodu - @hesap.HesapAdi</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td><input class="form-control form-control-sm" @bind="kalem.Aciklama" /></td>
+                                        <td><input type="number" step="0.01" class="form-control form-control-sm text-end" @bind="kalem.Borc" /></td>
+                                        <td><input type="number" step="0.01" class="form-control form-control-sm text-end" @bind="kalem.Alacak" /></td>
+                                        <td class="text-center">
+                                            <button class="btn btn-outline-danger btn-sm" @onclick="() => KalemSil(kalem)"><i class="bi bi-trash"></i></button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button class="btn btn-outline-primary btn-sm" @onclick="KalemEkle"><i class="bi bi-plus-lg me-1"></i>Satýr Ekle</button>
+                        <div class="text-end">
+                            <div><strong>Borç:</strong> @FormatPara(yeniFis.Kalemler.Sum(x => x.Borc))</div>
+                            <div><strong>Alacak:</strong> @FormatPara(yeniFis.Kalemler.Sum(x => x.Alacak))</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="ModalKapat">Ýptal</button>
+                    <button class="btn btn-primary" @onclick="FisKaydet" disabled="@isSaving">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<MuhasebeFis> fisler = new();
+    private List<MuhasebeHesap> hesaplar = new();
+    private int secilenYil = DateTime.Today.Year;
+    private int secilenAy = DateTime.Today.Month;
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool showYeniFisModal;
+    private MuhasebeFis yeniFis = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        hesaplar = await MuhasebeService.GetHesapPlaniAsync();
+        await LoadDataAsync();
+        if (Navigation.Uri.EndsWith("/muhasebe/fisler/yeni", StringComparison.OrdinalIgnoreCase))
+        {
+            YeniFisAc();
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            fisler = await MuhasebeService.GetFislerAsync(secilenYil, secilenAy > 0 ? secilenAy : null);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Fiþler yüklenemedi: " + ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void YeniFisAc()
+    {
+        yeniFis = new MuhasebeFis
+        {
+            FisTarihi = DateTime.Today,
+            FisTipi = FisTipi.Mahsup,
+            FisNo = string.Empty,
+            Kalemler = new List<MuhasebeFisKalem>
+            {
+                new() { SiraNo = 1 },
+                new() { SiraNo = 2 }
+            }
+        };
+        showYeniFisModal = true;
+    }
+
+    private void KalemEkle() => yeniFis.Kalemler.Add(new MuhasebeFisKalem { SiraNo = yeniFis.Kalemler.Count + 1 });
+
+    private void KalemSil(MuhasebeFisKalem kalem)
+    {
+        yeniFis.Kalemler.Remove(kalem);
+        if (!yeniFis.Kalemler.Any())
+            KalemEkle();
+    }
+
+    private async Task FisKaydet()
+    {
+        if (!yeniFis.Kalemler.Any(k => k.HesapId > 0))
+        {
+            ToastService.ShowWarning("En az bir hesap seçin.");
+            return;
+        }
+
+        yeniFis.Kalemler = yeniFis.Kalemler
+            .Where(k => k.HesapId > 0 && (k.Borc > 0 || k.Alacak > 0))
+            .Select((k, i) => { k.SiraNo = i + 1; return k; })
+            .ToList();
+
+        if (!yeniFis.Kalemler.Any())
+        {
+            ToastService.ShowWarning("Borç veya alacak tutarý girin.");
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            yeniFis.FisNo = await MuhasebeService.GenerateNextFisNoAsync(yeniFis.FisTipi);
+            await MuhasebeService.CreateFisAsync(yeniFis);
+            ToastService.ShowSuccess("Fiþ kaydedildi.");
+            ModalKapat();
+            await LoadDataAsync();
+            Navigation.NavigateTo("/muhasebe/fisler", false);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Kaydetme hatasý: " + ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task FisOnayla(int fisId)
+    {
+        try
+        {
+            await MuhasebeService.OnayliFisAsync(fisId);
+            ToastService.ShowSuccess("Fiþ onaylandý.");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Onay hatasý: " + ex.Message);
+        }
+    }
+
+    private void ModalKapat()
+    {
+        showYeniFisModal = false;
+        if (Navigation.Uri.EndsWith("/muhasebe/fisler/yeni", StringComparison.OrdinalIgnoreCase))
+            Navigation.NavigateTo("/muhasebe/fisler", false);
+    }
+
+    private static string GetAyAdi(int ay) => new DateTime(2000, ay, 1).ToString("MMMM", new System.Globalization.CultureInfo("tr-TR"));
+    private static string FormatPara(decimal value) => value.ToString("N2") + " TL";
+    private static string GetDurumAdi(FisDurum durum) => durum switch { FisDurum.Taslak => "Taslak", FisDurum.Onaylandi => "Onaylý", FisDurum.IptalEdildi => "Ýptal", _ => durum.ToString() };
+    private static string GetDurumBadge(FisDurum durum) => durum switch { FisDurum.Taslak => "bg-warning text-dark", FisDurum.Onaylandi => "bg-success", FisDurum.IptalEdildi => "bg-danger", _ => "bg-secondary" };
+    private static string GetFisTipAdi(FisTipi tip) => tip switch { FisTipi.Mahsup => "Mahsup", FisTipi.Tahsilat => "Tahsilat", FisTipi.Tediye => "Tediye", FisTipi.Acilis => "Açýlýþ", FisTipi.Kapanis => "Kapanýþ", FisTipi.Devir => "Devir", _ => tip.ToString() };
+}

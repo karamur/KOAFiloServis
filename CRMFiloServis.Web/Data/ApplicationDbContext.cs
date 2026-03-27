@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace CRMFiloServis.Web.Data;
@@ -157,7 +157,7 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Þoför
+        // ÅžofÃ¶r
         modelBuilder.Entity<Sofor>(entity =>
         {
             entity.HasIndex(e => e.SoforKodu).IsUnique();
@@ -169,10 +169,10 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Araç
+        // AraÃ§
         modelBuilder.Entity<Arac>(entity =>
         {
-            // Þase numarasý unique
+            // Åžase numarasÄ± unique
             if (isSqlite)
             {
                 entity.HasIndex(e => e.SaseNo).IsUnique();
@@ -207,11 +207,11 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.KomisyoncuCariId)
                 .OnDelete(DeleteBehavior.Restrict);
                 
-            // PlakaGecmisi navigation'ý AracPlaka entity'sinde tanýmlanýyor
+            // PlakaGecmisi navigation'Ä± AracPlaka entity'sinde tanÄ±mlanÄ±yor
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
         
-        // Araç Plaka Geçmiþi
+        // AraÃ§ Plaka GeÃ§miÅŸi
         modelBuilder.Entity<AracPlaka>(entity =>
         {
             entity.Property(e => e.Plaka).HasMaxLength(15).IsRequired();
@@ -228,14 +228,14 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.CariId)
                 .OnDelete(DeleteBehavior.SetNull);
             
-            // Ayný anda ayný plaka farklý araçta aktif olamaz
+            // AynÄ± anda aynÄ± plaka farklÄ± araÃ§ta aktif olamaz
             entity.HasIndex(e => new { e.Plaka, e.CikisTarihi })
                 .HasFilter("\"CikisTarihi\" IS NULL AND \"IsDeleted\" = false");
                 
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Güzergah
+        // GÃ¼zergah
         modelBuilder.Entity<Guzergah>(entity =>
         {
             entity.HasIndex(e => e.GuzergahKodu).IsUnique();
@@ -259,7 +259,7 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Araç Masraf
+        // AraÃ§ Masraf
         modelBuilder.Entity<AracMasraf>(entity =>
         {
             entity.Property(e => e.Tutar).HasPrecision(18, 2);
@@ -282,7 +282,7 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Servis Çalýþma
+        // Servis Ã‡alÄ±ÅŸma
         modelBuilder.Entity<ServisCalisma>(entity =>
         {
             entity.Property(e => e.Fiyat).HasPrecision(18, 2);
@@ -364,7 +364,7 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Ödeme Eþleþtirme
+        // Ã–deme EÅŸleÅŸtirme
         modelBuilder.Entity<OdemeEslestirme>(entity =>
         {
             entity.Property(e => e.EslestirilenTutar).HasPrecision(18, 2);
@@ -415,7 +415,7 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Personel Maaþ
+        // Personel MaaÅŸ
         modelBuilder.Entity<PersonelMaas>(entity =>
         {
             entity.HasIndex(e => new { e.SoforId, e.Yil, e.Ay }).IsUnique();
@@ -444,7 +444,7 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Personel Ýzin
+        // Personel Ä°zin
         modelBuilder.Entity<PersonelIzin>(entity =>
         {
             entity.HasOne(e => e.Sofor)
@@ -455,7 +455,7 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Personel Ýzin Hakký
+        // Personel Ä°zin HakkÄ±
         modelBuilder.Entity<PersonelIzinHakki>(entity =>
         {
             entity.HasIndex(e => new { e.SoforId, e.Yil }).IsUnique();
@@ -467,7 +467,7 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Budget Ödeme
+        // Budget Ã–deme
         modelBuilder.Entity<BudgetOdeme>(entity =>
         {
             entity.HasIndex(e => new { e.OdemeYil, e.OdemeAy, e.MasrafKalemi });
@@ -881,6 +881,7 @@ public class ApplicationDbContext : DbContext
     {
         ConvertDatesToUtc();
         UpdateTimestamps();
+        GenerateAuditLogs();
         return base.SaveChanges();
     }
 
@@ -888,7 +889,71 @@ public class ApplicationDbContext : DbContext
     {
         ConvertDatesToUtc();
         UpdateTimestamps();
+        GenerateAuditLogs();
         return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void GenerateAuditLogs()
+    {
+        var modifiedEntities = ChangeTracker.Entries()
+            .Where(x => (x.State == EntityState.Added || x.State == EntityState.Modified || x.State == EntityState.Deleted) && !(x.Entity is AktiviteLog))
+            .ToList();
+
+        foreach (var entry in modifiedEntities)
+        {
+            var entityType = entry.Entity.GetType();
+            // Skip logging for system/identity entities if needed, e.g.
+            if (entityType.Name.Contains("AktiviteLog") || entityType.Name.Contains("Log")) continue;
+
+            var log = new AktiviteLog
+            {
+                IslemZamani = DateTime.UtcNow,
+                IslemTipi = entry.State.ToString(),
+                EntityTipi = entityType.Name,
+                Modul = "Genel" // Default, could be mapped based on type
+            };
+
+            try
+            {
+                var idProperty = entry.Properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey());
+                if (idProperty != null && idProperty.CurrentValue != null && entry.State != EntityState.Added)
+                {
+                    log.EntityId = (int?)Convert.ChangeType(idProperty.CurrentValue, typeof(int));
+                }
+
+                if (entry.State == EntityState.Modified)
+                {
+                    var originalValues = new System.Collections.Generic.Dictionary<string, object>();
+                    var currentValues = new System.Collections.Generic.Dictionary<string, object>();
+
+                    foreach (var property in entry.Properties)
+                    {
+                        if (property.IsModified)
+                        {
+                            originalValues[property.Metadata.Name] = property.OriginalValue;
+                            currentValues[property.Metadata.Name] = property.CurrentValue;
+                        }
+                    }
+
+                    log.EskiDeger = System.Text.Json.JsonSerializer.Serialize(originalValues);
+                    log.YeniDeger = System.Text.Json.JsonSerializer.Serialize(currentValues);
+                    log.Aciklama = $"{entityType.Name} kaydÄ± gÃ¼ncellendi.";
+                }
+                else if (entry.State == EntityState.Added)
+                {
+                    log.Aciklama = $"{entityType.Name} kaydÄ± eklendi.";
+                    // We don't have the ID yet for Added entities, it will be generated after SaveChanges.
+                    // A proper implementation would run a second pass after SaveChanges.
+                }
+                else if (entry.State == EntityState.Deleted)
+                {
+                    log.Aciklama = $"{entityType.Name} kaydÄ± silindi.";
+                }
+
+                AktiviteLoglar.Add(log);
+            }
+            catch { /* Ignore logging errors */ }
+        }
     }
 
     private void UpdateTimestamps()

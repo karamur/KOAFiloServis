@@ -1,4 +1,4 @@
-@page "/crm/whatsapp-chat"
+ï»¿@page "/crm/whatsapp-chat"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Web.Services.Interfaces
@@ -13,7 +13,7 @@
 <div class="container-fluid h-100 py-3" style="min-height: 80vh;">
     <div class="row h-100 g-0 border rounded bg-white shadow-sm" style="min-height: 700px;">
 
-        <!-- Sol Panel: Kiþiler ve Gruplar -->
+        <!-- Sol Panel: KiÅŸiler ve Gruplar -->
         <div class="col-md-4 border-end d-flex flex-column h-100">
             <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="background-color: #f0f2f5;">
                 <h5 class="mb-0 text-dark"><i class="bi bi-whatsapp text-success me-2"></i>Sohbetler</h5>
@@ -22,7 +22,7 @@
                         <i class="bi bi-three-dots-vertical"></i>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                        <li><button class="dropdown-item py-2" @onclick="() => showYeniKisiModal = true"><i class="bi bi-person-plus me-3 text-muted"></i>Yeni Kiþi</button></li>
+                        <li><button class="dropdown-item py-2" @onclick="() => showYeniKisiModal = true"><i class="bi bi-person-plus me-3 text-muted"></i>Yeni KiÅŸi</button></li>
                         <li><button class="dropdown-item py-2" @onclick="() => showYeniGrupModal = true"><i class="bi bi-people me-3 text-muted"></i>Yeni Grup</button></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><button class="dropdown-item py-2" @onclick="CariAktar"><i class="bi bi-person-lines-fill me-3 text-muted"></i>Carilerden Aktar</button></li>
@@ -33,13 +33,13 @@
             <div class="p-2 border-bottom bg-white">
                 <div class="input-group bg-light rounded-3 px-2 py-1">
                     <span class="input-group-text bg-transparent border-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="text" class="form-control bg-transparent border-0 shadow-none" placeholder="Aratýn veya yeni sohbet baþlatýn" @bind="aramaMetni" @bind:event="oninput" style="font-size: 0.9rem;" />
+                    <input type="text" class="form-control bg-transparent border-0 shadow-none" placeholder="AratÄ±n veya yeni sohbet baÅŸlatÄ±n" @bind="aramaMetni" @bind:event="oninput" style="font-size: 0.9rem;" />
                 </div>
             </div>
 
             <ul class="nav nav-tabs nav-fill border-bottom-0 pt-2 px-2">
                 <li class="nav-item">
-                    <button class="nav-link w-100 py-1 @(aktifTab == "kisiler" ? "active border-bottom-0 bg-white" : "bg-light")" @onclick='() => aktifTab = "kisiler"'>Kiþiler</button>
+                    <button class="nav-link w-100 py-1 @(aktifTab == "kisiler" ? "active border-bottom-0 bg-white" : "bg-light")" @onclick='() => aktifTab = "kisiler"'>KiÅŸiler</button>
                 </li>
                 <li class="nav-item">
                     <button class="nav-link w-100 py-1 @(aktifTab == "gruplar" ? "active border-bottom-0 bg-white" : "bg-light")" @onclick='() => aktifTab = "gruplar"'>Gruplar</button>
@@ -90,7 +90,7 @@
                                             <strong class="text-truncate fw-normal text-dark" style="font-size: 1.05rem;">@grup.GrupAdi</strong>
                                             <span class="badge bg-success rounded-pill" style="font-size: 0.7rem;">@grup.Uyeler.Count</span>
                                         </div>
-                                        <div class="text-muted text-truncate" style="font-size: 0.85rem;">@(grup.Aciklama ?? "Grup Mesajý")</div>
+                                        <div class="text-muted text-truncate" style="font-size: 0.85rem;">@(grup.Aciklama ?? "Grup MesajÄ±")</div>
                                     </div>
                                 </button>
                             }
@@ -100,18 +100,18 @@
             </div>
         </div>
 
-        <!-- Sað Panel: Sohbet Ekraný -->
+        <!-- SaÄŸ Panel: Sohbet EkranÄ± -->
         <div class="col-md-8 d-flex flex-column h-100" style="background-color: #efeae2; position: relative;">
             <!-- Wallpaper / background image simulation -->
             <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.08; background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23000000\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E'); z-index: 0; pointer-events: none;"></div>
             
             @if (grupModu ? seciliGrup != null : seciliKisi != null)
             {
-                <!-- Sohbet Baþlýðý -->
+                <!-- Sohbet BaÅŸlÄ±ÄŸÄ± -->
                 <div class="d-flex align-items-center p-2 border-bottom" style="z-index: 1; background-color: #f0f2f5;">
                     @if (grupModu)
                     {
-                        <div class="bg-secondary bg-opacity-25 text-secondary rounded-circle d-flex align-items-center justify-content-center fw-bold me-3 ms-2" style="width: ??px; height: 40px;">
+                        <div class="bg-secondary bg-opacity-25 text-secondary rounded-circle d-flex align-items-center justify-content-center fw-bold me-3 ms-2" style="width: 40px; height: 40px;">
                             <i class="bi bi-people-fill"></i>
                         </div>
                         <div class="flex-grow-1" style="cursor: pointer;" @onclick="() => showGrupUyeleriModal = true">
@@ -130,7 +130,7 @@
                         </div>
                         <div class="flex-grow-1">
                             <h6 class="mb-0 text-dark">@seciliKisi.AdSoyad</h6>
-                            <small class="text-muted" style="font-size: 0.8rem;">Ýçeride</small>
+                            <small class="text-muted" style="font-size: 0.8rem;">Ä°Ã§eride</small>
                         </div>
                         <div class="d-flex gap-3 me-3 text-muted" style="font-size: 1.2rem;">
                             <i class="bi bi-search" style="cursor: pointer;"></i>
@@ -152,7 +152,7 @@
                     {
                         <div class="text-center d-flex justify-content-center align-items-center h-100">
                             <div class="bg-info bg-opacity-10 text-dark px-4 py-2 rounded-pill small shadow-sm">
-                                Buraya gönderilen mesajlar uçtan uca þifrelenmiþtir.
+                                Buraya gÃ¶nderilen mesajlar uÃ§tan uca ÅŸifrelenmiÅŸtir.
                             </div>
                         </div>
                     }
@@ -163,7 +163,7 @@
                         {
                             <div class="text-center mb-4 mt-2">
                                 <span class="badge text-dark shadow-sm px-3 py-2 rounded-3" style="background-color: #fffaca; font-weight: normal; font-size: 0.8rem;">
-                                    @(dayGroup.Key == DateTime.Today ? "BUGÜN" : (dayGroup.Key == DateTime.Today.AddDays(-1) ? "DÜN" : dayGroup.Key.ToString("dd MMMM yyyy").ToUpper()))
+                                    @(dayGroup.Key == DateTime.Today ? "BUGÃœN" : (dayGroup.Key == DateTime.Today.AddDays(-1) ? "DÃœN" : dayGroup.Key.ToString("dd MMMM yyyy").ToUpper()))
                                 </span>
                             </div>
 
@@ -176,7 +176,7 @@
                                                 border-radius: 7.5px; 
                                                 @(isGiden ? "background-color: #d9fdd3; border-top-right-radius: 0;" : "background-color: #ffffff; border-top-left-radius: 0;")">
                                         
-                                        <!-- Baloncuk kuyruklarý CSS -->
+                                        <!-- Baloncuk kuyruklarÄ± CSS -->
                                         @if (isGiden)
                                         {
                                             <div style="position: absolute; right: -8px; top: 0; width: 0; height: 0; border-top: 0px solid transparent; border-left: 10px solid #d9fdd3; border-bottom: 10px solid transparent;"></div>
@@ -202,11 +202,11 @@
                     }
                 </div>
 
-                <!-- Hýzlý Þablonlar -->
+                <!-- HÄ±zlÄ± Åžablonlar -->
                 @if (sablonlar.Any())
                 {
                     <div class="px-3 py-2 bg-white" style="z-index: 1;">
-                        <small class="text-muted d-block mb-1">Hýzlý Þablonlar:</small>
+                        <small class="text-muted d-block mb-1">HÄ±zlÄ± Åžablonlar:</small>
                         <div class="d-flex flex-nowrap overflow-auto gap-2 pb-1" style="-ms-overflow-style: none; scrollbar-width: none;">
                             @foreach (var s in sablonlar)
                             {
@@ -216,17 +216,17 @@
                     </div>
                 }
 
-                <!-- Mesaj Yazma Alaný -->
+                <!-- Mesaj Yazma AlanÄ± -->
                 <div class="p-2 d-flex align-items-end gap-2" style="z-index: 1; background-color: #f0f2f5;">
                     <div class="d-flex text-muted mb-2 ms-2 gap-3" style="font-size: 1.4rem;">
                         <i class="bi bi-emoji-smile" style="cursor: pointer;"></i>
-                        <i class="bi bi-paperclip" style="cursor: pointer;" title="Dosya Ekle (Yakýnda)"></i>
-                        <i class="bi bi-journal-text" style="cursor: pointer;" @onclick="() => showSablonYonetimModal = true" title="Þablonlar"></i>
+                        <i class="bi bi-paperclip" style="cursor: pointer;" title="Dosya Ekle (YakÄ±nda)"></i>
+                        <i class="bi bi-journal-text" style="cursor: pointer;" @onclick="() => showSablonYonetimModal = true" title="Åžablonlar"></i>
                     </div>
                     
                     <div class="flex-grow-1 bg-white rounded-3 shadow-sm d-flex align-items-center mx-2 mb-1">
                         <textarea class="form-control border-0 bg-transparent shadow-none px-3 py-2" 
-                                  placeholder="Bir mesaj yazýn" 
+                                  placeholder="Bir mesaj yazÄ±n" 
                                   style="resize: none; overflow-y: auto; max-height: 150px; min-height: 42px;"
                                   rows="@Math.Min(5, Math.Max(1, yazilanMesaj.Split('\n').Length))"
                                   @bind="yazilanMesaj" @bind:event="oninput" @onkeydown="KlavyeGonder" id="chatInput"></textarea>
@@ -257,11 +257,11 @@
             }
             else
             {
-                <!-- Seçimsiz Boþ Durum -->
+                <!-- SeÃ§imsiz BoÅŸ Durum -->
                 <div class="h-100 d-flex flex-column justify-content-center align-items-center text-muted" style="z-index: 1;">
                     <i class="bi bi-whatsapp opacity-25" style="font-size: 8rem;"></i>
                     <h4 class="mt-4 fw-light text-dark">Filo CRM WhatsApp</h4>
-                    <p>Sohbet baþlatmak için sol taraftan bir kiþi veya grup seçin.</p>
+                    <p>Sohbet baÅŸlatmak iÃ§in sol taraftan bir kiÅŸi veya grup seÃ§in.</p>
                 </div>
             }
         </div>
@@ -270,14 +270,14 @@
 
 <!-- ================= MODALS ================= -->
 
-<!-- Yeni Kiþi Modal -->
+<!-- Yeni KiÅŸi Modal -->
 @if (showYeniKisiModal)
 {
     <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title">Yeni Kiþi Ekle</h5>
+                    <h5 class="modal-title">Yeni KiÅŸi Ekle</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => showYeniKisiModal = false"></button>
                 </div>
                 <div class="modal-body">
@@ -286,7 +286,7 @@
                         <input type="text" class="form-control" @bind="yeniKisi.AdSoyad" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Telefon (Örn: 905XXXXXXXXX)</label>
+                        <label class="form-label">Telefon (Ã–rn: 905XXXXXXXXX)</label>
                         <input type="text" class="form-control" @bind="yeniKisi.Telefon" />
                     </div>
                     <div class="mb-3">
@@ -295,7 +295,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="() => showYeniKisiModal = false">Ýptal</button>
+                    <button type="button" class="btn btn-secondary" @onclick="() => showYeniKisiModal = false">Ä°ptal</button>
                     <button type="button" class="btn btn-success" @onclick="KisiKaydet">Kaydet</button>
                 </div>
             </div>
@@ -315,39 +315,39 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Grup Adý</label>
+                        <label class="form-label">Grup AdÄ±</label>
                         <input type="text" class="form-control" @bind="yeniGrup.GrupAdi" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Açýklama</label>
+                        <label class="form-label">AÃ§Ä±klama</label>
                         <input type="text" class="form-control" @bind="yeniGrup.Aciklama" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="() => showYeniGrupModal = false">Ýptal</button>
-                    <button type="button" class="btn btn-primary" @onclick="GrupKaydet">Oluþtur</button>
+                    <button type="button" class="btn btn-secondary" @onclick="() => showYeniGrupModal = false">Ä°ptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="GrupKaydet">OluÅŸtur</button>
                 </div>
             </div>
         </div>
     </div>
 }
 
-<!-- Grup Üyeleri Yönetim Modal -->
+<!-- Grup Ãœyeleri YÃ¶netim Modal -->
 @if (showGrupUyeleriModal && seciliGrup != null)
 {
     <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header bg-info text-white">
-                    <h5 class="modal-title">@seciliGrup.GrupAdi - Üyeler</h5>
+                    <h5 class="modal-title">@seciliGrup.GrupAdi - Ãœyeler</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => showGrupUyeleriModal = false"></button>
                 </div>
                 <div class="modal-body p-0">
                     <div class="p-3 border-bottom bg-light">
-                        <label class="form-label small fw-bold">Yeni Üye Ekle</label>
+                        <label class="form-label small fw-bold">Yeni Ãœye Ekle</label>
                         <div class="input-group">
                             <select class="form-select" @bind="eklenecekKisiId">
-                                <option value="0">Kiþi Seçin...</option>
+                                <option value="0">KiÅŸi SeÃ§in...</option>
                                 @foreach (var k in kisiler.Where(k => !seciliGrup.Uyeler.Any(u => u.KisiId == k.Id)))
                                 {
                                     <option value="@k.Id">@k.AdSoyad</option>
@@ -359,7 +359,7 @@
                     <ul class="list-group list-group-flush">
                         @if (!seciliGrup.Uyeler.Any())
                         {
-                            <li class="list-group-item text-center text-muted py-4">Grupta henüz üye yok.</li>
+                            <li class="list-group-item text-center text-muted py-4">Grupta henÃ¼z Ã¼ye yok.</li>
                         }
                         @foreach (var uye in seciliGrup.Uyeler)
                         {
@@ -369,7 +369,7 @@
                                     <small class="text-muted">@uye.Kisi?.Telefon</small>
                                 </div>
                                 <button class="btn btn-sm btn-outline-danger" @onclick="() => GruptanKisiCikar(uye.KisiId)">
-                                    Çýkar
+                                    Ã‡Ä±kar
                                 </button>
                             </li>
                         }
@@ -444,7 +444,7 @@
         }
         catch (Exception ex)
         {
-            ToastService.ShowError("Veriler yüklenemedi: " + ex.Message);
+            ToastService.ShowError("Veriler yÃ¼klenemedi: " + ex.Message);
         }
         finally
         {
@@ -548,7 +548,7 @@
             showYeniKisiModal = false;
             yeniKisi = new();
             await LoadDataAsync();
-            ToastService.ShowSuccess("Kiþi eklendi.");
+            ToastService.ShowSuccess("KiÅŸi eklendi.");
         }
         catch (Exception ex)
         {
@@ -564,7 +564,7 @@
             showYeniGrupModal = false;
             yeniGrup = new();
             await LoadDataAsync();
-            ToastService.ShowSuccess("Grup oluþturuldu.");
+            ToastService.ShowSuccess("Grup oluÅŸturuldu.");
         }
         catch (Exception ex)
         {
@@ -579,7 +579,7 @@
             await WhatsAppService.GrubaKisiEkleAsync(seciliGrup.Id, eklenecekKisiId);
             seciliGrup = await WhatsAppService.GetGrupByIdAsync(seciliGrup.Id);
             eklenecekKisiId = 0;
-            ToastService.ShowSuccess("Kiþi gruba eklendi.");
+            ToastService.ShowSuccess("KiÅŸi gruba eklendi.");
         }
     }
 
@@ -589,7 +589,7 @@
         {
             await WhatsAppService.GruptanKisiCikarAsync(seciliGrup.Id, kisiId);
             seciliGrup = await WhatsAppService.GetGrupByIdAsync(seciliGrup.Id);
-            ToastService.ShowSuccess("Kiþi gruptan çýkarýldý.");
+            ToastService.ShowSuccess("KiÅŸi gruptan Ã§Ä±karÄ±ldÄ±.");
         }
     }
 
@@ -602,17 +602,17 @@
 
             if (!telefonluCariler.Any())
             {
-                ToastService.ShowWarning("Telefon numarasý kayýtlý cari bulunamadý.");
+                ToastService.ShowWarning("Telefon numarasÄ± kayÄ±tlÄ± cari bulunamadÄ±.");
                 return;
             }
 
             await WhatsAppService.SeciliCarilerdenKisiOlustur(telefonluCariler);
             await LoadDataAsync(); // Listeyi yenile
-            ToastService.ShowSuccess($"{telefonluCariler.Count} cari WhatsApp kiþilerine aktarýldý.");
+            ToastService.ShowSuccess($"{telefonluCariler.Count} cari WhatsApp kiÅŸilerine aktarÄ±ldÄ±.");
         }
         catch (Exception ex)
         {
-            ToastService.ShowError("Aktarým sýrasýnda hata oluþtu: " + ex.Message);
+            ToastService.ShowError("AktarÄ±m sÄ±rasÄ±nda hata oluÅŸtu: " + ex.Message);
         }
     }
 
