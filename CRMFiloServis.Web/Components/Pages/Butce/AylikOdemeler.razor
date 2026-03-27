@@ -1,4 +1,4 @@
-@page "/butce/aylik-odemeler"
+ï»¿@page "/butce/aylik-odemeler"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject IAylikOdemeService OdemeService
@@ -6,12 +6,15 @@
 @inject IToastService ToastService
 @rendermode InteractiveServer
 
-<PageTitle>Aylýk Ödemeler</PageTitle>
+<PageTitle>AylÄ±k Ã–demeler</PageTitle>
 
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3><i class="bi bi-calendar-check me-2"></i>Aylýk Ödemeler</h3>
+    <div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
+        <h3><i class="bi bi-calendar-check me-2"></i>AylÄ±k Ã–demeler</h3>
         <div class="btn-group">
+            <button class="btn btn-outline-dark" onclick="window.print()">
+                <i class="bi bi-printer me-1"></i>YazdÄ±r
+            </button>
             <button class="btn btn-primary" @onclick="YeniPlanEkle">
                 <i class="bi bi-plus-circle me-1"></i>Yeni Plan
             </button>
@@ -21,12 +24,12 @@
         </div>
     </div>
 
-    <!-- Özet Kartlar -->
+    <!-- Ã–zet Kartlar -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card border-primary">
                 <div class="card-body">
-                    <h6 class="text-muted">Bu Ay Ödenecek</h6>
+                    <h6 class="text-muted">Bu Ay Ã–denecek</h6>
                     <h3 class="text-primary">@buAyToplam.ToString("N2") ?</h3>
                     <small class="text-muted">@secilenAy/@secilenYil</small>
                 </div>
@@ -35,25 +38,25 @@
         <div class="col-md-3">
             <div class="card border-warning">
                 <div class="card-body">
-                    <h6 class="text-muted">Bekleyen Ödemeler</h6>
+                    <h6 class="text-muted">Bekleyen Ã–demeler</h6>
                     <h3 class="text-warning">@bekleyenSayisi</h3>
-                    <small class="text-muted">adet ödeme</small>
+                    <small class="text-muted">adet Ã¶deme</small>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card border-danger">
                 <div class="card-body">
-                    <h6 class="text-muted">Geciken Ödemeler</h6>
+                    <h6 class="text-muted">Geciken Ã–demeler</h6>
                     <h3 class="text-danger">@gecikmisSayisi</h3>
-                    <small class="text-muted">adet ödeme</small>
+                    <small class="text-muted">adet Ã¶deme</small>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card border-success">
                 <div class="card-body">
-                    <h6 class="text-muted">Aylýk Sabit Gider</h6>
+                    <h6 class="text-muted">AylÄ±k Sabit Gider</h6>
                     <h3 class="text-success">@toplamAylikGider.ToString("N2") ?</h3>
                     <small class="text-muted">@aktifPlanlar.Count plan</small>
                 </div>
@@ -61,12 +64,12 @@
         </div>
     </div>
 
-    <!-- Ay/Yýl Seçici -->
-    <div class="card mb-3">
+    <!-- Ay/YÄ±l SeÃ§ici -->
+    <div class="card mb-3 d-print-none">
         <div class="card-body">
             <div class="row align-items-center">
                 <div class="col-md-4">
-                    <label class="form-label">Dönem Seç</label>
+                    <label class="form-label">DÃ¶nem SeÃ§</label>
                     <div class="input-group">
                         <button class="btn btn-outline-secondary" @onclick="OncekiAy">
                             <i class="bi bi-chevron-left"></i>
@@ -118,7 +121,7 @@
     {
         @if (gorunumModu == "takvim")
         {
-            <!-- Takvim Görünümü -->
+            <!-- Takvim GÃ¶rÃ¼nÃ¼mÃ¼ -->
             <div class="card">
                 <div class="card-body">
                     <TakvimGorunum Odemeler="@odemeler" OnOdemeClick="@OdemeDetayGoster" />
@@ -127,42 +130,66 @@
         }
         else if (gorunumModu == "liste")
         {
-            <!-- Liste Görünümü -->
+            <!-- Liste GÃ¶rÃ¼nÃ¼mÃ¼ -->
             <div class="card">
+                <div class="card-header d-none d-print-block bg-white text-center border-0">
+                    <h4>@secilenAy/@secilenYil AylÄ±k Ã–deme Listesi</h4>
+                </div>
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>Ödeme</th>
-                                    <th>Gün</th>
+                                    <th>Ã–deme</th>
+                                    <th>Tarih</th>
                                     <th>Tutar</th>
-                                    <th>Ödenen</th>
+                                    <th>Ã–denen</th>
                                     <th>Durum</th>
-                                    <th>Ýþlem</th>
+                                    <th>Kalan SÃ¼re</th>
+                                    <th class="d-print-none">Ä°ÅŸlem</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var odeme in odemeler.OrderBy(o => o.Plan?.OdemeGunu))
                                 {
+                                    int gun = odeme.Plan?.OdemeGunu ?? 1;
+                                    var odemeTarihi = new DateTime(secilenYil, secilenAy, Math.Min(gun, DateTime.DaysInMonth(secilenYil, secilenAy)));
+                                    int kalanGun = (odemeTarihi.Date - DateTime.Today).Days;
+                                    
+                                    string timeText = "-";
+                                    string timeClass = "text-muted";
+                                    
+                                    if (odeme.Durum == OdemeDurumu.Bekleniyor || odeme.Durum == OdemeDurumu.Gecikti)
+                                    {
+                                        if (kalanGun < 0) { timeText = $"{Math.Abs(kalanGun)} GÃ¼n Gecikti"; timeClass = "text-danger fw-bold"; }
+                                        else if (kalanGun == 0) { timeText = "BugÃ¼n"; timeClass = "text-warning fw-bold"; }
+                                        else { timeText = $"{kalanGun} GÃ¼n KaldÄ±"; timeClass = "text-success fw-bold"; }
+                                    }
+                                    else if (odeme.Durum == OdemeDurumu.Odendi || odeme.Durum == OdemeDurumu.KismiOdendi)
+                                    {
+                                        timeText = "Ã–dendi/KÄ±smi";
+                                        timeClass = "text-muted";
+                                    }
+
                                     <tr class="@GetSatirRenk(odeme)">
                                         <td>
                                             <strong>@odeme.Plan?.OdemeAdi</strong><br />
                                             <small class="text-muted">@odeme.Plan?.Turu.ToString()</small>
                                         </td>
-                                        <td>@odeme.Plan?.OdemeGunu</td>
-                                        <td>@odeme.PlanlananTutar.ToString("N2") ?</td>
-                                        <td>@odeme.OdenenTutar.ToString("N2") ?</td>
+                                        <td>@odemeTarihi.ToString("dd.MM.yyyy")</td>
+                                        <td>@odeme.PlanlananTutar.ToString("N2") â‚º</td>
+                                        <td>@odeme.OdenenTutar.ToString("N2") â‚º</td>
                                         <td>
                                             <span class="badge @GetDurumBadge(odeme.Durum)">
                                                 @odeme.Durum.ToString()
                                             </span>
                                         </td>
-                                        <td>
+                                        <td class="@timeClass">@timeText</td>
+                                        <td class="d-print-none">
                                             @if (odeme.Durum != OdemeDurumu.Odendi)
                                             {
                                                 <button class="btn btn-sm btn-success" @onclick="() => OdemeYap(odeme)">
-                                                    <i class="bi bi-check-circle"></i> Öde
+                                                    <i class="bi bi-check-circle"></i> Ã–de
                                                 </button>
                                             }
                                         </td>
@@ -172,9 +199,9 @@
                             <tfoot>
                                 <tr class="fw-bold">
                                     <td colspan="2">TOPLAM</td>
-                                    <td>@odemeler.Sum(o => o.PlanlananTutar).ToString("N2") ?</td>
-                                    <td>@odemeler.Sum(o => o.OdenenTutar).ToString("N2") ?</td>
-                                    <td colspan="2"></td>
+                                    <td>@odemeler.Sum(o => o.PlanlananTutar).ToString("N2") â‚º</td>
+                                    <td>@odemeler.Sum(o => o.OdenenTutar).ToString("N2") â‚º</td>
+                                    <td colspan="3"></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -184,19 +211,19 @@
         }
         else
         {
-            <!-- Planlar Görünümü -->
+            <!-- Planlar GÃ¶rÃ¼nÃ¼mÃ¼ -->
             <div class="card">
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Ödeme Adý</th>
-                                    <th>Tür</th>
-                                    <th>Aylýk Tutar</th>
-                                    <th>Ödeme Günü</th>
+                                    <th>Ã–deme AdÄ±</th>
+                                    <th>TÃ¼r</th>
+                                    <th>AylÄ±k Tutar</th>
+                                    <th>Ã–deme GÃ¼nÃ¼</th>
                                     <th>Durum</th>
-                                    <th>Ýþlem</th>
+                                    <th>Ä°ÅŸlem</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -231,7 +258,7 @@
                             </tbody>
                             <tfoot>
                                 <tr class="fw-bold">
-                                    <td colspan="2">TOPLAM AYLIK GÝDER</td>
+                                    <td colspan="2">TOPLAM AYLIK GÄ°DER</td>
                                     <td>@aktifPlanlar.Sum(p => p.AylikTutar).ToString("N2") ?</td>
                                     <td colspan="3"></td>
                                 </tr>
@@ -324,37 +351,37 @@
 
     private void YeniPlanEkle()
     {
-        // Modal açýlacak
-        ToastService.ShowInfo("Yeni plan ekleme özelliði yakýnda eklenecek");
+        // Modal aÃ§Ä±lacak
+        ToastService.ShowInfo("Yeni plan ekleme Ã¶zelliÄŸi yakÄ±nda eklenecek");
     }
 
     private void PlanDuzenle(AylikOdemePlani plan)
     {
-        ToastService.ShowInfo($"{plan.OdemeAdi} düzenleme özelliði yakýnda eklenecek");
+        ToastService.ShowInfo($"{plan.OdemeAdi} dÃ¼zenleme Ã¶zelliÄŸi yakÄ±nda eklenecek");
     }
 
     private async Task PlanSil(int id)
     {
-        // Onay sonrasý silme
-        ToastService.ShowInfo("Silme özelliði yakýnda eklenecek");
+        // Onay sonrasÄ± silme
+        ToastService.ShowInfo("Silme Ã¶zelliÄŸi yakÄ±nda eklenecek");
     }
 
     private void OdemeDetayGoster(AylikOdemeGerceklesen odeme)
     {
-        ToastService.ShowInfo($"{odeme.Plan?.OdemeAdi} detay gösterimi yakýnda eklenecek");
+        ToastService.ShowInfo($"{odeme.Plan?.OdemeAdi} detay gÃ¶sterimi yakÄ±nda eklenecek");
     }
 
     private async Task OdemeYap(AylikOdemeGerceklesen odeme)
     {
-        // Ödeme modal açýlacak
-        ToastService.ShowInfo($"{odeme.Plan?.OdemeAdi} için ödeme özelliði yakýnda eklenecek");
+        // Ã–deme modal aÃ§Ä±lacak
+        ToastService.ShowInfo($"{odeme.Plan?.OdemeAdi} iÃ§in Ã¶deme Ã¶zelliÄŸi yakÄ±nda eklenecek");
     }
 
     private string GetAyAdi(int ay) => ay switch
     {
-        1 => "Ocak", 2 => "Þubat", 3 => "Mart", 4 => "Nisan",
-        5 => "Mayýs", 6 => "Haziran", 7 => "Temmuz", 8 => "Aðustos",
-        9 => "Eylül", 10 => "Ekim", 11 => "Kasým", 12 => "Aralýk",
+        1 => "Ocak", 2 => "Åžubat", 3 => "Mart", 4 => "Nisan",
+        5 => "MayÄ±s", 6 => "Haziran", 7 => "Temmuz", 8 => "AÄŸustos",
+        9 => "EylÃ¼l", 10 => "Ekim", 11 => "KasÄ±m", 12 => "AralÄ±k",
         _ => ""
     };
 
@@ -367,10 +394,40 @@
 
     private string GetDurumBadge(OdemeDurumu durum) => durum switch
     {
+        OdemeDurumu.Bekleniyor => "bg-warning text-dark",
         OdemeDurumu.Odendi => "bg-success",
-        OdemeDurumu.Bekleniyor => "bg-warning",
+        OdemeDurumu.Iptal => "bg-danger",
         OdemeDurumu.Gecikti => "bg-danger",
-        OdemeDurumu.KismiOdendi => "bg-info",
+        OdemeDurumu.KismiOdendi => "bg-info text-dark",
         _ => "bg-secondary"
     };
 }
+
+<style>
+    @@media print {
+        @@page {
+            size: A4 portrait;
+            margin: 1cm;
+        }
+        .page {
+            display: block !important;
+        }
+        .sidebar {
+            display: none !important;
+        }
+        main {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .top-row {
+            display: none !important;
+        }
+        .content {
+            padding: 0 !important;
+        }
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+    }
+</style>

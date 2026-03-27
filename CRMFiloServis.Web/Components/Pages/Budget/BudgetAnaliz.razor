@@ -953,26 +953,44 @@
                                                 {
                                                     var currentGun = pGun;
                                                     var gunData = takvimData?.FirstOrDefault(t => t.Gun == currentGun);
-                                                    <td class="p-1" style="height: 120px; vertical-align: top; font-size: 0.75rem;">
-                                                        <div class="d-flex justify-content-between mb-1" style="border-bottom: 1px solid #ddd;">
-                                                            <strong>@currentGun</strong>
+                                                    <td class="p-0" style="height: 14vh; vertical-align: top; font-size: 0.70rem; overflow: hidden;">
+                                                        <div class="d-flex justify-content-between mb-1 bg-light px-1" style="border-bottom: 1px solid #ccc; padding-top: 2px; padding-bottom: 2px;">
+                                                            <strong style="font-size: 0.85rem;">@currentGun</strong>
                                                             @if (gunData != null && gunData.BekleyenToplamOdeme > 0)
                                                             {
-                                                                <strong class="text-danger">@gunData.BekleyenToplamOdeme.ToString("N0") TL</strong>
+                                                                <strong class="text-danger" style="font-size: 0.80rem;">@gunData.BekleyenToplamOdeme.ToString("N0") TL</strong>
                                                             }
                                                         </div>
-                                                        <div style="max-height: 90px; overflow: hidden;">
+                                                        <div class="px-1" style="overflow: hidden; max-height: calc(14vh - 22px);">
                                                            @if (gunData != null && gunData.Odemeler != null)
                                                            {
-                                                               foreach(var o in gunData.Odemeler.Where(x => x.Durum == OdemeDurum.Bekliyor).Take(4))
+                                                               foreach(var o in gunData.Odemeler.Where(x => x.Durum == OdemeDurum.Bekliyor || x.Durum == OdemeDurum.Ertelendi).OrderBy(x => x.Durum))
                                                                {
-                                                                   <div class="text-truncate mb-1" title="@o.MasrafKalemi" style="line-height: 1.1;">
-                                                                       <small>@o.MasrafKalemi</small>
+                                                                   int kalanGun = (o.OdemeTarihi.Date - DateTime.Today).Days;
+                                                                   string textColorClass = "text-dark";
+                                                                   string timeText = "";
+
+                                                                   if (kalanGun < 0) {
+                                                                       textColorClass = "text-danger"; 
+                                                                       timeText = $"{Math.Abs(kalanGun)}g Gecikti";
+                                                                   } else if (kalanGun == 0) {
+                                                                       textColorClass = "text-warning fw-bold"; 
+                                                                       timeText = "Bugün";
+                                                                   } else {
+                                                                       textColorClass = "text-success"; 
+                                                                       timeText = $"{kalanGun}g Kaldı";
+                                                                   }
+
+                                                                   string stringAciklama = string.IsNullOrWhiteSpace(o.Aciklama) ? o.MasrafKalemi : o.Aciklama;
+                                                                   stringAciklama = stringAciklama.Replace("[Tekrarlayan]", "").Replace("[tekrarlayan]", "").Trim();
+
+                                                                   <div class="mb-1 py-0 border-bottom border-light" style="line-height: 1.1; font-size: 0.65rem;">
+                                                                       <div class="text-truncate @textColorClass" style="max-width: 100%;" title="@stringAciklama">@stringAciklama</div>
+                                                                       <div class="d-flex justify-content-between @textColorClass">
+                                                                           <span>@o.Miktar.ToString("N0") TL</span>
+                                                                           <span style="font-size: 0.55rem; opacity: 0.9;">@timeText</span>
+                                                                       </div>
                                                                    </div>
-                                                               }
-                                                               if (gunData.Odemeler.Count(x => x.Durum == OdemeDurum.Bekliyor) > 4)
-                                                               {
-                                                                   <div class="text-muted"><small>+@(gunData.Odemeler.Count(x => x.Durum == OdemeDurum.Bekliyor) - 4) daha</small></div>
                                                                }
                                                            }
                                                         </div>
@@ -1467,7 +1485,7 @@
                 var printWindow = window.open('', '_blank');
                 if (printWindow) {
                     printWindow.document.write('<html><head><title>Bütçe Raporu</title>');
-                    printWindow.document.write('<style>body{font-family:Arial,sans-serif;margin:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #000;padding:4px;} .page-break{page-break-before:always;} .d-print-none{display:none !important;} .d-none.d-print-block{display:block !important;} .text-center{text-align:center;} .text-end{text-align:right;} .text-danger{color:red;} .text-muted{color:#6c757d;} .mb-4{margin-bottom:1.5rem;} .mb-1{margin-bottom:0.25rem;} .fw-bold{font-weight:bold;} small{font-size:0.8rem;} h4{margin-bottom:5px;}</style>');
+                    printWindow.document.write('<style>@page { size: A4 portrait; margin: 0.5cm; } body{font-family:Arial,sans-serif;margin:0;} table{width:100%;border-collapse:collapse;table-layout:fixed;} th,td{border:1px solid #000;padding:0 !important;overflow:hidden;} .page-break{page-break-before:always;} .print-calendar{height:100vh;max-height:100vh;overflow:hidden;page-break-inside:avoid;} .print-table{height:93%;} td{height:14vh; max-height:14vh;} .d-print-none{display:none !important;} .d-none.d-print-block{display:block !important;} .text-center{text-align:center;} .text-end{text-align:right;} .text-danger{color:#dc3545 !important;} .text-warning{color:#d39e00 !important;} .text-success{color:#198754 !important;} .text-dark{color:#212529 !important;} .text-white{color:#fff !important;} .bg-light{background-color:#f8f9fa !important;} .border-bottom{border-bottom:1px dashed #eee !important;} .border-light{border-color:#f8f9fa !important;} .text-muted{color:#6c757d !important;} .mb-4{margin-bottom:1.5rem;} .mb-1{margin-bottom:0.25rem;} .p-0{padding:0 !important;} .px-1{padding-left:0.25rem !important; padding-right:0.25rem !important;} .py-0{padding-top:0 !important; padding-bottom:0 !important;} .fw-bold{font-weight:bold;} small{font-size:0.75rem;} h4{margin-bottom:5px;} .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; } .d-flex { display: flex; } .justify-content-between { justify-content: space-between; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }</style>');
                     printWindow.document.write('</head><body>');
                     printWindow.document.write(printElement.innerHTML);
                     printWindow.document.write('</body></html>');
