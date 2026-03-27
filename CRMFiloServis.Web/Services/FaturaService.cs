@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
@@ -95,7 +95,7 @@ public class FaturaService : IFaturaService
 
     public async Task<Fatura> CreateAsync(Fatura fatura)
     {
-        // Tutarlarý hesapla
+        // TutarlarÄ± hesapla
         CalculateTotals(fatura);
 
         _context.Faturalar.Add(fatura);
@@ -187,7 +187,7 @@ public class FaturaService : IFaturaService
         {
             fatura.OdenenTutar = fatura.OdemeEslestirmeleri.Sum(o => o.EslestirilenTutar);
 
-            // Durumu güncelle
+            // Durumu gÃ¼ncelle
             if (fatura.OdenenTutar >= fatura.GenelToplam)
             {
                 fatura.Durum = FaturaDurum.Odendi;
@@ -358,23 +358,7 @@ public class FaturaService : IFaturaService
                 return result;
             }
 
-            // Son CariKodu numarasini al (silinmisler dahil)
-            var maxCariNum = await _context.Cariler
-                .IgnoreQueryFilters()
-                .Where(c => c.CariKodu.StartsWith("C") && c.CariKodu.Length == 6)
-                .Select(c => c.CariKodu.Substring(1))
-                .ToListAsync();
-            
-            int nextCariNum = 1;
-            if (maxCariNum.Any())
-            {
-                var maxNum = maxCariNum
-                    .Where(s => int.TryParse(s, out _))
-                    .Select(s => int.Parse(s))
-                    .DefaultIfEmpty(0)
-                    .Max();
-                nextCariNum = maxNum + 1;
-            }
+            int nextCariNum = await GetNextCariNumAsync();
 
             // Bu importta olusturulan carileri takip et
             var importCarileri = new Dictionary<string, Cari>(StringComparer.OrdinalIgnoreCase);
@@ -385,9 +369,8 @@ public class FaturaService : IFaturaService
                 {
                     var cariUnvan = worksheet.Cells[row, 1].Text?.Trim();
                     var cariVkn = worksheet.Cells[row, 2].Text?.Trim();
-                    var faturaTipiStr = worksheet.Cells[row, 3].Text?.Trim();
                     var tarihStr = worksheet.Cells[row, 4].Text?.Trim();
-                    var faturaNo = worksheet.Cells[row, 5].Text?.Trim();
+                    var faturaNo = NormalizeFaturaNo(worksheet.Cells[row, 5].Text);
                     
                     // Bos satiri atla
                     if (string.IsNullOrEmpty(faturaNo) && string.IsNullOrEmpty(cariUnvan)) 
@@ -405,6 +388,14 @@ public class FaturaService : IFaturaService
                     {
                         result.Errors.Add($"Satir {row}: Cari Unvan bos.");
                         result.ErrorCount++;
+                        continue;
+                    }
+
+                    var existingFatura = await FindExistingFaturaAsync(faturaNo);
+                    if (existingFatura != null)
+                    {
+                        result.SkippedCount++;
+                        result.Errors.Add($"Satir {row}: '{faturaNo}' zaten mevcut.");
                         continue;
                     }
 
@@ -449,21 +440,9 @@ public class FaturaService : IFaturaService
                         }
                     }
 
-                    // KONTROL: Fatura no VE tarih ayni olan kayit var mi?
-                    var existingFatura = await _context.Faturalar
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(f => f.FaturaNo == faturaNo);
-                    
-                    if (existingFatura != null)
-                    {
-                        result.SkippedCount++;
-                        result.Errors.Add($"Satir {row}: '{faturaNo}' zaten mevcut.");
-                        continue;
-                    }
-
-                    // CARÝ KONTROL
+                    // CARÄ° KONTROL
                     Cari? cari = null;
-                    var cariKey = !string.IsNullOrEmpty(cariVkn) ? cariVkn : cariUnvan?.ToLower() ?? "";
+                    var cariKey = !string.IsNullOrWhiteSpace(cariVkn) ? cariVkn : cariUnvan.ToLowerInvariant();
                     
                     // Once bu importta olusturulmus carilere bak
                     if (!string.IsNullOrEmpty(cariKey) && importCarileri.TryGetValue(cariKey, out var mevcutCari))
@@ -472,13 +451,13 @@ public class FaturaService : IFaturaService
                     }
                     
                     // Veritabaninda VKN ile ara
-                    if (cari == null && !string.IsNullOrEmpty(cariVkn) && cariVkn.Length >= 10)
+                    if (cari == null && !string.IsNullOrWhiteSpace(cariVkn) && cariVkn.Length >= 10)
                     {
                         cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
                     }
                     
                     // Veritabaninda Unvan ile ara
-                    if (cari == null && !string.IsNullOrEmpty(cariUnvan))
+                    if (cari == null && !string.IsNullOrWhiteSpace(cariUnvan))
                     {
                         cari = await _context.Cariler.FirstOrDefaultAsync(c => 
                             c.Unvan.ToLower() == cariUnvan.ToLower());
@@ -488,23 +467,13 @@ public class FaturaService : IFaturaService
                     if (cari == null)
                     {
                         // Benzersiz CariKodu - timestamp ile garantili
-                        var uniqueCode = $"C{nextCariNum:D5}";
-                        
-                        // Kod zaten varsa timestamp ekle
-                        var codeExists = await _context.Cariler
-                            .IgnoreQueryFilters()
-                            .AnyAsync(c => c.CariKodu == uniqueCode);
-                        
-                        if (codeExists)
-                        {
-                            uniqueCode = $"C{DateTime.Now:HHmmssfff}";
-                        }
+                        var uniqueCode = await GetUniqueCariCodeAsync(nextCariNum);
                         
                         cari = new Cari
                         {
                             CariKodu = uniqueCode,
-                            Unvan = cariUnvan ?? "Bilinmeyen",
-                            VergiNo = cariVkn ?? "",
+                            Unvan = cariUnvan,
+                            VergiNo = cariVkn ?? string.Empty,
                             CariTipi = yon == FaturaYonu.Giden ? CariTipi.Musteri : CariTipi.Tedarikci,
                             Aktif = true,
                             CreatedAt = DateTime.UtcNow
@@ -553,7 +522,7 @@ public class FaturaService : IFaturaService
 
                     _context.Faturalar.Add(fatura);
                     
-                    // Her faturayý tek tek kaydet - hata durumunda diger faturalar etkilenmesin
+                    // Her faturayÄ± tek tek kaydet - hata durumunda diger faturalar etkilenmesin
                     await _context.SaveChangesAsync();
                     
                     result.ImportedItems.Add(fatura);
@@ -591,24 +560,7 @@ public class FaturaService : IFaturaService
     {
         var result = new EFaturaImportResult();
         var defaultEFaturaTipi = eFaturaTipi ?? EFaturaTipi.EFatura;
-        
-        var maxCariNum = await _context.Cariler
-            .IgnoreQueryFilters()
-            .Where(c => c.CariKodu.StartsWith("C") && c.CariKodu.Length == 6)
-            .Select(c => c.CariKodu.Substring(1))
-            .ToListAsync();
-            
-        int nextCariNum = 1;
-        if (maxCariNum.Any())
-        {
-            var maxNum = maxCariNum
-                .Where(s => int.TryParse(s, out _))
-                .Select(s => int.Parse(s))
-                .DefaultIfEmpty(0)
-                .Max();
-            nextCariNum = maxNum + 1;
-        }
-
+        int nextCariNum = await GetNextCariNumAsync();
         var importCarileri = new Dictionary<string, Cari>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var file in xmlFiles)
@@ -625,35 +577,22 @@ public class FaturaService : IFaturaService
                 var invoice = xdoc.Descendants().FirstOrDefault(x => x.Name.LocalName == "Invoice");
                 if (invoice == null)
                 {
-                    result.Errors.Add($"{file.FileName}: Geçerli bir UBL Fatura formatý deðil.");
+                    result.Errors.Add($"{file.FileName}: GeÃ§erli bir UBL Fatura formatÄ± deÄŸil.");
                     result.ErrorCount++;
                     continue;
                 }
 
-                var faturaNo = GetValue(invoice, "ID");
+                var faturaNo = NormalizeFaturaNo(GetValue(invoice, "ID"));
                 var issueDateStr = GetValue(invoice, "IssueDate");
                 
                 if (string.IsNullOrWhiteSpace(faturaNo))
                 {
-                    result.Errors.Add($"{file.FileName}: Fatura No (ID) bulunamadý.");
+                    result.Errors.Add($"{file.FileName}: Fatura No (ID) bulunamadÄ±.");
                     result.ErrorCount++;
                     continue;
                 }
 
-                // ETTN
-                var ettn = GetValue(invoice, "UUID");
-                
-                // Profil ID eArsiv / eFatura tip tespiti
-                var profileId = GetValue(invoice, "ProfileID");
-                var fatTip = defaultEFaturaTipi;
-                if (!string.IsNullOrEmpty(profileId) && profileId.ToUpper().Contains("EARSIV"))
-                    fatTip = EFaturaTipi.EArsiv;
-                
-                // Already exists?
-                var existingFatura = await _context.Faturalar
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(f => f.FaturaNo == faturaNo && f.FaturaYonu == yon);
-                    
+                var existingFatura = await FindExistingFaturaAsync(faturaNo);
                 if (existingFatura != null)
                 {
                     result.Errors.Add($"{file.FileName}: {faturaNo} no'lu fatura sistemde zaten var.");
@@ -661,98 +600,105 @@ public class FaturaService : IFaturaService
                     continue;
                 }
 
+                var ettn = GetValue(invoice, "UUID");
+                var profileId = GetValue(invoice, "ProfileID");
+                var fatTip = !string.IsNullOrEmpty(profileId) && profileId.ToUpperInvariant().Contains("EARSIV")
+                    ? EFaturaTipi.EArsiv
+                    : defaultEFaturaTipi;
+
                 if (!DateTime.TryParse(issueDateStr, out var faturaTarihi))
                 {
                     faturaTarihi = DateTime.Today;
                 }
+                faturaTarihi = DateTime.SpecifyKind(faturaTarihi.Date, DateTimeKind.Utc);
 
-                // Cari bilgileri (Gönderen veya Alan - Yönümüze göre deðiþir)
-                string cariUnvan = "";
-                string cariVkn = "";
+                string cariUnvan = string.Empty;
+                string cariVkn = string.Empty;
                 
                 System.Xml.Linq.XElement? supplierNode = invoice.Descendants().FirstOrDefault(x => x.Name.LocalName == "AccountingSupplierParty");
                 System.Xml.Linq.XElement? customerNode = invoice.Descendants().FirstOrDefault(x => x.Name.LocalName == "AccountingCustomerParty");
-                
                 var targetNode = yon == FaturaYonu.Giden ? customerNode : supplierNode;
                 var partyNode = targetNode?.Descendants().FirstOrDefault(x => x.Name.LocalName == "Party");
 
                 if (partyNode != null)
                 {
-                    cariUnvan = GetValue(partyNode, "Name");
-                    cariVkn = GetValue(partyNode, "CompanyID"); // VKN/TCKN is under PartyTaxScheme > CompanyID or Person ID
+                    cariUnvan = GetValue(partyNode, "Name").Trim();
+                    cariVkn = GetValue(partyNode, "CompanyID").Trim();
                     
-                    if (string.IsNullOrWhiteSpace(cariVkn))
+                    if (string.IsNullOrWhiteSpace(cariUnvan))
                     {
-                         var initNode = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "Person");
-                         // Eðer Name yoksa Person altýndaki FirstName FamilyName e bak
-                         if(string.IsNullOrWhiteSpace(cariUnvan) && initNode != null){
-                             var fn = GetValue(initNode, "FirstName");
-                             var ln = GetValue(initNode, "FamilyName");
-                             cariUnvan = $"{fn} {ln}".Trim();
-                         }
+                        var personNode = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "Person");
+                        if (personNode != null)
+                        {
+                            var firstName = GetValue(personNode, "FirstName");
+                            var familyName = GetValue(personNode, "FamilyName");
+                            cariUnvan = $"{firstName} {familyName}".Trim();
+                        }
                     }
                 }
-                
-                // Find or create Cari
-                Cari? cari = null;
-                var cariKey = !string.IsNullOrEmpty(cariVkn) ? cariVkn : cariUnvan;
-                
-                if (!string.IsNullOrEmpty(cariKey))
+
+                if (string.IsNullOrWhiteSpace(cariUnvan))
                 {
-                    if (importCarileri.TryGetValue(cariKey, out var existingCari))
-                    {
-                        cari = existingCari;
-                    }
-                    else
-                    {
-                        if (!string.IsNullOrEmpty(cariVkn))
-                        {
-                            cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
-                        }
-                        
-                        if (cari == null && !string.IsNullOrEmpty(cariUnvan))
-                        {
-                            cari = await _context.Cariler.FirstOrDefaultAsync(c => c.Unvan.ToLower() == cariUnvan.ToLower());
-                        }
-
-                        if (cari == null)
-                        {
-                            var uniqueCode = $"C{nextCariNum:D5}";
-                            var codeExists = await _context.Cariler.IgnoreQueryFilters().AnyAsync(c => c.CariKodu == uniqueCode);
-                            if (codeExists) uniqueCode = $"C{DateTime.Now:HHmmssfff}";
-
-                            cari = new Cari
-                            {
-                                CariKodu = uniqueCode,
-                                Unvan = string.IsNullOrWhiteSpace(cariUnvan) ? "Bilinmeyen Cari" : cariUnvan,
-                                VergiNo = cariVkn ?? "",
-                                CariTipi = yon == FaturaYonu.Giden ? CariTipi.Musteri : CariTipi.Tedarikci,
-                                Aktif = true,
-                                CreatedAt = DateTime.UtcNow
-                            };
-                            
-                            _context.Cariler.Add(cari);
-                            await _context.SaveChangesAsync();
-                            
-                            importCarileri[cariKey] = cari;
-                            nextCariNum++;
-                        }
-                    }
+                    result.Errors.Add($"{file.FileName}: Cari unvan bilgisi XML icinden cikarilamadi.");
+                    result.ErrorCount++;
+                    continue;
+                }
+                
+                Cari? cari = null;
+                var cariKey = !string.IsNullOrWhiteSpace(cariVkn) ? cariVkn : cariUnvan.ToLowerInvariant();
+                
+                if (!string.IsNullOrEmpty(cariKey) && importCarileri.TryGetValue(cariKey, out var mevcutCari))
+                {
+                    cari = mevcutCari;
+                }
+                
+                if (cari == null && !string.IsNullOrWhiteSpace(cariVkn) && cariVkn.Length >= 10)
+                {
+                    cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
+                }
+                
+                if (cari == null)
+                {
+                    cari = await _context.Cariler.FirstOrDefaultAsync(c => c.Unvan.ToLower() == cariUnvan.ToLower());
                 }
 
                 if (cari == null)
                 {
-                    result.Errors.Add($"{file.FileName}: Cari bilgisi XML içinden çýkartýlamadý.");
-                    result.ErrorCount++;
-                    continue;
+                    var uniqueCode = await GetUniqueCariCodeAsync(nextCariNum);
+                    cari = new Cari
+                    {
+                        CariKodu = uniqueCode,
+                        Unvan = cariUnvan,
+                        VergiNo = cariVkn ?? string.Empty,
+                        CariTipi = yon == FaturaYonu.Giden ? CariTipi.Musteri : CariTipi.Tedarikci,
+                        Aktif = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    
+                    _context.Cariler.Add(cari);
+                    await _context.SaveChangesAsync();
+                    nextCariNum++;
                 }
 
-                // Tutarlar
+                if (!string.IsNullOrEmpty(cariKey))
+                {
+                    importCarileri[cariKey] = cari;
+                }
+
                 var legalMonetaryTotal = invoice.Descendants().FirstOrDefault(x => x.Name.LocalName == "LegalMonetaryTotal");
                 var dAraToplam = ParseDecimal(GetValue(legalMonetaryTotal, "TaxExclusiveAmount"));
                 var dGenelToplam = ParseDecimal(GetValue(legalMonetaryTotal, "PayableAmount"));
-                if (dGenelToplam == 0) dGenelToplam = ParseDecimal(GetValue(legalMonetaryTotal, "TaxInclusiveAmount"));
+                if (dGenelToplam == 0)
+                    dGenelToplam = ParseDecimal(GetValue(legalMonetaryTotal, "TaxInclusiveAmount"));
+
                 var dKdvTutar = dGenelToplam - dAraToplam;
+
+                if (dGenelToplam <= 0 && dAraToplam <= 0)
+                {
+                    result.Errors.Add($"{file.FileName}: Tutar bilgisi eksik.");
+                    result.ErrorCount++;
+                    continue;
+                }
 
                 var fatura = new Fatura
                 {
@@ -765,7 +711,7 @@ public class FaturaService : IFaturaService
                     EFaturaTipi = fatTip,
                     EttnNo = ettn,
                     AraToplam = dAraToplam > 0 ? dAraToplam : dGenelToplam,
-                    IskontoTutar = 0, // Kompleks UBL XML iskontosu þimdilik 0
+                    IskontoTutar = 0,
                     KdvTutar = dKdvTutar,
                     GenelToplam = dGenelToplam,
                     Durum = FaturaDurum.Beklemede,
@@ -781,7 +727,7 @@ public class FaturaService : IFaturaService
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"{file.FileName} parse hatasý: {ex.InnerException?.Message ?? ex.Message}");
+                result.Errors.Add($"{file.FileName} parse hatasÄ±: {ex.InnerException?.Message ?? ex.Message}");
                 result.ErrorCount++;
                 
                 foreach (var entry in _context.ChangeTracker.Entries().ToList())
@@ -798,6 +744,52 @@ public class FaturaService : IFaturaService
         return result;
     }
 
+    private async Task<int> GetNextCariNumAsync()
+    {
+        var maxCariNum = await _context.Cariler
+            .IgnoreQueryFilters()
+            .Where(c => c.CariKodu.StartsWith("C") && c.CariKodu.Length == 6)
+            .Select(c => c.CariKodu.Substring(1))
+            .ToListAsync();
+
+        if (!maxCariNum.Any())
+        {
+            return 1;
+        }
+
+        return maxCariNum
+            .Where(s => int.TryParse(s, out _))
+            .Select(int.Parse)
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+    }
+
+    private async Task<string> GetUniqueCariCodeAsync(int nextCariNum)
+    {
+        var uniqueCode = $"C{nextCariNum:D5}";
+        var codeExists = await _context.Cariler
+            .IgnoreQueryFilters()
+            .AnyAsync(c => c.CariKodu == uniqueCode);
+
+        return codeExists ? $"C{DateTime.Now:HHmmssfff}" : uniqueCode;
+    }
+
+    private async Task<Fatura?> FindExistingFaturaAsync(string faturaNo)
+    {
+        var normalizedFaturaNo = NormalizeFaturaNo(faturaNo);
+        if (string.IsNullOrWhiteSpace(normalizedFaturaNo))
+        {
+            return null;
+        }
+
+        return await _context.Faturalar
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(f => f.FaturaNo.Trim().ToUpper() == normalizedFaturaNo);
+    }
+
+    private static string NormalizeFaturaNo(string? value)
+        => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToUpperInvariant();
+
     private static decimal ParseDecimal(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return 0;
@@ -808,7 +800,7 @@ public class FaturaService : IFaturaService
     /// <summary>
     /// Excel Sablon - Ornek dosya formatina gore:
     /// A: Unvani/Adi Soyadi, B: Vkn/Tckn, C: Fatura Tipi, D: Fatura Tarihi, E: Fatura No,
-    /// F: Iskonto, G: Kdv Matrahý %0, H: Kdv Matrahý %1, I: Kdv Matrahý %10, J: Kdv Matrahý %20,
+    /// F: Iskonto, G: Kdv MatrahÄ± %0, H: Kdv MatrahÄ± %1, I: Kdv MatrahÄ± %10, J: Kdv MatrahÄ± %20,
     /// K: Kdv%1, L: Kdv%10, M: Kdv%20, N: Odenecek Tutar Turk Lirasi
     /// </summary>
     public async Task<byte[]> GetExcelSablonAsync(FaturaYonu yon)
@@ -818,9 +810,9 @@ public class FaturaService : IFaturaService
 
         // Basliklar - Ornek dosya formatinda
         var headers = new[] { 
-            "Ünvaný/Adý Soyadý", "Vkn/Tckn", "Fatura Tipi", "Fatura Tarihi", "Fatura No.",
-            "Ýskonto", "Kdv Matrahý %0", "Kdv Matrahý %1", "Kdv Matrahý %10", "Kdv Matrahý %20",
-            "Kdv%1", "Kdv%10", "Kdv%20", "Ödenecek Tutar Türk Lirasý"
+            "ÃœnvanÄ±/AdÄ± SoyadÄ±", "Vkn/Tckn", "Fatura Tipi", "Fatura Tarihi", "Fatura No.",
+            "Ä°skonto", "Kdv MatrahÄ± %0", "Kdv MatrahÄ± %1", "Kdv MatrahÄ± %10", "Kdv MatrahÄ± %20",
+            "Kdv%1", "Kdv%10", "Kdv%20", "Ã–denecek Tutar TÃ¼rk LirasÄ±"
         };
         
         for (int i = 0; i < headers.Length; i++)
@@ -850,12 +842,12 @@ public class FaturaService : IFaturaService
         // Aciklamalar
         ws.Cells[5, 1].Value = "ACIKLAMALAR:";
         ws.Cells[5, 1].Style.Font.Bold = true;
-        ws.Cells[6, 1].Value = "* Ünvaný: Cari unvani (zorunlu)";
+        ws.Cells[6, 1].Value = "* ÃœnvanÄ±: Cari unvani (zorunlu)";
         ws.Cells[7, 1].Value = "* Vkn/Tckn: Vergi veya TC kimlik no (varsa mevcut cari bulunur, yoksa yeni olusturulur)";
         ws.Cells[8, 1].Value = "* Fatura Tipi: SATIS veya ALIS";
         ws.Cells[9, 1].Value = "* Fatura Tarihi: GG.AA.YYYY formatinda";
         ws.Cells[10, 1].Value = "* Fatura No: Benzersiz fatura numarasi (zorunlu)";
-        ws.Cells[11, 1].Value = "* KDV Matrahlari: Ýlgili KDV oranina gore matrah tutarlari";
+        ws.Cells[11, 1].Value = "* KDV Matrahlari: Ä°lgili KDV oranina gore matrah tutarlari";
         ws.Cells[12, 1].Value = "* KDV Tutarlari: Her oran icin KDV tutarlari";
         ws.Cells[13, 1].Value = "* Odenecek Tutar: Toplam fatura tutari";
 

@@ -88,6 +88,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<PersonelPuantaj> PersonelPuantajlar { get; set; }
     public DbSet<GunlukPuantaj> GunlukPuantajlar { get; set; }
 
+    // Filo Komisyon ve Araç Operasyon Puantaj Modülü
+    public DbSet<FiloGuzergahEslestirme> FiloGuzergahEslestirmeleri { get; set; }
+    public DbSet<FiloGunlukPuantaj> FiloGunlukPuantajlar { get; set; }
+
     // Piyasa Arastirma Modulu
     public DbSet<AracPiyasaArastirma> PiyasaArastirmalar { get; set; }
     public DbSet<PiyasaArastirmaIlan> PiyasaArastirmaIlanlar { get; set; }

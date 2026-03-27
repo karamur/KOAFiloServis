@@ -2,8 +2,11 @@
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Web.Services.Interfaces
+@using CRMFiloServis.Web.Data
+@using Microsoft.EntityFrameworkCore
 @inject IWhatsAppService WhatsAppService
 @inject ICariService CariService
+@inject ApplicationDbContext DbContext
 @inject AppAuthenticationStateProvider AuthProvider
 @inject IToastService ToastService
 @rendermode InteractiveServer
@@ -25,7 +28,10 @@
                         <li><button class="dropdown-item py-2" @onclick="() => showYeniKisiModal = true"><i class="bi bi-person-plus me-3 text-muted"></i>Yeni Kişi</button></li>
                         <li><button class="dropdown-item py-2" @onclick="() => showYeniGrupModal = true"><i class="bi bi-people me-3 text-muted"></i>Yeni Grup</button></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><button class="dropdown-item py-2" @onclick="CariAktar"><i class="bi bi-person-lines-fill me-3 text-muted"></i>Carilerden Aktar</button></li>
+                        <li><button class="dropdown-item py-2" @onclick='() => RehberdenAktar("cari")'><i class="bi bi-building me-3 text-muted"></i>Carilerden Aktar</button></li>
+                        <li><button class="dropdown-item py-2" @onclick='() => RehberdenAktar("personel")'><i class="bi bi-person-badge me-3 text-muted"></i>Personellerden Aktar</button></li>
+                        <li><button class="dropdown-item py-2" @onclick='() => RehberdenAktar("kullanici")'><i class="bi bi-person-lines-fill me-3 text-muted"></i>Kullanıcılardan Aktar</button></li>
+                        <li><button class="dropdown-item py-2" @onclick='() => RehberdenAktar("tum")'><i class="bi bi-collection me-3 text-muted"></i>Tümünü Aktar</button></li>
                     </ul>
                 </div>
             </div>
@@ -614,6 +620,101 @@
         {
             ToastService.ShowError("Aktarım sırasında hata oluştu: " + ex.Message);
         }
+    }
+
+    private async Task RehberdenAktar(string kaynak)
+    {
+        try
+        {
+            var eklenecekKisiler = await WhatsAppAktarilacakKisileriOlustur(kaynak);
+            if (!eklenecekKisiler.Any())
+            {
+                ToastService.ShowWarning("Aktarılacak uygun telefon kaydı bulunamadı.");
+                return;
+            }
+
+            var eklenenSayi = await WhatsAppService.KisileriSenkronizeEtAsync(eklenecekKisiler);
+            await LoadDataAsync();
+
+            if (eklenenSayi == 0)
+            {
+                ToastService.ShowInfo("Tüm kayıtlar zaten WhatsApp rehberinde mevcut.");
+                return;
+            }
+
+            ToastService.ShowSuccess($"{eklenenSayi} kişi WhatsApp rehberine aktarıldı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Aktarım sırasında hata oluştu: " + ex.Message);
+        }
+    }
+
+    private async Task<List<WhatsAppKisi>> WhatsAppAktarilacakKisileriOlustur(string kaynak)
+    {
+        var cariler = await DbContext.Cariler
+            .Where(c => c.Aktif && !string.IsNullOrWhiteSpace(c.Telefon))
+            .ToListAsync();
+
+        var kullanicilar = await DbContext.Kullanicilar
+            .Include(k => k.Sofor)
+            .Where(k => k.Aktif)
+            .ToListAsync();
+
+        var personeller = await DbContext.Soforler
+            .Where(s => s.Aktif && !string.IsNullOrWhiteSpace(s.Telefon))
+            .ToListAsync();
+
+        var eslestirmeler = await DbContext.KullaniciCariler
+            .Include(x => x.Cari)
+            .Where(x => x.Cari.Aktif)
+            .ToListAsync();
+
+        var sonuc = new List<WhatsAppKisi>();
+        var cariBagliKullanicilar = eslestirmeler.Select(x => x.KullaniciId).ToHashSet();
+        var personelBagliKullanicilar = kullanicilar.Where(k => k.SoforId.HasValue).Select(k => k.Id).ToHashSet();
+        var eslenmisPersonelIdleri = kullanicilar
+            .Where(k => k.SoforId.HasValue && cariBagliKullanicilar.Contains(k.Id))
+            .Select(k => k.SoforId!.Value)
+            .ToHashSet();
+
+        if (kaynak is "cari" or "tum")
+        {
+            sonuc.AddRange(cariler.Select(cari => new WhatsAppKisi
+            {
+                AdSoyad = cari.Unvan,
+                Telefon = cari.Telefon!.Trim(),
+                CariId = cari.Id,
+                Notlar = "Cari rehber aktarımı"
+            }));
+        }
+
+        if (kaynak is "personel" or "tum")
+        {
+            sonuc.AddRange(personeller
+                .Where(p => !eslenmisPersonelIdleri.Contains(p.Id))
+                .Select(personel => new WhatsAppKisi
+                {
+                    AdSoyad = personel.TamAd,
+                    Telefon = personel.Telefon!.Trim(),
+                    Notlar = "Personel rehber aktarımı"
+                }));
+        }
+
+        if (kaynak is "kullanici" or "tum")
+        {
+            sonuc.AddRange(kullanicilar
+                .Where(k => !cariBagliKullanicilar.Contains(k.Id) && !personelBagliKullanicilar.Contains(k.Id))
+                .Where(k => !string.IsNullOrWhiteSpace(k.Telefon))
+                .Select(kullanici => new WhatsAppKisi
+                {
+                    AdSoyad = kullanici.AdSoyad,
+                    Telefon = kullanici.Telefon!.Trim(),
+                    Notlar = "Kullanıcı rehber aktarımı"
+                }));
+        }
+
+        return sonuc;
     }
 
     private string GetAvatarColor(string name)

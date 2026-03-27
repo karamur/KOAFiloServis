@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +18,7 @@ public class WhatsAppService : IWhatsAppService
         _crmService = crmService;
     }
 
-    #region Kiþiler
+    #region KiÅŸiler
 
     public async Task<List<WhatsAppKisi>> GetKisilerAsync()
     {
@@ -40,7 +40,7 @@ public class WhatsAppService : IWhatsAppService
     {
         var mevcut = await _context.WhatsAppKisiler.FirstOrDefaultAsync(k => k.Telefon == kisi.Telefon);
         if (mevcut != null)
-            throw new Exception("Bu telefon numarasý ile kayýtlý bir kiþi zaten var.");
+            throw new Exception("Bu telefon numarasÄ± ile kayÄ±tlÄ± bir kiÅŸi zaten var.");
 
         _context.WhatsAppKisiler.Add(kisi);
         await _context.SaveChangesAsync();
@@ -83,6 +83,49 @@ public class WhatsAppService : IWhatsAppService
             }
         }
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<int> KisileriSenkronizeEtAsync(List<WhatsAppKisi> kisiler)
+    {
+        if (kisiler.Count == 0)
+        {
+            return 0;
+        }
+
+        var normalizedTelefonlar = kisiler
+            .Select(k => k.Telefon?.Trim())
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var mevcutTelefonlar = await _context.WhatsAppKisiler
+            .Where(k => normalizedTelefonlar.Contains(k.Telefon))
+            .Select(k => k.Telefon)
+            .ToListAsync();
+
+        var mevcutSet = new HashSet<string>(mevcutTelefonlar.Where(t => !string.IsNullOrWhiteSpace(t))!, StringComparer.OrdinalIgnoreCase);
+        var eklenecekler = new List<WhatsAppKisi>();
+
+        foreach (var kisi in kisiler)
+        {
+            var telefon = kisi.Telefon?.Trim();
+            if (string.IsNullOrWhiteSpace(telefon) || mevcutSet.Contains(telefon))
+            {
+                continue;
+            }
+
+            kisi.Telefon = telefon;
+            eklenecekler.Add(kisi);
+            mevcutSet.Add(telefon);
+        }
+
+        if (eklenecekler.Count > 0)
+        {
+            _context.WhatsAppKisiler.AddRange(eklenecekler);
+            await _context.SaveChangesAsync();
+        }
+
+        return eklenecekler.Count;
     }
 
     #endregion
@@ -212,7 +255,7 @@ public class WhatsAppService : IWhatsAppService
     public async Task<WhatsAppMesaj> SendMesajToKisiAsync(int kisiId, string icerik, int? gonderenId = null)
     {
         var kisi = await _context.WhatsAppKisiler.FindAsync(kisiId);
-        if (kisi == null) throw new Exception("Kiþi bulunamadý.");
+        if (kisi == null) throw new Exception("KiÅŸi bulunamadÄ±.");
 
         var mesaj = new WhatsAppMesaj
         {
@@ -228,7 +271,7 @@ public class WhatsAppService : IWhatsAppService
         _context.WhatsAppMesajlar.Add(mesaj);
         await _context.SaveChangesAsync();
 
-        // Arka planda gerçek gönderim yapýlabilir
+        // Arka planda gerÃ§ek gÃ¶nderim yapÄ±labilir
         await _crmService.SendWhatsAppAsync(gonderenId ?? 0, kisi.Telefon, icerik);
 
         return mesaj;
@@ -240,7 +283,7 @@ public class WhatsAppService : IWhatsAppService
             .Include(g => g.Uyeler).ThenInclude(gu => gu.Kisi)
             .FirstOrDefaultAsync(g => g.Id == grupId);
 
-        if (grup == null) throw new Exception("Grup bulunamadý.");
+        if (grup == null) throw new Exception("Grup bulunamadÄ±.");
 
         var mesaj = new WhatsAppMesaj
         {
@@ -256,7 +299,7 @@ public class WhatsAppService : IWhatsAppService
         _context.WhatsAppMesajlar.Add(mesaj);
         await _context.SaveChangesAsync();
 
-        // Her üyeye mesajý gönder
+        // Her Ã¼yeye mesajÄ± gÃ¶nder
         foreach (var uye in grup.Uyeler)
         {
             await _crmService.SendWhatsAppAsync(gonderenId ?? 0, uye.Kisi.Telefon, icerik);

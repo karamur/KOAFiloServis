@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,24 +13,35 @@ public class ServisCalismaService : IServisCalismaService
         _context = context;
     }
 
+    private IQueryable<ServisCalisma> CreateReadQuery(bool includeArizaMasraflari = false)
+    {
+        IQueryable<ServisCalisma> query = _context.ServisCalismalari
+            .AsNoTracking()
+            .Where(s => !s.IsDeleted);
+
+        query = query.Include(s => s.Arac);
+        query = query.Include(s => s.Sofor);
+        query = query.Include(s => s.Guzergah)
+            .ThenInclude(g => g.Cari);
+
+        if (includeArizaMasraflari)
+        {
+            query = query.Include(s => s.ArizaMasraflari);
+        }
+
+        return query;
+    }
+
     public async Task<List<ServisCalisma>> GetAllAsync()
     {
-        return await _context.ServisCalismalari
-            .Include(s => s.Arac)
-            .Include(s => s.Sofor)
-            .Include(s => s.Guzergah)
-                .ThenInclude(g => g.Cari)
+        return await CreateReadQuery()
             .OrderByDescending(s => s.CalismaTarihi)
             .ToListAsync();
     }
 
     public async Task<List<ServisCalisma>> GetRecentAsync(int count = 5)
     {
-        return await _context.ServisCalismalari
-            .Include(s => s.Arac)
-            .Include(s => s.Sofor)
-            .Include(s => s.Guzergah)
-                .ThenInclude(g => g.Cari)
+        return await CreateReadQuery()
             .OrderByDescending(s => s.CalismaTarihi)
             .Take(count)
             .ToListAsync();
@@ -38,11 +49,7 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
     {
-        return await _context.ServisCalismalari
-            .Include(s => s.Arac)
-            .Include(s => s.Sofor)
-            .Include(s => s.Guzergah)
-                .ThenInclude(g => g.Cari)
+        return await CreateReadQuery()
             .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate)
             .OrderByDescending(s => s.CalismaTarihi)
             .ToListAsync();
@@ -50,10 +57,7 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetByAracIdAsync(int aracId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = _context.ServisCalismalari
-            .Include(s => s.Sofor)
-            .Include(s => s.Guzergah)
-                .ThenInclude(g => g.Cari)
+        var query = CreateReadQuery()
             .Where(s => s.AracId == aracId);
 
         if (startDate.HasValue)
@@ -66,10 +70,7 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetBySoforIdAsync(int soforId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = _context.ServisCalismalari
-            .Include(s => s.Arac)
-            .Include(s => s.Guzergah)
-                .ThenInclude(g => g.Cari)
+        var query = CreateReadQuery()
             .Where(s => s.SoforId == soforId);
 
         if (startDate.HasValue)
@@ -82,11 +83,7 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetByGuzergahIdAsync(int guzergahId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = _context.ServisCalismalari
-            .Include(s => s.Arac)
-            .Include(s => s.Sofor)
-            .Include(s => s.Guzergah)
-                .ThenInclude(g => g.Cari)
+        var query = CreateReadQuery()
             .Where(s => s.GuzergahId == guzergahId);
 
         if (startDate.HasValue)
@@ -99,11 +96,7 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetByCariIdAsync(int cariId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = _context.ServisCalismalari
-            .Include(s => s.Arac)
-            .Include(s => s.Sofor)
-            .Include(s => s.Guzergah)
-                .ThenInclude(g => g.Cari)
+        var query = CreateReadQuery()
             .Where(s => s.Guzergah.CariId == cariId);
 
         if (startDate.HasValue)
@@ -116,18 +109,13 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<ServisCalisma?> GetByIdAsync(int id)
     {
-        return await _context.ServisCalismalari
-            .Include(s => s.Arac)
-            .Include(s => s.Sofor)
-            .Include(s => s.Guzergah)
-                .ThenInclude(g => g.Cari)
-            .Include(s => s.ArizaMasraflari)
+        return await CreateReadQuery(includeArizaMasraflari: true)
             .FirstOrDefaultAsync(s => s.Id == id);
     }
 
     public async Task<ServisCalisma> CreateAsync(ServisCalisma servisCalisma)
     {
-        // Güzergah fiyatýný al
+        // GÃ¼zergah fiyatÄ±nÄ± al
         if (!servisCalisma.Fiyat.HasValue)
         {
             var guzergah = await _context.Guzergahlar.FindAsync(servisCalisma.GuzergahId);
@@ -167,11 +155,7 @@ public class ServisCalismaService : IServisCalismaService
         int? guzergahId = null,
         int? cariId = null)
     {
-        var query = _context.ServisCalismalari
-            .Include(s => s.Arac)
-            .Include(s => s.Sofor)
-            .Include(s => s.Guzergah)
-                .ThenInclude(g => g.Cari)
+        var query = CreateReadQuery()
             .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate);
 
         if (aracId.HasValue)
@@ -189,3 +173,4 @@ public class ServisCalismaService : IServisCalismaService
         return await query.OrderByDescending(s => s.CalismaTarihi).ToListAsync();
     }
 }
+

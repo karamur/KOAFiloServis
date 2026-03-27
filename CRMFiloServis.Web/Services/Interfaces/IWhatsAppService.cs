@@ -1,16 +1,17 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 
 namespace CRMFiloServis.Web.Services.Interfaces;
 
 public interface IWhatsAppService
 {
-    // Kiþiler
+    // KiÅŸiler
     Task<List<WhatsAppKisi>> GetKisilerAsync();
     Task<WhatsAppKisi?> GetKisiByIdAsync(int id);
     Task<WhatsAppKisi> CreateKisiAsync(WhatsAppKisi kisi);
     Task<WhatsAppKisi> UpdateKisiAsync(WhatsAppKisi kisi);
     Task DeleteKisiAsync(int id);
     Task SeciliCarilerdenKisiOlustur(List<int> cariIds);
+    Task<int> KisileriSenkronizeEtAsync(List<WhatsAppKisi> kisiler);
 
     // Gruplar
     Task<List<WhatsAppGrup>> GetGruplarAsync();
@@ -21,7 +22,7 @@ public interface IWhatsAppService
     Task GrubaKisiEkleAsync(int grupId, int kisiId);
     Task GruptanKisiCikarAsync(int grupId, int kisiId);
 
-    // Þablonlar
+    // Åžablonlar
     Task<List<WhatsAppSablon>> GetSablonlarAsync();
     Task<WhatsAppSablon?> GetSablonByIdAsync(int id);
     Task<WhatsAppSablon> CreateSablonAsync(WhatsAppSablon sablon);

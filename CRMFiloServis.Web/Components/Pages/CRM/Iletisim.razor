@@ -1,10 +1,13 @@
-@page "/crm/whatsapp"
+ï»¿@page "/crm/whatsapp"
 @page "/crm/email"
 @using System.Text.Json
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Data
+@using Microsoft.EntityFrameworkCore
 @inject ICRMService CRMService
 @inject ICariService CariService
+@inject ApplicationDbContext DbContext
 @inject AppAuthenticationStateProvider AuthProvider
 @inject IToastService ToastService
 @inject NavigationManager NavigationManager
@@ -23,7 +26,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h3 class="mb-0"><i class="bi @pageIcon me-2 @iconColor"></i>@pageTitle</h3>
-            <small class="text-muted">@(isWhatsApp ? "WhatsApp mesajlarý gönderin" : "E-posta gönderin")</small>
+            <small class="text-muted">@(isWhatsApp ? "WhatsApp mesajlarÄ± gÃ¶nderin" : "E-posta gÃ¶nderin")</small>
         </div>
         <button class="btn btn-outline-secondary" @onclick="AyarlariAc">
             <i class="bi bi-gear me-1"></i>Ayarlar
@@ -31,21 +34,21 @@
     </div>
 
     <div class="row">
-        <!-- Sol Panel - Hýzlý Gönderim -->
+        <!-- Sol Panel - HÄ±zlÄ± GÃ¶nderim -->
         <div class="col-md-5">
             <div class="card shadow-sm">
                 <div class="card-header bg-white">
-                    <h6 class="mb-0"><i class="bi bi-send me-2"></i>Yeni @pageTitle Gönder</h6>
+                    <h6 class="mb-0"><i class="bi bi-send me-2"></i>Yeni @pageTitle GÃ¶nder</h6>
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label">Alýcý</label>
+                        <label class="form-label">AlÄ±cÄ±</label>
 
                         @if (isWhatsApp)
                         {
                             <div class="form-check form-switch mb-2">
                                 <input class="form-check-input" type="checkbox" id="topluGonderimCheck" @bind="topluGonderim" />
-                                <label class="form-check-label" for="topluGonderimCheck">Kiþilere toplu gönderim</label>
+                                <label class="form-check-label" for="topluGonderimCheck">KiÅŸilere toplu gÃ¶nderim</label>
                             </div>
                         }
 
@@ -53,46 +56,46 @@
                         {
                             <div class="border rounded p-2 bg-light">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <small class="text-muted">Telefonu olan kiþilerden seçim yapýn</small>
+                                    <small class="text-muted">Ä°letiÅŸim bilgisi olan kayÄ±tlar arasÄ±ndan seÃ§im yapÄ±n</small>
                                     <div class="d-flex gap-1">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="TumKisileriSec">Tümünü Seç</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="TumKisileriSec">TÃ¼mÃ¼nÃ¼ SeÃ§</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="SecimleriTemizle">Temizle</button>
                                     </div>
                                 </div>
                                 <div style="max-height: 220px; overflow-y: auto;">
-                                    @foreach (var cari in cariler.Where(c => !string.IsNullOrWhiteSpace(c.Telefon)).OrderBy(c => c.Unvan))
+                                    @foreach (var alici in TopluAliciSecenekleri.OrderBy(c => c.SiralamaAd))
                                     {
                                         <div class="form-check">
                                             <input class="form-check-input"
                                                    type="checkbox"
-                                                   id="cari_@cari.Id"
-                                                   checked="@secilenCariIds.Contains(cari.Id)"
-                                                   @onchange="(e => CariSecimDegisti(cari.Id, e.Value))" />
-                                            <label class="form-check-label d-flex justify-content-between w-100" for="cari_@cari.Id">
-                                                <span>@cari.Unvan</span>
-                                                <small class="text-muted">@cari.Telefon</small>
+                                                   id="alici_@alici.Anahtar"
+                                                   checked="@secilenAliciAnahtarlari.Contains(alici.Anahtar)"
+                                                   @onchange="(e => AliciSecimDegisti(alici.Anahtar, e.Value))" />
+                                            <label class="form-check-label d-flex justify-content-between w-100" for="alici_@alici.Anahtar">
+                                                <span>@alici.Etiket</span>
+                                                <small class="text-muted">@alici.Adres</small>
                                             </label>
                                         </div>
                                     }
                                 </div>
-                                <div class="mt-2 small text-muted">Seçilen kiþi: @secilenCariIds.Count</div>
+                                <div class="mt-2 small text-muted">SeÃ§ilen kiÅŸi: @secilenAliciAnahtarlari.Count</div>
                             </div>
                         }
                         else
                         {
                             <div class="input-group">
-                                <select class="form-select" @bind="secilenCariId" @bind:after="CariSecildi">
-                                    <option value="0">Cari Seçin...</option>
-                                    @foreach (var cari in cariler.Where(c => isWhatsApp ? !string.IsNullOrEmpty(c.Telefon) : !string.IsNullOrEmpty(c.Email)))
+                                <select class="form-select" @bind="secilenAliciAnahtari" @bind:after="AliciSecildi">
+                                    <option value="">AlÄ±cÄ± seÃ§in...</option>
+                                    @foreach (var alici in TekilAliciSecenekleri.OrderBy(c => c.SiralamaAd))
                                     {
-                                        <option value="@cari.Id">@cari.Unvan</option>
+                                        <option value="@alici.Anahtar">@alici.Etiket</option>
                                     }
                                 </select>
                             </div>
-                            <small class="text-muted">veya</small>
+                            <small class="text-muted">Cari ve kullanÄ±cÄ± eÅŸleÅŸmiÅŸse yalnÄ±z cari hesap listelenir.</small>
                             <input type="text" class="form-control mt-1" 
                                    @bind="aliciAdres" 
-                                   placeholder="@(isWhatsApp ? "Telefon numarasý (5XX XXX XX XX)" : "E-posta adresi")" />
+                                   placeholder="@(isWhatsApp ? "Telefon numarasÄ± (5XX XXX XX XX)" : "E-posta adresi")" />
                         }
                     </div>
 
@@ -106,20 +109,20 @@
 
                     <div class="mb-3">
                         <label class="form-label">Mesaj</label>
-                        <textarea class="form-control" rows="5" @bind="mesajIcerik" placeholder="Mesajýnýzý yazýn..."></textarea>
+                        <textarea class="form-control" rows="5" @bind="mesajIcerik" placeholder="MesajÄ±nÄ±zÄ± yazÄ±n..."></textarea>
                     </div>
 
-                    <!-- Hýzlý Þablonlar -->
+                    <!-- HÄ±zlÄ± Åžablonlar -->
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Hýzlý Þablonlar</label>
+                        <label class="form-label small text-muted">HÄ±zlÄ± Åžablonlar</label>
                         <div class="d-flex flex-wrap gap-1 mb-2">
-                            <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Merhaba, sipariþiniz hazýrlanmýþtýr.")'>
-                                Sipariþ Hazýr
+                            <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Merhaba, sipariÅŸiniz hazÄ±rlanmÄ±ÅŸtÄ±r.")'>
+                                SipariÅŸ HazÄ±r
                             </button>
-                            <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Ödeme hatýrlatmasý: Vadesi geçmiþ faturanýz bulunmaktadýr.")'>
-                                Ödeme Hatýrlatma
+                            <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Ã–deme hatÄ±rlatmasÄ±: Vadesi geÃ§miÅŸ faturanÄ±z bulunmaktadÄ±r.")'>
+                                Ã–deme HatÄ±rlatma
                             </button>
-                            <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Randevunuz için teþekkür ederiz. Görüþmek üzere.")'>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick='() => SablonUygula("Randevunuz iÃ§in teÅŸekkÃ¼r ederiz. GÃ¶rÃ¼ÅŸmek Ã¼zere.")'>
                                 Randevu Onay
                             </button>
                         </div>
@@ -128,10 +131,10 @@
                         {
                             <div class="row g-2 mb-2">
                                 <div class="col-md-4">
-                                    <input type="text" class="form-control form-control-sm" @bind="yeniSablonBaslik" placeholder="Þablon adý" />
+                                    <input type="text" class="form-control form-control-sm" @bind="yeniSablonBaslik" placeholder="Åžablon adÄ±" />
                                 </div>
                                 <div class="col-md-6">
-                                    <input type="text" class="form-control form-control-sm" @bind="yeniSablonIcerik" placeholder="Þablon metni" />
+                                    <input type="text" class="form-control form-control-sm" @bind="yeniSablonIcerik" placeholder="Åžablon metni" />
                                 </div>
                                 <div class="col-md-2 d-grid">
                                     <button type="button" class="btn btn-sm btn-success" @onclick="HizliSablonKaydet">
@@ -163,18 +166,18 @@
                             {
                                 <span class="spinner-border spinner-border-sm me-1"></span>
                             }
-                            <i class="bi bi-send me-1"></i>Gönder
+                            <i class="bi bi-send me-1"></i>GÃ¶nder
                         </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Sað Panel - Gönderim Geçmiþi -->
+        <!-- SaÄŸ Panel - GÃ¶nderim GeÃ§miÅŸi -->
         <div class="col-md-7">
             <div class="card shadow-sm">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>@(isWhatsApp ? "Gönderim Geçmiþi" : "E-Posta Listesi")</h6>
+                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>@(isWhatsApp ? "GÃ¶nderim GeÃ§miÅŸi" : "E-Posta Listesi")</h6>
                     @if (!isWhatsApp)
                     {
                         <button class="btn btn-outline-primary btn-sm" @onclick="EmailListeleriniYenile">
@@ -187,7 +190,7 @@
                     <div class="card-header bg-light p-0">
                         <ul class="nav nav-tabs card-header-tabs ms-2 mt-2">
                             <li class="nav-item">
-                                <button class="nav-link @(emailListeTab == "gonderilen" ? "active" : "")" @onclick='() => emailListeTab = "gonderilen"'>Gönderilen</button>
+                                <button class="nav-link @(emailListeTab == "gonderilen" ? "active" : "")" @onclick='() => emailListeTab = "gonderilen"'>GÃ¶nderilen</button>
                             </li>
                             <li class="nav-item">
                                 <button class="nav-link @(emailListeTab == "gelen" ? "active" : "")" @onclick='() => emailListeTab = "gelen"'>Gelen</button>
@@ -206,14 +209,14 @@
                     {
                         <div class="text-center p-5 text-muted">
                             <i class="bi @pageIcon" style="font-size: 3rem;"></i>
-                            <p class="mt-2">Henüz @pageTitle mesajý gönderilmemiþ</p>
+                            <p class="mt-2">HenÃ¼z @pageTitle mesajÄ± gÃ¶nderilmemiÅŸ</p>
                         </div>
                     }
                     else if (!isWhatsApp && !AktifEmailListesi.Any())
                     {
                         <div class="text-center p-5 text-muted">
                             <i class="bi bi-envelope" style="font-size: 3rem;"></i>
-                            <p class="mt-2">@(emailListeTab == "gelen" ? "Gelen e-posta bulunamadý" : "Gönderilen e-posta bulunamadý")</p>
+                            <p class="mt-2">@(emailListeTab == "gelen" ? "Gelen e-posta bulunamadÄ±" : "GÃ¶nderilen e-posta bulunamadÄ±")</p>
                         </div>
                     }
                     else
@@ -225,7 +228,7 @@
                                     <thead class="table-light sticky-top">
                                         <tr>
                                             <th>Tarih</th>
-                                            <th>Alýcý</th>
+                                            <th>AlÄ±cÄ±</th>
                                             <th>Durum</th>
                                             <th>Mesaj</th>
                                         </tr>
@@ -254,7 +257,7 @@
                                             <th>@(emailListeTab == "gelen" ? "Kimden" : "Kime")</th>
                                             <th>Konu</th>
                                             <th>Durum</th>
-                                            <th>Özet</th>
+                                            <th>Ã–zet</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -291,7 +294,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="bi @pageIcon me-2"></i>@pageTitle Ayarlarý
+                        <i class="bi @pageIcon me-2"></i>@pageTitle AyarlarÄ±
                     </h5>
                     <button type="button" class="btn-close" @onclick="AyarModalKapat"></button>
                 </div>
@@ -300,14 +303,14 @@
                     {
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle me-2"></i>
-                            WhatsApp Business API entegrasyonu için API anahtarý gereklidir.
+                            WhatsApp Business API entegrasyonu iÃ§in API anahtarÄ± gereklidir.
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Telefon Numarasý</label>
+                            <label class="form-label">Telefon NumarasÄ±</label>
                             <input type="text" class="form-control" @bind="whatsappAyar!.Telefon" placeholder="5XXXXXXXXX" />
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">API Anahtarý</label>
+                            <label class="form-label">API AnahtarÄ±</label>
                             <input type="password" class="form-control" @bind="whatsappAyar.ApiKey" />
                         </div>
                         <div class="mb-3">
@@ -359,7 +362,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Gelen Klasörü</label>
+                                    <label class="form-label">Gelen KlasÃ¶rÃ¼</label>
                                     <input type="text" class="form-control" @bind="emailAyar.GelenKlasoru" placeholder="INBOX" />
                                 </div>
                             </div>
@@ -378,11 +381,11 @@
                             <input type="email" class="form-control" @bind="emailAyar.Email" />
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Þifre / Uygulama Þifresi</label>
+                            <label class="form-label">Åžifre / Uygulama Åžifresi</label>
                             <input type="password" class="form-control" @bind="emailAyar.Sifre" />
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Gönderen Adý</label>
+                            <label class="form-label">GÃ¶nderen AdÄ±</label>
                             <input type="text" class="form-control" @bind="emailAyar.GonderenAdi" placeholder="CRM Filo Servis" />
                         </div>
                         <div class="form-check mb-2">
@@ -396,7 +399,7 @@
                     }
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="AyarModalKapat">Ýptal</button>
+                    <button type="button" class="btn btn-secondary" @onclick="AyarModalKapat">Ä°ptal</button>
                     <button type="button" class="btn btn-primary" @onclick="AyarlariKaydet" disabled="@isSavingAyar">
                         @if (isSavingAyar)
                         {
@@ -420,13 +423,14 @@
     private List<Mesaj> gonderilenMesajlar = new();
     private List<EmailListeItem> gonderilenEmailListesi = new();
     private List<EmailListeItem> gelenEmailListesi = new();
-    private List<int> secilenCariIds = new();
+    private List<IletisimAliciSecenegi> aliciSecenekleri = new();
+    private List<string> secilenAliciAnahtarlari = new();
     private List<HizliSablonModel> hizliSablonlar = new();
     private int? aktifKullaniciId;
     private string emailListeTab = "gonderilen";
 
-    // Gönderim
-    private int secilenCariId = 0;
+    // GÃ¶nderim
+    private string secilenAliciAnahtari = "";
     private string aliciAdres = "";
     private string konu = "";
     private string mesajIcerik = "";
@@ -439,6 +443,8 @@
 
     private bool IsWhatsApp => NavigationManager.Uri.Contains("/whatsapp");
     private List<EmailListeItem> AktifEmailListesi => emailListeTab == "gelen" ? gelenEmailListesi : gonderilenEmailListesi;
+    private IEnumerable<IletisimAliciSecenegi> TekilAliciSecenekleri => aliciSecenekleri.Where(x => !string.IsNullOrWhiteSpace(IsWhatsApp ? x.Telefon : x.Email));
+    private IEnumerable<IletisimAliciSecenegi> TopluAliciSecenekleri => aliciSecenekleri.Where(x => !string.IsNullOrWhiteSpace(x.Telefon));
 
     protected override async Task OnInitializedAsync()
     {
@@ -456,6 +462,7 @@
         try
         {
             cariler = await CariService.GetAllAsync();
+            await AliciSecenekleriniYukle();
 
             if (aktifKullaniciId.HasValue)
             {
@@ -494,7 +501,7 @@
         }
         catch (Exception ex)
         {
-            ToastService.ShowError("Veriler yüklenirken hata: " + ex.Message);
+            ToastService.ShowError("Veriler yÃ¼klenirken hata: " + ex.Message);
         }
         finally
         {
@@ -513,45 +520,114 @@
         gelenEmailListesi = await CRMService.GetGelenEmailListAsync(aktifKullaniciId.Value);
     }
 
-    private void CariSecildi()
+    private async Task AliciSecenekleriniYukle()
     {
-        if (secilenCariId > 0)
+        var kullanicilar = await DbContext.Kullanicilar
+            .Include(k => k.Sofor)
+            .Where(k => k.Aktif)
+            .ToListAsync();
+
+        var personeller = await DbContext.Soforler
+            .Where(s => s.Aktif)
+            .ToListAsync();
+
+        var eslestirmeler = await DbContext.KullaniciCariler
+            .Include(x => x.Cari)
+            .Where(x => x.Cari.Aktif)
+            .ToListAsync();
+
+        var secenekler = new List<IletisimAliciSecenegi>();
+        var cariBagliKullanicilar = eslestirmeler
+            .Select(x => x.KullaniciId)
+            .ToHashSet();
+
+        var personelBagliKullanicilar = kullanicilar
+            .Where(k => k.SoforId.HasValue)
+            .Select(k => k.Id)
+            .ToHashSet();
+
+        foreach (var cari in cariler.Where(c => c.Aktif))
         {
-            var cari = cariler.FirstOrDefault(c => c.Id == secilenCariId);
-            if (cari != null)
+            secenekler.Add(new IletisimAliciSecenegi
             {
-                aliciAdres = IsWhatsApp ? (cari.Telefon ?? "") : (cari.Email ?? "");
-            }
+                Anahtar = $"cari:{cari.Id}",
+                Etiket = $"{cari.Unvan} (Cari)",
+                SiralamaAd = cari.Unvan,
+                Telefon = cari.Telefon,
+                Email = cari.Email,
+                Adres = IsWhatsApp ? (cari.Telefon ?? string.Empty) : (cari.Email ?? string.Empty)
+            });
+        }
+
+        var eslenmisPersonelIdleri = kullanicilar
+            .Where(k => k.SoforId.HasValue && cariBagliKullanicilar.Contains(k.Id))
+            .Select(k => k.SoforId!.Value)
+            .ToHashSet();
+
+        foreach (var personel in personeller.Where(s => !eslenmisPersonelIdleri.Contains(s.Id)))
+        {
+            secenekler.Add(new IletisimAliciSecenegi
+            {
+                Anahtar = $"personel:{personel.Id}",
+                Etiket = $"{personel.TamAd} (Personel)",
+                SiralamaAd = personel.TamAd,
+                Telefon = personel.Telefon,
+                Email = personel.Email,
+                Adres = IsWhatsApp ? (personel.Telefon ?? string.Empty) : (personel.Email ?? string.Empty)
+            });
+        }
+
+        foreach (var kullanici in kullanicilar.Where(k => !cariBagliKullanicilar.Contains(k.Id) && !personelBagliKullanicilar.Contains(k.Id)))
+        {
+            secenekler.Add(new IletisimAliciSecenegi
+            {
+                Anahtar = $"kullanici:{kullanici.Id}",
+                Etiket = $"{kullanici.AdSoyad} (KullanÄ±cÄ±)",
+                SiralamaAd = kullanici.AdSoyad,
+                Telefon = kullanici.Telefon,
+                Email = kullanici.Email,
+                Adres = IsWhatsApp ? (kullanici.Telefon ?? string.Empty) : (kullanici.Email ?? string.Empty)
+            });
+        }
+
+        aliciSecenekleri = secenekler;
+    }
+
+    private void AliciSecildi()
+    {
+        var secenek = TekilAliciSecenekleri.FirstOrDefault(c => c.Anahtar == secilenAliciAnahtari);
+        if (secenek != null)
+        {
+            aliciAdres = IsWhatsApp ? (secenek.Telefon ?? string.Empty) : (secenek.Email ?? string.Empty);
         }
     }
 
-    private void CariSecimDegisti(int cariId, object? value)
+    private void AliciSecimDegisti(string aliciAnahtari, object? value)
     {
         var secili = value as bool? == true;
         if (secili)
         {
-            if (!secilenCariIds.Contains(cariId))
+            if (!secilenAliciAnahtarlari.Contains(aliciAnahtari))
             {
-                secilenCariIds.Add(cariId);
+                secilenAliciAnahtarlari.Add(aliciAnahtari);
             }
         }
         else
         {
-            secilenCariIds.Remove(cariId);
+            secilenAliciAnahtarlari.Remove(aliciAnahtari);
         }
     }
 
     private void TumKisileriSec()
     {
-        secilenCariIds = cariler
-            .Where(c => !string.IsNullOrWhiteSpace(c.Telefon))
-            .Select(c => c.Id)
+        secilenAliciAnahtarlari = TopluAliciSecenekleri
+            .Select(c => c.Anahtar)
             .ToList();
     }
 
     private void SecimleriTemizle()
     {
-        secilenCariIds.Clear();
+        secilenAliciAnahtarlari.Clear();
     }
 
     private void SablonUygula(string sablon)
@@ -586,7 +662,7 @@
 
         if (string.IsNullOrWhiteSpace(yeniSablonBaslik) || string.IsNullOrWhiteSpace(yeniSablonIcerik))
         {
-            ToastService.ShowWarning("Þablon adý ve içeriði zorunludur.");
+            ToastService.ShowWarning("Åžablon adÄ± ve iÃ§eriÄŸi zorunludur.");
             return;
         }
 
@@ -607,7 +683,7 @@
 
         yeniSablonBaslik = "";
         yeniSablonIcerik = "";
-        ToastService.ShowSuccess("Hýzlý þablon kaydedildi.");
+        ToastService.ShowSuccess("HÄ±zlÄ± ÅŸablon kaydedildi.");
     }
 
     private async Task HizliSablonSil(HizliSablonModel sablon)
@@ -620,14 +696,14 @@
         hizliSablonlar.Remove(sablon);
         whatsappAyar.HizliSablonlarJson = JsonSerializer.Serialize(hizliSablonlar);
         await CRMService.SaveWhatsAppAyarAsync(whatsappAyar);
-        ToastService.ShowSuccess("Hýzlý þablon silindi.");
+        ToastService.ShowSuccess("HÄ±zlÄ± ÅŸablon silindi.");
     }
 
     private async Task MesajGonder()
     {
         if (string.IsNullOrWhiteSpace(mesajIcerik))
         {
-            ToastService.ShowWarning("Mesaj içeriði zorunludur.");
+            ToastService.ShowWarning("Mesaj iÃ§eriÄŸi zorunludur.");
             return;
         }
 
@@ -636,15 +712,15 @@
         {
             if (IsWhatsApp && topluGonderim)
             {
-                var alicilar = cariler
-                    .Where(c => secilenCariIds.Contains(c.Id) && !string.IsNullOrWhiteSpace(c.Telefon))
+                var alicilar = TopluAliciSecenekleri
+                    .Where(c => secilenAliciAnahtarlari.Contains(c.Anahtar) && !string.IsNullOrWhiteSpace(c.Telefon))
                     .Select(c => c.Telefon!.Trim())
                     .Distinct()
                     .ToList();
 
                 if (!alicilar.Any())
                 {
-                    ToastService.ShowWarning("En az bir kiþi seçiniz.");
+                    ToastService.ShowWarning("En az bir kiÅŸi seÃ§iniz.");
                     return;
                 }
 
@@ -659,22 +735,22 @@
 
                 if (basariliSayisi == alicilar.Count)
                 {
-                    ToastService.ShowSuccess($"WhatsApp mesajý {basariliSayisi} kiþiye gönderildi.");
+                    ToastService.ShowSuccess($"WhatsApp mesajÄ± {basariliSayisi} kiÅŸiye gÃ¶nderildi.");
                 }
                 else
                 {
-                    ToastService.ShowWarning($"{basariliSayisi}/{alicilar.Count} kiþiye gönderim baþarýlý oldu.");
+                    ToastService.ShowWarning($"{basariliSayisi}/{alicilar.Count} kiÅŸiye gÃ¶nderim baÅŸarÄ±lÄ± oldu.");
                 }
 
                 mesajIcerik = "";
-                secilenCariIds.Clear();
+                secilenAliciAnahtarlari.Clear();
                 await LoadData();
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(aliciAdres))
             {
-                ToastService.ShowWarning("Alýcý bilgisi zorunludur.");
+                ToastService.ShowWarning("AlÄ±cÄ± bilgisi zorunludur.");
                 return;
             }
 
@@ -695,16 +771,16 @@
 
             if (basarili)
             {
-                ToastService.ShowSuccess($"{(IsWhatsApp ? "WhatsApp" : "E-posta")} gönderildi.");
+                ToastService.ShowSuccess($"{(IsWhatsApp ? "WhatsApp" : "E-posta")} gÃ¶nderildi.");
                 aliciAdres = "";
                 konu = "";
                 mesajIcerik = "";
-                secilenCariId = 0;
+                secilenAliciAnahtari = "";
                 await LoadData();
             }
             else
             {
-                ToastService.ShowError("Gönderim baþarýsýz. Ayarlarý kontrol edin.");
+                ToastService.ShowError("GÃ¶nderim baÅŸarÄ±sÄ±z. AyarlarÄ± kontrol edin.");
             }
         }
         catch (Exception ex)
@@ -780,8 +856,8 @@
     private string GetDurumAdi(MesajDurum durum) => durum switch
     {
         MesajDurum.Taslak => "Taslak",
-        MesajDurum.Gonderildi => "Gönderildi",
-        MesajDurum.Iletildi => "Ýletildi",
+        MesajDurum.Gonderildi => "GÃ¶nderildi",
+        MesajDurum.Iletildi => "Ä°letildi",
         MesajDurum.Okundu => "Okundu",
         MesajDurum.Hata => "Hata",
         _ => "Bilinmiyor"
@@ -801,5 +877,15 @@
     {
         public string Baslik { get; set; } = string.Empty;
         public string Icerik { get; set; } = string.Empty;
+    }
+
+    private sealed class IletisimAliciSecenegi
+    {
+        public string Anahtar { get; set; } = string.Empty;
+        public string Etiket { get; set; } = string.Empty;
+        public string SiralamaAd { get; set; } = string.Empty;
+        public string? Telefon { get; set; }
+        public string? Email { get; set; }
+        public string Adres { get; set; } = string.Empty;
     }
 }

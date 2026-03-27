@@ -1,0 +1,270 @@
+﻿@page "/filo/komisyon-eslestirme"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services.Interfaces
+@using CRMFiloServis.Web.Services
+@inject IFiloKomisyonService FiloKomisyonService
+@inject IFirmaService FirmaService
+@inject IToastService ToastService
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Eşleştirme Şablonları</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="mb-0"><i class="bi bi-link-45deg me-2 text-primary"></i>Araç, Şoför ve Güzergah Eşleme Havuzu</h3>
+            <small class="text-muted">Özmal veya komisyonlu (taşeron) servislerin otomatik puantaj üretmeden önceki şablon tanımları</small>
+        </div>
+        <button class="btn btn-primary" @onclick="YeniEkleModalAc">
+            <i class="bi bi-plus-lg me-1"></i> Yeni Eşleşme Ekle
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Arama yapılıyor...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered table-sm mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Durum</th>
+                                <th>Müşteri Kurum</th>
+                                <th>Güzergah</th>
+                                <th>Araç Plakası</th>
+                                <th>Şoför</th>
+                                <th>Kuruma Kesilecek Ücret</th>
+                                <th>Taşerona/Şoföre Ödenen</th>
+                                <th class="text-center">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!eslestirmeler.Any())
+                            {
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted">
+                                        <em>Kayıtlı eşleştirme bulunamadı.</em>
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                foreach (var e in eslestirmeler)
+                                {
+                                    <tr>
+                                        <td>
+                                            @if(e.IsActive) { <span class="badge bg-success">Aktif</span> } else { <span class="badge bg-secondary">Pasif</span> }
+                                        </td>
+                                        <td class="fw-bold text-primary">@e.KurumFirma?.FirmaAdi</td>
+                                        <td>@e.Guzergah?.GuzergahAdi</td>
+                                        <td class="fw-bold">@(e.Arac?.AktifPlaka ?? e.Arac?.AktifPlakaKaydi?.Plaka)</td>
+                                        <td>@e.Sofor?.TamAd</td>
+                                        <td class="text-success fw-bold">@e.KurumaKesilecekUcret.ToString("N2") TL</td>
+                                        <td class="text-danger fw-bold">@e.TaseronaOdenenUcret.ToString("N2") TL</td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => DuzenleModalAc(e)" title="Düzenle">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => SilModalAc(e)" title="Sil">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (isModalOpen)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title">@(model.Id == 0 ? "Yeni Eşleştirme Şablonu" : "Eşleştirme Düzenle")</h5>
+                    <button type="button" class="btn-close" @onclick="ModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Müşteri/Kurum <span class="text-danger">*</span></label>
+                            <select class="form-select" @bind="model.KurumFirmaId">
+                                <option value="0">-- Müşteri Seçin --</option>
+                                @foreach(var k in cariListesi) {
+                                    <option value="@k.Id">@k.Unvan</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Güzergah <span class="text-danger">*</span></label>
+                            <select class="form-select" @bind="model.GuzergahId">
+                                <option value="0">-- Güzergah Seçin --</option>
+                                @foreach(var g in guzergahListesi) {
+                                    <option value="@g.Id">@g.GuzergahAdi</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Çalışacak Araç <span class="text-danger">*</span></label>
+                            <select class="form-select" @bind="model.AracId">
+                                <option value="0">-- Araç Seçin --</option>
+                                @foreach(var a in aracListesi) {
+                                    <option value="@a.Id">@(a.AktifPlaka ?? a.AktifPlakaKaydi?.Plaka ?? a.SaseNo)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Görevli Şoför <span class="text-danger">*</span></label>
+                            <select class="form-select" @bind="model.SoforId">
+                                <option value="0">-- Şoför Seçin --</option>
+                                @foreach(var s in soforListesi) {
+                                    <option value="@s.Id">@s.TamAd</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-success fw-bold">Kuruma Kesilecek Ücret (1 Sefer) ₺</label>
+                            <input type="number" step="0.01" class="form-control text-success fw-bold" @bind="model.KurumaKesilecekUcret" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-danger fw-bold">Taşerona/Şoföre Ödenen Ücret ₺</label>
+                            <input type="number" step="0.01" class="form-control text-danger fw-bold" @bind="model.TaseronaOdenenUcret" />
+                            <small class="text-muted">Özmal araç ise 0 bırakabilirsiniz.</small>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="flexSwitchCheckChecked" @bind="model.IsActive">
+                                <label class="form-check-label" for="flexSwitchCheckChecked">Bu Eşleşme Aktif Çalışıyor Mu?</label>
+                            </div>
+                            <small class="text-muted">Pasif konumdaki eşleşmelere puantaj dağılımı yansıtılmaz.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">İptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="Kaydet">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isModalOpen = false;
+    private int aktifFirmaId;
+    private List<FiloGuzergahEslestirme> eslestirmeler = new();
+
+    // Lookups
+    private List<Cari> cariListesi = new();
+    private List<Guzergah> guzergahListesi = new();
+    private List<Arac> aracListesi = new();
+    private List<Sofor> soforListesi = new();
+
+    private FiloGuzergahEslestirme model = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        aktifFirmaId = FirmaService.GetAktifFirma().FirmaId;
+        await LoadLookups();
+        await ListeYenile();
+    }
+
+    private async Task LoadLookups()
+    {
+        cariListesi = await FiloKomisyonService.GetKurumlarAsync(aktifFirmaId);
+        aracListesi = await FiloKomisyonService.GetAraclarAsync(aktifFirmaId);
+        guzergahListesi = await FiloKomisyonService.GetGuzergahlarAsync();
+        soforListesi = await FiloKomisyonService.GetSoforlerAsync();
+    }
+
+    private async Task ListeYenile()
+    {
+        isLoading = true;
+        try
+        {
+            eslestirmeler = await FiloKomisyonService.GetEslestirmelerAsync(aktifFirmaId, sadeceAktifler: false);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Veriler yüklenirken hata oluştu.");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void YeniEkleModalAc()
+    {
+        model = new FiloGuzergahEslestirme { FirmaId = aktifFirmaId, IsActive = true };
+        isModalOpen = true;
+    }
+
+    private void DuzenleModalAc(FiloGuzergahEslestirme esleme)
+    {
+        model = new FiloGuzergahEslestirme
+        {
+            Id = esleme.Id,
+            FirmaId = esleme.FirmaId,
+            KurumFirmaId = esleme.KurumFirmaId,
+            GuzergahId = esleme.GuzergahId,
+            AracId = esleme.AracId,
+            SoforId = esleme.SoforId,
+            KurumaKesilecekUcret = esleme.KurumaKesilecekUcret,
+            TaseronaOdenenUcret = esleme.TaseronaOdenenUcret,
+            IsActive = esleme.IsActive
+        };
+        isModalOpen = true;
+    }
+
+    private void ModalKapat()
+    {
+        isModalOpen = false;
+    }
+
+    private async Task SilModalAc(FiloGuzergahEslestirme esleme)
+    {
+        await FiloKomisyonService.DeleteEslestirmeAsync(esleme.Id);
+        ToastService.ShowSuccess("Kayıt Silindi.");
+        await ListeYenile();
+    }
+
+    private async Task Kaydet()
+    {
+        if(model.KurumFirmaId == 0 || model.GuzergahId == 0 || model.AracId == 0 || model.SoforId == 0)
+        {
+            ToastService.ShowError("Lütfen tüm zorunlu alanları seçiniz!");
+            return;
+        }
+
+        try
+        {
+            if (model.Id == 0)
+                await FiloKomisyonService.CreateEslestirmeAsync(model);
+            else
+                await FiloKomisyonService.UpdateEslestirmeAsync(model);
+
+            ToastService.ShowSuccess("Eşleştirme Kaydedildi!");
+            isModalOpen = false;
+            await ListeYenile();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Kayıt sırasında bir hata oluştu: " + ex.Message);
+        }
+    }
+}

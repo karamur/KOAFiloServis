@@ -1,4 +1,4 @@
-@page "/efatura/gelen"
+ï»¿@page "/efatura/gelen"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
@@ -22,7 +22,7 @@
             <button class="btn btn-outline-info" @onclick="SablonIndir" title="Excel Sablon Indir">
                 <i class="bi bi-download"></i>
             </button>
-            <button class="btn btn-outline-success" @onclick="ExcelImportAc" title="Fatura Yükle (Excel/XML)">
+            <button class="btn btn-outline-success" @onclick="ExcelImportAc" title="Fatura YÃ¼kle (Excel/XML)">
                 <i class="bi bi-upload"></i>
             </button>
             <button class="btn btn-success" @onclick="ExcelExport" disabled="@(!filtreliFaturalar.Any())" title="Excel Indir">
@@ -416,16 +416,16 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-file-earmark-arrow-up me-2"></i>Fatura Yükle</h5>
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-arrow-up me-2"></i>Fatura YÃ¼kle</h5>
                     <button type="button" class="btn-close" @onclick="ModalKapat"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
-                            <label class="form-label">Aktarým Tipi *</label>
+                            <label class="form-label">AktarÄ±m Tipi *</label>
                             <select class="form-select mb-2" @bind="importTipi">
-                                <option value="excel">Excel'den Yükle</option>
-                                <option value="xml">XML (UBL) Yükle</option>
+                                <option value="excel">Excel'den YÃ¼kle</option>
+                                <option value="xml">XML (UBL) YÃ¼kle</option>
                             </select>
                         </div>
                         <div class="col-md-4">
@@ -434,10 +434,10 @@
                                 <option value="1">E-Fatura</option>
                                 <option value="2">E-Arsiv Fatura</option>
                             </select>
-                            <small class="text-muted">Tüm aktarilan faturalara uygulanacak</small>
+                            <small class="text-muted">TÃ¼m aktarilan faturalara uygulanacak</small>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Dosya Seç *</label>
+                            <label class="form-label">Dosya SeÃ§ *</label>
                             @if (importTipi == "excel")
                             {
                                 <InputFile class="form-control" OnChange="DosyaSecildi" accept=".xlsx,.xls" />
@@ -445,7 +445,7 @@
                             else
                             {
                                 <InputFile class="form-control" OnChange="XmlDosyalariSecildi" accept=".xml" multiple />
-                                <small class="text-muted">Birden fazla XML dosyasý seçebilirsiniz.</small>
+                                <small class="text-muted">Birden fazla XML dosyasÄ± seÃ§ebilirsiniz.</small>
                             }
                         </div>
                     </div>
@@ -454,7 +454,7 @@
                     {
                         <div class="alert alert-info py-2">
                             <i class="bi bi-info-circle me-1"></i>
-                            Þablon dosyasýný indirip doldurduktan sonra yükleyin.
+                            Åžablon dosyasÄ±nÄ± indirip doldurduktan sonra yÃ¼kleyin.
                         </div>
                     }
                     
@@ -537,7 +537,7 @@
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        Yükle
+                        FaturalarÄ± Aktar
                     </button>
                 </div>
             </div>

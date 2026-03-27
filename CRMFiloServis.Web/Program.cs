@@ -1,4 +1,4 @@
-using CRMFiloServis.Web.Components;
+ï»¿using CRMFiloServis.Web.Components;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Services;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -91,19 +91,21 @@ builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<IToastService, ToastService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
-builder.Services.AddScoped<ITekrarlayanOdemeService, TekrarlayanOdemeService>(); // Kredi/Taksit Yönetimi
+builder.Services.AddScoped<ITekrarlayanOdemeService, TekrarlayanOdemeService>(); // Kredi/Taksit Ynetimi
 builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IAktiviteLogService, AktiviteLogService>();
 builder.Services.AddScoped<IDatabaseSettingsService, DatabaseSettingsService>();
 builder.Services.AddScoped<IMuhasebeService, MuhasebeService>();
 builder.Services.AddScoped<ISatisService, SatisService>();
+builder.Services.AddScoped<IPuantajService, PuantajService>();
+builder.Services.AddScoped(typeof(CRMFiloServis.Web.Services.Interfaces.IFiloKomisyonService), typeof(FiloKomisyonService));
 builder.Services.AddScoped<IAracDegerlemeAIService, AracDegerlemeAIService>(); // AI Arac Degerleme
 builder.Services.AddScoped<IPiyasaKaynakService, PiyasaKaynakService>(); // Piyasa Kaynak Yonetimi (once kaydet)
 builder.Services.AddScoped<IHttpScraperService, HttpScraperService>(); // HTTP Scraper (en hizli)
 builder.Services.AddScoped<IPlaywrightScraperService, PlaywrightScraperService>(); // Playwright Web Scraper (yedek)
 builder.Services.AddScoped<IAracPiyasaArastirmaService, AracPiyasaArastirmaService>(); // AI Piyasa Arastirma
 builder.Services.AddScoped<IMusteriKiralamaService, MusteriKiralamaService>(); // Musteri Kiralama Servisi
-builder.Services.AddScoped<ICRMService, CRMService>(); // CRM Servisi - Bildirim, Mesaj, Hatýrlatýcý
+builder.Services.AddScoped<ICRMService, CRMService>(); // CRM Servisi - Bildirim, Mesaj, HatÄ±rlatÄ±cÄ±
 builder.Services.AddScoped<CRMFiloServis.Web.Services.Interfaces.IWhatsAppService, WhatsAppService>(); // WhatsApp Servisi
 builder.Services.AddHttpClient("OpenAI"); // OpenAI icin HttpClient
 builder.Services.AddHttpClient("Scraper"); // Scraper icin HttpClient
@@ -139,7 +141,7 @@ using (var scope = app.Services.CreateScope())
     var muhasebeService = scope.ServiceProvider.GetRequiredService<IMuhasebeService>();
     await muhasebeService.SeedVarsayilanHesapPlaniAsync();
     
-    // Piyasa kaynaklarý seed
+    // Piyasa kaynaklarÄ± seed
     var piyasaKaynakService = scope.ServiceProvider.GetRequiredService<IPiyasaKaynakService>();
     await piyasaKaynakService.SeedDefaultKaynaklarAsync();
 }

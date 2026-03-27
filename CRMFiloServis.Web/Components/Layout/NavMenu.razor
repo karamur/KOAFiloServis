@@ -196,6 +196,21 @@
                             </div>
                         }
                         
+                        <!-- YENİ EKLENEN FİLO KOMİSYON PUANTAJ LİSTESİ -->
+                        @if (HasYetki("raporlar.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="filo/komisyon-eslestirme">
+                                    <i class="bi bi-link-45deg me-2 text-primary"></i> Eşleştirme Şablonları
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="filo/operasyon-puantaj">
+                                    <i class="bi bi-calendar2-range me-2 text-danger"></i> Günlük Operasyon Puantajı
+                                </NavLink>
+                            </div>
+                        }
+
                         <!-- YENİ EKLENEN PUANTAJ LİSTESİ -->
                         @if (HasYetki("raporlar.oku"))
                         {
