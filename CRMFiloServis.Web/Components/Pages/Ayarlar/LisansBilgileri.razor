@@ -1,4 +1,4 @@
-@page "/ayarlar/lisans"
+ï»¿@page "/ayarlar/lisans"
 @layout CRMFiloServis.Web.Components.Layout.EmptyLayout
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
@@ -34,18 +34,18 @@
                                     <div class="card-body text-center">
                                         <h6 class="text-muted">Mevcut Lisans</h6>
                                         <h5 class="@(lisans.Gecerli ? "text-success" : "text-danger")">
-                                            @(lisans.Gecerli ? "Aktif" : "Geçersiz")
+                                            @(lisans.Gecerli ? "Aktif" : "GeÃ§ersiz")
                                         </h5>
-                                        <small>Bitiþ: @lisans.BitisTarihi.ToString("dd.MM.yyyy")</small>
+                                        <small>BitiÅŸ: @lisans.BitisTarihi.ToString("dd.MM.yyyy")</small>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="card bg-light">
                                     <div class="card-body text-center">
-                                        <h6 class="text-muted">Kalan Gün</h6>
+                                        <h6 class="text-muted">Kalan GÃ¼n</h6>
                                         <h5 class="@(lisans.KalanGun > 7 ? "text-success" : "text-danger")">
-                                            @lisans.KalanGun gün
+                                            @lisans.KalanGun gÃ¼n
                                         </h5>
                                         <small>Lisans Tipi: @lisans.Tur</small>
                                     </div>
@@ -62,17 +62,17 @@
                                 <i class="bi bi-clipboard"></i> Kopyala
                             </button>
                         </div>
-                        <small class="text-muted">Bu kodu lisans almak için yetkili kiþiye gönderin</small>
+                        <small class="text-muted">Bu kodu lisans almak iÃ§in yetkili kiÅŸiye gÃ¶nderin</small>
                     </div>
 
                     <hr />
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Yeni Lisans Anahtarý</label>
+                        <label class="form-label fw-bold">Yeni Lisans AnahtarÄ±</label>
                         <textarea class="form-control font-monospace" 
                                   @bind="lisansAnahtari" 
                                   rows="4"
-                                  placeholder="Lisans anahtarýný buraya yapýþtýrýn..."></textarea>
+                                  placeholder="Lisans anahtarÄ±nÄ± buraya yapÄ±ÅŸtÄ±rÄ±n..."></textarea>
                     </div>
 
                     <div class="d-grid gap-2">
@@ -87,12 +87,16 @@
                             else
                             {
                                 <i class="bi bi-check-circle me-2"></i>
-                                <span>Lisansý Aktive Et</span>
+                                <span>LisansÄ± Aktive Et</span>
                             }
                         </button>
                         
+                        <a href="/downloads/CRMFiloServisLisans.exe" download class="btn btn-outline-info">
+                            <i class="bi bi-download me-2"></i>MasaÃ¼stÃ¼ Lisans OluÅŸturucuyu Ä°ndir
+                        </a>
+
                         <a href="/" class="btn btn-outline-primary">
-                            <i class="bi bi-house me-2"></i>Ana Sayfaya Dön
+                            <i class="bi bi-house me-2"></i>Ana Sayfaya DÃ¶n
                         </a>
                     </div>
                 </div>
@@ -129,7 +133,7 @@
     {
         if (string.IsNullOrWhiteSpace(lisansAnahtari))
         {
-            statusMessage = "Lütfen lisans anahtarýný girin!";
+            statusMessage = "LÃ¼tfen lisans anahtarÄ±nÄ± girin!";
             statusClass = "alert-warning";
             statusIcon = "bi-exclamation-triangle";
             return;
@@ -146,13 +150,13 @@
             var temizLisans = lisansAnahtari.Trim();
             lisans = await LisansService.AktiveLisansAsync(temizLisans);
             
-            statusMessage = "Lisans baþarýyla aktive edildi! Ana sayfaya yönlendiriliyorsunuz...";
+            statusMessage = "Lisans baÅŸarÄ±yla aktive edildi! Ana sayfaya yÃ¶nlendiriliyorsunuz...";
             statusClass = "alert-success";
             statusIcon = "bi-check-circle";
             lisansAnahtari = "";
             StateHasChanged();
 
-            // 2 saniye bekle ve ana sayfaya yönlendir
+            // 2 saniye bekle ve ana sayfaya yÃ¶nlendir
             await Task.Delay(2000);
             Navigation.NavigateTo("/", true);
         }
@@ -174,7 +178,7 @@
         try
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", makineKodu);
-            statusMessage = "Makine kodu panoya kopyalandý!";
+            statusMessage = "Makine kodu panoya kopyalandÄ±!";
             statusClass = "alert-success";
             statusIcon = "bi-check-circle";
         }

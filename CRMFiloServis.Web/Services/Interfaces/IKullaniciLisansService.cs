@@ -14,9 +14,6 @@ public interface ILisansService
     // Trial
     Task<Lisans> OlusturTrialLisansAsync();
 
-    // Uretici
-    string UretLisansAnahtari(string firmaAdi, string yetkiliKisi, string email, string telefon, string lisansTipi, int maxKullanici, string makineKodu, DateTime bitisTarihi);
-
     // Kontroller
     Task<bool> KullanicLimitiKontrolAsync();
     Task<bool> ModulIzniVarMiAsync(string modulAdi);

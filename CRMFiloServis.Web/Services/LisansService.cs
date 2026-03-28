@@ -268,56 +268,6 @@ public class LisansService : ILisansService
         return srDecrypt.ReadToEnd();
     }
 
-    private string EncryptString(string plainText)
-    {
-        using var aes = Aes.Create();
-        var key = SHA256.HashData(Encoding.UTF8.GetBytes(LisansAnahtar));
-        aes.Key = key;
-        aes.GenerateIV();
-
-        using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
-        using var msEncrypt = new MemoryStream();
-        using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
-        using (var swEncrypt = new StreamWriter(csEncrypt))
-        {
-            swEncrypt.Write(plainText);
-        }
-
-        var iv = aes.IV;
-        var encrypted = msEncrypt.ToArray();
-
-        var result = new byte[iv.Length + encrypted.Length];
-        Buffer.BlockCopy(iv, 0, result, 0, iv.Length);
-        Buffer.BlockCopy(encrypted, 0, result, iv.Length, encrypted.Length);
-
-        return Convert.ToBase64String(result);
-    }
-
-    public string UretLisansAnahtari(string firmaAdi, string yetkiliKisi, string email, string telefon, string lisansTipi, int maxKullanici, string makineKodu, DateTime bitisTarihi)
-    {
-        var random = new Random();
-        var lisansKodu = $"CRM-{random.Next(1000, 9999)}-{random.Next(1000, 9999)}-{random.Next(1000, 9999)}-{random.Next(1000, 9999)}";
-
-        var lisans = new DesktopLisansBilgi
-        {
-            LisansKodu = lisansKodu,
-            FirmaAdi = firmaAdi ?? "",
-            YetkiliKisi = yetkiliKisi ?? "",
-            Email = email ?? "",
-            Telefon = telefon ?? "",
-            LisansTipi = lisansTipi ?? "Standard",
-            BaslangicTarihi = DateTime.UtcNow,
-            BitisTarihi = bitisTarihi,
-            MaxKullaniciSayisi = maxKullanici,
-            MaxAracSayisi = maxKullanici * 10,
-            MakineKodu = makineKodu ?? "",
-            Aktif = true
-        };
-
-        var lisansJson = System.Text.Json.JsonSerializer.Serialize(lisans);
-        return EncryptString(lisansJson);
-    }
-
     // Desktop lisans bilgisi için model
     private class DesktopLisansBilgi
     {
