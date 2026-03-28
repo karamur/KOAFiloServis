@@ -1,6 +1,5 @@
 <Solution>
   <Project Path="CRMFiloServis.LisansDesktop/CRMFiloServis.LisansDesktop.csproj" />
-  <Project Path="CRMFiloServis.LisansOlusturucu/CRMFiloServis.LisansOlusturucu.csproj" />
   <Project Path="CRMFiloServis.Shared/CRMFiloServis.Shared.csproj" />
   <Project Path="CRMFiloServis.Web/CRMFiloServis.Web.csproj" />
 </Solution>

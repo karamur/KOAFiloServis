@@ -1,326 +1,432 @@
-namespace CRMFiloServis.LisansDesktop
+ï»¿namespace CRMFiloServis.LisansDesktop;
+
+partial class Form1
 {
-    partial class Form1
+    private System.ComponentModel.IContainer components = null;
+
+    protected override void Dispose(bool disposing)
     {
-        private System.ComponentModel.IContainer components = null;
-
-        protected override void Dispose(bool disposing)
+        if (disposing && (components != null))
         {
-            if (disposing && (components != null))
-            {
-                components.Dispose();
-            }
-            base.Dispose(disposing);
+            components.Dispose();
         }
-
-        private void InitializeComponent()
-        {
-            this.components = new System.ComponentModel.Container();
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1100, 750);
-            this.Text = "CRM Filo Servis - Lisans Yönetimi";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-
-            // TabControl
-            this.tabControl1 = new System.Windows.Forms.TabControl();
-            this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
-
-            // Tab Sayfalarý
-            this.tabYeniLisans = new System.Windows.Forms.TabPage { Text = "Yeni Lisans Oluþtur" };
-            this.tabDogrula = new System.Windows.Forms.TabPage { Text = "Lisans Doðrula" };
-            this.tabLisansListesi = new System.Windows.Forms.TabPage { Text = "Lisans Listesi & Takip" };
-
-            this.tabControl1.Controls.Add(this.tabYeniLisans);
-            this.tabControl1.Controls.Add(this.tabDogrula);
-            this.tabControl1.Controls.Add(this.tabLisansListesi);
-
-            // ==================== YENÝ LÝSANS SEKMESÝ ====================
-            InitializeYeniLisansTab();
-
-            // ==================== DOÐRULA SEKMESÝ ====================
-            InitializeDogrulaTab();
-
-            // ==================== LÝSANS LÝSTESÝ SEKMESÝ ====================
-            InitializeLisansListesiTab();
-
-            this.Controls.Add(this.tabControl1);
-            this.ResumeLayout(false);
-        }
-
-        private void InitializeYeniLisansTab()
-        {
-            int y = 20;
-
-            // Lisans Tipi GroupBox
-            this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.groupBox1.Text = "Lisans Tipi ve Süre";
-            this.groupBox1.Location = new System.Drawing.Point(20, y);
-            this.groupBox1.Size = new System.Drawing.Size(500, 280);
-
-            // Radio Buttons
-            this.radioTrial = new System.Windows.Forms.RadioButton { Text = "Trial", Location = new System.Drawing.Point(20, 30), AutoSize = true };
-            this.radioStandard = new System.Windows.Forms.RadioButton { Text = "Standard", Location = new System.Drawing.Point(20, 55), AutoSize = true, Checked = true };
-            this.radioProfessional = new System.Windows.Forms.RadioButton { Text = "Professional", Location = new System.Drawing.Point(20, 80), AutoSize = true };
-            this.radioEnterprise = new System.Windows.Forms.RadioButton { Text = "Enterprise", Location = new System.Drawing.Point(20, 105), AutoSize = true };
-
-            this.groupBox1.Controls.AddRange(new System.Windows.Forms.Control[] { radioTrial, radioStandard, radioProfessional, radioEnterprise });
-
-            // Süre Kontrolleri
-            this.lblYil = new System.Windows.Forms.Label { Text = "Yýl:", Location = new System.Drawing.Point(20, 140), AutoSize = true };
-            this.numYil = new System.Windows.Forms.NumericUpDown { Location = new System.Drawing.Point(50, 138), Size = new System.Drawing.Size(60, 23), Maximum = 10, Value = 1 };
-            this.lblAy = new System.Windows.Forms.Label { Text = "Ay:", Location = new System.Drawing.Point(130, 140), AutoSize = true };
-            this.numAy = new System.Windows.Forms.NumericUpDown { Location = new System.Drawing.Point(160, 138), Size = new System.Drawing.Size(60, 23), Maximum = 11 };
-            this.lblGun = new System.Windows.Forms.Label { Text = "Gün:", Location = new System.Drawing.Point(240, 140), AutoSize = true };
-            this.numGun = new System.Windows.Forms.NumericUpDown { Location = new System.Drawing.Point(280, 138), Size = new System.Drawing.Size(60, 23), Maximum = 30 };
-
-            this.groupBox1.Controls.AddRange(new System.Windows.Forms.Control[] { lblYil, numYil, lblAy, numAy, lblGun, numGun });
-
-            // Makine Kodu
-            this.lblMusteriMakineKodu = new System.Windows.Forms.Label { Text = "Müþteri Makine Kodu:", Location = new System.Drawing.Point(20, 180), AutoSize = true };
-            this.txtMusteriMakineKodu = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(20, 200), Size = new System.Drawing.Size(350, 23) };
-            this.btnMakineKoduAl = new System.Windows.Forms.Button { Text = "Bu PC'nin Kodunu Al", Location = new System.Drawing.Point(380, 198), Size = new System.Drawing.Size(100, 27) };
-            this.btnMakineKoduAl.Click += new System.EventHandler(this.btnMakineKoduAl_Click);
-
-            this.groupBox1.Controls.AddRange(new System.Windows.Forms.Control[] { lblMusteriMakineKodu, txtMusteriMakineKodu, btnMakineKoduAl });
-
-            // Firma Bilgileri GroupBox
-            this.groupBox2 = new System.Windows.Forms.GroupBox();
-            this.groupBox2.Text = "Firma Bilgileri";
-            this.groupBox2.Location = new System.Drawing.Point(540, y);
-            this.groupBox2.Size = new System.Drawing.Size(500, 280);
-
-            this.lblFirmaAdi = new System.Windows.Forms.Label { Text = "Firma Adý *:", Location = new System.Drawing.Point(20, 30), AutoSize = true };
-            this.txtFirmaAdi = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(130, 27), Size = new System.Drawing.Size(350, 23) };
-
-            this.label1 = new System.Windows.Forms.Label { Text = "Yetkili Kiþi:", Location = new System.Drawing.Point(20, 60), AutoSize = true };
-            this.txtYetkili = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(130, 57), Size = new System.Drawing.Size(350, 23) };
-
-            this.label2 = new System.Windows.Forms.Label { Text = "E-posta:", Location = new System.Drawing.Point(20, 90), AutoSize = true };
-            this.txtEmail = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(130, 87), Size = new System.Drawing.Size(350, 23) };
-
-            this.label3 = new System.Windows.Forms.Label { Text = "Telefon:", Location = new System.Drawing.Point(20, 120), AutoSize = true };
-            this.txtTelefon = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(130, 117), Size = new System.Drawing.Size(350, 23) };
-
-            this.label4 = new System.Windows.Forms.Label { Text = "Max Kullanýcý:", Location = new System.Drawing.Point(20, 150), AutoSize = true };
-            this.numMaxKullanici = new System.Windows.Forms.NumericUpDown { Location = new System.Drawing.Point(130, 147), Size = new System.Drawing.Size(100, 23), Maximum = 999, Value = 10 };
-
-            this.label5 = new System.Windows.Forms.Label { Text = "Max Araç:", Location = new System.Drawing.Point(250, 150), AutoSize = true };
-            this.numMaxArac = new System.Windows.Forms.NumericUpDown { Location = new System.Drawing.Point(330, 147), Size = new System.Drawing.Size(100, 23), Maximum = 9999, Value = 100 };
-
-            this.groupBox2.Controls.AddRange(new System.Windows.Forms.Control[] { 
-                lblFirmaAdi, txtFirmaAdi, label1, txtYetkili, label2, txtEmail, 
-                label3, txtTelefon, label4, numMaxKullanici, label5, numMaxArac 
-            });
-
-            // Oluþtur Butonu
-            this.btnOlustur = new System.Windows.Forms.Button();
-            this.btnOlustur.Text = "?? LÝSANS OLUÞTUR";
-            this.btnOlustur.Location = new System.Drawing.Point(20, 310);
-            this.btnOlustur.Size = new System.Drawing.Size(1020, 50);
-            this.btnOlustur.BackColor = System.Drawing.Color.FromArgb(40, 167, 69);
-            this.btnOlustur.ForeColor = System.Drawing.Color.White;
-            this.btnOlustur.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnOlustur.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
-            this.btnOlustur.Click += new System.EventHandler(this.btnOlustur_Click);
-
-            // Sonuç GroupBox
-            this.groupBox3 = new System.Windows.Forms.GroupBox();
-            this.groupBox3.Text = "Oluþturulan Lisans";
-            this.groupBox3.Location = new System.Drawing.Point(20, 370);
-            this.groupBox3.Size = new System.Drawing.Size(1020, 320);
-
-            this.txtLisansBilgi = new System.Windows.Forms.TextBox();
-            this.txtLisansBilgi.Multiline = true;
-            this.txtLisansBilgi.ReadOnly = true;
-            this.txtLisansBilgi.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtLisansBilgi.Font = new System.Drawing.Font("Consolas", 9F);
-            this.txtLisansBilgi.Location = new System.Drawing.Point(20, 25);
-            this.txtLisansBilgi.Size = new System.Drawing.Size(980, 180);
-
-            this.txtLisansAnahtari = new System.Windows.Forms.TextBox();
-            this.txtLisansAnahtari.Multiline = true;
-            this.txtLisansAnahtari.ReadOnly = true;
-            this.txtLisansAnahtari.Font = new System.Drawing.Font("Consolas", 8F);
-            this.txtLisansAnahtari.Location = new System.Drawing.Point(20, 210);
-            this.txtLisansAnahtari.Size = new System.Drawing.Size(980, 60);
-
-            this.btnKopyala = new System.Windows.Forms.Button { Text = "?? Panoya Kopyala", Location = new System.Drawing.Point(20, 280), Size = new System.Drawing.Size(480, 30), Enabled = false };
-            this.btnKopyala.Click += new System.EventHandler(this.btnKopyala_Click);
-
-            this.btnKaydet = new System.Windows.Forms.Button { Text = "?? Dosyaya Kaydet", Location = new System.Drawing.Point(520, 280), Size = new System.Drawing.Size(480, 30), Enabled = false };
-            this.btnKaydet.Click += new System.EventHandler(this.btnKaydet_Click);
-
-            this.groupBox3.Controls.AddRange(new System.Windows.Forms.Control[] { txtLisansBilgi, txtLisansAnahtari, btnKopyala, btnKaydet });
-
-            this.tabYeniLisans.Controls.AddRange(new System.Windows.Forms.Control[] { groupBox1, groupBox2, btnOlustur, groupBox3 });
-        }
-
-        private void InitializeDogrulaTab()
-        {
-            // Doðrula GroupBox
-            this.groupBox4 = new System.Windows.Forms.GroupBox();
-            this.groupBox4.Text = "Lisans Anahtarý";
-            this.groupBox4.Location = new System.Drawing.Point(20, 20);
-            this.groupBox4.Size = new System.Drawing.Size(1020, 130);
-
-            this.label6 = new System.Windows.Forms.Label { Text = "Doðrulanacak Lisans Anahtarýný Girin:", Location = new System.Drawing.Point(20, 30), AutoSize = true };
-            this.txtDogrulaAnahtar = new System.Windows.Forms.TextBox();
-            this.txtDogrulaAnahtar.Multiline = true;
-            this.txtDogrulaAnahtar.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtDogrulaAnahtar.Font = new System.Drawing.Font("Consolas", 9F);
-            this.txtDogrulaAnahtar.Location = new System.Drawing.Point(20, 50);
-            this.txtDogrulaAnahtar.Size = new System.Drawing.Size(980, 60);
-
-            this.groupBox4.Controls.AddRange(new System.Windows.Forms.Control[] { label6, txtDogrulaAnahtar });
-
-            // Doðrula Butonu
-            this.btnDogrula = new System.Windows.Forms.Button();
-            this.btnDogrula.Text = "? LÝSANSI DOÐRULA";
-            this.btnDogrula.Location = new System.Drawing.Point(20, 160);
-            this.btnDogrula.Size = new System.Drawing.Size(1020, 50);
-            this.btnDogrula.BackColor = System.Drawing.Color.FromArgb(0, 123, 255);
-            this.btnDogrula.ForeColor = System.Drawing.Color.White;
-            this.btnDogrula.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnDogrula.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
-            this.btnDogrula.Click += new System.EventHandler(this.btnDogrula_Click);
-
-            // Sonuç GroupBox
-            this.groupBox5 = new System.Windows.Forms.GroupBox();
-            this.groupBox5.Text = "Doðrulama Sonucu";
-            this.groupBox5.Location = new System.Drawing.Point(20, 220);
-            this.groupBox5.Size = new System.Drawing.Size(1020, 450);
-
-            this.txtDogrulaSonuc = new System.Windows.Forms.TextBox();
-            this.txtDogrulaSonuc.Multiline = true;
-            this.txtDogrulaSonuc.ReadOnly = true;
-            this.txtDogrulaSonuc.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtDogrulaSonuc.Font = new System.Drawing.Font("Consolas", 10F);
-            this.txtDogrulaSonuc.Location = new System.Drawing.Point(20, 25);
-            this.txtDogrulaSonuc.Size = new System.Drawing.Size(980, 400);
-
-            this.groupBox5.Controls.Add(txtDogrulaSonuc);
-
-            this.tabDogrula.Controls.AddRange(new System.Windows.Forms.Control[] { groupBox4, btnDogrula, groupBox5 });
-        }
-
-        private void InitializeLisansListesiTab()
-        {
-            // Özet Panel
-            this.panelOzet = new System.Windows.Forms.Panel();
-            this.panelOzet.Location = new System.Drawing.Point(10, 10);
-            this.panelOzet.Size = new System.Drawing.Size(1040, 60);
-            this.panelOzet.BackColor = System.Drawing.Color.FromArgb(240, 240, 240);
-            this.panelOzet.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-
-            this.lblToplamLisans = new System.Windows.Forms.Label { Text = "Toplam: 0", Location = new System.Drawing.Point(20, 20), AutoSize = true, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold) };
-            this.lblAktifLisans = new System.Windows.Forms.Label { Text = "Aktif: 0", Location = new System.Drawing.Point(200, 20), AutoSize = true, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold), ForeColor = System.Drawing.Color.Green };
-            this.lblYaklasanLisans = new System.Windows.Forms.Label { Text = "Süresi Yaklaþan (30 gün): 0", Location = new System.Drawing.Point(350, 20), AutoSize = true, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold), ForeColor = System.Drawing.Color.Orange };
-            this.lblDolmusLisans = new System.Windows.Forms.Label { Text = "Süresi Dolmuþ: 0", Location = new System.Drawing.Point(650, 20), AutoSize = true, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold), ForeColor = System.Drawing.Color.Red };
-
-            this.panelOzet.Controls.AddRange(new System.Windows.Forms.Control[] { lblToplamLisans, lblAktifLisans, lblYaklasanLisans, lblDolmusLisans });
-
-            // DataGridView
-            this.dataGridLisanslar = new System.Windows.Forms.DataGridView();
-            this.dataGridLisanslar.Location = new System.Drawing.Point(10, 80);
-            this.dataGridLisanslar.Size = new System.Drawing.Size(1040, 520);
-            this.dataGridLisanslar.AllowUserToAddRows = false;
-            this.dataGridLisanslar.AllowUserToDeleteRows = false;
-            this.dataGridLisanslar.ReadOnly = true;
-            this.dataGridLisanslar.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.dataGridLisanslar.MultiSelect = false;
-            this.dataGridLisanslar.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
-            this.dataGridLisanslar.BackgroundColor = System.Drawing.Color.White;
-
-            // Butonlar Panel
-            this.panelButonlar = new System.Windows.Forms.Panel();
-            this.panelButonlar.Location = new System.Drawing.Point(10, 610);
-            this.panelButonlar.Size = new System.Drawing.Size(1040, 50);
-
-            this.btnYenile = new System.Windows.Forms.Button { Text = "?? Lisansý Yenile", Location = new System.Drawing.Point(0, 5), Size = new System.Drawing.Size(130, 40), BackColor = System.Drawing.Color.FromArgb(40, 167, 69), ForeColor = System.Drawing.Color.White, FlatStyle = System.Windows.Forms.FlatStyle.Flat };
-            this.btnYenile.Click += new System.EventHandler(this.btnYenile_Click);
-
-            this.btnLisansDetay = new System.Windows.Forms.Button { Text = "?? Detay", Location = new System.Drawing.Point(140, 5), Size = new System.Drawing.Size(100, 40), FlatStyle = System.Windows.Forms.FlatStyle.Flat };
-            this.btnLisansDetay.Click += new System.EventHandler(this.btnLisansDetay_Click);
-
-            this.btnLisansAnahtariKopyala = new System.Windows.Forms.Button { Text = "?? Anahtar Kopyala", Location = new System.Drawing.Point(250, 5), Size = new System.Drawing.Size(140, 40), FlatStyle = System.Windows.Forms.FlatStyle.Flat };
-            this.btnLisansAnahtariKopyala.Click += new System.EventHandler(this.btnLisansAnahtariKopyala_Click);
-
-            this.btnLisansSil = new System.Windows.Forms.Button { Text = "?? Sil", Location = new System.Drawing.Point(400, 5), Size = new System.Drawing.Size(80, 40), BackColor = System.Drawing.Color.FromArgb(220, 53, 69), ForeColor = System.Drawing.Color.White, FlatStyle = System.Windows.Forms.FlatStyle.Flat };
-            this.btnLisansSil.Click += new System.EventHandler(this.btnLisansSil_Click);
-
-            this.btnListeYenile = new System.Windows.Forms.Button { Text = "?? Yenile", Location = new System.Drawing.Point(780, 5), Size = new System.Drawing.Size(100, 40), FlatStyle = System.Windows.Forms.FlatStyle.Flat };
-            this.btnListeYenile.Click += new System.EventHandler(this.btnListeYenile_Click);
-
-            this.btnExport = new System.Windows.Forms.Button { Text = "?? Dýþa Aktar", Location = new System.Drawing.Point(890, 5), Size = new System.Drawing.Size(140, 40), BackColor = System.Drawing.Color.FromArgb(0, 123, 255), ForeColor = System.Drawing.Color.White, FlatStyle = System.Windows.Forms.FlatStyle.Flat };
-            this.btnExport.Click += new System.EventHandler(this.btnExport_Click);
-
-            this.panelButonlar.Controls.AddRange(new System.Windows.Forms.Control[] { btnYenile, btnLisansDetay, btnLisansAnahtariKopyala, btnLisansSil, btnListeYenile, btnExport });
-
-            this.tabLisansListesi.Controls.AddRange(new System.Windows.Forms.Control[] { panelOzet, dataGridLisanslar, panelButonlar });
-        }
-
-        // Kontroller
-        private System.Windows.Forms.TabControl tabControl1;
-        private System.Windows.Forms.TabPage tabYeniLisans;
-        private System.Windows.Forms.TabPage tabDogrula;
-        private System.Windows.Forms.TabPage tabLisansListesi;
-
-        // Yeni Lisans Sekmesi
-        private System.Windows.Forms.GroupBox groupBox1;
-        private System.Windows.Forms.GroupBox groupBox2;
-        private System.Windows.Forms.GroupBox groupBox3;
-        private System.Windows.Forms.RadioButton radioTrial;
-        private System.Windows.Forms.RadioButton radioStandard;
-        private System.Windows.Forms.RadioButton radioProfessional;
-        private System.Windows.Forms.RadioButton radioEnterprise;
-        private System.Windows.Forms.NumericUpDown numYil;
-        private System.Windows.Forms.NumericUpDown numAy;
-        private System.Windows.Forms.NumericUpDown numGun;
-        private System.Windows.Forms.Label lblYil;
-        private System.Windows.Forms.Label lblAy;
-        private System.Windows.Forms.Label lblGun;
-        private System.Windows.Forms.Label lblMusteriMakineKodu;
-        private System.Windows.Forms.TextBox txtMusteriMakineKodu;
-        private System.Windows.Forms.Button btnMakineKoduAl;
-        private System.Windows.Forms.Label lblFirmaAdi;
-        private System.Windows.Forms.TextBox txtFirmaAdi;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.TextBox txtYetkili;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.TextBox txtEmail;
-        private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.TextBox txtTelefon;
-        private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.NumericUpDown numMaxKullanici;
-        private System.Windows.Forms.Label label5;
-        private System.Windows.Forms.NumericUpDown numMaxArac;
-        private System.Windows.Forms.Button btnOlustur;
-        private System.Windows.Forms.TextBox txtLisansBilgi;
-        private System.Windows.Forms.TextBox txtLisansAnahtari;
-        private System.Windows.Forms.Button btnKopyala;
-        private System.Windows.Forms.Button btnKaydet;
-
-        // Doðrula Sekmesi
-        private System.Windows.Forms.GroupBox groupBox4;
-        private System.Windows.Forms.GroupBox groupBox5;
-        private System.Windows.Forms.Label label6;
-        private System.Windows.Forms.TextBox txtDogrulaAnahtar;
-        private System.Windows.Forms.Button btnDogrula;
-        private System.Windows.Forms.TextBox txtDogrulaSonuc;
-
-        // Lisans Listesi Sekmesi
-        private System.Windows.Forms.Panel panelOzet;
-        private System.Windows.Forms.Label lblToplamLisans;
-        private System.Windows.Forms.Label lblAktifLisans;
-        private System.Windows.Forms.Label lblYaklasanLisans;
-        private System.Windows.Forms.Label lblDolmusLisans;
-        private System.Windows.Forms.DataGridView dataGridLisanslar;
-        private System.Windows.Forms.Panel panelButonlar;
-        private System.Windows.Forms.Button btnYenile;
-        private System.Windows.Forms.Button btnLisansDetay;
-        private System.Windows.Forms.Button btnLisansAnahtariKopyala;
-        private System.Windows.Forms.Button btnLisansSil;
-        private System.Windows.Forms.Button btnListeYenile;
-        private System.Windows.Forms.Button btnExport;
+        base.Dispose(disposing);
     }
+
+    #region Windows Form Designer generated code
+
+    private void InitializeComponent()
+    {
+        lblBaslik = new Label();
+        lblFirmaAdi = new Label();
+        txtFirmaAdi = new TextBox();
+        lblYetkili = new Label();
+        txtYetkili = new TextBox();
+        lblEmail = new Label();
+        txtEmail = new TextBox();
+        lblTelefon = new Label();
+        txtTelefon = new TextBox();
+        lblMakineKodu = new Label();
+        txtMakineKodu = new TextBox();
+        btnBuPcMakineKodu = new Button();
+        lblLisansTipi = new Label();
+        cmbLisansTipi = new ComboBox();
+        lblMaxKullanici = new Label();
+        numMaxKullanici = new NumericUpDown();
+        lblBitisTarihi = new Label();
+        dtpBitisTarihi = new DateTimePicker();
+        btnLisansUret = new Button();
+        btnKopyala = new Button();
+        btnTxtKaydet = new Button();
+        txtLisansAnahtari = new TextBox();
+        lblAnahtar = new Label();
+        saveFileDialog1 = new SaveFileDialog();
+        lblIslemTipi = new Label();
+        cmbIslemTipi = new ComboBox();
+        lblNotlar = new Label();
+        txtNotlar = new TextBox();
+        dgvKayitlar = new DataGridView();
+        btnSeciliKaydiYukle = new Button();
+        btnYeniForm = new Button();
+        lblKayitlar = new Label();
+        ((System.ComponentModel.ISupportInitialize)numMaxKullanici).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)dgvKayitlar).BeginInit();
+        SuspendLayout();
+        // 
+        // lblBaslik
+        // 
+        lblBaslik.AutoSize = true;
+        lblBaslik.Font = new Font("Segoe UI", 15F, FontStyle.Bold);
+        lblBaslik.Location = new Point(24, 18);
+        lblBaslik.Name = "lblBaslik";
+        lblBaslik.Size = new Size(296, 35);
+        lblBaslik.TabIndex = 0;
+        lblBaslik.Text = "CRM Lisans OluÅŸturucu";
+        // 
+        // lblFirmaAdi
+        // 
+        lblFirmaAdi.AutoSize = true;
+        lblFirmaAdi.Location = new Point(28, 79);
+        lblFirmaAdi.Name = "lblFirmaAdi";
+        lblFirmaAdi.Size = new Size(69, 20);
+        lblFirmaAdi.TabIndex = 1;
+        lblFirmaAdi.Text = "Firma AdÄ±";
+        // 
+        // txtFirmaAdi
+        // 
+        txtFirmaAdi.Location = new Point(167, 76);
+        txtFirmaAdi.Name = "txtFirmaAdi";
+        txtFirmaAdi.Size = new Size(350, 27);
+        txtFirmaAdi.TabIndex = 0;
+        // 
+        // lblYetkili
+        // 
+        lblYetkili.AutoSize = true;
+        lblYetkili.Location = new Point(28, 117);
+        lblYetkili.Name = "lblYetkili";
+        lblYetkili.Size = new Size(86, 20);
+        lblYetkili.TabIndex = 3;
+        lblYetkili.Text = "Yetkili KiÅŸi";
+        // 
+        // txtYetkili
+        // 
+        txtYetkili.Location = new Point(167, 114);
+        txtYetkili.Name = "txtYetkili";
+        txtYetkili.Size = new Size(350, 27);
+        txtYetkili.TabIndex = 1;
+        // 
+        // lblEmail
+        // 
+        lblEmail.AutoSize = true;
+        lblEmail.Location = new Point(28, 155);
+        lblEmail.Name = "lblEmail";
+        lblEmail.Size = new Size(46, 20);
+        lblEmail.TabIndex = 5;
+        lblEmail.Text = "Email";
+        // 
+        // txtEmail
+        // 
+        txtEmail.Location = new Point(167, 152);
+        txtEmail.Name = "txtEmail";
+        txtEmail.Size = new Size(350, 27);
+        txtEmail.TabIndex = 2;
+        // 
+        // lblTelefon
+        // 
+        lblTelefon.AutoSize = true;
+        lblTelefon.Location = new Point(28, 193);
+        lblTelefon.Name = "lblTelefon";
+        lblTelefon.Size = new Size(56, 20);
+        lblTelefon.TabIndex = 7;
+        lblTelefon.Text = "Telefon";
+        // 
+        // txtTelefon
+        // 
+        txtTelefon.Location = new Point(167, 190);
+        txtTelefon.Name = "txtTelefon";
+        txtTelefon.Size = new Size(350, 27);
+        txtTelefon.TabIndex = 3;
+        // 
+        // lblMakineKodu
+        // 
+        lblMakineKodu.AutoSize = true;
+        lblMakineKodu.Location = new Point(28, 231);
+        lblMakineKodu.Name = "lblMakineKodu";
+        lblMakineKodu.Size = new Size(93, 20);
+        lblMakineKodu.TabIndex = 9;
+        lblMakineKodu.Text = "Makine Kodu";
+        // 
+        // txtMakineKodu
+        // 
+        txtMakineKodu.Font = new Font("Consolas", 10.2F, FontStyle.Regular, GraphicsUnit.Point, 162);
+        txtMakineKodu.Location = new Point(167, 228);
+        txtMakineKodu.Name = "txtMakineKodu";
+        txtMakineKodu.Size = new Size(350, 27);
+        txtMakineKodu.TabIndex = 4;
+        // 
+        // btnBuPcMakineKodu
+        // 
+        btnBuPcMakineKodu.Location = new Point(523, 226);
+        btnBuPcMakineKodu.Name = "btnBuPcMakineKodu";
+        btnBuPcMakineKodu.Size = new Size(120, 31);
+        btnBuPcMakineKodu.TabIndex = 5;
+        btnBuPcMakineKodu.Text = "Bu PC Kodu";
+        btnBuPcMakineKodu.UseVisualStyleBackColor = true;
+        btnBuPcMakineKodu.Click += btnBuPcMakineKodu_Click;
+        // 
+        // lblLisansTipi
+        // 
+        lblLisansTipi.AutoSize = true;
+        lblLisansTipi.Location = new Point(28, 269);
+        lblLisansTipi.Name = "lblLisansTipi";
+        lblLisansTipi.Size = new Size(78, 20);
+        lblLisansTipi.TabIndex = 12;
+        lblLisansTipi.Text = "Lisans Tipi";
+        // 
+        // cmbLisansTipi
+        // 
+        cmbLisansTipi.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbLisansTipi.FormattingEnabled = true;
+        cmbLisansTipi.Items.AddRange(new object[] { "Trial", "Standard", "Professional", "Enterprise" });
+        cmbLisansTipi.Location = new Point(167, 266);
+        cmbLisansTipi.Name = "cmbLisansTipi";
+        cmbLisansTipi.Size = new Size(162, 28);
+        cmbLisansTipi.TabIndex = 6;
+        // 
+        // lblMaxKullanici
+        // 
+        lblMaxKullanici.AutoSize = true;
+        lblMaxKullanici.Location = new Point(350, 269);
+        lblMaxKullanici.Name = "lblMaxKullanici";
+        lblMaxKullanici.Size = new Size(97, 20);
+        lblMaxKullanici.TabIndex = 14;
+        lblMaxKullanici.Text = "Max KullanÄ±cÄ±";
+        // 
+        // numMaxKullanici
+        // 
+        numMaxKullanici.Location = new Point(453, 267);
+        numMaxKullanici.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
+        numMaxKullanici.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        numMaxKullanici.Name = "numMaxKullanici";
+        numMaxKullanici.Size = new Size(90, 27);
+        numMaxKullanici.TabIndex = 7;
+        numMaxKullanici.Value = new decimal(new int[] { 10, 0, 0, 0 });
+        // 
+        // lblBitisTarihi
+        // 
+        lblBitisTarihi.AutoSize = true;
+        lblBitisTarihi.Location = new Point(28, 307);
+        lblBitisTarihi.Name = "lblBitisTarihi";
+        lblBitisTarihi.Size = new Size(77, 20);
+        lblBitisTarihi.TabIndex = 16;
+        lblBitisTarihi.Text = "BitiÅŸ Tarihi";
+        // 
+        // dtpBitisTarihi
+        // 
+        dtpBitisTarihi.Location = new Point(167, 304);
+        dtpBitisTarihi.Name = "dtpBitisTarihi";
+        dtpBitisTarihi.Size = new Size(376, 27);
+        dtpBitisTarihi.TabIndex = 8;
+        // 
+        // lblIslemTipi
+        // 
+        lblIslemTipi.AutoSize = true;
+        lblIslemTipi.Location = new Point(28, 345);
+        lblIslemTipi.Name = "lblIslemTipi";
+        lblIslemTipi.Size = new Size(76, 20);
+        lblIslemTipi.TabIndex = 22;
+        lblIslemTipi.Text = "Ä°ÅŸlem Tipi";
+        // 
+        // cmbIslemTipi
+        // 
+        cmbIslemTipi.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbIslemTipi.FormattingEnabled = true;
+        cmbIslemTipi.Items.AddRange(new object[] { "Yeni KayÄ±t", "Yenileme", "GÃ¼ncelleme" });
+        cmbIslemTipi.Location = new Point(167, 342);
+        cmbIslemTipi.Name = "cmbIslemTipi";
+        cmbIslemTipi.Size = new Size(162, 28);
+        cmbIslemTipi.TabIndex = 9;
+        // 
+        // lblNotlar
+        // 
+        lblNotlar.AutoSize = true;
+        lblNotlar.Location = new Point(28, 383);
+        lblNotlar.Name = "lblNotlar";
+        lblNotlar.Size = new Size(51, 20);
+        lblNotlar.TabIndex = 24;
+        lblNotlar.Text = "Notlar";
+        // 
+        // txtNotlar
+        // 
+        txtNotlar.Location = new Point(167, 380);
+        txtNotlar.Multiline = true;
+        txtNotlar.Name = "txtNotlar";
+        txtNotlar.ScrollBars = ScrollBars.Vertical;
+        txtNotlar.Size = new Size(476, 72);
+        txtNotlar.TabIndex = 10;
+        // 
+        // btnLisansUret
+        // 
+        btnLisansUret.Font = new Font("Segoe UI", 10.2F, FontStyle.Bold);
+        btnLisansUret.Location = new Point(167, 468);
+        btnLisansUret.Name = "btnLisansUret";
+        btnLisansUret.Size = new Size(180, 41);
+        btnLisansUret.TabIndex = 11;
+        btnLisansUret.Text = "Lisans AnahtarÄ± Ãœret";
+        btnLisansUret.UseVisualStyleBackColor = true;
+        btnLisansUret.Click += btnLisansUret_Click;
+        // 
+        // btnKopyala
+        // 
+        btnKopyala.Location = new Point(361, 468);
+        btnKopyala.Name = "btnKopyala";
+        btnKopyala.Size = new Size(135, 41);
+        btnKopyala.TabIndex = 12;
+        btnKopyala.Text = "Panoya Kopyala";
+        btnKopyala.UseVisualStyleBackColor = true;
+        btnKopyala.Click += btnKopyala_Click;
+        // 
+        // btnTxtKaydet
+        // 
+        btnTxtKaydet.Location = new Point(508, 468);
+        btnTxtKaydet.Name = "btnTxtKaydet";
+        btnTxtKaydet.Size = new Size(135, 41);
+        btnTxtKaydet.TabIndex = 13;
+        btnTxtKaydet.Text = "Txt Kaydet";
+        btnTxtKaydet.UseVisualStyleBackColor = true;
+        btnTxtKaydet.Click += btnTxtKaydet_Click;
+        // 
+        // lblAnahtar
+        // 
+        lblAnahtar.AutoSize = true;
+        lblAnahtar.Location = new Point(28, 525);
+        lblAnahtar.Name = "lblAnahtar";
+        lblAnahtar.Size = new Size(141, 20);
+        lblAnahtar.TabIndex = 21;
+        lblAnahtar.Text = "Lisans Aktivasyon Kodu";
+        // 
+        // txtLisansAnahtari
+        // 
+        txtLisansAnahtari.Font = new Font("Consolas", 10.2F, FontStyle.Regular, GraphicsUnit.Point, 162);
+        txtLisansAnahtari.Location = new Point(28, 551);
+        txtLisansAnahtari.Multiline = true;
+        txtLisansAnahtari.Name = "txtLisansAnahtari";
+        txtLisansAnahtari.ReadOnly = true;
+        txtLisansAnahtari.ScrollBars = ScrollBars.Vertical;
+        txtLisansAnahtari.Size = new Size(615, 142);
+        txtLisansAnahtari.TabIndex = 20;
+        // 
+        // lblKayitlar
+        // 
+        lblKayitlar.AutoSize = true;
+        lblKayitlar.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+        lblKayitlar.Location = new Point(675, 23);
+        lblKayitlar.Name = "lblKayitlar";
+        lblKayitlar.Size = new Size(142, 28);
+        lblKayitlar.TabIndex = 25;
+        lblKayitlar.Text = "Lisans Takibi";
+        // 
+        // dgvKayitlar
+        // 
+        dgvKayitlar.AllowUserToAddRows = false;
+        dgvKayitlar.AllowUserToDeleteRows = false;
+        dgvKayitlar.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        dgvKayitlar.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+        dgvKayitlar.Location = new Point(675, 76);
+        dgvKayitlar.MultiSelect = false;
+        dgvKayitlar.Name = "dgvKayitlar";
+        dgvKayitlar.ReadOnly = true;
+        dgvKayitlar.RowHeadersWidth = 51;
+        dgvKayitlar.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        dgvKayitlar.Size = new Size(655, 617);
+        dgvKayitlar.TabIndex = 26;
+        dgvKayitlar.SelectionChanged += dgvKayitlar_SelectionChanged;
+        // 
+        // btnSeciliKaydiYukle
+        // 
+        btnSeciliKaydiYukle.Location = new Point(1025, 23);
+        btnSeciliKaydiYukle.Name = "btnSeciliKaydiYukle";
+        btnSeciliKaydiYukle.Size = new Size(150, 35);
+        btnSeciliKaydiYukle.TabIndex = 14;
+        btnSeciliKaydiYukle.Text = "KaydÄ± Forma YÃ¼kle";
+        btnSeciliKaydiYukle.UseVisualStyleBackColor = true;
+        btnSeciliKaydiYukle.Click += btnSeciliKaydiYukle_Click;
+        // 
+        // btnYeniForm
+        // 
+        btnYeniForm.Location = new Point(1187, 23);
+        btnYeniForm.Name = "btnYeniForm";
+        btnYeniForm.Size = new Size(143, 35);
+        btnYeniForm.TabIndex = 15;
+        btnYeniForm.Text = "Yeni Form Temizle";
+        btnYeniForm.UseVisualStyleBackColor = true;
+        btnYeniForm.Click += btnYeniForm_Click;
+        // 
+        // saveFileDialog1
+        // 
+        saveFileDialog1.DefaultExt = "txt";
+        saveFileDialog1.Filter = "Metin DosyasÄ±|*.txt";
+        saveFileDialog1.Title = "Lisans Kodunu Kaydet";
+        // 
+        // Form1
+        // 
+        AutoScaleDimensions = new SizeF(8F, 20F);
+        AutoScaleMode = AutoScaleMode.Font;
+        ClientSize = new Size(1364, 720);
+        Controls.Add(btnYeniForm);
+        Controls.Add(btnSeciliKaydiYukle);
+        Controls.Add(dgvKayitlar);
+        Controls.Add(lblKayitlar);
+        Controls.Add(txtNotlar);
+        Controls.Add(lblNotlar);
+        Controls.Add(cmbIslemTipi);
+        Controls.Add(lblIslemTipi);
+        Controls.Add(lblAnahtar);
+        Controls.Add(txtLisansAnahtari);
+        Controls.Add(btnTxtKaydet);
+        Controls.Add(btnKopyala);
+        Controls.Add(btnLisansUret);
+        Controls.Add(dtpBitisTarihi);
+        Controls.Add(lblBitisTarihi);
+        Controls.Add(numMaxKullanici);
+        Controls.Add(lblMaxKullanici);
+        Controls.Add(cmbLisansTipi);
+        Controls.Add(lblLisansTipi);
+        Controls.Add(btnBuPcMakineKodu);
+        Controls.Add(txtMakineKodu);
+        Controls.Add(lblMakineKodu);
+        Controls.Add(txtTelefon);
+        Controls.Add(lblTelefon);
+        Controls.Add(txtEmail);
+        Controls.Add(lblEmail);
+        Controls.Add(txtYetkili);
+        Controls.Add(lblYetkili);
+        Controls.Add(txtFirmaAdi);
+        Controls.Add(lblFirmaAdi);
+        Controls.Add(lblBaslik);
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MaximizeBox = false;
+        Name = "Form1";
+        StartPosition = FormStartPosition.CenterScreen;
+        Text = "CRMFiloServis Lisans OluÅŸturucu";
+        ((System.ComponentModel.ISupportInitialize)numMaxKullanici).EndInit();
+        ((System.ComponentModel.ISupportInitialize)dgvKayitlar).EndInit();
+        ResumeLayout(false);
+        PerformLayout();
+    }
+
+    #endregion
+
+    private Label lblBaslik;
+    private Label lblFirmaAdi;
+    private TextBox txtFirmaAdi;
+    private Label lblYetkili;
+    private TextBox txtYetkili;
+    private Label lblEmail;
+    private TextBox txtEmail;
+    private Label lblTelefon;
+    private TextBox txtTelefon;
+    private Label lblMakineKodu;
+    private TextBox txtMakineKodu;
+    private Button btnBuPcMakineKodu;
+    private Label lblLisansTipi;
+    private ComboBox cmbLisansTipi;
+    private Label lblMaxKullanici;
+    private NumericUpDown numMaxKullanici;
+    private Label lblBitisTarihi;
+    private DateTimePicker dtpBitisTarihi;
+    private Button btnLisansUret;
+    private Button btnKopyala;
+    private Button btnTxtKaydet;
+    private TextBox txtLisansAnahtari;
+    private Label lblAnahtar;
+    private SaveFileDialog saveFileDialog1;
+    private Label lblIslemTipi;
+    private ComboBox cmbIslemTipi;
+    private Label lblNotlar;
+    private TextBox txtNotlar;
+    private DataGridView dgvKayitlar;
+    private Button btnSeciliKaydiYukle;
+    private Button btnYeniForm;
+    private Label lblKayitlar;
 }

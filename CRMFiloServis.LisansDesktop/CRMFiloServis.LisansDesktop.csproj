@@ -1,4 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\CRMFiloServis.Shared\CRMFiloServis.Shared.csproj" />
+  </ItemGroup>
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -6,27 +10,14 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-
-    <!-- Uygulama Bilgileri -->
     <AssemblyName>CRMFiloServisLisans</AssemblyName>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    <Product>CRM Filo Servis - Lisans Olu�turucu</Product>
-    <Company>CRM Filo Servis</Company>
-    <Copyright>Copyright � 2026</Copyright>
-    
-
-    <!-- Publish Ayarlar� -->
+    <Product>CRMFiloServis Lisans Oluşturucu</Product>
+    <Company>CRMFiloServis</Company>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PublishReadyToRun>true</PublishReadyToRun>
-    <PublishTrimmed>false</PublishTrimmed>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="System.Management" Version="10.0.5" />
-  </ItemGroup>
 
 </Project>

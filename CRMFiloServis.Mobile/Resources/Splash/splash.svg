@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <path d="M30 80 L64 60 L98 80 L98 100 L64 120 L30 100 Z" fill="white"/>
-  <path d="M35 72 L64 55 L93 72" stroke="white" stroke-width="5" fill="none"/>
-  <circle cx="45" cy="95" r="10" fill="white"/>
-  <circle cx="83" cy="95" r="10" fill="white"/>
-  <text x="64" y="45" text-anchor="middle" fill="white" font-size="14" font-family="Arial" font-weight="bold">CRM FILO</text>
-</svg>
