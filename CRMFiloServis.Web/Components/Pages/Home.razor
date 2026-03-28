@@ -1,4 +1,4 @@
-@page "/"
+ï»¿@page "/"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @using FaturaEntity = CRMFiloServis.Shared.Entities.Fatura
@@ -21,7 +21,7 @@
 {
     <div class="d-flex justify-content-center align-items-center" style="height: 50vh;">
         <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Yükleniyor...</span>
+            <span class="visually-hidden">YÃ¼kleniyor...</span>
         </div>
     </div>
 }
@@ -30,8 +30,8 @@ else if (!HasDashboardPermission)
     <div class="container-fluid">
         <div class="alert alert-warning">
             <i class="bi bi-shield-lock me-2"></i>
-            <strong>Dashboard görüntüleme yetkiniz bulunmuyor.</strong>
-            <p class="mb-0 mt-2">Lütfen sistem yöneticinizle iletiþime geçin.</p>
+            <strong>Dashboard gÃ¶rÃ¼ntÃ¼leme yetkiniz bulunmuyor.</strong>
+            <p class="mb-0 mt-2">LÃ¼tfen sistem yÃ¶neticinizle iletiÅŸime geÃ§in.</p>
         </div>
     </div>
 }
@@ -42,25 +42,38 @@ else
         <h3 class="mb-0">
             <i class="bi bi-speedometer2 me-2"></i>Dashboard
         </h3>
-        <small class="text-muted">Son güncelleme: @DateTime.Now.ToString("dd.MM.yyyy HH:mm")</small>
+        <small class="text-muted">Son gÃ¼ncelleme: @DateTime.Now.ToString("dd.MM.yyyy HH:mm")</small>
     </div>
 
-    <!-- Kritik Uyarýlar Banner -->
+    @if (dashboardHatalari.Any())
+    {
+        <div class="alert alert-warning mb-4">
+            <strong>BazÄ± dashboard verileri yÃ¼klenemedi:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach (var hata in dashboardHatalari)
+                {
+                    <li>@hata</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <!-- Kritik UyarÄ±lar Banner -->
     @if (CanViewBelgeUyarilari && belgeUyarilar != null && belgeUyarilar.ToplamKritikUyari > 0)
     {
         <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
             <i class="bi bi-exclamation-triangle-fill me-2" style="font-size: 1.5rem;"></i>
             <div class="flex-grow-1">
-                <strong>@belgeUyarilar.ToplamKritikUyari kritik belge uyarýsý var!</strong>
-                Süresi geçmiþ veya 7 gün içinde dolacak belgeler bulunuyor.
+                <strong>@belgeUyarilar.ToplamKritikUyari kritik belge uyarÄ±sÄ± var!</strong>
+                SÃ¼resi geÃ§miÅŸ veya 7 gÃ¼n iÃ§inde dolacak belgeler bulunuyor.
             </div>
             <button class="btn btn-outline-danger btn-sm" @onclick="() => showBelgeModal = true">
-                <i class="bi bi-eye me-1"></i>Görüntüle
+                <i class="bi bi-eye me-1"></i>GÃ¶rÃ¼ntÃ¼le
             </button>
         </div>
     }
 
-    <!-- Özet Kartlar -->
+    <!-- Ã–zet Kartlar -->
     <div class="row mb-4">
         @if (CanViewCariler)
         {
@@ -91,10 +104,10 @@ else
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h6 class="card-title">Aktif Araç</h6>
+                            <h6 class="card-title">Aktif AraÃ§</h6>
                             <h2>@aracSayisi</h2>
                         </div>
-                        <i class="bi bi-truck" style="font-size: 3rem, opacity: 0.5;"></i>
+                        <i class="bi bi-truck" style="font-size: 3rem; opacity: 0.5;"></i>
                     </div>
                 </div>
                 <div class="card-footer bg-transparent border-0">
@@ -113,10 +126,10 @@ else
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h6 class="card-title">Aktif Þoför</h6>
+                            <h6 class="card-title">Aktif ÅžofÃ¶r</h6>
                             <h2>@soforSayisi</h2>
                         </div>
-                        <i class="bi bi-person-badge" style="font-size: 3rem, opacity: 0.5;"></i>
+                        <i class="bi bi-person-badge" style="font-size: 3rem; opacity: 0.5;"></i>
                     </div>
                 </div>
                 <div class="card-footer bg-transparent border-0">
@@ -138,7 +151,7 @@ else
                             <h6 class="card-title">Bekleyen Fatura</h6>
                             <h2>@bekleyenFaturaSayisi</h2>
                         </div>
-                        <i class="bi bi-receipt" style="font-size: 3rem, opacity: 0.5;"></i>
+                        <i class="bi bi-receipt" style="font-size: 3rem; opacity: 0.5;"></i>
                     </div>
                 </div>
                 <div class="card-footer bg-transparent border-0">
@@ -151,14 +164,14 @@ else
         }
     </div>
 
-    <!-- Finansal Özet -->
+    <!-- Finansal Ã–zet -->
     @if (CanViewFinans)
     {
     <div class="row mb-4">
         <div class="col-md-4">
             <div class="card h-100">
                 <div class="card-header bg-light">
-                    <h6 class="mb-0"><i class="bi bi-wallet2 me-2"></i>Bu Ay Özet</h6>
+                    <h6 class="mb-0"><i class="bi bi-wallet2 me-2"></i>Bu Ay Ã–zet</h6>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
@@ -204,7 +217,7 @@ else
                 </div>
                 <div class="card-footer bg-transparent">
                     <a href="/banka-kasa" class="btn btn-outline-primary btn-sm w-100">
-                        <i class="bi bi-arrow-right me-1"></i>Detay Görüntüle
+                        <i class="bi bi-arrow-right me-1"></i>Detay GÃ¶rÃ¼ntÃ¼le
                     </a>
                 </div>
             </div>
@@ -213,17 +226,17 @@ else
         <div class="col-md-4">
             <div class="card h-100">
                 <div class="card-header bg-light">
-                    <h6 class="mb-0"><i class="bi bi-wallet2 me-2"></i>Bu Ay Bütçe</h6>
+                    <h6 class="mb-0"><i class="bi bi-wallet2 me-2"></i>Bu Ay BÃ¼tÃ§e</h6>
                 </div>
                 <div class="card-body">
                     @if (butceOzet != null)
                     {
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span>Planlanan Ödeme:</span>
+                            <span>Planlanan Ã–deme:</span>
                             <strong class="text-danger">@FormatKisa(butceOzet.ToplamOdeme)</strong>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span>Ödenen:</span>
+                            <span>Ã–denen:</span>
                             <strong class="text-success">@FormatKisa(butceOzet.OdenenToplam)</strong>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -246,12 +259,12 @@ else
                     }
                     else
                     {
-                        <p class="text-muted mb-0 text-center py-3">Bütçe verisi yok</p>
+                        <p class="text-muted mb-0 text-center py-3">BÃ¼tÃ§e verisi yok</p>
                     }
                 </div>
                 <div class="card-footer bg-transparent">
                     <a href="/butce" class="btn btn-outline-primary btn-sm w-100">
-                        <i class="bi bi-arrow-right me-1"></i>Detay Görüntüle
+                        <i class="bi bi-arrow-right me-1"></i>Detay GÃ¶rÃ¼ntÃ¼le
                     </a>
                 </div>
             </div>
@@ -259,15 +272,15 @@ else
     </div>
     }
 
-    <!-- Detay Kartlarý -->
+    <!-- Detay KartlarÄ± -->
     <div class="row mb-4">
-        <!-- Vade Geçmiþ Faturalar -->
+        <!-- Vade GeÃ§miÅŸ Faturalar -->
         @if (CanViewFaturalar)
         {
         <div class="col-md-6">
             <div class="card h-100">
                 <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-exclamation-circle me-2"></i>Vade Geçmiþ Faturalar</h6>
+                    <h6 class="mb-0"><i class="bi bi-exclamation-circle me-2"></i>Vade GeÃ§miÅŸ Faturalar</h6>
                     <span class="badge bg-white text-danger">@vadeGecmisFaturalar.Count</span>
                 </div>
                 <div class="card-body" style="max-height: 300px; overflow-y: auto;">
@@ -306,7 +319,7 @@ else
                     else
                     {
                         <p class="text-success mb-0 text-center py-3">
-                            <i class="bi bi-check-circle me-1"></i>Vade geçmiþ fatura yok
+                            <i class="bi bi-check-circle me-1"></i>Vade geÃ§miÅŸ fatura yok
                         </p>
                     }
                 </div>
@@ -314,13 +327,13 @@ else
         </div>
         }
 
-        <!-- Vade Yaklaþan Faturalar -->
+        <!-- Vade YaklaÅŸan Faturalar -->
         @if (CanViewFaturalar)
         {
         <div class="col-md-6">
             <div class="card h-100">
                 <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-clock me-2"></i>Vade Yaklaþan Faturalar (7 gün)</h6>
+                    <h6 class="mb-0"><i class="bi bi-clock me-2"></i>Vade YaklaÅŸan Faturalar (7 gÃ¼n)</h6>
                     <span class="badge bg-dark">@vadeYaklasanFaturalar.Count</span>
                 </div>
                 <div class="card-body" style="max-height: 300px; overflow-y: auto;">
@@ -352,7 +365,7 @@ else
                     }
                     else
                     {
-                        <p class="text-muted mb-0 text-center py-3">Yaklaþan vade yok</p>
+                        <p class="text-muted mb-0 text-center py-3">YaklaÅŸan vade yok</p>
                     }
                 </div>
             </div>
@@ -360,15 +373,15 @@ else
         }
     </div>
 
-    <!-- Son Ýþlemler -->
+    <!-- Son Ä°ÅŸlemler -->
     <div class="row">
         @if (CanViewServisler)
         {
         <div class="col-md-6">
             <div class="card h-100">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Son Servis Çalýþmalarý</h6>
-                    <a href="/servis-calismalari" class="btn btn-sm btn-outline-primary">Tümü</a>
+                    <h6 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Son Servis Ã‡alÄ±ÅŸmalarÄ±</h6>
+                    <a href="/servis-calismalari" class="btn btn-sm btn-outline-primary">TÃ¼mÃ¼</a>
                 </div>
                 <div class="card-body" style="max-height: 300px; overflow-y: auto;">
                     @if (sonCalismalar != null && sonCalismalar.Any())
@@ -378,8 +391,8 @@ else
                                 <thead class="table-light">
                                     <tr>
                                         <th>Tarih</th>
-                                        <th>Araç</th>
-                                        <th>Güzergah</th>
+                                        <th>AraÃ§</th>
+                                        <th>GÃ¼zergah</th>
                                         <th class="text-end">Tutar</th>
                                     </tr>
                                 </thead>
@@ -399,7 +412,7 @@ else
                     }
                     else
                     {
-                        <p class="text-muted mb-0 text-center py-3">Henüz çalýþma bulunmuyor.</p>
+                        <p class="text-muted mb-0 text-center py-3">HenÃ¼z Ã§alÄ±ÅŸma bulunmuyor.</p>
                     }
                 </div>
             </div>
@@ -412,7 +425,7 @@ else
             <div class="card h-100">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h6 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Son Kasa/Banka Hareketleri</h6>
-                    <a href="/banka-kasa" class="btn btn-sm btn-outline-primary">Tümü</a>
+                    <a href="/banka-kasa" class="btn btn-sm btn-outline-primary">TÃ¼mÃ¼</a>
                 </div>
                 <div class="card-body" style="max-height: 300px; overflow-y: auto;">
                     @if (sonHareketler != null && sonHareketler.Any())
@@ -422,7 +435,7 @@ else
                                 <thead class="table-light">
                                     <tr>
                                         <th>Tarih</th>
-                                        <th>Ýþlem</th>
+                                        <th>Ä°ÅŸlem</th>
                                         <th>Cari</th>
                                         <th class="text-end">Tutar</th>
                                     </tr>
@@ -434,7 +447,7 @@ else
                                             <td>@hareket.IslemTarihi.ToString("dd.MM")</td>
                                             <td>
                                                 <span class="badge @(hareket.HareketTipi == HareketTipi.Giris ? "bg-success" : "bg-danger")">
-                                                    @(hareket.HareketTipi == HareketTipi.Giris ? "Tahsilat" : "Ödeme")
+                                                    @(hareket.HareketTipi == HareketTipi.Giris ? "Tahsilat" : "Ã–deme")
                                                 </span>
                                             </td>
                                             <td>@hareket.Cari?.Unvan</td>
@@ -451,7 +464,7 @@ else
                     }
                     else
                     {
-                        <p class="text-muted mb-0 text-center py-3">Henüz hareket bulunmuyor.</p>
+                        <p class="text-muted mb-0 text-center py-3">HenÃ¼z hareket bulunmuyor.</p>
                     }
                 </div>
             </div>
@@ -460,7 +473,7 @@ else
     </div>
 </div>
 
-<!-- Belge Uyarýlarý Modal -->
+<!-- Belge UyarÄ±larÄ± Modal -->
 @if (showBelgeModal && belgeUyarilar != null)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
@@ -468,7 +481,7 @@ else
             <div class="modal-content">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title">
-                        <i class="bi bi-file-earmark-medical me-2"></i>Belge Süre Uyarýlarý
+                        <i class="bi bi-file-earmark-medical me-2"></i>Belge SÃ¼re UyarÄ±larÄ±
                     </h5>
                     <button type="button" class="btn-close" @onclick="() => showBelgeModal = false"></button>
                 </div>
@@ -480,10 +493,10 @@ else
                                 <thead class="table-light">
                                     <tr>
                                         <th>Durum</th>
-                                        <th>Belge Türü</th>
+                                        <th>Belge TÃ¼rÃ¼</th>
                                         <th>Ad / Plaka</th>
-                                        <th>Bitiþ Tarihi</th>
-                                        <th class="text-center">Kalan Gün</th>
+                                        <th>BitiÅŸ Tarihi</th>
+                                        <th class="text-center">Kalan GÃ¼n</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -498,7 +511,7 @@ else
                                             <td>@uyari.BitisTarihi.ToString("dd.MM.yyyy")</td>
                                             <td class="text-center">
                                                 <span class="badge @(uyari.KalanGun < 0 ? "bg-danger" : uyari.KalanGun <= 7 ? "bg-warning text-dark" : "bg-info")">
-                                                    @(uyari.KalanGun < 0 ? $"{Math.Abs(uyari.KalanGun)} gün geçti" : $"{uyari.KalanGun} gün")
+                                                    @(uyari.KalanGun < 0 ? $"{Math.Abs(uyari.KalanGun)} gÃ¼n geÃ§ti" : $"{uyari.KalanGun} gÃ¼n")
                                                 </span>
                                             </td>
                                         </tr>
@@ -511,7 +524,7 @@ else
                     {
                         <div class="text-center text-success py-4">
                             <i class="bi bi-check-circle" style="font-size: 3rem;"></i>
-                            <p class="mb-0 mt-2">Tüm belgeler güncel!</p>
+                            <p class="mb-0 mt-2">TÃ¼m belgeler gÃ¼ncel!</p>
                         </div>
                     }
                 </div>
@@ -545,16 +558,29 @@ else
     private bool showBelgeModal = false;
     private bool isLoading = true;
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
+    private readonly List<string> dashboardHatalari = new();
     
-    // Yetki kontrolleri - Shared.Entities.Yetkiler sabitlerini kullanýyoruz
+    // Yetki kontrolleri - Shared.Entities.Yetkiler sabitlerini kullanÄ±yoruz
     private HashSet<string> kullaniciYetkileri = new();
     private bool HasDashboardPermission => kullaniciYetkileri.Contains(Yetkiler.Dashboard) || kullaniciYetkileri.Contains("*");
     private bool CanViewCariler => kullaniciYetkileri.Contains(Yetkiler.CarilerOku) || kullaniciYetkileri.Contains("*");
     private bool CanViewAraclar => kullaniciYetkileri.Contains(Yetkiler.AraclarOku) || kullaniciYetkileri.Contains("*");
     private bool CanViewSoforler => kullaniciYetkileri.Contains(Yetkiler.PersonelOku) || kullaniciYetkileri.Contains("*");
-    private bool CanViewFaturalar => kullaniciYetkileri.Contains(Yetkiler.KesilenFaturalarOku) || kullaniciYetkileri.Contains("*");
-    private bool CanViewFinans => kullaniciYetkileri.Contains(Yetkiler.BankaHesaplariOku) || kullaniciYetkileri.Contains("*");
-    private bool CanViewServisler => kullaniciYetkileri.Contains(Yetkiler.ServisCalismalariOku) || kullaniciYetkileri.Contains("*");
+    private bool CanViewFaturalar =>
+        kullaniciYetkileri.Contains(Yetkiler.FaturalarOku) ||
+        kullaniciYetkileri.Contains(Yetkiler.KesilenFaturalarOku) ||
+        kullaniciYetkileri.Contains(Yetkiler.GelenFaturalarOku) ||
+        kullaniciYetkileri.Contains("*");
+    private bool CanViewFinans =>
+        kullaniciYetkileri.Contains(Yetkiler.BankaHesaplariOku) ||
+        kullaniciYetkileri.Contains(Yetkiler.BankaHareketleriOku) ||
+        kullaniciYetkileri.Contains(Yetkiler.ButceAnalizOku) ||
+        kullaniciYetkileri.Contains(Yetkiler.OdemeYonetimiOku) ||
+        kullaniciYetkileri.Contains("*");
+    private bool CanViewServisler =>
+        kullaniciYetkileri.Contains(Yetkiler.ServisCalismalariOku) ||
+        kullaniciYetkileri.Contains(Yetkiler.TopluCalismaOku) ||
+        kullaniciYetkileri.Contains("*");
     private bool CanViewBelgeUyarilari => kullaniciYetkileri.Contains(Yetkiler.BelgeUyarilariOku) || kullaniciYetkileri.Contains("*");
 
     protected override async Task OnInitializedAsync()
@@ -579,9 +605,40 @@ else
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Yetki yükleme hatasý");
+            Logger.LogError(ex, "Yetki yÃ¼kleme hatasÄ±");
             kullaniciYetkileri = new HashSet<string>();
         }
+    }
+
+    private async Task TryLoadDashboardSectionAsync(Func<Task> action, string sectionName)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Dashboard bÃ¶lÃ¼m yÃ¼kleme hatasÄ±: {SectionName}", sectionName);
+            dashboardHatalari.Add($"{sectionName}: {ex.Message}");
+        }
+    }
+
+    private void ResetDashboardData()
+    {
+        cariSayisi = 0;
+        aracSayisi = 0;
+        soforSayisi = 0;
+        bekleyenFaturaSayisi = 0;
+        buAyGelir = 0;
+        buAyGider = 0;
+        toplamKasa = 0;
+        toplamBanka = 0;
+        sonCalismalar = null;
+        vadeGecmisFaturalar = new();
+        vadeYaklasanFaturalar = new();
+        sonHareketler = null;
+        belgeUyarilar = null;
+        butceOzet = null;
     }
 
     private async Task LoadDashboardDataAsync()
@@ -592,65 +649,88 @@ else
         try
         {
             isLoading = true;
+            dashboardHatalari.Clear();
+            ResetDashboardData();
             StateHasChanged();
 
             if (CanViewCariler)
             {
-                cariSayisi = await CariService.GetCountAsync();
-                await Task.Delay(10);
+                await TryLoadDashboardSectionAsync(async () =>
+                {
+                    cariSayisi = await CariService.GetCountAsync();
+                    await Task.Delay(10);
+                }, "Cari verileri");
             }
             
             if (CanViewAraclar)
             {
-                aracSayisi = await AracService.GetActiveCountAsync();
-                await Task.Delay(10);
+                await TryLoadDashboardSectionAsync(async () =>
+                {
+                    aracSayisi = await AracService.GetActiveCountAsync();
+                    await Task.Delay(10);
+                }, "AraÃ§ verileri");
             }
             
             if (CanViewSoforler)
             {
-                soforSayisi = await SoforService.GetActiveCountAsync();
-                await Task.Delay(10);
+                await TryLoadDashboardSectionAsync(async () =>
+                {
+                    soforSayisi = await SoforService.GetActiveCountAsync();
+                    await Task.Delay(10);
+                }, "ÅžofÃ¶r verileri");
             }
             
             if (CanViewFaturalar)
             {
-                var faturaStats = await FaturaService.GetDashboardStatsAsync();
-                bekleyenFaturaSayisi = faturaStats.BekleyenFaturaSayisi;
-                buAyGelir = faturaStats.BuAyGelir;
-                buAyGider = faturaStats.BuAyGider;
-                vadeGecmisFaturalar = faturaStats.VadeGecmisFaturalar;
-                vadeYaklasanFaturalar = faturaStats.VadeYaklasanFaturalar;
-                await Task.Delay(10);
+                await TryLoadDashboardSectionAsync(async () =>
+                {
+                    var faturaStats = await FaturaService.GetDashboardStatsAsync();
+                    bekleyenFaturaSayisi = faturaStats.BekleyenFaturaSayisi;
+                    buAyGelir = faturaStats.BuAyGelir;
+                    buAyGider = faturaStats.BuAyGider;
+                    vadeGecmisFaturalar = faturaStats.VadeGecmisFaturalar;
+                    vadeYaklasanFaturalar = faturaStats.VadeYaklasanFaturalar;
+                    await Task.Delay(10);
+                }, "Fatura verileri");
             }
 
             if (CanViewFinans)
             {
-                var bankaStats = await BankaKasaService.GetDashboardStatsAsync();
-                toplamKasa = bankaStats.ToplamKasa;
-                toplamBanka = bankaStats.ToplamBanka;
-                await Task.Delay(10);
-                
-                sonHareketler = await BankaKasaService.GetRecentAsync(5);
-                await Task.Delay(10);
-                
-                butceOzet = await BudgetService.GetAylikOzetAsync(DateTime.Today.Year, DateTime.Today.Month);
-                await Task.Delay(10);
+                await TryLoadDashboardSectionAsync(async () =>
+                {
+                    var bankaStats = await BankaKasaService.GetDashboardStatsAsync();
+                    toplamKasa = bankaStats.ToplamKasa;
+                    toplamBanka = bankaStats.ToplamBanka;
+                    await Task.Delay(10);
+                    
+                    sonHareketler = await BankaKasaService.GetRecentAsync(5);
+                    await Task.Delay(10);
+                    
+                    butceOzet = await BudgetService.GetAylikOzetAsync(DateTime.Today.Year, DateTime.Today.Month);
+                    await Task.Delay(10);
+                }, "Finans verileri");
             }
 
             if (CanViewServisler)
             {
-                sonCalismalar = await ServisCalismaService.GetRecentAsync(5);
-                await Task.Delay(10);
+                await TryLoadDashboardSectionAsync(async () =>
+                {
+                    sonCalismalar = await ServisCalismaService.GetRecentAsync(5);
+                    await Task.Delay(10);
+                }, "Servis verileri");
             }
             
             if (CanViewBelgeUyarilari)
             {
-                belgeUyarilar = await BelgeUyariService.GetBelgeUyarilarAsync(30);
+                await TryLoadDashboardSectionAsync(async () =>
+                {
+                    belgeUyarilar = await BelgeUyariService.GetBelgeUyarilarAsync(30);
+                }, "Belge uyarÄ±larÄ±");
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Dashboard yükleme hatasý");
+            Logger.LogError(ex, "Dashboard yÃ¼kleme hatasÄ±");
         }
         finally
         {
