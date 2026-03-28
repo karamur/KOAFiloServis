@@ -1,15 +1,15 @@
-namespace CRMFiloServis.Web.Helpers;
+ï»¿namespace CRMFiloServis.Web.Helpers;
 
 /// <summary>
-/// Para birimi ve sayı formatlama yardımcı sınıfı
+/// Para birimi ve sayÄ± formatlama yardÄ±mcÄ± sÄ±nÄ±fÄ±
 /// </summary>
 public static class ParaFormat
 {
-    private const string ParaBirimi = "?";
+    private const string ParaBirimi = "â‚º";
     private const string ParaBirimiKodu = "TL";
 
     /// <summary>
-    /// Decimal değeri para formatında döner (1.234,56 ?)
+    /// Decimal deÄŸeri para formatÄ±nda dÃ¶ner (1.234,56 ?)
     /// </summary>
     public static string Format(decimal tutar, bool birimGoster = true)
     {
@@ -18,7 +18,7 @@ public static class ParaFormat
     }
 
     /// <summary>
-    /// Decimal değeri kısa para formatında döner (1.234 ?)
+    /// Decimal deÄŸeri kÄ±sa para formatÄ±nda dÃ¶ner (1.234 ?)
     /// </summary>
     public static string FormatKisa(decimal tutar, bool birimGoster = true)
     {
@@ -27,7 +27,7 @@ public static class ParaFormat
     }
 
     /// <summary>
-    /// Decimal değeri TL koduyla döner (1.234,56 TL)
+    /// Decimal deÄŸeri TL koduyla dÃ¶ner (1.234,56 TL)
     /// </summary>
     public static string FormatTL(decimal tutar)
     {
@@ -36,7 +36,7 @@ public static class ParaFormat
     }
 
     /// <summary>
-    /// Decimal değeri kısa TL koduyla döner (1.234 TL)
+    /// Decimal deÄŸeri kÄ±sa TL koduyla dÃ¶ner (1.234 TL)
     /// </summary>
     public static string FormatTLKisa(decimal tutar)
     {
@@ -45,7 +45,7 @@ public static class ParaFormat
     }
 
     /// <summary>
-    /// Nullable decimal değeri formatlar
+    /// Nullable decimal deÄŸeri formatlar
     /// </summary>
     public static string Format(decimal? tutar, bool birimGoster = true, string bostaDeger = "-")
     {
@@ -53,7 +53,7 @@ public static class ParaFormat
     }
 
     /// <summary>
-    /// Nullable decimal değeri kısa formatlar
+    /// Nullable decimal deÄŸeri kÄ±sa formatlar
     /// </summary>
     public static string FormatKisa(decimal? tutar, bool birimGoster = true, string bostaDeger = "-")
     {
@@ -61,7 +61,7 @@ public static class ParaFormat
     }
 
     /// <summary>
-    /// Yüzde formatı (% 15,5)
+    /// YÃ¼zde formatÄ± (% 15,5)
     /// </summary>
     public static string FormatYuzde(decimal oran)
     {
@@ -69,7 +69,7 @@ public static class ParaFormat
     }
 
     /// <summary>
-    /// Sadece para birimi sembolü
+    /// Sadece para birimi sembolÃ¼
     /// </summary>
     public static string Birim => ParaBirimi;
 

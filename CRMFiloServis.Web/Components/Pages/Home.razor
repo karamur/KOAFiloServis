@@ -559,7 +559,7 @@ else
     private BudgetOzet? butceOzet;
     private bool showBelgeModal = false;
     private bool isLoading = true;
-    private static readonly SemaphoreSlim _semaphore = new(1, 1);
+    private bool dashboardLoadInProgress;
     private readonly List<string> dashboardHatalari = new();
     
     // Yetki kontrolleri - Shared.Entities.Yetkiler sabitlerini kullanıyoruz
@@ -646,11 +646,12 @@ else
 
     private async Task LoadDashboardDataAsync()
     {
-        if (!await _semaphore.WaitAsync(0))
+        if (dashboardLoadInProgress)
             return;
 
         try
         {
+            dashboardLoadInProgress = true;
             isLoading = true;
             dashboardHatalari.Clear();
             ResetDashboardData();
@@ -710,9 +711,12 @@ else
                     var bankaStats = await bankaKasaService.GetDashboardStatsAsync();
                     toplamKasa = bankaStats.ToplamKasa;
                     toplamBanka = bankaStats.ToplamBanka;
-                    await Task.Delay(10);
+                    
+                    var testHesaplar = await bankaKasaService.GetHesaplarAsync();
+                    Logger.LogWarning($"DEBUG: Toplam Hesap Sayısı: {testHesaplar.Count}, Kasa Bakiye: {toplamKasa}, Banka Bakiye: {toplamBanka}");
                     
                     sonHareketler = await bankaKasaService.GetRecentAsync(5);
+                    Logger.LogWarning($"DEBUG: Son Hareket Sayısı: {sonHareketler?.Count ?? 0}");
                     await Task.Delay(10);
                     
                     butceOzet = await budgetService.GetAylikOzetAsync(DateTime.Today.Year, DateTime.Today.Month);
@@ -726,6 +730,7 @@ else
                 {
                     var servisCalismaService = sp.GetRequiredService<IServisCalismaService>();
                     sonCalismalar = await servisCalismaService.GetRecentAsync(5);
+                    Logger.LogWarning($"DEBUG: Son Calisma Sayısı: {sonCalismalar?.Count ?? 0}");
                     await Task.Delay(10);
                 }, "Servis verileri");
             }
@@ -745,8 +750,8 @@ else
         }
         finally
         {
+            dashboardLoadInProgress = false;
             isLoading = false;
-            _semaphore.Release();
             StateHasChanged();
         }
     }
