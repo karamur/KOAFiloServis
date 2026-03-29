@@ -55,6 +55,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<MuhasebeFis> MuhasebeFisleri { get; set; }
     public DbSet<MuhasebeFisKalem> MuhasebeFisKalemleri { get; set; }
     public DbSet<MuhasebeDonem> MuhasebeDonemleri { get; set; }
+    public DbSet<MuhasebeAyar> MuhasebeAyarlari { get; set; }
 
     // Kullanici ve Lisans Modulu
     public DbSet<Lisans> Lisanslar { get; set; }

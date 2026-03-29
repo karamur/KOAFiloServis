@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -553,6 +553,12 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetYillikOzet> GetYillikOzetAsync(int yil, int? firmaId = null)
     {
+        // Add this to ensure payments are automatically generated for all months in the year view
+        for (int m = 1; m <= 12; m++)
+        {
+            await TekrarlayanOdemelerdenKayitOlusturAsync(yil, m, firmaId);
+        }
+
         var query = _context.BudgetOdemeler.Where(o => o.OdemeYil == yil);
 
         if (firmaId.HasValue)
@@ -862,7 +868,7 @@ public class BudgetService : IBudgetService
 
         return await query
             .Include(t => t.Firma)
-            .OrderBy(t => t.Aktif ? 0 : 1) // Aktifler önce
+            .OrderBy(t => t.Aktif ? 0 : 1) // Aktifler Ã¶nce
             .ThenBy(t => t.OdemeGunu)
             .ThenBy(t => t.OdemeAdi)
             .ToListAsync();
@@ -872,10 +878,7 @@ public class BudgetService : IBudgetService
     {
         var bugun = DateTime.Today;
         var query = _context.TekrarlayanOdemeler
-            .Where(t => !t.IsDeleted &&
-                        t.Aktif &&
-                        t.BaslangicTarihi <= bugun &&
-                        (!t.BitisTarihi.HasValue || t.BitisTarihi.Value >= bugun));
+            .Where(t => !t.IsDeleted && t.Aktif);
 
         if (firmaId.HasValue)
             query = query.Where(t => t.FirmaId == firmaId.Value);
@@ -979,8 +982,8 @@ public class BudgetService : IBudgetService
                 .AnyAsync(o => o.OdemeYil == yil &&
                                o.OdemeAy == ay &&
                                o.MasrafKalemi == plan.MasrafKalemi &&
-                               o.Aciklama != null && o.Aciklama.StartsWith("[Tekrarlayan]") &&
-                               o.Aciklama.Contains(plan.OdemeAdi));
+                               o.Aciklama != null && o.Aciklama.StartsWith("[Tekrarlayan") &&
+                               o.Aciklama.Contains($"#{plan.Id}]"));
 
             if (!mevcutKayit)
             {
@@ -992,7 +995,7 @@ public class BudgetService : IBudgetService
                     OdemeAy = ay,
                     OdemeYil = yil,
                     MasrafKalemi = plan.MasrafKalemi,
-                    Aciklama = $"[Tekrarlayan] {plan.OdemeAdi}",
+                    Aciklama = $"[Tekrarlayan#{plan.Id}] {plan.OdemeAdi}",
                     Miktar = plan.Tutar,
                     FirmaId = plan.FirmaId,
                     Durum = OdemeDurum.Bekliyor,
@@ -1041,7 +1044,7 @@ public class BudgetService : IBudgetService
 
     #endregion
 
-    #region Kredi/Taksit Detay Metodlarý
+    #region Kredi/Taksit Detay MetodlarÄ±
 
     public async Task<List<KrediOzet>> GetKrediOzetleriAsync(int? yil = null, int? firmaId = null)
     {
@@ -1086,7 +1089,7 @@ public class BudgetService : IBudgetService
             })
             .ToList();
 
-        // Yýl filtresi
+        // YÄ±l filtresi
         if (yil.HasValue && yil > 0)
         {
             krediler = krediler
@@ -1128,7 +1131,7 @@ public class BudgetService : IBudgetService
     {
         var odeme = await _context.BudgetOdemeler.FindAsync(odemeId);
         if (odeme == null)
-            throw new Exception("Ödeme bulunamadý");
+            throw new Exception("Ã–deme bulunamadÄ±");
 
         odeme.Durum = OdemeDurum.Odendi;
         odeme.OdemeTarihi = DateTime.SpecifyKind(odemeTarihi, DateTimeKind.Utc);
@@ -1139,7 +1142,7 @@ public class BudgetService : IBudgetService
 
     public async Task TaksitliOdemeOlusturAsync(object request)
     {
-        // Request'i dynamic olarak iþle
+        // Request'i dynamic olarak iÅŸle
         var requestType = request.GetType();
         var masrafKalemi = requestType.GetProperty("MasrafKalemi")?.GetValue(request)?.ToString() ?? "";
         var aciklama = requestType.GetProperty("Aciklama")?.GetValue(request)?.ToString();

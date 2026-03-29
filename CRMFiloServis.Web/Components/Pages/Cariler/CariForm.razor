@@ -1,4 +1,4 @@
-@page "/cariler/yeni"
+﻿@page "/cariler/yeni"
 @page "/cariler/{Id:int}"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
@@ -26,9 +26,9 @@
                 <div class="row">
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <label class="form-label">Cari Kodu *</label>
-                            <InputText @bind-Value="cari.CariKodu" class="form-control"
-                                       readonly="@IsEdit" />
+                            <label class="form-label">Cari Kodu / Hesap Kodu *</label>
+                            <InputText @bind-Value="cari.CariKodu" class="form-control" />
+                            <small class="text-muted">Açılmış hesap kodunu buraya yazabilirsiniz veya boş bırakılırsa otomatik üretilir.</small>
                         </div>
                     </div>
                     <div class="col-md-4">

@@ -592,15 +592,15 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="ayarlar/veritabani">
-                                    <i class="bi bi-database-gear me-2 text-primary"></i> Veritabani Ayarlari
+                                    <i class="bi bi-database-gear me-2"></i> Veritabani Ayarlari
                                 </NavLink>
                             </div>
                         }
-                        @if (HasYetki("lisans.oku"))
+                        @if (HasYetki("ayarlar.oku") || true)
                         {
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/lisans">
-                                    <i class="bi bi-key me-2 text-warning"></i> Lisans Bilgileri
+                                <NavLink class="nav-link" href="ayarlar/muhasebe-cari">
+                                    <i class="bi bi-journal-text me-2 text-primary"></i> Cari / Muhasebe Ayarları
                                 </NavLink>
                             </div>
                         }

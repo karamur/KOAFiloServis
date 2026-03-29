@@ -1,0 +1,137 @@
+﻿@page "/ayarlar/muhasebe-cari"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Data
+@using Microsoft.EntityFrameworkCore
+@using CRMFiloServis.Web.Services
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IToastService ToastService
+@rendermode InteractiveServer
+
+<PageTitle>Cari / Muhasebe Ayarları</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-journal-text me-2"></i>Cari / Muhasebe Ayarları</h3>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <div class="mt-2 text-muted">Ayarlar Yükleniyor...</div>
+        </div>
+    }
+    else
+    {
+        <div class="card mb-4" style="max-width: 600px;">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-gear-fill me-2"></i>Otomatik Hesap Kodu Ayarları</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted"><small>Cari eklendiğinde/güncellendiğinde muhasebe hesap planında otomatik açılacak hesapların kod kırılımlarını belirleyin.</small></p>
+                <form @onsubmit="Kaydet">
+                    <div class="mb-3 form-check form-switch px-4">
+                        <input class="form-check-input" type="checkbox" id="otoHesap" style="transform: scale(1.5); margin-left: -2em;" @bind="ayar.OtomatikHesapDuzenlensin">
+                        <label class="form-check-label pt-1 ms-2 fw-bold" for="otoHesap">Otomatik Hesap Kartı Açılsın</label>
+                    </div>
+
+                    @if(ayar.OtomatikHesapDuzenlensin)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Müşteri Hesap Kodu Öneki</label>
+                            <input type="text" class="form-control" @bind="ayar.MusteriPrefix" />
+                            <div class="form-text">Ör: 120.01 (Eklendiğinde -> 120.01.001 gibi sayıcı alır)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Tedarikçi Hesap Kodu Öneki</label>
+                            <input type="text" class="form-control" @bind="ayar.TedarikciPrefix" />
+                            <div class="form-text">Ör: 320.01 (Eklendiğinde -> 320.01.001 gibi sayıcı alır)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Personel Hesap Kodu Öneki</label>
+                            <input type="text" class="form-control" @bind="ayar.PersonelPrefix" />
+                            <div class="form-text">Ör: 335.01 (Eklendiğinde -> 335.01.PRS00001 formatında açılır)</div>
+                        </div>
+                    }
+
+                    <button type="submit" class="btn btn-success d-flex ms-auto" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Kaydediliyor...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-save me-2"></i> <span>Ayarları Kaydet</span>
+                        }
+                    </button>
+                </form>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private MuhasebeAyar ayar = new MuhasebeAyar();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAyarlar();
+    }
+
+    private async Task LoadAyarlar()
+    {
+        isLoading = true;
+        using var context = await DbFactory.CreateDbContextAsync();
+
+        var dbAyar = await context.MuhasebeAyarlari.FirstOrDefaultAsync();
+        if (dbAyar != null)
+        {
+            ayar = dbAyar;
+        }
+        else
+        {
+            ayar = new MuhasebeAyar();
+        }
+
+        isLoading = false;
+    }
+
+    private async Task Kaydet()
+    {
+        isSaving = true;
+        try
+        {
+            using var context = await DbFactory.CreateDbContextAsync();
+            var dbAyar = await context.MuhasebeAyarlari.FirstOrDefaultAsync();
+
+            if (dbAyar != null)
+            {
+                dbAyar.MusteriPrefix = ayar.MusteriPrefix;
+                dbAyar.TedarikciPrefix = ayar.TedarikciPrefix;
+                dbAyar.PersonelPrefix = ayar.PersonelPrefix;
+                dbAyar.OtomatikHesapDuzenlensin = ayar.OtomatikHesapDuzenlensin;
+                context.Update(dbAyar);
+            }
+            else
+            {
+                context.Add(ayar);
+            }
+
+            await context.SaveChangesAsync();
+            ToastService.ShowSuccess("Muhasebe ve cari ayarları başarıyla kaydedildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata oluştu: " + ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

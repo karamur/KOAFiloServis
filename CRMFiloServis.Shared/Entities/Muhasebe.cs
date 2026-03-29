@@ -163,3 +163,20 @@ public enum DonemDurum
     Kapali = 2,
     Gecici = 3
 }
+
+/// <summary>
+/// Cari Modülü / Muhasebe Otomatik Hesap Açma Ayarları
+/// </summary>
+public class MuhasebeAyar : BaseEntity
+{
+    [StringLength(50)]
+    public string MusteriPrefix { get; set; } = "120.01";
+
+    [StringLength(50)]
+    public string TedarikciPrefix { get; set; } = "320.01";
+
+    [StringLength(50)]
+    public string PersonelPrefix { get; set; } = "335.01";
+    
+    public bool OtomatikHesapDuzenlensin { get; set; } = true;
+}
