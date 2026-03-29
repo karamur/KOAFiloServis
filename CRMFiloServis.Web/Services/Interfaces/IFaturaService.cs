@@ -19,6 +19,9 @@ public interface IFaturaService
     Task<string> GenerateNextFaturaNoAsync(FaturaTipi tip);
     Task UpdateOdenenTutarAsync(int faturaId);
     
+    // Muhasebe Fişi
+    Task<MuhasebeFis> CreateMuhasebeFisiAsync(int faturaId);
+    
     // E-Fatura / E-Arsiv metodlari
     Task<List<Fatura>> GetByYonAsync(FaturaYonu yon, int? firmaId = null);
     Task<List<Fatura>> GetByYonAndDateRangeAsync(FaturaYonu yon, DateTime? baslangic, DateTime? bitis, int? firmaId = null);

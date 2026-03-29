@@ -59,6 +59,79 @@
                                 </div>
                             }
 
+                            <hr />
+                            <h6 class="text-primary"><i class="bi bi-receipt me-2"></i>Fatura Muhasebe Ayarları</h6>
+                            
+                            <div class="mb-3 form-check form-switch px-4">
+                                <input class="form-check-input" type="checkbox" id="faturaFis" style="transform: scale(1.5); margin-left: -2em;" @bind="ayar.FaturaOtomatikMuhasebeFisi">
+                                <label class="form-check-label pt-1 ms-2 fw-bold" for="faturaFis">Faturadan Otomatik Muhasebe Fişi Oluştur</label>
+                            </div>
+
+                            @if (ayar.FaturaOtomatikMuhasebeFisi)
+                            {
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Satış Gelir Hesabı</label>
+                                            <input type="text" class="form-control" @bind="ayar.SatisGelirHesabi" />
+                                            <div class="form-text">Ör: 600.01</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Alış Gider Hesabı</label>
+                                            <input type="text" class="form-control" @bind="ayar.AlisGiderHesabi" />
+                                            <div class="form-text">Ör: 153.01 veya 740.01</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Hesaplanan KDV Hesabı</label>
+                                            <input type="text" class="form-control" @bind="ayar.HesaplananKdvHesabi" />
+                                            <div class="form-text">Ör: 391.01</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">İndirilecek KDV Hesabı</label>
+                                            <input type="text" class="form-control" @bind="ayar.IndirilecekKdvHesabi" />
+                                            <div class="form-text">Ör: 191.01</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Tevkifat KDV Hesabı</label>
+                                            <input type="text" class="form-control" @bind="ayar.TevkifatKdvHesabi" />
+                                            <div class="form-text">Ör: 360.01 (Sorumlu Sıfatıyla Ödenen KDV)</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Tevkifat Alacak Hesabı</label>
+                                            <input type="text" class="form-control" @bind="ayar.TevkifatAlacakHesabi" />
+                                            <div class="form-text">Ör: 136.01 (Tevkifattan Alacak)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            <hr />
+                            <h6 class="text-primary"><i class="bi bi-file-earmark-code me-2"></i>XML Import Ayarları</h6>
+                            
+                            <div class="mb-3 form-check form-switch px-4">
+                                <input class="form-check-input" type="checkbox" id="xmlCari" style="transform: scale(1.5); margin-left: -2em;" @bind="ayar.XmlImportOtomatikCariOlustur">
+                                <label class="form-check-label pt-1 ms-2" for="xmlCari">XML Import'ta Otomatik Cari Oluştur</label>
+                            </div>
+                            
+                            <div class="mb-3 form-check form-switch px-4">
+                                <input class="form-check-input" type="checkbox" id="xmlHesap" style="transform: scale(1.5); margin-left: -2em;" @bind="ayar.XmlImportOtomatikHesapKoduOlustur">
+                                <label class="form-check-label pt-1 ms-2" for="xmlHesap">XML Import'ta Otomatik Muhasebe Hesap Kodu Aç</label>
+                            </div>
+
                             <button type="submit" class="btn btn-success d-flex ms-auto" disabled="@isSaving">
                                 @if (isSaving)
                                 {
@@ -420,6 +493,15 @@
                 dbAyar.TedarikciPrefix = ayar.TedarikciPrefix;
                 dbAyar.PersonelPrefix = ayar.PersonelPrefix;
                 dbAyar.OtomatikHesapDuzenlensin = ayar.OtomatikHesapDuzenlensin;
+                dbAyar.FaturaOtomatikMuhasebeFisi = ayar.FaturaOtomatikMuhasebeFisi;
+                dbAyar.SatisGelirHesabi = ayar.SatisGelirHesabi;
+                dbAyar.AlisGiderHesabi = ayar.AlisGiderHesabi;
+                dbAyar.HesaplananKdvHesabi = ayar.HesaplananKdvHesabi;
+                dbAyar.IndirilecekKdvHesabi = ayar.IndirilecekKdvHesabi;
+                dbAyar.TevkifatKdvHesabi = ayar.TevkifatKdvHesabi;
+                dbAyar.TevkifatAlacakHesabi = ayar.TevkifatAlacakHesabi;
+                dbAyar.XmlImportOtomatikCariOlustur = ayar.XmlImportOtomatikCariOlustur;
+                dbAyar.XmlImportOtomatikHesapKoduOlustur = ayar.XmlImportOtomatikHesapKoduOlustur;
                 context.Update(dbAyar);
             }
             else

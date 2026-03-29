@@ -336,6 +336,10 @@ public class ApplicationDbContext : DbContext
                 .WithMany(f => f.FaturaKalemleri)
                 .HasForeignKey(e => e.FaturaId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.MuhasebeHesap)
+                .WithMany()
+                .HasForeignKey(e => e.MuhasebeHesapId)
+                .OnDelete(DeleteBehavior.SetNull);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 

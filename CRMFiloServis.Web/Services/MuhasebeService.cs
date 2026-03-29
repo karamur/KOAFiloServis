@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -136,7 +136,7 @@ public class MuhasebeService : IMuhasebeService
             new() { HesapKodu = "642", HesapAdi = "FAIZ GELIRLERI", HesapTuru = HesapTuru.Gelir, HesapGrubu = HesapGrubu.GelirTablosu },
             new() { HesapKodu = "649", HesapAdi = "DIGER FAALIYETLERDEN GELIRLER", HesapTuru = HesapTuru.Gelir, HesapGrubu = HesapGrubu.GelirTablosu },
             new() { HesapKodu = "653", HesapAdi = "KOMISYON GIDERLERI", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.GelirTablosu },
-            new() { HesapKodu = "660", HesapAdi = "KISA VADELI BOR�LANMA GIDERLERI", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.GelirTablosu },
+            new() { HesapKodu = "660", HesapAdi = "KISA VADELI BORÇLANMA GIDERLERI", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.GelirTablosu },
 
             // 7 - MALIYET/GIDER HESAPLARI
             new() { HesapKodu = "710", HesapAdi = "DIREKT ILKMADDE MALZEME GIDERLERI", HesapTuru = HesapTuru.Maliyet, HesapGrubu = HesapGrubu.MaliyetHesaplari },
@@ -305,19 +305,23 @@ public class MuhasebeService : IMuhasebeService
     #region Otomatik Fis Olusturma
 
     /// <summary>
-    /// Fatura icin muhasebe fisi olusturur
-    /// Giden Fatura: 120 Alicilar BORC, 600 Satislar + 391 Hesaplanan KDV ALACAK
-    /// Gelen Fatura: 320 Saticilar ALACAK, 770 Giderler + 191 Indirilecek KDV BORC
+    /// Fatura için muhasebe fişi oluşturur
+    /// Giden Fatura: 120 Alıcılar BORÇ, 600 Satışlar + 391 Hesaplanan KDV ALACAK
+    /// Gelen Fatura: 320 Satıcılar ALACAK, 770 Giderler + 191 İndirilecek KDV BORÇ
+    /// Tevkifatlı: + 360 Sorumlu Sıfatıyla Ödenen KDV
     /// </summary>
     public async Task<MuhasebeFis> CreateFaturaFisiAsync(Fatura fatura)
     {
+        // Ayarları al
+        var ayar = await _context.MuhasebeAyarlari.FirstOrDefaultAsync();
+
         var fisNo = await GenerateNextFisNoAsync(FisTipi.Mahsup);
         var fis = new MuhasebeFis
         {
             FisNo = fisNo,
             FisTarihi = DateTime.SpecifyKind(fatura.FaturaTarihi, DateTimeKind.Utc),
             FisTipi = FisTipi.Mahsup,
-            Aciklama = $"Fatura: {fatura.FaturaNo}",
+            Aciklama = $"Fatura: {fatura.FaturaNo}" + (fatura.TevkifatliMi ? " (Tevkifatlı)" : ""),
             Kaynak = FisKaynak.Fatura,
             KaynakId = fatura.Id,
             KaynakTip = "Fatura",
@@ -326,24 +330,49 @@ public class MuhasebeService : IMuhasebeService
         };
 
         var kalemler = new List<MuhasebeFisKalem>();
+        var siraNo = 1;
 
         if (fatura.FaturaYonu == FaturaYonu.Giden)
         {
-            // GIDEN FATURA - SATIS
-            // 120 Alicilar BORC (Toplam)
+            // GIDEN FATURA - SATIŞ
+            // Tevkifatlı faturada alıcıdan alınacak tutar = GenelToplam - TevkifatTutar
+            var alicidanAlinacak = fatura.TevkifatliMi 
+                ? fatura.GenelToplam - fatura.TevkifatTutar 
+                : fatura.GenelToplam;
+
+            // 120 Alıcılar BORÇ
             var alicilarHesap = await GetOrCreateCariHesapAsync("120", fatura.CariId);
             kalemler.Add(new MuhasebeFisKalem
             {
                 HesapId = alicilarHesap.Id,
-                Borc = fatura.GenelToplam,
+                Borc = alicidanAlinacak,
                 Alacak = 0,
                 Aciklama = $"Fatura: {fatura.FaturaNo}",
                 CariId = fatura.CariId,
-                SiraNo = 1
+                SiraNo = siraNo++
             });
 
-            // 600 Satislar ALACAK (Ara Toplam)
-            var satislarHesap = await GetHesapByKodAsync("600");
+            // Tevkifat varsa - 136 Diğer Çeşitli Alacaklar BORÇ (Tevkifattan alacak)
+            if (fatura.TevkifatliMi && fatura.TevkifatTutar > 0)
+            {
+                var tevkifatHesapKodu = ayar?.TevkifatAlacakHesabi ?? "136.01";
+                var tevkifatAlacakHesap = await GetHesapByKodAsync(tevkifatHesapKodu) ?? await GetHesapByKodAsync("136");
+                if (tevkifatAlacakHesap != null)
+                {
+                    kalemler.Add(new MuhasebeFisKalem
+                    {
+                        HesapId = tevkifatAlacakHesap.Id,
+                        Borc = fatura.TevkifatTutar,
+                        Alacak = 0,
+                        Aciklama = $"Tevkifat Alacağı ({fatura.TevkifatKodu})",
+                        SiraNo = siraNo++
+                    });
+                }
+            }
+
+            // 600 Satışlar ALACAK (AraToplam) - Fatura kalemlerine göre
+            var satisGelirHesapKodu = ayar?.SatisGelirHesabi ?? "600.01";
+            var satislarHesap = await GetHesapByKodAsync(satisGelirHesapKodu) ?? await GetHesapByKodAsync("600");
             if (satislarHesap != null)
             {
                 kalemler.Add(new MuhasebeFisKalem
@@ -351,15 +380,16 @@ public class MuhasebeService : IMuhasebeService
                     HesapId = satislarHesap.Id,
                     Borc = 0,
                     Alacak = fatura.AraToplam,
-                    Aciklama = $"Satis Geliri",
-                    SiraNo = 2
+                    Aciklama = "Satış Geliri",
+                    SiraNo = siraNo++
                 });
             }
 
             // 391 Hesaplanan KDV ALACAK
             if (fatura.KdvTutar > 0)
             {
-                var kdvHesap = await GetHesapByKodAsync("391");
+                var kdvHesapKodu = ayar?.HesaplananKdvHesabi ?? "391.01";
+                var kdvHesap = await GetHesapByKodAsync(kdvHesapKodu) ?? await GetHesapByKodAsync("391");
                 if (kdvHesap != null)
                 {
                     kalemler.Add(new MuhasebeFisKalem
@@ -367,29 +397,53 @@ public class MuhasebeService : IMuhasebeService
                         HesapId = kdvHesap.Id,
                         Borc = 0,
                         Alacak = fatura.KdvTutar,
-                        Aciklama = $"Hesaplanan KDV",
-                        SiraNo = 3
+                        Aciklama = "Hesaplanan KDV",
+                        SiraNo = siraNo++
                     });
                 }
             }
         }
         else
         {
-            // GELEN FATURA - ALIS
-            // 320 Saticilar ALACAK (Toplam)
+            // GELEN FATURA - ALIŞ
+            // Tevkifatlı faturada satıcıya ödenecek = GenelToplam - TevkifatTutar
+            var saticiyaOdenecek = fatura.TevkifatliMi 
+                ? fatura.GenelToplam - fatura.TevkifatTutar 
+                : fatura.GenelToplam;
+
+            // 320 Satıcılar ALACAK
             var saticilarHesap = await GetOrCreateCariHesapAsync("320", fatura.CariId);
             kalemler.Add(new MuhasebeFisKalem
             {
                 HesapId = saticilarHesap.Id,
                 Borc = 0,
-                Alacak = fatura.GenelToplam,
+                Alacak = saticiyaOdenecek,
                 Aciklama = $"Fatura: {fatura.FaturaNo}",
                 CariId = fatura.CariId,
-                SiraNo = 1
+                SiraNo = siraNo++
             });
 
-            // 770 Gider veya 153 Ticari Mal BORC
-            var giderHesap = await GetHesapByKodAsync("770");
+            // Tevkifat varsa - 360 Sorumlu Sıfatıyla Ödenen KDV ALACAK
+            if (fatura.TevkifatliMi && fatura.TevkifatTutar > 0)
+            {
+                var tevkifatKdvHesapKodu = ayar?.TevkifatKdvHesabi ?? "360.01";
+                var tevkifatKdvHesap = await GetHesapByKodAsync(tevkifatKdvHesapKodu) ?? await GetHesapByKodAsync("360");
+                if (tevkifatKdvHesap != null)
+                {
+                    kalemler.Add(new MuhasebeFisKalem
+                    {
+                        HesapId = tevkifatKdvHesap.Id,
+                        Borc = 0,
+                        Alacak = fatura.TevkifatTutar,
+                        Aciklama = $"Sorumlu Sıfatıyla Ödenen KDV ({fatura.TevkifatKodu})",
+                        SiraNo = siraNo++
+                    });
+                }
+            }
+
+            // 770 Gider veya 153 Ticari Mal BORÇ - Fatura kalemlerine göre
+            var giderHesapKodu = ayar?.AlisGiderHesabi ?? "770.01";
+            var giderHesap = await GetHesapByKodAsync(giderHesapKodu) ?? await GetHesapByKodAsync("770");
             if (giderHesap != null)
             {
                 kalemler.Add(new MuhasebeFisKalem
@@ -397,24 +451,47 @@ public class MuhasebeService : IMuhasebeService
                     HesapId = giderHesap.Id,
                     Borc = fatura.AraToplam,
                     Alacak = 0,
-                    Aciklama = $"Gider",
-                    SiraNo = 2
+                    Aciklama = "Gider",
+                    SiraNo = siraNo++
                 });
             }
 
-            // 191 Indirilecek KDV BORC
-            if (fatura.KdvTutar > 0)
+            // 191 İndirilecek KDV BORÇ (Tevkifatsız kısım)
+            var indirilecekKdv = fatura.TevkifatliMi 
+                ? fatura.KdvTutar - fatura.TevkifatTutar 
+                : fatura.KdvTutar;
+
+            if (indirilecekKdv > 0)
             {
-                var kdvHesap = await GetHesapByKodAsync("191");
+                var kdvHesapKodu = ayar?.IndirilecekKdvHesabi ?? "191.01";
+                var kdvHesap = await GetHesapByKodAsync(kdvHesapKodu) ?? await GetHesapByKodAsync("191");
                 if (kdvHesap != null)
                 {
                     kalemler.Add(new MuhasebeFisKalem
                     {
                         HesapId = kdvHesap.Id,
-                        Borc = fatura.KdvTutar,
+                        Borc = indirilecekKdv,
                         Alacak = 0,
-                        Aciklama = $"Indirilecek KDV",
-                        SiraNo = 3
+                        Aciklama = "İndirilecek KDV",
+                        SiraNo = siraNo++
+                    });
+                }
+            }
+
+            // Tevkifat KDV'si de indirilecek KDV olarak kaydedilir
+            if (fatura.TevkifatliMi && fatura.TevkifatTutar > 0)
+            {
+                var kdvHesapKodu = ayar?.IndirilecekKdvHesabi ?? "191.01";
+                var kdvHesap = await GetHesapByKodAsync(kdvHesapKodu) ?? await GetHesapByKodAsync("191");
+                if (kdvHesap != null)
+                {
+                    kalemler.Add(new MuhasebeFisKalem
+                    {
+                        HesapId = kdvHesap.Id,
+                        Borc = fatura.TevkifatTutar,
+                        Alacak = 0,
+                        Aciklama = "Tevkifat KDV (İndirilecek)",
+                        SiraNo = siraNo++
                     });
                 }
             }
@@ -426,6 +503,16 @@ public class MuhasebeService : IMuhasebeService
 
         _context.MuhasebeFisleri.Add(fis);
         await _context.SaveChangesAsync();
+
+        // Faturaya fiş ID'sini kaydet
+        var faturaEntity = await _context.Faturalar.FindAsync(fatura.Id);
+        if (faturaEntity != null)
+        {
+            faturaEntity.MuhasebeFisiOlusturuldu = true;
+            faturaEntity.MuhasebeFisId = fis.Id;
+            await _context.SaveChangesAsync();
+        }
+
         return fis;
     }
 

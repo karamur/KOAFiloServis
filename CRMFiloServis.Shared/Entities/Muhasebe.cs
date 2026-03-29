@@ -169,6 +169,7 @@ public enum DonemDurum
 /// </summary>
 public class MuhasebeAyar : BaseEntity
 {
+    // Cari Hesap Prefixleri
     [StringLength(50)]
     public string MusteriPrefix { get; set; } = "120.01";
 
@@ -179,4 +180,31 @@ public class MuhasebeAyar : BaseEntity
     public string PersonelPrefix { get; set; } = "335.01";
     
     public bool OtomatikHesapDuzenlensin { get; set; } = true;
+
+    // Fatura Muhasebe Hesapları
+    [StringLength(50)]
+    public string SatisGelirHesabi { get; set; } = "600.01"; // Yurtiçi Satışlar
+
+    [StringLength(50)]
+    public string AlisGiderHesabi { get; set; } = "153.01"; // Ticari Mallar veya 740.01 Hizmet Giderleri
+
+    [StringLength(50)]
+    public string HesaplananKdvHesabi { get; set; } = "391.01"; // Hesaplanan KDV
+
+    [StringLength(50)]
+    public string IndirilecekKdvHesabi { get; set; } = "191.01"; // İndirilecek KDV
+
+    // Tevkifat Hesapları
+    [StringLength(50)]
+    public string TevkifatKdvHesabi { get; set; } = "360.01"; // Sorumlu Sıfatıyla Ödenen KDV
+
+    [StringLength(50)]
+    public string TevkifatAlacakHesabi { get; set; } = "136.01"; // Diğer Çeşitli Alacaklar (Tevkifat)
+
+    // Faturadan otomatik muhasebe fişi oluşturulsun mu?
+    public bool FaturaOtomatikMuhasebeFisi { get; set; } = false;
+
+    // XML Import ayarları
+    public bool XmlImportOtomatikCariOlustur { get; set; } = true;
+    public bool XmlImportOtomatikHesapKoduOlustur { get; set; } = true;
 }
