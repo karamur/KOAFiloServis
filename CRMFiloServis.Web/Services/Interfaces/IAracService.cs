@@ -1,11 +1,11 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace CRMFiloServis.Web.Services;
 
 public interface IAracService
 {
-    // Araç CRUD Ýþlemleri
+    // AraÃ§ CRUD Ä°ÅŸlemleri
     Task<List<Arac>> GetAllAsync();
     Task<List<Arac>> GetActiveAsync();
     Task<int> GetActiveCountAsync();
@@ -19,14 +19,14 @@ public interface IAracService
     Task<Arac> UpdateAsync(Arac arac);
     Task DeleteAsync(int id);
 
-    // Plaka Ýþlemleri
+    // Plaka Ä°ÅŸlemleri
     Task<List<AracPlaka>> GetPlakaGecmisiAsync(int aracId);
     Task<AracPlaka> PlakaEkle(int aracId, string yeniPlaka, PlakaIslemTipi islemTipi,
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null);
     Task PlakaCikis(int aracPlakaId, PlakaIslemTipi cikisIslemTipi,
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null);
 
-    // Satýþa Açýk Araçlar
+    // SatÄ±ÅŸa AÃ§Ä±k AraÃ§lar
     Task<List<Arac>> GetSatisaAcikAraclarAsync();
     Task AracSatisaAc(int aracId, decimal satisFiyati, string? aciklama = null);
     Task AracSatisKapat(int aracId);
@@ -45,4 +45,18 @@ public interface IAracService
 
     // Evrak Uyarilari
     Task<List<AracEvrak>> GetSuresiDolacakEvraklarAsync(int gunSayisi = 30);
+
+    // Excel Import/Export
+    Task<byte[]> GetExcelSablonAsync();
+    Task<AracImportResult> ImportFromExcelAsync(byte[] fileContent);
+}
+
+// AraÃ§ Import Result
+public class AracImportResult
+{
+    public bool Success { get; set; }
+    public int ImportedCount { get; set; }
+    public int UpdatedCount { get; set; }
+    public int ErrorCount { get; set; }
+    public List<string> Errors { get; set; } = new();
 }

@@ -1,8 +1,11 @@
 ﻿@page "/araclar"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
+@using Microsoft.AspNetCore.Components.Forms
 @inject IAracService AracService
+@inject IToastService ToastService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Araçlar</PageTitle>
@@ -10,9 +13,17 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3><i class="bi bi-truck me-2"></i>Araçlar</h3>
-        <button class="btn btn-primary" @onclick="YeniArac">
-            <i class="bi bi-plus-lg me-1"></i>Yeni Araç
-        </button>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" @onclick="YeniArac">
+                <i class="bi bi-plus-lg me-1"></i>Yeni Araç
+            </button>
+            <button class="btn btn-outline-info" @onclick="SablonIndir" title="Excel Sablon Indir">
+                <i class="bi bi-download me-1"></i>Şablon
+            </button>
+            <button class="btn btn-outline-success" @onclick="ExcelImportModalAc" title="Excel'den Aktar">
+                <i class="bi bi-upload me-1"></i>Excel Aktar
+            </button>
+        </div>
     </div>
 
     <!-- Filtreleme Alanı -->
@@ -179,12 +190,91 @@
     </div>
 }
 
+<!-- Excel Import Modal -->
+@if (showImportModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-excel me-2"></i>Excel'den Araç Aktar</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="ImportModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Excel dosyasında şu sütunlar olmalı: <strong>Şase No | Plaka | Marka | Model | Model Yılı | Motor No | Renk | Koltuk Sayısı | Araç Tipi | KM</strong>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Excel Dosyası Seç *</label>
+                        <InputFile class="form-control" OnChange="DosyaSecildi" accept=".xlsx,.xls" />
+                    </div>
+                    
+                    @if (importResult != null)
+                    {
+                        <div class="row g-2 mb-3">
+                            <div class="col-4">
+                                <div class="card bg-success text-white text-center py-2">
+                                    <h4 class="mb-0">@importResult.ImportedCount</h4>
+                                    <small>Eklenen</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card bg-warning text-dark text-center py-2">
+                                    <h4 class="mb-0">@importResult.UpdatedCount</h4>
+                                    <small>Güncellenen</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card bg-danger text-white text-center py-2">
+                                    <h4 class="mb-0">@importResult.ErrorCount</h4>
+                                    <small>Hata</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        @if (importResult.Errors.Any())
+                        {
+                            <div class="alert alert-danger py-2" style="max-height: 200px; overflow-y: auto;">
+                                @foreach (var error in importResult.Errors.Take(30))
+                                {
+                                    <div><small>@error</small></div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-info" @onclick="SablonIndir">
+                        <i class="bi bi-download me-1"></i>Şablon İndir
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="ImportModalKapat">Kapat</button>
+                    <button type="button" class="btn btn-success" @onclick="ExcelImportYap" disabled="@(isImporting || importFile == null)">
+                        @if (isImporting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-upload me-1"></i>Aktarımı Başlat
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Arac> tumAraclar = new();
     private List<Arac> filtrelenmisAraclar = new();
     private bool showDeleteModal = false;
+    private bool showImportModal = false;
     private Arac? silinecekArac;
     private bool isLoading = true;
+    
+    // Import
+    private bool isImporting = false;
+    private IBrowserFile? importFile = null;
+    private AracImportResult? importResult = null;
 
     // Filtre Değişkenleri
     private string filtreDurum = "Aktif";
@@ -316,4 +406,78 @@
     {
         Navigation.NavigateTo($"/araclar/{aracId}/evraklar");
     }
+
+    #region Excel Import
+
+    private void ExcelImportModalAc()
+    {
+        importFile = null;
+        importResult = null;
+        showImportModal = true;
+    }
+
+    private void ImportModalKapat()
+    {
+        showImportModal = false;
+    }
+
+    private void DosyaSecildi(InputFileChangeEventArgs e)
+    {
+        importFile = e.File;
+        importResult = null;
+    }
+
+    private async Task SablonIndir()
+    {
+        try
+        {
+            var bytes = await AracService.GetExcelSablonAsync();
+            await JS.InvokeVoidAsync("downloadFileFromBase64", "arac_sablon.xlsx", Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Şablon indirildi!");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task ExcelImportYap()
+    {
+        if (importFile == null) return;
+        
+        isImporting = true;
+        importResult = null;
+        StateHasChanged();
+        
+        try
+        {
+            using var stream = new MemoryStream();
+            await importFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
+            var fileContent = stream.ToArray();
+            
+            importResult = await AracService.ImportFromExcelAsync(fileContent);
+            
+            if (importResult.Success)
+            {
+                ToastService.ShowSuccess($"{importResult.ImportedCount} araç eklendi, {importResult.UpdatedCount} güncellendi.");
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            importResult = new AracImportResult
+            {
+                Success = false,
+                Errors = new List<string> { $"Import hatası: {ex.Message}" }
+            };
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isImporting = false;
+            StateHasChanged();
+        }
+    }
+
+    #endregion
 }

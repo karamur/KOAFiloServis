@@ -637,6 +637,7 @@ public class FaturaService : IFaturaService
                 string cariIlce = string.Empty;
                 string cariIl = string.Empty;
                 string cariUlke = string.Empty;
+                string cariTcKimlikNo = string.Empty;
                 
                 System.Xml.Linq.XElement? supplierNode = invoice.Descendants().FirstOrDefault(x => x.Name.LocalName == "AccountingSupplierParty");
                 System.Xml.Linq.XElement? customerNode = invoice.Descendants().FirstOrDefault(x => x.Name.LocalName == "AccountingCustomerParty");
@@ -645,24 +646,56 @@ public class FaturaService : IFaturaService
 
                 if (partyNode != null)
                 {
-                    // Firma/Şahıs adı - PartyName içindeki Name elementinden al (tam isim)
-                    var partyNameNode = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "PartyName");
-                    if (partyNameNode != null)
-                    {
-                        cariUnvan = GetValue(partyNameNode, "Name").Trim();
-                    }
-                    
-                    // Eğer PartyName'den alınamadıysa, eski yöntemle dene
-                    if (string.IsNullOrWhiteSpace(cariUnvan))
-                    {
-                        cariUnvan = GetValue(partyNode, "Name").Trim();
-                    }
-                    
-                    // Vergi No / TC Kimlik No
+                    // Vergi No / TC Kimlik No - önce bunu al
                     var partyIdentification = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "PartyIdentification");
                     if (partyIdentification != null)
                     {
                         cariVkn = GetValue(partyIdentification, "ID").Trim();
+                    }
+                    
+                    // 11 haneli ise TCKN - şahıs faturası
+                    bool sahisFaturasi = !string.IsNullOrEmpty(cariVkn) && cariVkn.Length == 11;
+                    
+                    // Şahıs faturası ise önce Person'dan ad soyad al
+                    if (sahisFaturasi)
+                    {
+                        var personNode = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "Person");
+                        if (personNode != null)
+                        {
+                            var firstName = GetValue(personNode, "FirstName").Trim();
+                            var familyName = GetValue(personNode, "FamilyName").Trim();
+                            if (!string.IsNullOrWhiteSpace(firstName) || !string.IsNullOrWhiteSpace(familyName))
+                            {
+                                cariUnvan = $"{firstName} {familyName}".Trim();
+                                cariTcKimlikNo = cariVkn; // TCKN olarak kaydet
+                                cariVkn = string.Empty; // Vergi no boş
+                            }
+                        }
+                    }
+                    
+                    // Şahıs değilse veya Person'dan alınamadıysa PartyName'den al
+                    if (string.IsNullOrWhiteSpace(cariUnvan))
+                    {
+                        var partyNameNode = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "PartyName");
+                        if (partyNameNode != null)
+                        {
+                            var nameValue = GetValue(partyNameNode, "Name").Trim();
+                            // Ülke adı değilse kullan
+                            if (!IsCountryName(nameValue))
+                            {
+                                cariUnvan = nameValue;
+                            }
+                        }
+                    }
+                    
+                    // Hala boşsa eski yöntemle dene
+                    if (string.IsNullOrWhiteSpace(cariUnvan))
+                    {
+                        var nameValue = GetValue(partyNode, "Name").Trim();
+                        if (!IsCountryName(nameValue))
+                        {
+                            cariUnvan = nameValue;
+                        }
                     }
                     
                     // Vergi Dairesi
@@ -715,7 +748,7 @@ public class FaturaService : IFaturaService
                                 cariAdres += cariIlce + " ";
                             if (!string.IsNullOrWhiteSpace(cariIl))
                                 cariAdres += cariIl;
-                            if (!string.IsNullOrWhiteSpace(cariUlke) && cariUlke.ToUpperInvariant() != "TÜRKİYE" && cariUlke.ToUpperInvariant() != "TURKEY")
+                            if (!string.IsNullOrWhiteSpace(cariUlke) && !IsCountryName(cariUlke))
                                 cariAdres += " / " + cariUlke;
                         }
                         cariAdres = cariAdres.Trim();
@@ -730,18 +763,6 @@ public class FaturaService : IFaturaService
                             cariTelefon = GetValue(contact, "Telefax").Trim();
                         cariEmail = GetValue(contact, "ElectronicMail").Trim();
                     }
-                    
-                    // Şahıs ise ad soyad al
-                    if (string.IsNullOrWhiteSpace(cariUnvan))
-                    {
-                        var personNode = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "Person");
-                        if (personNode != null)
-                        {
-                            var firstName = GetValue(personNode, "FirstName");
-                            var familyName = GetValue(personNode, "FamilyName");
-                            cariUnvan = $"{firstName} {familyName}".Trim();
-                        }
-                    }
                 }
 
                 if (string.IsNullOrWhiteSpace(cariUnvan))
@@ -752,22 +773,27 @@ public class FaturaService : IFaturaService
                 }
                 
                 Cari? cari = null;
-                var cariKey = !string.IsNullOrWhiteSpace(cariVkn) ? cariVkn : cariUnvan.ToLowerInvariant();
+                // TCKN varsa ona göre ara, yoksa VKN'ye göre
+                var aramaNo = !string.IsNullOrWhiteSpace(cariTcKimlikNo) ? cariTcKimlikNo : cariVkn;
+                var cariKey = !string.IsNullOrWhiteSpace(aramaNo) ? aramaNo : cariUnvan.ToLowerInvariant();
                 
                 if (!string.IsNullOrEmpty(cariKey) && importCarileri.TryGetValue(cariKey, out var mevcutCari))
                 {
                     cari = mevcutCari;
                 }
                 
+                // TCKN ile ara
+                if (cari == null && !string.IsNullOrWhiteSpace(cariTcKimlikNo))
+                {
+                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.TcKimlikNo == cariTcKimlikNo);
+                }
+                
+                // VKN ile ara
                 if (cari == null && !string.IsNullOrWhiteSpace(cariVkn) && cariVkn.Length >= 10)
                 {
                     cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
                 }
                 
-                if (cari == null)
-                {
-                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Unvan.ToLower() == cariUnvan.ToLower());
-                }
 
                 // Mevcut cari varsa eksik bilgileri güncelle
                 if (cari != null)
@@ -794,6 +820,12 @@ public class FaturaService : IFaturaService
                         cari.Email = cariEmail;
                         guncellendi = true;
                     }
+                    // TCKN eksikse ekle
+                    if (string.IsNullOrWhiteSpace(cari.TcKimlikNo) && !string.IsNullOrWhiteSpace(cariTcKimlikNo))
+                    {
+                        cari.TcKimlikNo = cariTcKimlikNo;
+                        guncellendi = true;
+                    }
                     
                     if (guncellendi)
                     {
@@ -812,6 +844,7 @@ public class FaturaService : IFaturaService
                         CariKodu = uniqueCode,
                         Unvan = cariUnvan,
                         VergiNo = cariVkn ?? string.Empty,
+                        TcKimlikNo = cariTcKimlikNo ?? string.Empty,
                         VergiDairesi = cariVergiDairesi,
                         Adres = cariAdres,
                         Telefon = cariTelefon,
@@ -1062,6 +1095,23 @@ public class FaturaService : IFaturaService
         return $"{prefix}.{sonNumara + 1:D3}";
     }
 
+    private static bool IsCountryName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        
+        var upper = value.ToUpperInvariant().Trim();
+        var countryNames = new[]
+        {
+            "TÜRKİYE", "TURKIYE", "TURKEY", "TR",
+            "ALMANYA", "GERMANY", "FRANSA", "FRANCE",
+            "İNGİLTERE", "INGILTERE", "ENGLAND", "UK",
+            "ABD", "USA", "AMERIKA", "AMERICA",
+            "HOLLANDA", "NETHERLANDS", "BELÇİKA", "BELGIUM"
+        };
+        
+        return countryNames.Contains(upper);
+    }
+
     private async Task<Fatura?> FindExistingFaturaAsync(string faturaNo)
     {
         var normalizedFaturaNo = NormalizeFaturaNo(faturaNo);
@@ -1098,7 +1148,7 @@ public class FaturaService : IFaturaService
 
         // Basliklar - Ornek dosya formatinda
         var headers = new[] { 
-            "Ünvanı/Adı Soyadı", "Vkn/Tckn", "Fatura Tipi", "Fatura Tarihi", "Fatura No.",
+            "Ünvanı/Adı Soyadi", "Vkn/Tckn", "Fatura Tipi", "Fatura Tarihi", "Fatura No.",
             "İskonto", "Kdv Matrahı %0", "Kdv Matrahı %1", "Kdv Matrahı %10", "Kdv Matrahı %20",
             "Kdv%1", "Kdv%10", "Kdv%20", "Ödenecek Tutar Türk Lirası"
         };

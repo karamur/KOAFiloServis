@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +16,7 @@ public class AracService : IAracService
         _env = env;
     }
 
-    #region Araç CRUD Ýþlemleri
+    #region AraÃ§ CRUD Ä°ÅŸlemleri
 
     public async Task<List<Arac>> GetAllAsync()
     {
@@ -25,7 +25,7 @@ public class AracService : IAracService
             .Where(a => !a.IsDeleted)
             .ToListAsync();
             
-        // Aktif plakalarý güncelle (CikisTarihi null veya gelecek tarihli olanlar)
+        // Aktif plakalarÄ± gÃ¼ncelle (CikisTarihi null veya gelecek tarihli olanlar)
         foreach (var arac in araclar)
         {
             var aktifPlaka = arac.PlakaGecmisi
@@ -49,7 +49,7 @@ public class AracService : IAracService
             .Where(a => a.Aktif && !a.IsDeleted)
             .ToListAsync();
             
-        // Aktif plakalarý güncelle
+        // Aktif plakalarÄ± gÃ¼ncelle
         foreach (var arac in araclar)
         {
             var aktifPlaka = arac.PlakaGecmisi
@@ -83,7 +83,7 @@ public class AracService : IAracService
             
         if (arac != null)
         {
-            // Aktif plakayý güncelle
+            // Aktif plakayÄ± gÃ¼ncelle
             var aktifPlaka = arac.PlakaGecmisi
                 .Where(p => p.CikisTarihi == null || p.CikisTarihi > DateTime.Today)
                 .OrderByDescending(p => p.GirisTarihi)
@@ -100,7 +100,7 @@ public class AracService : IAracService
 
     public async Task<Arac?> GetByPlakaAsync(string plaka)
     {
-        // Aktif plakaya göre bul (CikisTarihi null veya gelecek tarihli)
+        // Aktif plakaya gÃ¶re bul (CikisTarihi null veya gelecek tarihli)
         var aracPlaka = await _context.AracPlakalar
             .Include(ap => ap.Arac)
             .FirstOrDefaultAsync(ap => ap.Plaka == plaka && 
@@ -127,7 +127,7 @@ public class AracService : IAracService
     
     public async Task<bool> PlakaMevcutMu(string plaka, int? haricAracPlakaId = null)
     {
-        // Aktif plaka kontrolü (CikisTarihi null veya gelecek tarihli)
+        // Aktif plaka kontrolÃ¼ (CikisTarihi null veya gelecek tarihli)
         return await _context.AracPlakalar
             .AnyAsync(ap => ap.Plaka == plaka && 
                            !ap.IsDeleted &&
@@ -138,21 +138,21 @@ public class AracService : IAracService
     public async Task<Arac> CreateAsync(Arac arac, string plaka, PlakaIslemTipi islemTipi = PlakaIslemTipi.Alis, 
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null)
     {
-        // Þase no kontrolü
+        // Åžase no kontrolÃ¼
         if (await SaseNoMevcutMu(arac.SaseNo))
-            throw new InvalidOperationException($"Bu þase numarasý ({arac.SaseNo}) sistemde zaten kayýtlý.");
+            throw new InvalidOperationException($"Bu ÅŸase numarasÄ± ({arac.SaseNo}) sistemde zaten kayÄ±tlÄ±.");
             
-        // Plaka kontrolü
+        // Plaka kontrolÃ¼
         if (await PlakaMevcutMu(plaka))
-            throw new InvalidOperationException($"Bu plaka ({plaka}) baþka bir araçta aktif olarak kullanýlýyor.");
+            throw new InvalidOperationException($"Bu plaka ({plaka}) baÅŸka bir araÃ§ta aktif olarak kullanÄ±lÄ±yor.");
         
-        // Araç oluþtur
+        // AraÃ§ oluÅŸtur
         arac.AktifPlaka = plaka;
         arac.CreatedAt = DateTime.UtcNow;
         _context.Araclar.Add(arac);
         await _context.SaveChangesAsync();
         
-        // Ýlk plaka kaydýný oluþtur
+        // Ä°lk plaka kaydÄ±nÄ± oluÅŸtur
         var aracPlaka = new AracPlaka
         {
             AracId = arac.Id,
@@ -161,7 +161,7 @@ public class AracService : IAracService
             IslemTipi = islemTipi,
             IslemTutari = islemTutari,
             CariId = cariId,
-            Aciklama = aciklama ?? $"Araç ilk kayýt - {islemTipi}",
+            Aciklama = aciklama ?? $"AraÃ§ ilk kayÄ±t - {islemTipi}",
             CreatedAt = DateTime.UtcNow
         };
         _context.AracPlakalar.Add(aracPlaka);
@@ -172,15 +172,15 @@ public class AracService : IAracService
 
     public async Task<Arac> UpdateAsync(Arac arac)
     {
-        // Þase no kontrolü (kendi hariç)
+        // Åžase no kontrolÃ¼ (kendi hariÃ§)
         if (await SaseNoMevcutMu(arac.SaseNo, arac.Id))
-            throw new InvalidOperationException($"Bu þase numarasý ({arac.SaseNo}) sistemde zaten kayýtlý.");
+            throw new InvalidOperationException($"Bu ÅŸase numarasÄ± ({arac.SaseNo}) sistemde zaten kayÄ±tlÄ±.");
             
         arac.UpdatedAt = DateTime.UtcNow;
         _context.Araclar.Update(arac);
         await _context.SaveChangesAsync();
         
-        // Aktif plakayý güncelle
+        // Aktif plakayÄ± gÃ¼ncelle
         await GuncelleAktifPlaka(arac.Id);
         
         return arac;
@@ -199,7 +199,7 @@ public class AracService : IAracService
     
     #endregion
     
-    #region Plaka Ýþlemleri
+    #region Plaka Ä°ÅŸlemleri
     
     public async Task<List<AracPlaka>> GetPlakaGecmisiAsync(int aracId)
     {
@@ -213,11 +213,11 @@ public class AracService : IAracService
     public async Task<AracPlaka> PlakaEkle(int aracId, string yeniPlaka, PlakaIslemTipi islemTipi, 
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null)
     {
-        // Plaka kontrolü
+        // Plaka kontrolÃ¼
         if (await PlakaMevcutMu(yeniPlaka))
-            throw new InvalidOperationException($"Bu plaka ({yeniPlaka}) baþka bir araçta aktif olarak kullanýlýyor.");
+            throw new InvalidOperationException($"Bu plaka ({yeniPlaka}) baÅŸka bir araÃ§ta aktif olarak kullanÄ±lÄ±yor.");
         
-        // Mevcut aktif plakayý kapat
+        // Mevcut aktif plakayÄ± kapat
         var mevcutAktif = await _context.AracPlakalar
             .FirstOrDefaultAsync(ap => ap.AracId == aracId && ap.CikisTarihi == null);
             
@@ -241,7 +241,7 @@ public class AracService : IAracService
         };
         _context.AracPlakalar.Add(yeniPlakaKaydi);
         
-        // Araçtaki aktif plakayý güncelle
+        // AraÃ§taki aktif plakayÄ± gÃ¼ncelle
         var arac = await _context.Araclar.FindAsync(aracId);
         if (arac != null)
         {
@@ -261,10 +261,10 @@ public class AracService : IAracService
             .FirstOrDefaultAsync(ap => ap.Id == aracPlakaId);
             
         if (plakaKaydi == null)
-            throw new InvalidOperationException("Plaka kaydý bulunamadý.");
+            throw new InvalidOperationException("Plaka kaydÄ± bulunamadÄ±.");
             
         if (plakaKaydi.CikisTarihi.HasValue)
-            throw new InvalidOperationException("Bu plaka zaten kapatýlmýþ.");
+            throw new InvalidOperationException("Bu plaka zaten kapatÄ±lmÄ±ÅŸ.");
         
         plakaKaydi.CikisTarihi = DateTime.UtcNow;
         plakaKaydi.IslemTipi = cikisIslemTipi;
@@ -273,7 +273,7 @@ public class AracService : IAracService
         if (!string.IsNullOrEmpty(aciklama)) plakaKaydi.Aciklama = aciklama;
         plakaKaydi.UpdatedAt = DateTime.UtcNow;
         
-        // Araçtaki aktif plakayý temizle
+        // AraÃ§taki aktif plakayÄ± temizle
         if (plakaKaydi.Arac != null)
         {
             plakaKaydi.Arac.AktifPlaka = null;
@@ -288,7 +288,7 @@ public class AracService : IAracService
         var arac = await _context.Araclar.FindAsync(aracId);
         if (arac == null) return;
         
-        // CikisTarihi null olan veya CikisTarihi bugünden sonra olan plakalardan en son eklenen
+        // CikisTarihi null olan veya CikisTarihi bugÃ¼nden sonra olan plakalardan en son eklenen
         var aktifPlaka = await _context.AracPlakalar
             .Where(ap => ap.AracId == aracId && 
                         !ap.IsDeleted &&
@@ -302,7 +302,7 @@ public class AracService : IAracService
     
     #endregion
     
-    #region Satýþa Açýk Araçlar
+    #region SatÄ±ÅŸa AÃ§Ä±k AraÃ§lar
     
     public async Task<List<Arac>> GetSatisaAcikAraclarAsync()
     {
@@ -317,7 +317,7 @@ public class AracService : IAracService
     {
         var arac = await _context.Araclar.FindAsync(aracId);
         if (arac == null)
-            throw new InvalidOperationException("Araç bulunamadý.");
+            throw new InvalidOperationException("AraÃ§ bulunamadÄ±.");
             
         arac.SatisaAcik = true;
         arac.SatisFiyati = satisFiyati;
@@ -332,7 +332,7 @@ public class AracService : IAracService
     {
         var arac = await _context.Araclar.FindAsync(aracId);
         if (arac == null)
-            throw new InvalidOperationException("Araç bulunamadý.");
+            throw new InvalidOperationException("AraÃ§ bulunamadÄ±.");
             
         arac.SatisaAcik = false;
         arac.SatisFiyati = null;
@@ -398,7 +398,7 @@ public class AracService : IAracService
             
         if (evrak != null)
         {
-            // Dosyalarý sil
+            // DosyalarÄ± sil
             foreach (var dosya in evrak.Dosyalar)
             {
                 var dosyaYolu = Path.Combine(_env.ContentRootPath, "wwwroot", dosya.DosyaYolu);
@@ -485,6 +485,186 @@ public class AracService : IAracService
                         e.BitisTarihi.Value <= bitisTarihi)
             .OrderBy(e => e.BitisTarihi)
             .ToListAsync();
+    }
+
+    #endregion
+
+    #region Excel Import/Export
+
+    public async Task<byte[]> GetExcelSablonAsync()
+    {
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+        var ws = workbook.Worksheets.Add("Araclar");
+        
+        // BaÅŸlÄ±klar
+        var headers = new[] { "Åžase No *", "Plaka", "Marka", "Model", "Model YÄ±lÄ±", "Motor No", "Renk", "Koltuk SayÄ±sÄ±", "AraÃ§ Tipi", "KM" };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            ws.Cell(1, i + 1).Value = headers[i];
+            ws.Cell(1, i + 1).Style.Font.Bold = true;
+            ws.Cell(1, i + 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGreen;
+        }
+        
+        // Ã–rnek veriler
+        ws.Cell(2, 1).Value = "WVWZZZ3CZWE123456";
+        ws.Cell(2, 2).Value = "34ABC123";
+        ws.Cell(2, 3).Value = "VOLKSWAGEN";
+        ws.Cell(2, 4).Value = "CARAVELLE";
+        ws.Cell(2, 5).Value = 2023;
+        ws.Cell(2, 6).Value = "DFG123456";
+        ws.Cell(2, 7).Value = "BEYAZ";
+        ws.Cell(2, 8).Value = 9;
+        ws.Cell(2, 9).Value = "MinibÃ¼s";
+        ws.Cell(2, 10).Value = 15000;
+        
+        // AÃ§Ä±klamalar
+        ws.Cell(5, 1).Value = "AÃ‡IKLAMALAR:";
+        ws.Cell(5, 1).Style.Font.Bold = true;
+        ws.Cell(6, 1).Value = "* Åžase No: Zorunlu, benzersiz olmalÄ± (17 karakter)";
+        ws.Cell(7, 1).Value = "* AraÃ§ Tipi: MinibÃ¼s, MidibÃ¼s, OtobÃ¼s, Otomobil, Panelvan";
+        ws.Cell(8, 1).Value = "* Model YÄ±lÄ±: 4 haneli (Ã¶rn: 2023)";
+        ws.Cell(9, 1).Value = "* Plaka: Opsiyonel, varsa araÃ§ bu plaka ile kaydedilir";
+        
+        ws.Columns().AdjustToContents();
+        
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public async Task<AracImportResult> ImportFromExcelAsync(byte[] fileContent)
+    {
+        var result = new AracImportResult();
+        
+        try
+        {
+            using var stream = new MemoryStream(fileContent);
+            using var workbook = new ClosedXML.Excel.XLWorkbook(stream);
+            var ws = workbook.Worksheets.First();
+            
+            var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+            var mevcutSaseNolar = await _context.Araclar.Where(a => !a.IsDeleted).Select(a => a.SaseNo.ToUpper()).ToListAsync();
+            
+            for (int row = 2; row <= lastRow; row++)
+            {
+                try
+                {
+                    var saseNo = ws.Cell(row, 1).GetString()?.Trim().ToUpper();
+                    
+                    if (string.IsNullOrWhiteSpace(saseNo))
+                        continue;
+                    
+                    var plaka = ws.Cell(row, 2).GetString()?.Trim().ToUpper();
+                    var marka = ws.Cell(row, 3).GetString()?.Trim();
+                    var model = ws.Cell(row, 4).GetString()?.Trim();
+                    var modelYiliStr = ws.Cell(row, 5).GetString()?.Trim();
+                    var motorNo = ws.Cell(row, 6).GetString()?.Trim();
+                    var renk = ws.Cell(row, 7).GetString()?.Trim();
+                    var koltukSayisiStr = ws.Cell(row, 8).GetString()?.Trim();
+                    var aracTipiStr = ws.Cell(row, 9).GetString()?.Trim();
+                    var kmStr = ws.Cell(row, 10).GetString()?.Trim();
+                    
+                    int? modelYili = null;
+                    if (int.TryParse(modelYiliStr, out var y)) modelYili = y;
+                    
+                    int koltukSayisi = 0;
+                    if (int.TryParse(koltukSayisiStr, out var k)) koltukSayisi = k;
+                    
+                    int? km = null;
+                    if (int.TryParse(kmStr?.Replace(".", "").Replace(",", ""), out var kmVal)) km = kmVal;
+                    
+                    var aracTipi = ParseAracTipi(aracTipiStr);
+                    
+                    // Mevcut araÃ§ var mÄ±?
+                    if (mevcutSaseNolar.Contains(saseNo))
+                    {
+                        // GÃ¼ncelle
+                        var mevcutArac = await _context.Araclar.FirstOrDefaultAsync(a => a.SaseNo.ToUpper() == saseNo && !a.IsDeleted);
+                        if (mevcutArac != null)
+                        {
+                            if (!string.IsNullOrWhiteSpace(marka)) mevcutArac.Marka = marka;
+                            if (!string.IsNullOrWhiteSpace(model)) mevcutArac.Model = model;
+                            if (modelYili.HasValue) mevcutArac.ModelYili = modelYili;
+                            if (!string.IsNullOrWhiteSpace(motorNo)) mevcutArac.MotorNo = motorNo;
+                            if (!string.IsNullOrWhiteSpace(renk)) mevcutArac.Renk = renk;
+                            if (koltukSayisi > 0) mevcutArac.KoltukSayisi = koltukSayisi;
+                            if (km.HasValue) mevcutArac.KmDurumu = km;
+                            mevcutArac.AracTipi = aracTipi;
+                            mevcutArac.UpdatedAt = DateTime.UtcNow;
+                            result.UpdatedCount++;
+                        }
+                    }
+                    else
+                    {
+                        // Yeni ekle
+                        var yeniArac = new Arac
+                        {
+                            SaseNo = saseNo,
+                            Marka = marka,
+                            Model = model,
+                            ModelYili = modelYili,
+                            MotorNo = motorNo,
+                            Renk = renk,
+                            KoltukSayisi = koltukSayisi,
+                            AracTipi = aracTipi,
+                            KmDurumu = km,
+                            Aktif = true,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        
+                        // Plaka varsa ekle
+                        if (!string.IsNullOrWhiteSpace(plaka))
+                        {
+                            yeniArac.AktifPlaka = plaka;
+                            yeniArac.PlakaGecmisi.Add(new AracPlaka
+                            {
+                                Plaka = plaka,
+                                GirisTarihi = DateTime.UtcNow,
+                                IslemTipi = PlakaIslemTipi.Alis,
+                                Aciklama = "Excel'den aktarÄ±ldÄ±",
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
+                        
+                        _context.Araclar.Add(yeniArac);
+                        mevcutSaseNolar.Add(saseNo);
+                        result.ImportedCount++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add($"SatÄ±r {row}: {ex.Message}");
+                    result.ErrorCount++;
+                }
+            }
+            
+            await _context.SaveChangesAsync();
+            result.Success = true;
+        }
+        catch (Exception ex)
+        {
+            result.Errors.Add($"Excel okuma hatasÄ±: {ex.Message}");
+            result.Success = false;
+        }
+        
+        return result;
+    }
+
+    private AracTipi ParseAracTipi(string? tip)
+    {
+        if (string.IsNullOrWhiteSpace(tip)) return AracTipi.Minibus;
+        
+        var tipUpper = tip.ToUpperInvariant().Replace("Ä°", "I").Replace("Ãœ", "U").Replace("Ã–", "O");
+        
+        return tipUpper switch
+        {
+            "MINIBUS" or "MÄ°NÄ°BÃœS" => AracTipi.Minibus,
+            "MIDIBUS" or "MÄ°DÄ°BÃœS" => AracTipi.Midibus,
+            "OTOBUS" or "OTOBÃœS" => AracTipi.Otobus,
+            "OTOMOBIL" or "OTOMOBÄ°L" => AracTipi.Otomobil,
+            "PANELVAN" => AracTipi.Panelvan,
+            _ => AracTipi.Minibus
+        };
     }
 
     #endregion
