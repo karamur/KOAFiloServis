@@ -92,24 +92,30 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetOdeme> UpdateOdemeAsync(BudgetOdeme odeme)
     {
-        var existing = await _context.BudgetOdemeler.FindAsync(odeme.Id);
-        if (existing == null)
-            throw new Exception("Odeme bulunamadi");
+        // Önce Change Tracker'daki mevcut entity'yi temizle
+        var trackedEntity = _context.ChangeTracker.Entries<BudgetOdeme>()
+            .FirstOrDefault(e => e.Entity.Id == odeme.Id);
+        
+        if (trackedEntity != null)
+        {
+            trackedEntity.State = EntityState.Detached;
+        }
         
         // DateTime'i UTC olarak ayarla
-        existing.OdemeTarihi = DateTime.SpecifyKind(odeme.OdemeTarihi, DateTimeKind.Utc);
-        existing.OdemeAy = odeme.OdemeTarihi.Month;
-        existing.OdemeYil = odeme.OdemeTarihi.Year;
-        existing.MasrafKalemi = odeme.MasrafKalemi;
-        existing.Aciklama = odeme.Aciklama;
-        existing.Miktar = odeme.Miktar;
-        existing.Durum = odeme.Durum;
-        existing.FirmaId = odeme.FirmaId;
-        existing.Notlar = odeme.Notlar;
-        existing.UpdatedAt = DateTime.UtcNow;
+        odeme.OdemeTarihi = DateTime.SpecifyKind(odeme.OdemeTarihi, DateTimeKind.Utc);
+        odeme.OdemeAy = odeme.OdemeTarihi.Month;
+        odeme.OdemeYil = odeme.OdemeTarihi.Year;
+        odeme.UpdatedAt = DateTime.UtcNow;
+        
+        // Entity'yi Update et (Attach + Modified)
+        _context.BudgetOdemeler.Update(odeme);
 
         await _context.SaveChangesAsync();
-        return existing;
+        
+        // Kaydettikten sonra detach et (sonraki işlemler için temiz başlasın)
+        _context.Entry(odeme).State = EntityState.Detached;
+        
+        return odeme;
     }
 
     /// <summary>

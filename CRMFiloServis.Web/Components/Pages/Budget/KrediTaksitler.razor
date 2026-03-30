@@ -1356,26 +1356,13 @@
             var odeme = await BudgetService.GetTaksitOdemeAsync(secilenKredi.TaksitGrupId, duzenlenenTaksit.KacinciTaksit);
             if (odeme != null)
             {
-                // Yeni değerleri bir BudgetOdeme nesnesine aktar
-                var guncelOdeme = new BudgetOdeme
-                {
-                    Id = odeme.Id,
-                    OdemeTarihi = duzenlenenTaksitTarihi,
-                    OdemeAy = duzenlenenTaksitTarihi.Month,
-                    OdemeYil = duzenlenenTaksitTarihi.Year,
-                    MasrafKalemi = odeme.MasrafKalemi,
-                    Aciklama = odeme.Aciklama,
-                    Miktar = duzenlenenTaksitTutar,
-                    Durum = odeme.Durum,
-                    FirmaId = odeme.FirmaId,
-                    Notlar = odeme.Notlar,
-                    TaksitliMi = odeme.TaksitliMi,
-                    TaksitGrupId = odeme.TaksitGrupId,
-                    KacinciTaksit = odeme.KacinciTaksit,
-                    ToplamTaksitSayisi = odeme.ToplamTaksitSayisi
-                };
+                // Doğrudan mevcut entity'nin özelliklerini güncelle
+                odeme.OdemeTarihi = duzenlenenTaksitTarihi;
+                odeme.OdemeAy = duzenlenenTaksitTarihi.Month;
+                odeme.OdemeYil = duzenlenenTaksitTarihi.Year;
+                odeme.Miktar = duzenlenenTaksitTutar;
                 
-                await BudgetService.UpdateOdemeAsync(guncelOdeme);
+                await BudgetService.UpdateOdemeAsync(odeme);
                 ToastService.ShowSuccess($"Taksit {duzenlenenTaksit.KacinciTaksit} güncellendi - Tarih: {duzenlenenTaksitTarihi:dd.MM.yyyy}, Tutar: {duzenlenenTaksitTutar:N2} ₺");
                 ModalKapat();
                 await LoadDataAsync();
