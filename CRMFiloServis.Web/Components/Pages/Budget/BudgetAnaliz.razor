@@ -1203,11 +1203,8 @@
                 }
             }
 
-            // Firma filtresine gore odemeler
+            // Firma filtresine göre odemeler
             odemeler = await BudgetService.GetOdemelerAsync(secilenYil, secilenAy > 0 ? secilenAy : null, secilenFirmaId > 0 ? secilenFirmaId : null);
-
-            // Sadece bekleyen odemeler - ODENMIS VE SILINMIS OLANLAR HARIC
-            bekleyenOdemeler = odemeler.Where(o => o.Durum == OdemeDurum.Bekliyor).OrderBy(o => o.OdemeTarihi).ToList();
 
             if (secilenAy > 0)
             {
@@ -1231,6 +1228,12 @@
 
             takvimData = await BudgetService.GetTakvimDataAsync(secilenYil, aktifTakvimAy, secilenFirmaId > 0 ? secilenFirmaId : null);
             aktifKrediler = await BudgetService.GetAktifKredilerAsync(secilenFirmaId > 0 ? secilenFirmaId : null);
+
+            // Bekleyen ödemeler - aktif takvim ayına göre filtrele
+            bekleyenOdemeler = odemeler
+                .Where(o => o.Durum == OdemeDurum.Bekliyor && o.OdemeAy == aktifTakvimAy)
+                .OrderBy(o => o.OdemeTarihi)
+                .ToList();
 
             var krediOdemeler = odemeler.Where(o => o.TaksitliMi && o.Durum == OdemeDurum.Bekliyor).ToList();
             krediTaksitToplam = krediOdemeler.Sum(o => o.Miktar);
@@ -1266,6 +1269,11 @@
         {
             aktifTakvimAy--;
             takvimData = await BudgetService.GetTakvimDataAsync(secilenYil, aktifTakvimAy, secilenFirmaId > 0 ? secilenFirmaId : null);
+            // Bekleyen ödemeleri de güncelle
+            bekleyenOdemeler = odemeler
+                .Where(o => o.Durum == OdemeDurum.Bekliyor && o.OdemeAy == aktifTakvimAy)
+                .OrderBy(o => o.OdemeTarihi)
+                .ToList();
             secilenGun = null;
             StateHasChanged();
         }
@@ -1277,6 +1285,11 @@
         {
             aktifTakvimAy++;
             takvimData = await BudgetService.GetTakvimDataAsync(secilenYil, aktifTakvimAy, secilenFirmaId > 0 ? secilenFirmaId : null);
+            // Bekleyen ödemeleri de güncelle
+            bekleyenOdemeler = odemeler
+                .Where(o => o.Durum == OdemeDurum.Bekliyor && o.OdemeAy == aktifTakvimAy)
+                .OrderBy(o => o.OdemeTarihi)
+                .ToList();
             secilenGun = null;
             StateHasChanged();
         }
@@ -1369,11 +1382,13 @@
 
     private async Task OdemeKaydet()
     {
-        if (string.IsNullOrWhiteSpace(editOdeme.MasrafKalemi) || editOdeme.Miktar <= 0)
+        if (string.IsNullOrWhiteSpace(editOdeme.MasrafKalemi))
         {
-            ToastService.ShowWarning("Masraf kalemi ve miktar zorunlu!");
+            ToastService.ShowWarning("Masraf kalemi zorunlu!");
             return;
         }
+
+        // Miktar 0 veya negatif olabilir - kontrol kaldırıldı
 
         try
         {
@@ -1384,6 +1399,11 @@
 
             ToastService.ShowSuccess("Kaydedildi.");
             ModalKapat();
+            
+            // Kayıt yapılan ödemenin ayına göre takvim ayını güncelle
+            aktifTakvimAy = editOdeme.OdemeTarihi.Month;
+            
+            // Tüm veriyi yenile
             await YenileDataAsync();
         }
         catch (Exception ex)
