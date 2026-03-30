@@ -6,6 +6,7 @@
 @inject ICariService CariService
 @inject IBankaKasaHareketService BankaKasaService
 @inject IFirmaService FirmaService
+@inject IMuhasebeService MuhasebeService
 @inject IToastService ToastService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -573,9 +574,9 @@
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-receipt me-2"></i>Fatura Detayi</h5>
-                    <button type="button" class="btn-close" @onclick="ModalKapat"></button>
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-receipt me-2"></i>Fatura Detayi - @detayFatura.FaturaNo</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="ModalKapat"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row">
@@ -585,7 +586,9 @@
                                 <tr><th>Tarih:</th><td>@detayFatura.FaturaTarihi.ToString("dd.MM.yyyy")</td></tr>
                                 <tr><th>Vade:</th><td>@detayFatura.VadeTarihi?.ToString("dd.MM.yyyy")</td></tr>
                                 <tr><th>Tedarikci:</th><td>@detayFatura.Cari?.Unvan</td></tr>
+                                <tr><th>Vergi No:</th><td>@(detayFatura.Cari?.VergiNo ?? "-")</td></tr>
                                 <tr><th>Tip:</th><td><span class="badge @(detayFatura.EFaturaTipi == EFaturaTipi.EFatura ? "bg-primary" : "bg-secondary")">@(detayFatura.EFaturaTipi == EFaturaTipi.EFatura ? "E-Fatura" : "E-Arsiv")</span></td></tr>
+                                <tr><th>Durum:</th><td><span class="badge @GetDurumClass(detayFatura.Durum)">@GetDurumAdi(detayFatura.Durum)</span></td></tr>
                             </table>
                         </div>
                         <div class="col-md-6">
@@ -596,6 +599,16 @@
                                 <tr><th>Odenen:</th><td class="text-end text-success">@FormatPara(detayFatura.OdenenTutar)</td></tr>
                                 <tr><th>Kalan:</th><td class="text-end text-danger"><strong>@FormatPara(detayFatura.KalanTutar)</strong></td></tr>
                             </table>
+                            <div class="mt-2">
+                                @if (detayFatura.MuhasebeFisiOlusturuldu)
+                                {
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Muhasebe fisi olusturuldu</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Muhasebeleştirilmedi</span>
+                                }
+                            </div>
                         </div>
                     </div>
                     @if (!string.IsNullOrEmpty(detayFatura.EttnNo))
@@ -605,8 +618,34 @@
                         </div>
                     }
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div>
+                        <button type="button" class="btn btn-outline-danger" @onclick="DetayFaturaSil">
+                            <i class="bi bi-trash me-1"></i>Sil
+                        </button>
+                    </div>
+                    <div class="d-flex gap-2">
+                        @if (!detayFatura.MuhasebeFisiOlusturuldu)
+                        {
+                            <button type="button" class="btn btn-info" @onclick="DetayFaturaMuhasebeles" disabled="@isMuhasebeLeniyor">
+                                @if (isMuhasebeLeniyor)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                <i class="bi bi-journal-plus me-1"></i>Muhasebeleştir
+                            </button>
+                        }
+                        @if (detayFatura.KalanTutar > 0)
+                        {
+                            <button type="button" class="btn btn-success" @onclick="DetayFaturaOdemeYap">
+                                <i class="bi bi-cash-coin me-1"></i>Odeme Yap
+                            </button>
+                        }
+                        <button type="button" class="btn btn-primary" @onclick="DetayFaturaDuzenle">
+                            <i class="bi bi-pencil me-1"></i>Duzenle
+                        </button>
+                        <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -851,6 +890,9 @@
     private bool isImporting = false;
     private int importEFaturaTipi = 1; // Default to E-Fatura (1)
     private int importFirmaId = 0; // Fatura yüklenecek firma
+    
+    // Detay Modal
+    private bool isMuhasebeLeniyor = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -1413,6 +1455,82 @@
         "Odeme" => "bg-warning text-dark",
         _ => "bg-secondary"
     };
+
+    #region Detay Modal Islemleri
+
+    private void DetayFaturaDuzenle()
+    {
+        if (detayFatura == null) return;
+        FaturaDuzenle(detayFatura);
+        showDetayModal = false;
+    }
+
+    private void DetayFaturaOdemeYap()
+    {
+        if (detayFatura == null) return;
+        OdemeYapAc(detayFatura);
+        showDetayModal = false;
+    }
+
+    private async Task DetayFaturaSil()
+    {
+        if (detayFatura == null) return;
+        
+        var result = await JS.InvokeAsync<bool>("confirm", $"'{detayFatura.FaturaNo}' numarali faturayi silmek istediginizden emin misiniz?");
+        if (!result) return;
+        
+        try
+        {
+            await FaturaService.DeleteAsync(detayFatura.Id);
+            ToastService.ShowSuccess("Fatura silindi.");
+            showDetayModal = false;
+            detayFatura = null;
+            await YenileAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task DetayFaturaMuhasebeles()
+    {
+        if (detayFatura == null) return;
+        
+        isMuhasebeLeniyor = true;
+        StateHasChanged();
+        
+        try
+        {
+            if (detayFatura.Cari == null)
+            {
+                ToastService.ShowError("Faturaya ait cari bulunamadi!");
+                return;
+            }
+            
+            var fis = await MuhasebeService.CreateFaturaFisiAsync(detayFatura);
+            
+            detayFatura.MuhasebeFisiOlusturuldu = true;
+            detayFatura.MuhasebeFisId = fis.Id;
+            await FaturaService.UpdateAsync(detayFatura);
+            
+            ToastService.ShowSuccess($"Muhasebe fisi olusturuldu. Fis No: {fis.FisNo}");
+            await YenileAsync();
+            
+            detayFatura = faturalar.FirstOrDefault(f => f.Id == detayFatura.Id);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Muhaselelestirme hatasi: {ex.Message}");
+        }
+        finally
+        {
+            isMuhasebeLeniyor = false;
+            StateHasChanged();
+        }
+    }
+
+    #endregion
 
     // Cari Ekstre Hareket sinifi
     private class CariEkstreHareket
