@@ -1358,35 +1358,53 @@ public class FaturaService : IFaturaService
 
     /// <summary>
     /// Açıklamaya göre kalem tipini belirler
+    /// Stok kodu boşsa varsayılan olarak Hizmet kabul edilir
     /// </summary>
     private static FaturaKalemTipi DetermineKalemTipi(string? aciklama, string? urunKodu)
     {
-        if (string.IsNullOrWhiteSpace(aciklama))
+        // Stok kodu boşsa varsayılan olarak Hizmet
+        if (string.IsNullOrWhiteSpace(urunKodu) && string.IsNullOrWhiteSpace(aciklama))
             return FaturaKalemTipi.Hizmet;
 
-        var lower = aciklama.ToLowerInvariant();
+        var lower = (aciklama ?? "").ToLowerInvariant();
 
         // Araç kontrolü
         if (lower.Contains("araç") || lower.Contains("otomobil") || lower.Contains("minibüs") || 
             lower.Contains("otobüs") || lower.Contains("midibüs") || lower.Contains("panelvan") ||
-            lower.Contains("şase") || lower.Contains("plaka"))
+            lower.Contains("şase") || lower.Contains("plaka") || lower.Contains("arac") ||
+            lower.Contains("taşıt") || lower.Contains("vasıta"))
             return FaturaKalemTipi.Arac;
 
         // Servis kontrolü
         if (lower.Contains("servis") || lower.Contains("bakım") || lower.Contains("onarım") ||
             lower.Contains("tamir") || lower.Contains("yağ değişimi") || lower.Contains("lastik") ||
-            lower.Contains("muayene") || lower.Contains("sigorta") || lower.Contains("kasko"))
+            lower.Contains("muayene") || lower.Contains("sigorta") || lower.Contains("kasko") ||
+            lower.Contains("bakim") || lower.Contains("onarim"))
             return FaturaKalemTipi.Servis;
 
         // Demirbaş kontrolü
-        if (lower.Contains("demirbaş") || lower.Contains("ofis") || lower.Contains("makina") ||
-            lower.Contains("makine") || lower.Contains("teçhizat") || lower.Contains("ekipman"))
+        if (lower.Contains("demirbaş") || lower.Contains("demirbas") || lower.Contains("ofis") || 
+            lower.Contains("makina") || lower.Contains("makine") || lower.Contains("teçhizat") || 
+            lower.Contains("ekipman") || lower.Contains("mobilya") || lower.Contains("bilgisayar") ||
+            lower.Contains("techizat"))
             return FaturaKalemTipi.Demirbas;
 
-        // Mal kontrolü
+        // Mal kontrolü - stok kodu varsa mal olma ihtimali yüksek
+        if (!string.IsNullOrWhiteSpace(urunKodu) && urunKodu.Length > 3)
+        {
+            // Ürün kodu varsa ve hizmet göstergesi yoksa mal kabul et
+            if (!lower.Contains("hizmet") && !lower.Contains("iş") && !lower.Contains("işçilik"))
+                return FaturaKalemTipi.Mal;
+        }
+
         if (lower.Contains("mal") || lower.Contains("ürün") || lower.Contains("parça") ||
-            lower.Contains("yedek") || lower.Contains("malzeme"))
+            lower.Contains("yedek") || lower.Contains("malzeme") || lower.Contains("urun") ||
+            lower.Contains("parca"))
             return FaturaKalemTipi.Mal;
+
+        // Stok kodu boşsa ve yukarıdaki kategorilere girmiyorsa Hizmet
+        if (string.IsNullOrWhiteSpace(urunKodu))
+            return FaturaKalemTipi.Hizmet;
 
         // Varsayılan olarak hizmet
         return FaturaKalemTipi.Hizmet;
@@ -1551,6 +1569,52 @@ public class FaturaService : IFaturaService
                 _ => ayar.AlisGiderHesabi
             };
         }
+    }
+
+    #endregion
+
+    #region Fatura Kalemleri - Stok Türü Eşleştirme
+
+    public async Task<List<FaturaKalem>> GetFaturaKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null)
+    {
+        var query = _context.FaturaKalemleri
+            .Include(k => k.Fatura)
+                .ThenInclude(f => f.Cari)
+            .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted);
+        
+        if (baslangic.HasValue)
+        {
+            var start = DateTime.SpecifyKind(baslangic.Value.Date, DateTimeKind.Utc);
+            query = query.Where(k => k.Fatura.FaturaTarihi >= start);
+        }
+        
+        if (bitis.HasValue)
+        {
+            var end = DateTime.SpecifyKind(bitis.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(k => k.Fatura.FaturaTarihi < end);
+        }
+        
+        return await query
+            .OrderByDescending(k => k.Fatura.FaturaTarihi)
+            .ThenBy(k => k.Fatura.FaturaNo)
+            .ThenBy(k => k.SiraNo)
+            .ToListAsync();
+    }
+
+    public async Task UpdateFaturaKalemleriAsync(List<FaturaKalem> kalemler)
+    {
+        foreach (var kalem in kalemler)
+        {
+            var existing = await _context.FaturaKalemleri.FindAsync(kalem.Id);
+            if (existing != null)
+            {
+                existing.KalemTipi = kalem.KalemTipi;
+                existing.AltTipi = kalem.AltTipi;
+                existing.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+        
+        await _context.SaveChangesAsync();
     }
 
     #endregion

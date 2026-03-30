@@ -35,6 +35,10 @@ public interface IFaturaService
     
     // Dashboard optimized methods
     Task<DashboardFaturaStats> GetDashboardStatsAsync();
+    
+    // Fatura Kalemleri - Stok Türü Eşleştirme
+    Task<List<FaturaKalem>> GetFaturaKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null);
+    Task UpdateFaturaKalemleriAsync(List<FaturaKalem> kalemler);
 }
 
 public class DashboardFaturaStats

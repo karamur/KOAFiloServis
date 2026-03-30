@@ -131,6 +131,14 @@
                                 </NavLink>
                             </div>
                         }
+                        @if (HasYetki("gelenfatura.oku") || HasYetki("kesilenfatura.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="efatura/stok-turu-eslestir">
+                                    <i class="bi bi-tags me-2 text-info"></i> Stok Türü Eşleştir
+                                </NavLink>
+                            </div>
+                        }
                     </div>
                 }
             </div>
