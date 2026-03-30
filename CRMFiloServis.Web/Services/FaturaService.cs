@@ -1379,7 +1379,12 @@ public class FaturaService : IFaturaService
     {
         var sonuc = new StokKartiOlusturSonuc();
         
-        // Mevcut stok kartlarını al (açıklama bazlı)
+        if (kalemler == null || !kalemler.Any())
+        {
+            return sonuc;
+        }
+        
+        // Mevcut stok kartlarını al (kod bazlı kontrol için)
         var mevcutStoklar = await _context.StokKartlari
             .Where(s => !s.IsDeleted)
             .Select(s => new { s.StokKodu, s.StokAdi })
@@ -1403,41 +1408,45 @@ public class FaturaService : IFaturaService
                 stokSayac = num + 1;
         }
 
+        // Kalem ID'lerini al
+        var kalemIds = kalemler.Select(k => k.Id).ToList();
+        
+        // Veritabanından mevcut kalemleri çek
+        var mevcutKalemler = await _context.FaturaKalemleri
+            .Where(k => kalemIds.Contains(k.Id))
+            .ToListAsync();
+
         foreach (var kalem in kalemler)
         {
             try
             {
-                // Fatura kalemini güncelle
-                var existing = await _context.FaturaKalemleri.FindAsync(kalem.Id);
+                // Mevcut kalemi bul
+                var existing = mevcutKalemler.FirstOrDefault(k => k.Id == kalem.Id);
                 if (existing != null)
                 {
+                    // Kalem tipini güncelle
                     existing.KalemTipi = kalem.KalemTipi;
                     existing.AltTipi = kalem.AltTipi;
                     existing.UpdatedAt = DateTime.UtcNow;
                     sonuc.GuncellenenKalemSayisi++;
                     
                     // Stok kartı oluştur (eğer isteniyorsa ve yoksa)
-                    if (stokKartiOlustur && !string.IsNullOrWhiteSpace(kalem.Aciklama))
+                    if (stokKartiOlustur && !string.IsNullOrWhiteSpace(existing.Aciklama))
                     {
-                        var stokAdi = kalem.Aciklama.Trim();
+                        var stokAdi = existing.Aciklama.Trim();
                         var stokAdiLower = stokAdi.ToLowerInvariant();
                         
-                        // Zaten var mı kontrol et
-                        if (mevcutStokAdlari.Contains(stokAdiLower))
+                        // Stok kodu belirle
+                        var stokKodu = !string.IsNullOrWhiteSpace(existing.UrunKodu) 
+                            ? existing.UrunKodu.ToUpperInvariant().Trim() 
+                            : $"STK{stokSayac:D5}";
+                        
+                        // Zaten var mı kontrol et (kod veya ad bazlı)
+                        if (mevcutStokKodlari.Contains(stokKodu.ToUpperInvariant()) || 
+                            mevcutStokAdlari.Contains(stokAdiLower))
                         {
                             sonuc.AtlananStokKartiSayisi++;
                             continue;
-                        }
-                        
-                        // Ürün kodu varsa kontrol et
-                        if (!string.IsNullOrWhiteSpace(kalem.UrunKodu))
-                        {
-                            var urunKoduUpper = kalem.UrunKodu.ToUpperInvariant().Trim();
-                            if (mevcutStokKodlari.Contains(urunKoduUpper))
-                            {
-                                sonuc.AtlananStokKartiSayisi++;
-                                continue;
-                            }
                         }
                         
                         // Stok tipini belirle
@@ -1445,18 +1454,14 @@ public class FaturaService : IFaturaService
                         var stokAltTipi = KalemAltTipindenStokAltTipi(kalem.AltTipi);
                         
                         // Yeni stok kartı oluştur
-                        var stokKodu = !string.IsNullOrWhiteSpace(kalem.UrunKodu) 
-                            ? kalem.UrunKodu.ToUpperInvariant().Trim() 
-                            : $"STK{stokSayac++:D5}";
-                        
                         var yeniStok = new StokKarti
                         {
                             StokKodu = stokKodu,
                             StokAdi = stokAdi.Length > 200 ? stokAdi.Substring(0, 200) : stokAdi,
                             StokTipi = stokTipi,
                             AltTipi = stokAltTipi,
-                            Birim = kalem.Birim ?? "Adet",
-                            KdvOrani = kalem.KdvOrani,
+                            Birim = existing.Birim ?? "Adet",
+                            KdvOrani = existing.KdvOrani,
                             Aktif = true,
                             StokTakibiYapilsin = stokTipi == StokTipi.Mal || stokTipi == StokTipi.YedekParca,
                             CreatedAt = DateTime.UtcNow
@@ -1465,8 +1470,13 @@ public class FaturaService : IFaturaService
                         _context.StokKartlari.Add(yeniStok);
                         mevcutStokAdlari.Add(stokAdiLower);
                         mevcutStokKodlari.Add(stokKodu.ToUpperInvariant());
+                        stokSayac++; // Sayacı artır
                         sonuc.OlusturulanStokKartiSayisi++;
                     }
+                }
+                else
+                {
+                    sonuc.Hatalar.Add($"Kalem ID {kalem.Id} bulunamadı.");
                 }
             }
             catch (Exception ex)
@@ -1475,7 +1485,15 @@ public class FaturaService : IFaturaService
             }
         }
         
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            sonuc.Hatalar.Add($"Kayıt hatası: {ex.Message}");
+        }
+        
         return sonuc;
     }
 
