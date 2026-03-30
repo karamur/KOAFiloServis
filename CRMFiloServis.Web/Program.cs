@@ -149,6 +149,9 @@ using (var scope = app.Services.CreateScope())
     // Bütçe masraf kalemleri seed (Kredi Kartı dahil)
     var budgetService = scope.ServiceProvider.GetRequiredService<IBudgetService>();
     await budgetService.SeedMasrafKalemleriAsync();
+    
+    // Cari alan genişletme migration (Il, Ilce, Fax vb.)
+    await CRMFiloServis.Web.Data.Migrations.CariMigrationHelper.ApplyCariAlanGenisletmeAsync(context);
 }
 
 // Configure the HTTP request pipeline.
