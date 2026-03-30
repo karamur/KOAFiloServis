@@ -145,6 +145,10 @@ using (var scope = app.Services.CreateScope())
     // Piyasa kaynakları seed
     var piyasaKaynakService = scope.ServiceProvider.GetRequiredService<IPiyasaKaynakService>();
     await piyasaKaynakService.SeedDefaultKaynaklarAsync();
+    
+    // Bütçe masraf kalemleri seed (Kredi Kartı dahil)
+    var budgetService = scope.ServiceProvider.GetRequiredService<IBudgetService>();
+    await budgetService.SeedMasrafKalemleriAsync();
 }
 
 // Configure the HTTP request pipeline.

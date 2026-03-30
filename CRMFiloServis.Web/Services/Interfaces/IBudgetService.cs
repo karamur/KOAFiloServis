@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+﻿using CRMFiloServis.Shared.Entities;
 
 namespace CRMFiloServis.Web.Services;
 
@@ -32,6 +32,7 @@ public interface IBudgetService
     Task<BudgetMasrafKalemi> CreateMasrafKalemiAsync(BudgetMasrafKalemi kalem);
     Task<BudgetMasrafKalemi> UpdateMasrafKalemiAsync(BudgetMasrafKalemi kalem);
     Task DeleteMasrafKalemiAsync(int id);
+    Task SeedMasrafKalemleriAsync();
 
     // Raporlar
     Task<BudgetOzet> GetAylikOzetAsync(int yil, int ay, int? firmaId = null);

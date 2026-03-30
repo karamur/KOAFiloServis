@@ -510,6 +510,53 @@ public class BudgetService : IBudgetService
         }
     }
 
+    public async Task SeedMasrafKalemleriAsync()
+    {
+        // Varsayılan masraf kalemleri
+        var varsayilanKalemler = new List<(string Adi, string Kategori, string Icon, string Renk, int SiraNo)>
+        {
+            ("Kira", "Sabit Giderler", "bi-house", "#6c757d", 1),
+            ("Elektrik", "Faturalar", "bi-lightning", "#ffc107", 2),
+            ("Su", "Faturalar", "bi-droplet", "#0dcaf0", 3),
+            ("Doğalgaz", "Faturalar", "bi-fire", "#fd7e14", 4),
+            ("İnternet", "Faturalar", "bi-wifi", "#6610f2", 5),
+            ("Telefon", "Faturalar", "bi-telephone", "#20c997", 6),
+            ("Personel Maaş", "Personel", "bi-people", "#0d6efd", 7),
+            ("SGK", "Personel", "bi-shield-check", "#198754", 8),
+            ("Vergi", "Vergiler", "bi-bank", "#dc3545", 9),
+            ("Akaryakıt", "Araç Giderleri", "bi-fuel-pump", "#fd7e14", 10),
+            ("Sigorta", "Sigorta", "bi-shield", "#6f42c1", 11),
+            ("Bakım/Onarım", "Araç Giderleri", "bi-tools", "#6c757d", 12),
+            ("Kredi Kartı", "Finans", "bi-credit-card", "#dc3545", 13),
+            ("Banka Kredisi", "Finans", "bi-bank2", "#0d6efd", 14),
+            ("Araç Kredisi", "Finans", "bi-car-front", "#198754", 15),
+            ("Diğer", "Diğer", "bi-three-dots", "#6c757d", 99)
+        };
+
+        foreach (var (adi, kategori, icon, renk, siraNo) in varsayilanKalemler)
+        {
+            var mevcutMu = await _context.BudgetMasrafKalemleri
+                .IgnoreQueryFilters()
+                .AnyAsync(m => m.KalemAdi == adi);
+
+            if (!mevcutMu)
+            {
+                _context.BudgetMasrafKalemleri.Add(new BudgetMasrafKalemi
+                {
+                    KalemAdi = adi,
+                    Kategori = kategori,
+                    Icon = icon,
+                    Renk = renk,
+                    SiraNo = siraNo,
+                    Aktif = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
     #endregion
 
     #region Raporlar
