@@ -143,7 +143,7 @@
                             @foreach (var fatura in filtreliFaturalar)
                             {
                                 var vadeGecmis = fatura.VadeTarihi.HasValue && fatura.VadeTarihi.Value < DateTime.Today && fatura.KalanTutar > 0;
-                                <tr class="@(vadeGecmis ? "table-danger" : "")">
+                                <tr class="@(vadeGecmis ? "table-danger" : "")" @ondblclick="() => FaturaDetayAc(fatura)" style="cursor: pointer;">
                                     <td>
                                         <strong>@fatura.FaturaNo</strong>
                                         <span class="badge @(fatura.EFaturaTipi == EFaturaTipi.EFatura ? "bg-primary" : "bg-secondary") ms-1">
@@ -188,18 +188,18 @@
                                         <div class="btn-group btn-group-sm">
                                             @if (fatura.KalanTutar > 0)
                                             {
-                                                <button class="btn btn-success" @onclick="() => OdemeYapAc(fatura)" title="Odeme Yap">
+                                                <button class="btn btn-success" @onclick="() => OdemeYapAc(fatura)" @onclick:stopPropagation title="Odeme Yap">
                                                     <i class="bi bi-cash-coin"></i>
                                                 </button>
                                             }
-                                            <button class="btn btn-outline-primary" @onclick="() => FaturaDetayAc(fatura)" title="Detay">
+                                            <button class="btn btn-outline-primary" @onclick="() => FaturaDetayAc(fatura)" @onclick:stopPropagation title="Detay">
                                                 <i class="bi bi-eye"></i>
                                             </button>
-                                            <button class="btn btn-outline-secondary" @onclick="() => FaturaDuzenle(fatura)" title="Duzenle">
+                                            <button class="btn btn-outline-secondary" @onclick="() => FaturaDuzenle(fatura)" @onclick:stopPropagation title="Duzenle">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
-                                            <button class="btn btn-outline-info" @onclick="() => OdemeTarihiDegistirAc(fatura)" title="Odeme Tarihi">
-                                                <i class="bi bi-calendar-event"></i>
+                                            <button class="btn btn-outline-danger" @onclick="() => FaturaSilOnay(fatura)" @onclick:stopPropagation title="Sil">
+                                                <i class="bi bi-trash"></i>
                                             </button>
                                         </div>
                                     </td>
@@ -572,7 +572,7 @@
 @if (showDetayModal && detayFatura != null)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title"><i class="bi bi-receipt me-2"></i>Fatura Detayi - @detayFatura.FaturaNo</h5>
@@ -606,7 +606,7 @@
                                 }
                                 else
                                 {
-                                    <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Muhasebeleştirilmedi</span>
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Muhasebeleşirilmedi</span>
                                 }
                             </div>
                         </div>
@@ -615,6 +615,45 @@
                     {
                         <div class="alert alert-light py-2 mt-2">
                             <strong>ETTN:</strong> @detayFatura.EttnNo
+                        </div>
+                    }
+                    
+                    <!-- Fatura Kalemleri -->
+                    @if (detayFatura.FaturaKalemleri != null && detayFatura.FaturaKalemleri.Any())
+                    {
+                        <div class="mt-3">
+                            <h6><i class="bi bi-list-ul me-1"></i>Fatura Kalemleri</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Kod</th>
+                                            <th>Aciklama</th>
+                                            <th class="text-center">Miktar</th>
+                                            <th>Birim</th>
+                                            <th class="text-end">Birim Fiyat</th>
+                                            <th class="text-end">KDV %</th>
+                                            <th class="text-end">Tutar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var kalem in detayFatura.FaturaKalemleri.OrderBy(k => k.SiraNo))
+                                        {
+                                            <tr>
+                                                <td>@kalem.SiraNo</td>
+                                                <td><small>@kalem.UrunKodu</small></td>
+                                                <td>@kalem.Aciklama</td>
+                                                <td class="text-center">@kalem.Miktar</td>
+                                                <td>@kalem.Birim</td>
+                                                <td class="text-end">@FormatPara(kalem.BirimFiyat)</td>
+                                                <td class="text-end">%@kalem.KdvOrani</td>
+                                                <td class="text-end"><strong>@FormatPara(kalem.ToplamTutar)</strong></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     }
                 </div>
@@ -997,9 +1036,11 @@
         showFaturaModal = true;
     }
 
-    private void FaturaDetayAc(Fatura fatura)
+    private async Task FaturaDetayAc(Fatura fatura)
     {
-        detayFatura = fatura;
+        // Fatura kalemlerini yükle
+        var faturaDetay = await FaturaService.GetByIdAsync(fatura.Id);
+        detayFatura = faturaDetay ?? fatura;
         showDetayModal = true;
     }
 
@@ -1018,6 +1059,23 @@
         odemeTarihiFatura = fatura;
         yeniOdemeTarihi = fatura.VadeTarihi ?? DateTime.Today.AddDays(30);
         showOdemeTarihiModal = true;
+    }
+
+    private async Task FaturaSilOnay(Fatura fatura)
+    {
+        var result = await JS.InvokeAsync<bool>("confirm", $"'{fatura.FaturaNo}' numarali faturayi silmek istediginizden emin misiniz?");
+        if (!result) return;
+        
+        try
+        {
+            await FaturaService.DeleteAsync(fatura.Id);
+            ToastService.ShowSuccess("Fatura silindi.");
+            await YenileAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
     }
 
     private async Task FaturaKaydet()

@@ -111,7 +111,10 @@ public class FaturaService : IFaturaService
 
     public async Task<Fatura> UpdateAsync(Fatura fatura)
     {
-        var existing = await _context.Faturalar.FindAsync(fatura.Id);
+        var existing = await _context.Faturalar
+            .Include(f => f.FaturaKalemleri)
+            .FirstOrDefaultAsync(f => f.Id == fatura.Id);
+            
         if (existing == null) throw new Exception("Fatura bulunamadi");
 
         // Mevcut entity'yi guncelle
@@ -128,16 +131,27 @@ public class FaturaService : IFaturaService
         existing.KdvOrani = fatura.KdvOrani;
         existing.KdvTutar = fatura.KdvTutar;
         existing.GenelToplam = fatura.GenelToplam;
+        existing.OdenenTutar = fatura.OdenenTutar;
         existing.Durum = fatura.Durum;
         existing.Aciklama = fatura.Aciklama;
         existing.Notlar = fatura.Notlar;
         existing.EttnNo = fatura.EttnNo;
         existing.GibKodu = fatura.GibKodu;
+        existing.TevkifatliMi = fatura.TevkifatliMi;
+        existing.TevkifatOrani = fatura.TevkifatOrani;
+        existing.TevkifatKodu = fatura.TevkifatKodu;
+        existing.TevkifatTutar = fatura.TevkifatTutar;
+        existing.MuhasebeFisiOlusturuldu = fatura.MuhasebeFisiOlusturuldu;
+        existing.MuhasebeFisId = fatura.MuhasebeFisId;
+        existing.AracId = fatura.AracId;
+        existing.AracFaturasi = fatura.AracFaturasi;
         existing.UpdatedAt = DateTime.UtcNow;
 
         // Tutarlari yeniden hesapla
         CalculateTotals(existing);
 
+        // Context tracking için attach değil, zaten track ediliyor
+        _context.Entry(existing).State = EntityState.Modified;
         await _context.SaveChangesAsync();
         return existing;
     }
