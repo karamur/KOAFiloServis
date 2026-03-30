@@ -1189,10 +1189,58 @@ public class BudgetService : IBudgetService
             throw new Exception("Ödeme bulunamadı");
 
         odeme.Durum = OdemeDurum.Odendi;
-        odeme.OdemeTarihi = DateTime.SpecifyKind(odemeTarihi, DateTimeKind.Utc);
+        odeme.GercekOdemeTarihi = DateTime.SpecifyKind(odemeTarihi, DateTimeKind.Utc);
         odeme.UpdatedAt = DateTime.UtcNow;
         
         await _context.SaveChangesAsync();
+    }
+
+    public async Task AddKrediKartiBorcAsync(int bankaHesapId, decimal tutar, int ay, int yil, string aciklama)
+    {
+        // Kredi kartı hesabını al
+        var hesap = await _context.BankaHesaplari.FindAsync(bankaHesapId);
+        if (hesap == null || hesap.HesapTipi != HesapTipi.KrediKarti)
+            throw new Exception("Geçerli bir kredi kartı hesabı seçiniz.");
+
+        // Ekstre tarihi oluştur (ayın son günü)
+        var ekstreTarihi = new DateTime(yil, ay, DateTime.DaysInMonth(yil, ay));
+        ekstreTarihi = DateTime.SpecifyKind(ekstreTarihi, DateTimeKind.Utc);
+
+        // BudgetOdeme olarak kaydet
+        var odeme = new BudgetOdeme
+        {
+            OdemeTarihi = ekstreTarihi,
+            OdemeAy = ay,
+            OdemeYil = yil,
+            MasrafKalemi = "Kredi Kartı",
+            Aciklama = $"[{hesap.HesapAdi}] {aciklama}",
+            Miktar = tutar,
+            Durum = OdemeDurum.Bekliyor,
+            TaksitGrupId = hesap.KrediTaksitGrupId, // Kredi kartı ile ilişkilendir
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.BudgetOdemeler.Add(odeme);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<BudgetOdeme>> GetKrediKartiHareketleriAsync(int bankaHesapId, int? yil = null)
+    {
+        var hesap = await _context.BankaHesaplari.FindAsync(bankaHesapId);
+        if (hesap == null) return new List<BudgetOdeme>();
+
+        var query = _context.BudgetOdemeler
+            .Where(o => !o.IsDeleted && o.MasrafKalemi == "Kredi Kartı" && 
+                        o.Aciklama != null && o.Aciklama.StartsWith($"[{hesap.HesapAdi}]"));
+
+        if (yil.HasValue)
+        {
+            query = query.Where(o => o.OdemeYil == yil.Value);
+        }
+
+        return await query
+            .OrderByDescending(o => o.OdemeTarihi)
+            .ToListAsync();
     }
 
     public async Task TaksitliOdemeOlusturAsync(object request)

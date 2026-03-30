@@ -51,6 +51,10 @@ public interface IBudgetService
     Task<List<AylikKrediTaksitRapor>> GetAylikKrediTaksitRaporuAsync(int yil);
     Task OdemeYapAsync(int odemeId, int bankaHesapId, DateTime odemeTarihi);
 
+    // Kredi Karti Islemleri
+    Task AddKrediKartiBorcAsync(int bankaHesapId, decimal tutar, int ay, int yil, string aciklama);
+    Task<List<BudgetOdeme>> GetKrediKartiHareketleriAsync(int bankaHesapId, int? yil = null);
+
     // Tekrarlayan Odeme Islemleri
     Task<List<TekrarlayanOdeme>> GetTekrarlayanOdemelerAsync(int? firmaId = null);
     Task<List<TekrarlayanOdeme>> GetAktifTekrarlayanOdemelerAsync(int? firmaId = null);

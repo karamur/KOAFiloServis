@@ -5,24 +5,25 @@
 /// </summary>
 public static class ParaFormat
 {
-    private const string ParaBirimi = "₺";
+    private const string ParaBirimi = "TL";
     private const string ParaBirimiKodu = "TL";
+    private static readonly System.Globalization.CultureInfo TrCulture = new("tr-TR");
 
     /// <summary>
-    /// Decimal değeri para formatında döner (1.234,56 ?)
+    /// Decimal değeri para formatında döner (1.234,56 TL)
     /// </summary>
     public static string Format(decimal tutar, bool birimGoster = true)
     {
-        var formatli = tutar.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
+        var formatli = tutar.ToString("N2", TrCulture);
         return birimGoster ? $"{formatli} {ParaBirimi}" : formatli;
     }
 
     /// <summary>
-    /// Decimal değeri kısa para formatında döner (1.234 ?)
+    /// Decimal değeri kısa para formatında döner (1.234 TL)
     /// </summary>
     public static string FormatKisa(decimal tutar, bool birimGoster = true)
     {
-        var formatli = tutar.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
+        var formatli = tutar.ToString("N0", TrCulture);
         return birimGoster ? $"{formatli} {ParaBirimi}" : formatli;
     }
 
@@ -31,7 +32,7 @@ public static class ParaFormat
     /// </summary>
     public static string FormatTL(decimal tutar)
     {
-        var formatli = tutar.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
+        var formatli = tutar.ToString("N2", TrCulture);
         return $"{formatli} {ParaBirimiKodu}";
     }
 
@@ -40,7 +41,7 @@ public static class ParaFormat
     /// </summary>
     public static string FormatTLKisa(decimal tutar)
     {
-        var formatli = tutar.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
+        var formatli = tutar.ToString("N0", TrCulture);
         return $"{formatli} {ParaBirimiKodu}";
     }
 
@@ -49,32 +50,7 @@ public static class ParaFormat
     /// </summary>
     public static string Format(decimal? tutar, bool birimGoster = true, string bostaDeger = "-")
     {
-        return tutar.HasValue ? Format(tutar.Value, birimGoster) : bostaDeger;
+        if (!tutar.HasValue) return bostaDeger;
+        return Format(tutar.Value, birimGoster);
     }
-
-    /// <summary>
-    /// Nullable decimal değeri kısa formatlar
-    /// </summary>
-    public static string FormatKisa(decimal? tutar, bool birimGoster = true, string bostaDeger = "-")
-    {
-        return tutar.HasValue ? FormatKisa(tutar.Value, birimGoster) : bostaDeger;
-    }
-
-    /// <summary>
-    /// Yüzde formatı (% 15,5)
-    /// </summary>
-    public static string FormatYuzde(decimal oran)
-    {
-        return $"% {oran.ToString("N1", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"))}";
-    }
-
-    /// <summary>
-    /// Sadece para birimi sembolü
-    /// </summary>
-    public static string Birim => ParaBirimi;
-
-    /// <summary>
-    /// Sadece para birimi kodu
-    /// </summary>
-    public static string BirimKodu => ParaBirimiKodu;
 }
