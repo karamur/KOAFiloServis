@@ -107,6 +107,7 @@ builder.Services.AddScoped<IAracPiyasaArastirmaService, AracPiyasaArastirmaServi
 builder.Services.AddScoped<IMusteriKiralamaService, MusteriKiralamaService>(); // Musteri Kiralama Servisi
 builder.Services.AddScoped<ICRMService, CRMService>(); // CRM Servisi - Bildirim, Mesaj, Hatırlatıcı
 builder.Services.AddScoped<CRMFiloServis.Web.Services.Interfaces.IWhatsAppService, WhatsAppService>(); // WhatsApp Servisi
+builder.Services.AddScoped<IStokService, StokService>(); // Stok/Envanter Servisi
 builder.Services.AddHttpClient("OpenAI"); // OpenAI icin HttpClient
 builder.Services.AddHttpClient("Scraper"); // Scraper icin HttpClient
 builder.Services.AddHostedService<AutoBackupService>();

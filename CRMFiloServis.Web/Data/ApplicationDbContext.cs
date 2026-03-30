@@ -115,6 +115,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<WhatsAppMesaj> WhatsAppMesajlar { get; set; }
     public DbSet<WhatsAppSablon> WhatsAppSablonlar { get; set; }
 
+    // Stok/Envanter Modulu
+    public DbSet<StokKarti> StokKartlari { get; set; }
+    public DbSet<StokKategori> StokKategoriler { get; set; }
+    public DbSet<StokHareket> StokHareketler { get; set; }
+    public DbSet<AracIslem> AracIslemler { get; set; }
+    public DbSet<ServisKaydi> ServisKayitlari { get; set; }
+    public DbSet<ServisParca> ServisParcalar { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -898,6 +906,163 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.GrupId)
                 .OnDelete(DeleteBehavior.Cascade);
                 
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ===== STOK/ENVANTER MODULU KONFIGURASYONLARI =====
+
+        // StokKarti
+        modelBuilder.Entity<StokKarti>(entity =>
+        {
+            entity.HasIndex(e => e.StokKodu).IsUnique();
+            entity.Property(e => e.StokKodu).HasMaxLength(50);
+            entity.Property(e => e.StokAdi).HasMaxLength(200);
+            entity.Property(e => e.Barkod).HasMaxLength(50);
+            entity.Property(e => e.Birim).HasMaxLength(20);
+            entity.Property(e => e.AlisFiyati).HasPrecision(18, 2);
+            entity.Property(e => e.SatisFiyati).HasPrecision(18, 2);
+            entity.Property(e => e.KdvOrani).HasPrecision(5, 2);
+            entity.Property(e => e.MinStokMiktari).HasPrecision(18, 4);
+            entity.Property(e => e.MaksStokMiktari).HasPrecision(18, 4);
+            entity.Property(e => e.MevcutStok).HasPrecision(18, 4);
+            entity.HasOne(e => e.Kategori)
+                .WithMany(k => k.StokKartlari)
+                .HasForeignKey(e => e.KategoriId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.VarsayilanTedarikci)
+                .WithMany()
+                .HasForeignKey(e => e.VarsayilanTedarikciId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.MuhasebeHesap)
+                .WithMany()
+                .HasForeignKey(e => e.MuhasebeHesapId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // StokKategori
+        modelBuilder.Entity<StokKategori>(entity =>
+        {
+            entity.Property(e => e.KategoriAdi).HasMaxLength(100);
+            entity.Property(e => e.Renk).HasMaxLength(20);
+            entity.Property(e => e.Icon).HasMaxLength(50);
+            entity.HasOne(e => e.UstKategori)
+                .WithMany(k => k.AltKategoriler)
+                .HasForeignKey(e => e.UstKategoriId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // StokHareket
+        modelBuilder.Entity<StokHareket>(entity =>
+        {
+            entity.HasIndex(e => new { e.StokKartiId, e.IslemTarihi });
+            entity.Property(e => e.BelgeNo).HasMaxLength(50);
+            entity.Property(e => e.Miktar).HasPrecision(18, 4);
+            entity.Property(e => e.BirimFiyat).HasPrecision(18, 2);
+            entity.HasOne(e => e.StokKarti)
+                .WithMany(s => s.Hareketler)
+                .HasForeignKey(e => e.StokKartiId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Fatura)
+                .WithMany()
+                .HasForeignKey(e => e.FaturaId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.FaturaKalem)
+                .WithMany()
+                .HasForeignKey(e => e.FaturaKalemId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Cari)
+                .WithMany()
+                .HasForeignKey(e => e.CariId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Arac)
+                .WithMany()
+                .HasForeignKey(e => e.AracId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.AracMasraf)
+                .WithMany()
+                .HasForeignKey(e => e.AracMasrafId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // AracIslem (Araç Alış/Satış)
+        modelBuilder.Entity<AracIslem>(entity =>
+        {
+            entity.HasIndex(e => new { e.AracId, e.IslemTarihi });
+            entity.Property(e => e.Tutar).HasPrecision(18, 2);
+            entity.Property(e => e.KdvOrani).HasPrecision(5, 2);
+            entity.Property(e => e.KdvTutar).HasPrecision(18, 2);
+            entity.Property(e => e.ToplamTutar).HasPrecision(18, 2);
+            entity.Property(e => e.NoterId).HasMaxLength(50);
+            entity.HasOne(e => e.Arac)
+                .WithMany()
+                .HasForeignKey(e => e.AracId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Cari)
+                .WithMany()
+                .HasForeignKey(e => e.CariId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Fatura)
+                .WithMany()
+                .HasForeignKey(e => e.FaturaId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.StokHareket)
+                .WithMany()
+                .HasForeignKey(e => e.StokHareketId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ServisKaydi
+        modelBuilder.Entity<ServisKaydi>(entity =>
+        {
+            entity.HasIndex(e => new { e.AracId, e.ServisTarihi });
+            entity.Property(e => e.ServisAdi).HasMaxLength(200);
+            entity.Property(e => e.IscilikTutari).HasPrecision(18, 2);
+            entity.Property(e => e.ParcaTutari).HasPrecision(18, 2);
+            entity.Property(e => e.KdvOrani).HasPrecision(5, 2);
+            entity.Property(e => e.KdvTutar).HasPrecision(18, 2);
+            entity.Property(e => e.ToplamTutar).HasPrecision(18, 2);
+            entity.HasOne(e => e.Arac)
+                .WithMany()
+                .HasForeignKey(e => e.AracId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ServisciCari)
+                .WithMany()
+                .HasForeignKey(e => e.ServisciCariId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Fatura)
+                .WithMany()
+                .HasForeignKey(e => e.FaturaId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.AracMasraf)
+                .WithMany()
+                .HasForeignKey(e => e.AracMasrafId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.StokHareket)
+                .WithMany()
+                .HasForeignKey(e => e.StokHareketId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ServisParca
+        modelBuilder.Entity<ServisParca>(entity =>
+        {
+            entity.Property(e => e.ParcaAdi).HasMaxLength(200);
+            entity.Property(e => e.Birim).HasMaxLength(20);
+            entity.Property(e => e.Miktar).HasPrecision(18, 4);
+            entity.Property(e => e.BirimFiyat).HasPrecision(18, 2);
+            entity.HasOne(e => e.ServisKaydi)
+                .WithMany(s => s.Parcalar)
+                .HasForeignKey(e => e.ServisKaydiId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.StokKarti)
+                .WithMany()
+                .HasForeignKey(e => e.StokKartiId)
+                .OnDelete(DeleteBehavior.SetNull);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
     }
