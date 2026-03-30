@@ -87,13 +87,15 @@ public class OdemeYapRequest
     public string? Aciklama { get; set; }
     public DateTime OdemeTarihi { get; set; } = DateTime.Today;
     public decimal? KismiOdemeTutari { get; set; }
+    public Guid? KrediTaksitGrupId { get; set; } // Kredi kartı için ilişkili kredi
 }
 
 public enum OdemeTipi
 {
     Kasa = 1,
     Banka = 2,
-    Mahsup = 3
+    Mahsup = 3,
+    KrediKarti = 4
 }
 
 public class BudgetOzet
