@@ -92,28 +92,30 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetOdeme> UpdateOdemeAsync(BudgetOdeme odeme)
     {
-        // Önce Change Tracker'daki mevcut entity'yi temizle
-        var trackedEntity = _context.ChangeTracker.Entries<BudgetOdeme>()
-            .FirstOrDefault(e => e.Entity.Id == odeme.Id);
-        
-        if (trackedEntity != null)
-        {
-            trackedEntity.State = EntityState.Detached;
-        }
-        
         // DateTime'i UTC olarak ayarla
-        odeme.OdemeTarihi = DateTime.SpecifyKind(odeme.OdemeTarihi, DateTimeKind.Utc);
-        odeme.OdemeAy = odeme.OdemeTarihi.Month;
-        odeme.OdemeYil = odeme.OdemeTarihi.Year;
-        odeme.UpdatedAt = DateTime.UtcNow;
+        var odemeTarihi = DateTime.SpecifyKind(odeme.OdemeTarihi, DateTimeKind.Utc);
+        var updatedAt = DateTime.UtcNow;
         
-        // Entity'yi Update et (Attach + Modified)
-        _context.BudgetOdemeler.Update(odeme);
-
-        await _context.SaveChangesAsync();
+        // Doğrudan veritabanında güncelle (tracking sorunu olmaz)
+        await _context.BudgetOdemeler
+            .Where(o => o.Id == odeme.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(o => o.OdemeTarihi, odemeTarihi)
+                .SetProperty(o => o.OdemeAy, odemeTarihi.Month)
+                .SetProperty(o => o.OdemeYil, odemeTarihi.Year)
+                .SetProperty(o => o.MasrafKalemi, odeme.MasrafKalemi)
+                .SetProperty(o => o.Aciklama, odeme.Aciklama)
+                .SetProperty(o => o.Miktar, odeme.Miktar)
+                .SetProperty(o => o.Durum, odeme.Durum)
+                .SetProperty(o => o.FirmaId, odeme.FirmaId)
+                .SetProperty(o => o.Notlar, odeme.Notlar)
+                .SetProperty(o => o.UpdatedAt, updatedAt));
         
-        // Kaydettikten sonra detach et (sonraki işlemler için temiz başlasın)
-        _context.Entry(odeme).State = EntityState.Detached;
+        // Güncellenmiş entity'yi döndür
+        odeme.OdemeTarihi = odemeTarihi;
+        odeme.OdemeAy = odemeTarihi.Month;
+        odeme.OdemeYil = odemeTarihi.Year;
+        odeme.UpdatedAt = updatedAt;
         
         return odeme;
     }
