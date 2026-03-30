@@ -1,14 +1,14 @@
-using CRMFiloServis.Shared.Entities;
+﻿using CRMFiloServis.Shared.Entities;
 
 namespace CRMFiloServis.Web.Services;
 
 public interface ITekrarlayanOdemeService
 {
-    Task<List<TekrarlayanOdeme>> GetAllAsync();
-    Task<TekrarlayanOdeme?> GetByIdAsync(int id);
-    Task<TekrarlayanOdeme> CreateAsync(TekrarlayanOdeme odeme);
-    Task<TekrarlayanOdeme> UpdateAsync(TekrarlayanOdeme odeme);
-    Task DeleteAsync(int id);
-    Task<List<TekrarlayanOdeme>> GetAktifOdemelerAsync();
-    Task<List<TekrarlayanOdeme>> GetYaklasanOdemelerAsync(int gunSayisi = 7);
+    Task<List<TekrarlayanOdeme>> GetTekrarlayanOdemelerAsync(int? firmaId = null);
+    Task<List<TekrarlayanOdeme>> GetAktifTekrarlayanOdemelerAsync(int? firmaId = null);
+    Task<TekrarlayanOdeme?> GetTekrarlayanOdemeByIdAsync(int id);
+    Task<TekrarlayanOdeme> CreateTekrarlayanOdemeAsync(TekrarlayanOdeme odeme);
+    Task<TekrarlayanOdeme> UpdateTekrarlayanOdemeAsync(TekrarlayanOdeme odeme);
+    Task DeleteTekrarlayanOdemeAsync(int id);
+    Task<int> TekrarlayanOdemelerdenKayitOlusturAsync(int yil, int ay, int? firmaId = null);
 }

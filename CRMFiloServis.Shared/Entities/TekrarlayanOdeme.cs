@@ -1,10 +1,10 @@
-using System.ComponentModel.DataAnnotations;
+ï»¿using System.ComponentModel.DataAnnotations;
 
 namespace CRMFiloServis.Shared.Entities;
 
 /// <summary>
-/// Tekrarlayan ödeme tanýmlarý (Kira, Elektrik, Su, Doðalgaz, Ýnternet vb.)
-/// Bu kayýtlar belirtilen periyotlarda otomatik olarak BudgetOdeme kayýtlarý oluþturur.
+/// Tekrarlayan odeme tanimlari (Kira, Elektrik, Su, Dogalgaz, Internet vb.)
+/// Bu kayitlar belirtilen periyotlarda otomatik olarak BudgetOdeme kayitlari olusturur.
 /// </summary>
 public class TekrarlayanOdeme : BaseEntity
 {
@@ -28,58 +28,66 @@ public class TekrarlayanOdeme : BaseEntity
     public TekrarPeriyodu Periyod { get; set; } = TekrarPeriyodu.Aylik;
 
     /// <summary>
-    /// Ayýn hangi günü ödeme yapýlacak (1-31)
+    /// Ayin hangi gunu odeme yapilacak (1-31)
     /// </summary>
     [Range(1, 31)]
     public int OdemeGunu { get; set; } = 1;
 
     /// <summary>
-    /// Baþlangýç tarihi
+    /// Baslangic tarihi
     /// </summary>
     [Required]
     public DateTime BaslangicTarihi { get; set; } = DateTime.Today;
 
     /// <summary>
-    /// Bitiþ tarihi (null ise süresiz devam eder)
+    /// Bitis tarihi (null ise suresiz devam eder)
     /// </summary>
     public DateTime? BitisTarihi { get; set; }
 
     /// <summary>
-    /// Hatýrlatýcý - ödeme gününden kaç gün önce uyarý verilsin
+    /// Hatirlatici - Odeme gununen kac gun once uyari verilsin
     /// </summary>
     public int HatirlatmaGunSayisi { get; set; } = 3;
 
     /// <summary>
-    /// Firma bilgisi
+    /// Firma iliskisi
     /// </summary>
     public int? FirmaId { get; set; }
     public virtual Firma? Firma { get; set; }
 
     /// <summary>
-    /// Aktif mi
+    /// Aktif mi?
     /// </summary>
     public bool Aktif { get; set; } = true;
 
     /// <summary>
-    /// Renk (takvimde gösterim için)
+    /// Renk kodu (gorunum icin)
     /// </summary>
     [StringLength(20)]
-    public string? Renk { get; set; } = "#dc3545";
+    public string? Renk { get; set; }
 
     /// <summary>
-    /// Ýkon (Bootstrap Icons)
+    /// Icon (gorunum icin)
     /// </summary>
     [StringLength(50)]
-    public string? Icon { get; set; } = "bi-arrow-repeat";
+    public string? Icon { get; set; }
 
+    /// <summary>
+    /// Notlar
+    /// </summary>
     public string? Notlar { get; set; }
 }
 
+/// <summary>
+/// Tekrar periyodu
+/// </summary>
 public enum TekrarPeriyodu
 {
-    Aylik = 1,
-    IkiAylik = 2,
-    UcAylik = 3,
+    Gunluk = 1,
+    Haftalik = 2,
+    Aylik = 3,
+    IkiAylik = 4,
+    UcAylik = 5,
     AltiAylik = 6,
-    Yillik = 12
+    Yillik = 7
 }
