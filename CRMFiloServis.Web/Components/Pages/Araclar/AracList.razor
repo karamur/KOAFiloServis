@@ -113,9 +113,22 @@
                                         <span class="badge bg-primary fs-6">@(arac.AktifPlaka ?? "PLAKASIZ")</span>
                                     </td>
                                     <td>
-                                        <small class="text-muted" style="font-size: 0.75rem;" title="Aracın kullandığı diğer plakalar">
-                                            @(string.Join(", ", arac.PlakaGecmisi.Where(p => p.Plaka != arac.AktifPlaka).Select(p => p.Plaka).Distinct()))
-                                        </small>
+                                        <button class="btn btn-link btn-sm p-0 text-decoration-none" @onclick="() => PlakaGecmisiAc(arac)" title="Plaka Geçmişini Yönet">
+                                            <small class="text-muted" style="font-size: 0.75rem;">
+                                                @{
+                                                    var gecmisPlakalar = arac.PlakaGecmisi.Where(p => p.Plaka != arac.AktifPlaka).Select(p => p.Plaka).Distinct().ToList();
+                                                }
+                                                @if (gecmisPlakalar.Any())
+                                                {
+                                                    @string.Join(", ", gecmisPlakalar)
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">-</span>
+                                                }
+                                            </small>
+                                            <i class="bi bi-pencil-square ms-1 text-primary"></i>
+                                        </button>
                                     </td>
                                     <td><strong>@arac.Marka</strong> <span class="text-muted">@arac.Model</span></td>
                                     <td>
@@ -263,6 +276,146 @@
     </div>
 }
 
+<!-- Plaka Geçmişi Modal -->
+@if (showPlakaGecmisiModal && seciliArac != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-card-list me-2"></i>Plaka Geçmişi - @seciliArac.SaseNo
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="PlakaGecmisiKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Yeni Plaka Ekleme Formu -->
+                    <div class="card mb-3 bg-light">
+                        <div class="card-body">
+                            <h6><i class="bi bi-plus-circle me-2"></i>Yeni Plaka Ekle</h6>
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label small">Plaka *</label>
+                                    <input type="text" class="form-control form-control-sm" @bind="yeniPlaka.Plaka" 
+                                           style="text-transform: uppercase;" placeholder="34 ABC 123" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">Giriş Tarihi *</label>
+                                    <input type="date" class="form-control form-control-sm" @bind="yeniPlakaGirisTarihi" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">Çıkış Tarihi</label>
+                                    <input type="date" class="form-control form-control-sm" @bind="yeniPlakaCikisTarihi" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">İşlem Tipi</label>
+                                    <select class="form-select form-select-sm" @bind="yeniPlaka.IslemTipi">
+                                        @foreach (PlakaIslemTipi tip in Enum.GetValues(typeof(PlakaIslemTipi)))
+                                        {
+                                            <option value="@tip">@GetIslemTipiAdi(tip)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Açıklama</label>
+                                    <input type="text" class="form-control form-control-sm" @bind="yeniPlaka.Aciklama" placeholder="Açıklama..." />
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <button class="btn btn-success btn-sm" @onclick="YeniPlakaEkle" disabled="@(string.IsNullOrWhiteSpace(yeniPlaka.Plaka) || isPlakaKaydediliyor)">
+                                    @if (isPlakaKaydediliyor)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="bi bi-plus me-1"></i>Ekle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mevcut Plakalar Listesi -->
+                    <h6><i class="bi bi-list-ul me-2"></i>Plaka Geçmişi</h6>
+                    @if (plakaGecmisi == null || !plakaGecmisi.Any())
+                    {
+                        <div class="alert alert-info">Henüz plaka kaydı yok.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Plaka</th>
+                                        <th>Giriş Tarihi</th>
+                                        <th>Çıkış Tarihi</th>
+                                        <th>İşlem Tipi</th>
+                                        <th>Açıklama</th>
+                                        <th>Durum</th>
+                                        <th style="width: 80px;">İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var plaka in plakaGecmisi.OrderByDescending(p => p.GirisTarihi))
+                                    {
+                                        <tr class="@(plaka.Aktif ? "table-success" : "")">
+                                            <td>
+                                                <strong>@plaka.Plaka</strong>
+                                                @if (plaka.Plaka == seciliArac.AktifPlaka)
+                                                {
+                                                    <span class="badge bg-primary ms-1">Aktif</span>
+                                                }
+                                            </td>
+                                            <td>@plaka.GirisTarihi.ToString("dd.MM.yyyy")</td>
+                                            <td>
+                                                @if (plaka.CikisTarihi.HasValue)
+                                                {
+                                                    @plaka.CikisTarihi.Value.ToString("dd.MM.yyyy")
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-success">-</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary">@GetIslemTipiAdi(plaka.IslemTipi)</span>
+                                            </td>
+                                            <td><small>@plaka.Aciklama</small></td>
+                                            <td>
+                                                @if (plaka.Aktif)
+                                                {
+                                                    <span class="badge bg-success">Aktif</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Kapandı</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (plaka.Aktif && plaka.Plaka == seciliArac.AktifPlaka)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-warning" @onclick="() => PlakayiKapat(plaka)" title="Plakayı Kapat">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                }
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => PlakaSil(plaka)" title="Sil">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="PlakaGecmisiKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Arac> tumAraclar = new();
     private List<Arac> filtrelenmisAraclar = new();
@@ -275,6 +428,15 @@
     private bool isImporting = false;
     private IBrowserFile? importFile = null;
     private AracImportResult? importResult = null;
+
+    // Plaka Geçmişi
+    private bool showPlakaGecmisiModal = false;
+    private Arac? seciliArac;
+    private List<AracPlaka>? plakaGecmisi;
+    private AracPlaka yeniPlaka = new();
+    private DateTime yeniPlakaGirisTarihi = DateTime.Today;
+    private DateTime? yeniPlakaCikisTarihi;
+    private bool isPlakaKaydediliyor = false;
 
     // Filtre Değişkenleri
     private string filtreDurum = "Aktif";
@@ -478,6 +640,116 @@
             StateHasChanged();
         }
     }
+
+    #endregion
+
+    #region Plaka Geçmişi
+
+    private void PlakaGecmisiAc(Arac arac)
+    {
+        seciliArac = arac;
+        plakaGecmisi = new List<AracPlaka>(arac.PlakaGecmisi);
+        showPlakaGecmisiModal = true;
+    }
+
+    private void PlakaGecmisiKapat()
+    {
+        showPlakaGecmisiModal = false;
+        seciliArac = null;
+        plakaGecmisi = null;
+    }
+
+    private async Task YeniPlakaEkle()
+    {
+        if (seciliArac == null || string.IsNullOrWhiteSpace(yeniPlaka.Plaka)) return;
+
+        isPlakaKaydediliyor = true;
+        StateHasChanged();
+
+        try
+        {
+            yeniPlaka.AracId = seciliArac.Id;
+            yeniPlaka.GirisTarihi = yeniPlakaGirisTarihi;
+            yeniPlaka.CikisTarihi = yeniPlakaCikisTarihi;
+            yeniPlaka.Plaka = yeniPlaka.Plaka.Trim().ToUpperInvariant();
+            
+            var result = await AracService.AddPlakaToAracAsync(yeniPlaka);
+            if (result)
+            {
+                ToastService.ShowSuccess("Yeni plaka eklendi.");
+                await LoadData();
+                seciliArac = tumAraclar.FirstOrDefault(a => a.Id == seciliArac.Id);
+                plakaGecmisi = seciliArac != null ? new List<AracPlaka>(seciliArac.PlakaGecmisi) : null;
+                yeniPlaka = new AracPlaka();
+                yeniPlakaGirisTarihi = DateTime.Today;
+                yeniPlakaCikisTarihi = null;
+            }
+            else
+            {
+                ToastService.ShowError("Plaka eklenirken hata oluştu.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isPlakaKaydediliyor = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PlakaSil(AracPlaka plaka)
+    {
+        if (seciliArac == null) return;
+
+        var result = await AracService.DeletePlakaFromAracAsync(plaka.Id);
+        if (result)
+        {
+            ToastService.ShowSuccess("Plaka silindi.");
+            await LoadData();
+            seciliArac = tumAraclar.FirstOrDefault(a => a.Id == seciliArac.Id);
+            plakaGecmisi = seciliArac != null ? new List<AracPlaka>(seciliArac.PlakaGecmisi) : null;
+        }
+        else
+        {
+            ToastService.ShowError("Plaka silinirken hata oluştu.");
+        }
+    }
+
+    private async Task PlakayiKapat(AracPlaka plaka)
+    {
+        if (seciliArac == null) return;
+
+        try
+        {
+            plaka.CikisTarihi = DateTime.Today;
+            await AracService.ClosePlakaAsync(plaka.Id, DateTime.Today);
+            ToastService.ShowSuccess("Plaka kapatıldı.");
+            await LoadData();
+            // Modal'ı güncelle
+            seciliArac = tumAraclar.FirstOrDefault(a => a.Id == seciliArac.Id);
+            plakaGecmisi = seciliArac != null ? new List<AracPlaka>(seciliArac.PlakaGecmisi) : null;
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private string GetIslemTipiAdi(PlakaIslemTipi islemTipi) => islemTipi switch
+    {
+        PlakaIslemTipi.Alis => "Alış",
+        PlakaIslemTipi.Satis => "Satış",
+        PlakaIslemTipi.PlakaDevir => "Plaka Devir",
+        PlakaIslemTipi.Servis => "Servis",
+        PlakaIslemTipi.Kiralama => "Kiralama",
+        PlakaIslemTipi.KiralamaBitis => "Kiralama Bitiş",
+        PlakaIslemTipi.TramerKaydi => "Tramer Kaydı",
+        PlakaIslemTipi.Diger => "Diğer",
+        _ => islemTipi.ToString()
+    };
 
     #endregion
 }

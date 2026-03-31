@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -65,7 +65,7 @@ public class GlobalSearchService : IGlobalSearchService
     private async Task<List<SearchResultItem>> SearchAraclarAsync(string term, int max)
     {
         var araclar = await _context.Araclar
-            .Where(a => a.AktifPlaka.ToLower().Contains(term) ||
+            .Where(a => (a.AktifPlaka != null && a.AktifPlaka.ToLower().Contains(term)) ||
                        (a.Marka != null && a.Marka.ToLower().Contains(term)) ||
                        (a.Model != null && a.Model.ToLower().Contains(term)))
             .Take(max)
@@ -74,13 +74,13 @@ public class GlobalSearchService : IGlobalSearchService
         return araclar.Select(a => new SearchResultItem
         {
             Id = a.Id,
-            Baslik = a.AktifPlaka,
+            Baslik = a.AktifPlaka ?? string.Empty,
             AltBaslik = $"{a.Marka} {a.Model} - {a.AracTipi}",
-            Kategori = "Araç",
+            Kategori = "AraÃ§",
             Icon = "bi-truck",
             Url = $"/araclar/{a.Id}",
             BadgeClass = "bg-success",
-            Skor = CalculateScore(term, a.AktifPlaka, a.Marka ?? "")
+            Skor = CalculateScore(term, a.AktifPlaka ?? string.Empty, a.Marka ?? "")
         }).ToList();
     }
 
@@ -145,7 +145,7 @@ public class GlobalSearchService : IGlobalSearchService
             Id = g.Id,
             Baslik = g.GuzergahAdi,
             AltBaslik = $"{g.GuzergahKodu} - {g.Cari?.Unvan}",
-            Kategori = "Güzergah",
+            Kategori = "GÃ¼zergah",
             Icon = "bi-signpost-split",
             Url = $"/guzergahlar/{g.Id}",
             BadgeClass = "bg-secondary",
@@ -160,7 +160,7 @@ public class GlobalSearchService : IGlobalSearchService
         var primaryLower = primary.ToLower();
         var secondaryLower = secondary.ToLower();
 
-        // Tam eþleþme en yüksek skor
+        // Tam eÅŸleÅŸme en yÃ¼ksek skor
         if (primaryLower == termLower) score += 100;
         else if (primaryLower.StartsWith(termLower)) score += 80;
         else if (primaryLower.Contains(termLower)) score += 50;
@@ -176,12 +176,12 @@ public class GlobalSearchService : IGlobalSearchService
     {
         return gorev switch
         {
-            PersonelGorev.Sofor => "Þoför",
-            PersonelGorev.OfisCalisani => "Ofis Çalýþaný",
+            PersonelGorev.Sofor => "ÅžofÃ¶r",
+            PersonelGorev.OfisCalisani => "Ofis Ã‡alÄ±ÅŸanÄ±",
             PersonelGorev.Muhasebe => "Muhasebe",
-            PersonelGorev.Yonetici => "Yönetici",
+            PersonelGorev.Yonetici => "YÃ¶netici",
             PersonelGorev.Teknik => "Teknik",
-            PersonelGorev.Diger => "Diðer",
+            PersonelGorev.Diger => "DiÄŸer",
             _ => gorev.ToString()
         };
     }

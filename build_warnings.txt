@@ -1,0 +1,10 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  CRMFiloServis.Shared -> D:\calisma\Claude-Code\CRMFiloServis\CRMFiloServis.Shared\bin\Debug\net10.0\CRMFiloServis.Shared.dll
+  CRMFiloServis.Web -> D:\calisma\Claude-Code\CRMFiloServis\CRMFiloServis.Web\bin\Debug\net10.0\CRMFiloServis.Web.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.88

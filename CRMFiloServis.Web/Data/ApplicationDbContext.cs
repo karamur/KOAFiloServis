@@ -123,6 +123,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<ServisKaydi> ServisKayitlari { get; set; }
     public DbSet<ServisParca> ServisParcalar { get; set; }
 
+    // Personel Özlük Evrak Modülü
+    public DbSet<OzlukEvrakTanim> OzlukEvrakTanimlari { get; set; }
+    public DbSet<PersonelOzlukEvrak> PersonelOzlukEvraklar { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

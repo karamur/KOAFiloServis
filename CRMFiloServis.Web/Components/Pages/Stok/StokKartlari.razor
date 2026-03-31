@@ -311,8 +311,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        kategoriler = await StokService.GetKategorilerAsync();
-        tedarikciler = await CariService.GetAllAsync();
         await LoadDataAsync();
     }
 
@@ -321,6 +319,11 @@
         try
         {
             isLoading = true;
+            StateHasChanged();
+            
+            // Sıralı çağrılar - DbContext threading sorunu önlenir
+            kategoriler = await StokService.GetKategorilerAsync();
+            tedarikciler = await CariService.GetAllAsync();
             stokKartlari = await StokService.GetStokKartlariAsync(filtreStokTipi, filtreKategoriId, filtreAktif);
         }
         catch (Exception ex)
@@ -373,11 +376,12 @@
 
     private async Task SaveKart()
     {
-        if (editingKart == null) return;
+        if (editingKart == null || isSaving) return;
         
         try
         {
             isSaving = true;
+            StateHasChanged();
             
             if (editingKart.Id > 0)
             {
@@ -400,13 +404,19 @@
         finally
         {
             isSaving = false;
+            StateHasChanged();
         }
     }
 
     private async Task SilKart(StokKarti stok)
     {
+        if (isLoading) return;
+        
         try
         {
+            isLoading = true;
+            StateHasChanged();
+            
             await StokService.DeleteStokKartiAsync(stok.Id);
             ToastService.ShowSuccess("Stok kartı silindi");
             await LoadDataAsync();
@@ -414,6 +424,11 @@
         catch (Exception ex)
         {
             ToastService.ShowError($"Silme hatası: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
         }
     }
 

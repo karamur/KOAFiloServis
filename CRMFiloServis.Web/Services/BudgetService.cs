@@ -52,6 +52,23 @@ public class BudgetService : IBudgetService
             .ToListAsync();
     }
 
+    public async Task<List<BudgetOdeme>> GetDevirBekleyenOdemelerAsync(DateTime donemBaslangic, int? firmaId = null)
+    {
+        var baslangicUtc = DateTime.SpecifyKind(donemBaslangic.Date, DateTimeKind.Utc);
+
+        var query = _context.BudgetOdemeler
+            .Where(o => o.Durum == OdemeDurum.Bekliyor && o.OdemeTarihi < baslangicUtc);
+
+        if (firmaId.HasValue)
+            query = query.Where(o => o.FirmaId == firmaId.Value);
+
+        return await query
+            .Include(o => o.Firma)
+            .OrderBy(o => o.OdemeTarihi)
+            .ThenBy(o => o.MasrafKalemi)
+            .ToListAsync();
+    }
+
     public async Task<List<BudgetOdeme>> GetOdemelerByDateRangeAsync(DateTime baslangic, DateTime bitis)
     {
         var baslangicUtc = DateTime.SpecifyKind(baslangic.Date, DateTimeKind.Utc);

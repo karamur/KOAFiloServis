@@ -120,6 +120,41 @@
                             }
 
                             <hr />
+                            <h6 class="text-primary"><i class="bi bi-box-seam me-2"></i>Stok Masraf Aktarım Ayarları</h6>
+                            
+                            <div class="mb-3 form-check form-switch px-4">
+                                <input class="form-check-input" type="checkbox" id="stokMasraf" style="transform: scale(1.5); margin-left: -2em;" @bind="ayar.StokMasrafAktarimiOtomatik">
+                                <label class="form-check-label pt-1 ms-2" for="stokMasraf">Fatura Import'ta Mal/Sarf Malzeme Otomatik Masrafa Aktarılsın</label>
+                            </div>
+                            
+                            @if (ayar.StokMasrafAktarimiOtomatik)
+                            {
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Ticari Mal Masraf Hesabı</label>
+                                            <input type="text" class="form-control" @bind="ayar.MalMasrafHesabi" />
+                                            <div class="form-text">Ör: 740.99.001</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Sarf Malzeme Masraf Hesabı</label>
+                                            <input type="text" class="form-control" @bind="ayar.SarfMalzemeMasrafHesabi" />
+                                            <div class="form-text">Ör: 740.99.002</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Stok Çıkış Hesabı</label>
+                                            <input type="text" class="form-control" @bind="ayar.StokCikisHesabi" />
+                                            <div class="form-text">Ör: 153 (Ticari Mallar)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            <hr />
                             <h6 class="text-primary"><i class="bi bi-file-earmark-code me-2"></i>XML Import Ayarları</h6>
                             
                             <div class="mb-3 form-check form-switch px-4">
@@ -500,6 +535,10 @@
                 dbAyar.IndirilecekKdvHesabi = ayar.IndirilecekKdvHesabi;
                 dbAyar.TevkifatKdvHesabi = ayar.TevkifatKdvHesabi;
                 dbAyar.TevkifatAlacakHesabi = ayar.TevkifatAlacakHesabi;
+                dbAyar.StokMasrafAktarimiOtomatik = ayar.StokMasrafAktarimiOtomatik;
+                dbAyar.MalMasrafHesabi = ayar.MalMasrafHesabi;
+                dbAyar.SarfMalzemeMasrafHesabi = ayar.SarfMalzemeMasrafHesabi;
+                dbAyar.StokCikisHesabi = ayar.StokCikisHesabi;
                 dbAyar.XmlImportOtomatikCariOlustur = ayar.XmlImportOtomatikCariOlustur;
                 dbAyar.XmlImportOtomatikHesapKoduOlustur = ayar.XmlImportOtomatikHesapKoduOlustur;
                 context.Update(dbAyar);

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using CRMFiloServis.Shared.Entities;
 
@@ -12,14 +12,18 @@ namespace CRMFiloServis.Web.Services;
 public class AppAuthenticationStateProvider : AuthenticationStateProvider
 {
     private readonly ILogger<AppAuthenticationStateProvider> _logger;
-    
+    private readonly ICurrentUserAccessor _currentUserAccessor;
+
     private ClaimsPrincipal _currentUser = new ClaimsPrincipal(new ClaimsIdentity());
     private Kullanici? _aktifKullanici;
     private string? _sessionId;
 
-    public AppAuthenticationStateProvider(ILogger<AppAuthenticationStateProvider> logger)
+    public AppAuthenticationStateProvider(
+        ILogger<AppAuthenticationStateProvider> logger,
+        ICurrentUserAccessor currentUserAccessor)
     {
         _logger = logger;
+        _currentUserAccessor = currentUserAccessor;
     }
 
     public override Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -34,6 +38,9 @@ public class AppAuthenticationStateProvider : AuthenticationStateProvider
     {
         _aktifKullanici = kullanici;
         _sessionId = Guid.NewGuid().ToString("N");
+
+        // CurrentUserAccessor'a kullanıcı bilgisini set et (interceptor için)
+        _currentUserAccessor.SetCurrentUser(kullanici.KullaniciAdi, kullanici.AdSoyad);
 
         var claims = new List<Claim>
         {
@@ -71,10 +78,13 @@ public class AppAuthenticationStateProvider : AuthenticationStateProvider
     public void CikisYap()
     {
         var kullaniciAdi = _aktifKullanici?.KullaniciAdi;
-        
+
         _aktifKullanici = null;
         _currentUser = new ClaimsPrincipal(new ClaimsIdentity());
-        
+
+        // CurrentUserAccessor'dan kullanıcıyı temizle
+        _currentUserAccessor.ClearCurrentUser();
+
         _logger.LogInformation("Kullanici cikis yapti: {KullaniciAdi}", kullaniciAdi);
         
         _sessionId = null;

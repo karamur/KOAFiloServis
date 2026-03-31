@@ -32,7 +32,7 @@ public class FiloKomisyonService : IFiloKomisyonService
             query = query.Where(e => e.IsActive);
         }
 
-        return await query.OrderBy(e => e.KurumFirmaId).ThenBy(e => e.Guzergah.GuzergahAdi).ToListAsync();
+        return await query.OrderBy(e => e.KurumFirmaId).ThenBy(e => e.Guzergah.GuzergahAdi ?? string.Empty).ToListAsync();
     }
 
     public async Task<FiloGuzergahEslestirme?> GetEslestirmeByIdAsync(int id)

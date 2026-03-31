@@ -22,6 +22,7 @@ public class StokService : IStokService
         var query = _context.StokKartlari
             .Include(s => s.Kategori)
             .Include(s => s.VarsayilanTedarikci)
+            .Where(s => !s.IsDeleted)
             .AsQueryable();
 
         if (tip.HasValue)
@@ -43,14 +44,14 @@ public class StokService : IStokService
             .Include(s => s.VarsayilanTedarikci)
             .Include(s => s.MuhasebeHesap)
             .Include(s => s.Hareketler.OrderByDescending(h => h.IslemTarihi).Take(10))
-            .FirstOrDefaultAsync(s => s.Id == id);
+            .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
     }
 
     public async Task<StokKarti?> GetStokKartiByKodAsync(string kod)
     {
         return await _context.StokKartlari
             .Include(s => s.Kategori)
-            .FirstOrDefaultAsync(s => s.StokKodu == kod);
+            .FirstOrDefaultAsync(s => s.StokKodu == kod && !s.IsDeleted);
     }
 
     public async Task<StokKarti> CreateStokKartiAsync(StokKarti stok)
@@ -100,12 +101,14 @@ public class StokService : IStokService
 
     public async Task DeleteStokKartiAsync(int id)
     {
-        var stok = await _context.StokKartlari.FindAsync(id);
+        var stok = await _context.StokKartlari.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
         if (stok != null)
         {
             stok.IsDeleted = true;
             stok.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Stok karti silindi (soft delete): {StokKodu} - {StokAdi}", stok.StokKodu, stok.StokAdi);
         }
     }
 
@@ -229,6 +232,8 @@ public class StokService : IStokService
 
     public async Task<StokHareket> CreateStokHareketAsync(StokHareket hareket)
     {
+        hareket.Miktar = NormalizeMiktar(hareket.HareketTipi, hareket.Miktar);
+        hareket.IslemTarihi = DateTime.SpecifyKind(hareket.IslemTarihi, DateTimeKind.Utc);
         hareket.CreatedAt = DateTime.UtcNow;
         _context.StokHareketler.Add(hareket);
         await _context.SaveChangesAsync();
@@ -236,7 +241,113 @@ public class StokService : IStokService
         // Stok miktarini guncelle
         await UpdateStokMiktariAsync(hareket.StokKartiId);
 
+        await CreateMuhasebeFisiForStokHareketAsync(hareket);
+
         return hareket;
+    }
+
+    public async Task<StokHareket> CreateStokOperasyonAsync(StokOperasyonModel operasyon)
+    {
+        var stok = await _context.StokKartlari.FirstOrDefaultAsync(s => s.Id == operasyon.StokKartiId && !s.IsDeleted);
+        if (stok == null)
+            throw new Exception("Stok kartı bulunamadı");
+
+        decimal hareketMiktari = operasyon.HareketTipi switch
+        {
+            StokHareketTipi.SayimFazlasi => operasyon.Miktar - stok.MevcutStok,
+            StokHareketTipi.SayimNoksani => stok.MevcutStok - operasyon.Miktar,
+            _ => operasyon.Miktar
+        };
+
+        if (hareketMiktari <= 0)
+            throw new Exception("İşlem miktarı 0'dan büyük olmalıdır.");
+
+        var hareket = new StokHareket
+        {
+            StokKartiId = operasyon.StokKartiId,
+            IslemTarihi = operasyon.IslemTarihi,
+            HareketTipi = operasyon.HareketTipi,
+            Miktar = hareketMiktari,
+            BirimFiyat = operasyon.BirimFiyat > 0 ? operasyon.BirimFiyat : stok.AlisFiyati,
+            BelgeNo = operasyon.BelgeNo,
+            Aciklama = operasyon.Aciklama,
+            CariId = operasyon.CariId
+        };
+
+        return await CreateStokHareketAsync(hareket);
+    }
+
+    public async Task CreateUretimRecetesiAsync(UretimReceteModel recete)
+    {
+        if (recete.Kalemler == null || !recete.Kalemler.Any())
+            throw new Exception("Üretim reçetesi için en az bir bileşen seçilmelidir.");
+
+        if (recete.MamulMiktari <= 0)
+            throw new Exception("Mamul miktarı 0'dan büyük olmalıdır.");
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var hareketler = new List<StokHareket>();
+            decimal toplamMaliyet = 0;
+
+            foreach (var kalem in recete.Kalemler.Where(k => k.StokKartiId > 0 && k.Miktar > 0))
+            {
+                var stok = await _context.StokKartlari.FirstOrDefaultAsync(s => s.Id == kalem.StokKartiId && !s.IsDeleted);
+                if (stok == null)
+                    throw new Exception($"Bileşen stok bulunamadı: {kalem.StokKartiId}");
+
+                var birimFiyat = kalem.BirimFiyat > 0 ? kalem.BirimFiyat : stok.AlisFiyati;
+                toplamMaliyet += kalem.Miktar * birimFiyat;
+
+                hareketler.Add(new StokHareket
+                {
+                    StokKartiId = kalem.StokKartiId,
+                    HareketTipi = StokHareketTipi.UretimCikis,
+                    IslemTarihi = DateTime.SpecifyKind(recete.IslemTarihi, DateTimeKind.Utc),
+                    Miktar = -Math.Abs(kalem.Miktar),
+                    BirimFiyat = birimFiyat,
+                    BelgeNo = recete.BelgeNo,
+                    Aciklama = $"Üretim Reçetesi Çıkışı - {recete.Aciklama}",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            var mamulStok = await _context.StokKartlari.FirstOrDefaultAsync(s => s.Id == recete.MamulStokKartiId && !s.IsDeleted);
+            if (mamulStok == null)
+                throw new Exception("Mamul stok kartı bulunamadı");
+
+            var mamulBirimMaliyet = recete.MamulBirimMaliyeti > 0
+                ? recete.MamulBirimMaliyeti
+                : (toplamMaliyet / recete.MamulMiktari);
+
+            hareketler.Add(new StokHareket
+            {
+                StokKartiId = recete.MamulStokKartiId,
+                HareketTipi = StokHareketTipi.UretimGiris,
+                IslemTarihi = DateTime.SpecifyKind(recete.IslemTarihi, DateTimeKind.Utc),
+                Miktar = Math.Abs(recete.MamulMiktari),
+                BirimFiyat = mamulBirimMaliyet,
+                BelgeNo = recete.BelgeNo,
+                Aciklama = $"Üretim Reçetesi Girişi - {recete.Aciklama}",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            _context.StokHareketler.AddRange(hareketler);
+            await _context.SaveChangesAsync();
+
+            var stokIds = hareketler.Select(h => h.StokKartiId).Distinct().ToList();
+            foreach (var stokId in stokIds)
+                await UpdateStokMiktariAsync(stokId);
+
+            await CreateMuhasebeFisiForUretimAsync(recete, hareketler, toplamMaliyet);
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task UpdateStokMiktariAsync(int stokKartiId)
@@ -259,6 +370,201 @@ public class StokService : IStokService
             .Where(h => h.StokKartiId == stokKartiId)
             .SumAsync(h => h.Miktar);
     }
+
+    private static decimal NormalizeMiktar(StokHareketTipi hareketTipi, decimal miktar)
+    {
+        var abs = Math.Abs(miktar);
+        return hareketTipi switch
+        {
+            StokHareketTipi.Giris or
+            StokHareketTipi.SatisIade or
+            StokHareketTipi.SayimFazlasi or
+            StokHareketTipi.AracAlis or
+            StokHareketTipi.ServisGiris or
+            StokHareketTipi.UretimGiris => abs,
+            _ => -abs
+        };
+    }
+
+    private async Task CreateMuhasebeFisiForStokHareketAsync(StokHareket hareket)
+    {
+        var stok = await _context.StokKartlari
+            .Include(s => s.MuhasebeHesap)
+            .FirstOrDefaultAsync(s => s.Id == hareket.StokKartiId);
+
+        if (stok == null)
+            return;
+
+        var tutar = Math.Abs(hareket.Miktar) * hareket.BirimFiyat;
+        if (tutar <= 0)
+            return;
+
+        var stokHesap = await GetOrCreateMuhasebeHesapAsync(stok.MuhasebeHesap?.HesapKodu ?? "153", stok.StokAdi, HesapTuru.Aktif, HesapGrubu.DonenVarliklar, "15");
+
+        var karsiKod = hareket.HareketTipi switch
+        {
+            StokHareketTipi.SayimFazlasi => "397.99.999",
+            StokHareketTipi.SayimNoksani => "689.99.001",
+            StokHareketTipi.FireZayiat => "689.99.002",
+            StokHareketTipi.StokZarari => "689.99.003",
+            StokHareketTipi.Diger => "689.99.003",
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(karsiKod))
+            return;
+
+        var karsiHesap = await GetOrCreateMuhasebeHesapAsync(
+            karsiKod,
+            GetKarsiHesapAdi(hareket.HareketTipi),
+            hareket.HareketTipi == StokHareketTipi.SayimFazlasi ? HesapTuru.Pasif : HesapTuru.Gider,
+            hareket.HareketTipi == StokHareketTipi.SayimFazlasi ? HesapGrubu.KisaVadeliYabanciKaynaklar : HesapGrubu.MaliyetHesaplari,
+            hareket.HareketTipi == StokHareketTipi.SayimFazlasi ? "39" : "68");
+
+        var fis = new MuhasebeFis
+        {
+            FisNo = await GenerateNextStokFisNoAsync(),
+            FisTarihi = hareket.IslemTarihi,
+            FisTipi = FisTipi.Mahsup,
+            Aciklama = $"Stok Operasyonu - {stok.StokAdi} - {hareket.HareketTipi}",
+            ToplamBorc = tutar,
+            ToplamAlacak = tutar,
+            Durum = FisDurum.Onaylandi,
+            Kaynak = FisKaynak.Otomatik,
+            KaynakId = hareket.Id,
+            KaynakTip = "StokHareket",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var girisIslemi = hareket.Miktar > 0;
+        fis.Kalemler.Add(new MuhasebeFisKalem
+        {
+            HesapId = girisIslemi ? stokHesap.Id : karsiHesap.Id,
+            SiraNo = 1,
+            Borc = tutar,
+            Alacak = 0,
+            Tarih = hareket.IslemTarihi,
+            Aciklama = hareket.Aciklama,
+            CariId = hareket.CariId,
+            CreatedAt = DateTime.UtcNow
+        });
+        fis.Kalemler.Add(new MuhasebeFisKalem
+        {
+            HesapId = girisIslemi ? karsiHesap.Id : stokHesap.Id,
+            SiraNo = 2,
+            Borc = 0,
+            Alacak = tutar,
+            Tarih = hareket.IslemTarihi,
+            Aciklama = hareket.Aciklama,
+            CariId = hareket.CariId,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        _context.MuhasebeFisleri.Add(fis);
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task CreateMuhasebeFisiForUretimAsync(UretimReceteModel recete, List<StokHareket> hareketler, decimal toplamMaliyet)
+    {
+        if (toplamMaliyet <= 0)
+            return;
+
+        var mamul = await _context.StokKartlari.Include(s => s.MuhasebeHesap).FirstOrDefaultAsync(s => s.Id == recete.MamulStokKartiId);
+        if (mamul == null)
+            return;
+
+        var mamulHesap = await GetOrCreateMuhasebeHesapAsync(mamul.MuhasebeHesap?.HesapKodu ?? "152", mamul.StokAdi, HesapTuru.Aktif, HesapGrubu.DonenVarliklar, "15");
+        var uretimKarsi = await GetOrCreateMuhasebeHesapAsync("711.99.999", "Üretimden Mamule Aktarım", HesapTuru.Maliyet, HesapGrubu.MaliyetHesaplari, "71");
+
+        var fis = new MuhasebeFis
+        {
+            FisNo = await GenerateNextStokFisNoAsync(),
+            FisTarihi = DateTime.SpecifyKind(recete.IslemTarihi, DateTimeKind.Utc),
+            FisTipi = FisTipi.Mahsup,
+            Aciklama = $"Üretim Reçetesi - {mamul.StokAdi}",
+            ToplamBorc = toplamMaliyet,
+            ToplamAlacak = toplamMaliyet,
+            Durum = FisDurum.Onaylandi,
+            Kaynak = FisKaynak.Otomatik,
+            KaynakTip = "UretimRecete",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        fis.Kalemler.Add(new MuhasebeFisKalem
+        {
+            HesapId = mamulHesap.Id,
+            SiraNo = 1,
+            Borc = toplamMaliyet,
+            Alacak = 0,
+            Tarih = recete.IslemTarihi,
+            Aciklama = recete.Aciklama,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        fis.Kalemler.Add(new MuhasebeFisKalem
+        {
+            HesapId = uretimKarsi.Id,
+            SiraNo = 2,
+            Borc = 0,
+            Alacak = toplamMaliyet,
+            Tarih = recete.IslemTarihi,
+            Aciklama = recete.Aciklama,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        _context.MuhasebeFisleri.Add(fis);
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task<MuhasebeHesap> GetOrCreateMuhasebeHesapAsync(string hesapKodu, string hesapAdi, HesapTuru hesapTuru, HesapGrubu hesapGrubu, string ustKod)
+    {
+        var hesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu);
+        if (hesap != null)
+            return hesap;
+
+        var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
+        hesap = new MuhasebeHesap
+        {
+            HesapKodu = hesapKodu,
+            HesapAdi = hesapAdi,
+            HesapTuru = hesapTuru,
+            HesapGrubu = hesapGrubu,
+            UstHesapId = ustHesap?.Id,
+            Aktif = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.MuhasebeHesaplari.Add(hesap);
+        await _context.SaveChangesAsync();
+        return hesap;
+    }
+
+    private async Task<string> GenerateNextStokFisNoAsync()
+    {
+        var prefix = $"STK-{DateTime.UtcNow:yyyyMM}";
+        var sonFis = await _context.MuhasebeFisleri
+            .Where(f => f.FisNo.StartsWith(prefix))
+            .OrderByDescending(f => f.FisNo)
+            .FirstOrDefaultAsync();
+
+        var sira = 1;
+        if (sonFis != null)
+        {
+            var sonParca = sonFis.FisNo.Split('-').LastOrDefault();
+            if (int.TryParse(sonParca, out var no))
+                sira = no + 1;
+        }
+
+        return $"{prefix}-{sira:D4}";
+    }
+
+    private static string GetKarsiHesapAdi(StokHareketTipi hareketTipi) => hareketTipi switch
+    {
+        StokHareketTipi.SayimFazlasi => "Sayım Fazlası Karşılık Hesabı",
+        StokHareketTipi.SayimNoksani => "Sayım Noksanı Gideri",
+        StokHareketTipi.FireZayiat => "Fire ve Zayiat Gideri",
+        StokHareketTipi.StokZarari => "Stok Zarar Gideri",
+        _ => "Stok Zarar Gideri"
+    };
 
     #endregion
 

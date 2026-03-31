@@ -1,0 +1,620 @@
+﻿@page "/personel/ozluk-evrak"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IPersonelOzlukService OzlukService
+@inject ISoforService SoforService
+@inject IToastService ToastService
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Personel Özlük Evrak Checklist</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4><i class="bi bi-clipboard-check me-2"></i>Personel Özlük Evrak Checklist</h4>
+        <div class="btn-group">
+            <button class="btn btn-outline-success" @onclick="ExcelIndir">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel İndir
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="EvrakTanimModalAc">
+                <i class="bi bi-gear me-1"></i>Evrak Tanımları
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtreler -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="filtreGorev">
+                        <option value="">Tüm Görevler</option>
+                        @foreach (PersonelGorev gorev in Enum.GetValues<PersonelGorev>())
+                        {
+                            <option value="@((int)gorev)">@GetGorevAdi(gorev)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="filtreDurum">
+                        <option value="">Tüm Durumlar</option>
+                        <option value="eksik">Eksik Evraklı</option>
+                        <option value="tamam">Tamamlanmış</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm" placeholder="Personel ara..." 
+                           @bind="aramaMetni" @bind:event="oninput" />
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-sm btn-primary w-100" @onclick="LoadData">
+                        <i class="bi bi-search me-1"></i>Filtrele
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Özet Kartlar -->
+    @if (durumlar != null)
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center py-3">
+                        <h3 class="mb-0">@durumlar.Count</h3>
+                        <small>Toplam Personel</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center py-3">
+                        <h3 class="mb-0">@durumlar.Count(d => d.EksikEvrak == 0)</h3>
+                        <small>Dosyası Tam</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body text-center py-3">
+                        <h3 class="mb-0">@durumlar.Count(d => d.EksikEvrak > 0)</h3>
+                        <small>Eksik Evraklı</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center py-3">
+                        <h3 class="mb-0">@(durumlar.Count > 0 ? Math.Round(durumlar.Average(d => d.TamamlanmaYuzdesi), 1) : 0)%</h3>
+                        <small>Ortalama Tamamlanma</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Personel Listesi -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Personel</th>
+                                <th>Görev</th>
+                                <th class="text-center">Toplam</th>
+                                <th class="text-center">Tamam</th>
+                                <th class="text-center">Eksik</th>
+                                <th class="text-center">Durum</th>
+                                <th class="text-center" style="width: 150px;">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var durum in FiltrelenmisListe)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@durum.PersonelAdi</strong>
+                                        <br /><small class="text-muted">@durum.PersonelKodu</small>
+                                    </td>
+                                    <td>@GetGorevAdi(durum.Gorev)</td>
+                                    <td class="text-center">@durum.ToplamEvrak</td>
+                                    <td class="text-center text-success">@durum.TamamlananEvrak</td>
+                                    <td class="text-center text-danger">@durum.EksikEvrak</td>
+                                    <td class="text-center">
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar @(durum.TamamlanmaYuzdesi == 100 ? "bg-success" : durum.TamamlanmaYuzdesi >= 50 ? "bg-warning" : "bg-danger")" 
+                                                 role="progressbar" style="width: @durum.TamamlanmaYuzdesi%">
+                                                %@durum.TamamlanmaYuzdesi
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => DetayAc(durum.SoforId)"
+                                                title="Detay Görüntüle">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-success me-1" @onclick="() => PdfIndir(durum.SoforId)"
+                                                title="PDF İndir">
+                                            <i class="bi bi-file-pdf"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Detay Modal -->
+@if (showDetayModal && seciliDurum != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-clipboard-check me-2"></i>
+                        @seciliDurum.PersonelAdi - Özlük Evrak Checklist
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="DetayKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Özet -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="card border-primary">
+                                <div class="card-body text-center py-2">
+                                    <h4 class="mb-0 text-primary">@seciliDurum.ToplamEvrak</h4>
+                                    <small>Toplam Evrak</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center py-2">
+                                    <h4 class="mb-0 text-success">@seciliDurum.TamamlananEvrak</h4>
+                                    <small>Tamamlanan</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-danger">
+                                <div class="card-body text-center py-2">
+                                    <h4 class="mb-0 text-danger">@seciliDurum.EksikEvrak</h4>
+                                    <small>Eksik</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-info">
+                                <div class="card-body text-center py-2">
+                                    <h4 class="mb-0 text-info">%@seciliDurum.TamamlanmaYuzdesi</h4>
+                                    <small>Tamamlanma</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Evrak Listesi Kategorilere Göre -->
+                    @foreach (var kategori in seciliDurum.Evraklar.GroupBy(e => e.Kategori).OrderBy(g => g.Key))
+                    {
+                        <div class="card mb-3">
+                            <div class="card-header bg-light py-2">
+                                <strong><i class="bi bi-folder me-1"></i>@GetKategoriAdi(kategori.Key)</strong>
+                                <span class="badge @(kategori.All(e => e.Tamamlandi) ? "bg-success" : "bg-warning") float-end">
+                                    @kategori.Count(e => e.Tamamlandi) / @kategori.Count()
+                                </span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm mb-0">
+                                    <tbody>
+                                        @foreach (var evrak in kategori.OrderBy(e => e.EvrakAdi))
+                                        {
+                                            <tr class="@(evrak.Tamamlandi ? "table-success" : "")">
+                                                <td style="width: 40px;">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" 
+                                                               checked="@evrak.Tamamlandi"
+                                                               @onchange="e => EvrakDurumDegistir(seciliDurum.SoforId, evrak.EvrakTanimId, (bool)e.Value!)" />
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    @evrak.EvrakAdi
+                                                    @if (evrak.Zorunlu)
+                                                    {
+                                                        <span class="badge bg-danger ms-1">Zorunlu</span>
+                                                    }
+                                                    @if (!string.IsNullOrEmpty(evrak.Aciklama))
+                                                    {
+                                                        <br /><small class="text-muted">@evrak.Aciklama</small>
+                                                    }
+                                                </td>
+                                                <td class="text-center" style="width: 100px;">
+                                                    @if (evrak.Tamamlandi)
+                                                    {
+                                                        <span class="badge bg-success">
+                                                            <i class="bi bi-check-circle me-1"></i>Tamam
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary">
+                                                            <i class="bi bi-x-circle me-1"></i>Eksik
+                                                        </span>
+                                                    }
+                                                </td>
+                                                <td class="text-end text-muted" style="width: 100px;">
+                                                    @if (evrak.TamamlanmaTarihi.HasValue)
+                                                    {
+                                                        <small>@evrak.TamamlanmaTarihi.Value.ToString("dd.MM.yyyy")</small>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" @onclick="() => PdfIndir(seciliDurum.SoforId)">
+                        <i class="bi bi-file-pdf me-1"></i>PDF İndir
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="DetayKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Evrak Tanım Modal -->
+@if (showTanimModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-gear me-2"></i>Evrak Tanımları
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="TanimModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-end mb-3">
+                        <button class="btn btn-sm btn-success" @onclick="YeniEvrakTanimEkle">
+                            <i class="bi bi-plus-lg me-1"></i>Yeni Evrak Ekle
+                        </button>
+                    </div>
+
+                    @if (evrakTanimlari != null)
+                    {
+                        @foreach (var kategori in evrakTanimlari.GroupBy(e => e.Kategori).OrderBy(g => g.Key))
+                        {
+                            <div class="card mb-2">
+                                <div class="card-header bg-light py-2">
+                                    <strong>@GetKategoriAdi(kategori.Key)</strong>
+                                </div>
+                                <ul class="list-group list-group-flush">
+                                    @foreach (var tanim in kategori.OrderBy(t => t.SiraNo))
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                @tanim.EvrakAdi
+                                                @if (tanim.Zorunlu)
+                                                {
+                                                    <span class="badge bg-danger ms-1">Zorunlu</span>
+                                                }
+                                                @if (!tanim.Aktif)
+                                                {
+                                                    <span class="badge bg-secondary ms-1">Pasif</span>
+                                                }
+                                            </div>
+                                            <div>
+                                                <button class="btn btn-sm btn-outline-primary me-1" 
+                                                        @onclick="() => EvrakTanimDuzenle(tanim)">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" 
+                                                        @onclick="() => EvrakTanimSil(tanim.Id)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="TanimModalKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Evrak Tanım Düzenle Modal -->
+@if (showTanimDuzenleModal && duzenlenecekTanim != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil me-2"></i>Evrak Tanımı @(duzenlenecekTanim.Id == 0 ? "Ekle" : "Düzenle")
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="TanimDuzenleKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Evrak Adı *</label>
+                        <input type="text" class="form-control" @bind="duzenlenecekTanim.EvrakAdi" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kategori</label>
+                        <select class="form-select" @bind="duzenlenecekTanim.Kategori">
+                            @foreach (OzlukEvrakKategori kat in Enum.GetValues<OzlukEvrakKategori>())
+                            {
+                                <option value="@kat">@GetKategoriAdi(kat)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Açıklama</label>
+                        <textarea class="form-control" rows="2" @bind="duzenlenecekTanim.Aciklama"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Sıra No</label>
+                                <input type="number" class="form-control" @bind="duzenlenecekTanim.SiraNo" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Geçerli Görevler</label>
+                                <input type="text" class="form-control" @bind="duzenlenecekTanim.GecerliGorevler" 
+                                       placeholder="Boş: Tümü, örn: 1,2" />
+                                <small class="text-muted">1:Şoför, 2:Ofis, 3:Muhasebe, 4:Yönetici</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="duzenlenecekTanim.Zorunlu" id="zorunluCheck" />
+                                <label class="form-check-label" for="zorunluCheck">Zorunlu</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="duzenlenecekTanim.Aktif" id="aktifCheck" />
+                                <label class="form-check-label" for="aktifCheck">Aktif</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="EvrakTanimKaydet">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="TanimDuzenleKapat">İptal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<PersonelOzlukEvrakDurum>? durumlar;
+    private List<OzlukEvrakTanim>? evrakTanimlari;
+    private PersonelOzlukEvrakDurum? seciliDurum;
+    private OzlukEvrakTanim? duzenlenecekTanim;
+
+    private bool showDetayModal;
+    private bool showTanimModal;
+    private bool showTanimDuzenleModal;
+
+    private string filtreGorev = "";
+    private string filtreDurum = "";
+    private string aramaMetni = "";
+
+    private IEnumerable<PersonelOzlukEvrakDurum> FiltrelenmisListe => durumlar?
+        .Where(d => string.IsNullOrEmpty(filtreGorev) || ((int)d.Gorev).ToString() == filtreGorev)
+        .Where(d => string.IsNullOrEmpty(filtreDurum) || 
+                    (filtreDurum == "eksik" && d.EksikEvrak > 0) || 
+                    (filtreDurum == "tamam" && d.EksikEvrak == 0))
+        .Where(d => string.IsNullOrEmpty(aramaMetni) || 
+                    d.PersonelAdi.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+                    d.PersonelKodu.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase))
+        ?? Enumerable.Empty<PersonelOzlukEvrakDurum>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        durumlar = await OzlukService.GetTumPersonelEvrakDurumlariAsync();
+    }
+
+    private async Task DetayAc(int soforId)
+    {
+        seciliDurum = await OzlukService.GetPersonelEvrakDurumuAsync(soforId);
+        showDetayModal = true;
+    }
+
+    private void DetayKapat()
+    {
+        showDetayModal = false;
+        seciliDurum = null;
+    }
+
+    private async Task EvrakDurumDegistir(int soforId, int evrakTanimId, bool tamamlandi)
+    {
+        try
+        {
+            await OzlukService.EvrakIsaretle(soforId, evrakTanimId, tamamlandi);
+            seciliDurum = await OzlukService.GetPersonelEvrakDurumuAsync(soforId);
+            await LoadData();
+            ToastService.ShowSuccess(tamamlandi ? "Evrak tamamlandı olarak işaretlendi." : "Evrak işareti kaldırıldı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task PdfIndir(int soforId)
+    {
+        try
+        {
+            var bytes = await OzlukService.ExportChecklistPdfAsync(soforId);
+            var personel = durumlar?.FirstOrDefault(d => d.SoforId == soforId);
+            var dosyaAdi = $"ozluk_checklist_{personel?.PersonelKodu ?? soforId.ToString()}_{DateTime.Now:yyyyMMdd}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("PDF indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task ExcelIndir()
+    {
+        try
+        {
+            var bytes = await OzlukService.ExportTumChecklistExcelAsync();
+            var dosyaAdi = $"personel_ozluk_checklist_{DateTime.Now:yyyyMMdd}.xlsx";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Excel indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task EvrakTanimModalAc()
+    {
+        evrakTanimlari = await OzlukService.GetEvrakTanimlariAsync();
+        showTanimModal = true;
+    }
+
+    private void TanimModalKapat()
+    {
+        showTanimModal = false;
+    }
+
+    private void YeniEvrakTanimEkle()
+    {
+        duzenlenecekTanim = new OzlukEvrakTanim { Aktif = true, Zorunlu = true, SiraNo = 1 };
+        showTanimDuzenleModal = true;
+    }
+
+    private void EvrakTanimDuzenle(OzlukEvrakTanim tanim)
+    {
+        duzenlenecekTanim = new OzlukEvrakTanim
+        {
+            Id = tanim.Id,
+            EvrakAdi = tanim.EvrakAdi,
+            Aciklama = tanim.Aciklama,
+            Kategori = tanim.Kategori,
+            Zorunlu = tanim.Zorunlu,
+            SiraNo = tanim.SiraNo,
+            Aktif = tanim.Aktif,
+            GecerliGorevler = tanim.GecerliGorevler
+        };
+        showTanimDuzenleModal = true;
+    }
+
+    private void TanimDuzenleKapat()
+    {
+        showTanimDuzenleModal = false;
+        duzenlenecekTanim = null;
+    }
+
+    private async Task EvrakTanimKaydet()
+    {
+        if (duzenlenecekTanim == null || string.IsNullOrWhiteSpace(duzenlenecekTanim.EvrakAdi))
+        {
+            ToastService.ShowWarning("Evrak adı zorunludur.");
+            return;
+        }
+
+        try
+        {
+            if (duzenlenecekTanim.Id == 0)
+            {
+                await OzlukService.CreateEvrakTanimAsync(duzenlenecekTanim);
+                ToastService.ShowSuccess("Evrak tanımı eklendi.");
+            }
+            else
+            {
+                await OzlukService.UpdateEvrakTanimAsync(duzenlenecekTanim);
+                ToastService.ShowSuccess("Evrak tanımı güncellendi.");
+            }
+
+            evrakTanimlari = await OzlukService.GetEvrakTanimlariAsync();
+            TanimDuzenleKapat();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task EvrakTanimSil(int id)
+    {
+        try
+        {
+            await OzlukService.DeleteEvrakTanimAsync(id);
+            evrakTanimlari = await OzlukService.GetEvrakTanimlariAsync();
+            ToastService.ShowSuccess("Evrak tanımı silindi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private static string GetGorevAdi(PersonelGorev gorev) => gorev switch
+    {
+        PersonelGorev.Sofor => "Şoför",
+        PersonelGorev.OfisCalisani => "Ofis Çalışanı",
+        PersonelGorev.Muhasebe => "Muhasebe",
+        PersonelGorev.Yonetici => "Yönetici",
+        PersonelGorev.Teknik => "Teknik",
+        PersonelGorev.Diger => "Diğer",
+        _ => "Bilinmiyor"
+    };
+
+    private static string GetKategoriAdi(OzlukEvrakKategori kategori) => kategori switch
+    {
+        OzlukEvrakKategori.Genel => "Genel",
+        OzlukEvrakKategori.KimlikBelgeleri => "Kimlik Belgeleri",
+        OzlukEvrakKategori.EgitimBelgeleri => "Eğitim Belgeleri",
+        OzlukEvrakKategori.SaglikBelgeleri => "Sağlık Belgeleri",
+        OzlukEvrakKategori.SoforBelgeleri => "Şoför Belgeleri",
+        OzlukEvrakKategori.SGKBelgeleri => "SGK Belgeleri",
+        OzlukEvrakKategori.IseGirisBelgeleri => "İşe Giriş Belgeleri",
+        OzlukEvrakKategori.Diger => "Diğer",
+        _ => "Bilinmiyor"
+    };
+}

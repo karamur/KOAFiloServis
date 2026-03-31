@@ -148,23 +148,31 @@ public class AracService : IAracService
         
         try
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             // Navigation property'leri temizle (tracking sorununu önle)
             arac.PlakaGecmisi = new List<AracPlaka>();
             arac.Masraflar = new List<AracMasraf>();
             arac.ServisCalismalari = new List<ServisCalisma>();
             arac.KiralikCari = null;
             arac.KomisyoncuCari = null;
+            arac.KiralikCariId = arac.KiralikCariId <= 0 ? null : arac.KiralikCariId;
+            arac.KomisyoncuCariId = arac.KomisyoncuCariId <= 0 ? null : arac.KomisyoncuCariId;
+            arac.SaseNo = arac.SaseNo.Trim().ToUpperInvariant();
+            plaka = plaka.Trim().ToUpperInvariant();
+            arac.TrafikSigortaBitisTarihi = arac.TrafikSigortaBitisTarihi?.Date;
+            arac.KaskoBitisTarihi = arac.KaskoBitisTarihi?.Date;
+            arac.MuayeneBitisTarihi = arac.MuayeneBitisTarihi?.Date;
+            arac.SatisaAcilmaTarihi = arac.SatisaAcilmaTarihi?.Date;
             
             // Araç oluştur
             arac.AktifPlaka = plaka;
             arac.CreatedAt = DateTime.UtcNow;
             _context.Araclar.Add(arac);
-            await _context.SaveChangesAsync();
-            
+
             // İlk plaka kaydını oluştur
             var aracPlaka = new AracPlaka
             {
-                AracId = arac.Id,
                 Plaka = plaka,
                 GirisTarihi = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc),
                 IslemTipi = islemTipi,
@@ -173,8 +181,10 @@ public class AracService : IAracService
                 Aciklama = aciklama ?? $"Araç ilk kayıt - {islemTipi}",
                 CreatedAt = DateTime.UtcNow
             };
-            _context.AracPlakalar.Add(aracPlaka);
+
+            arac.PlakaGecmisi.Add(aracPlaka);
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             
             return arac;
         }
@@ -197,6 +207,13 @@ public class AracService : IAracService
             var existing = await _context.Araclar.FindAsync(arac.Id);
             if (existing == null)
                 throw new InvalidOperationException("Araç bulunamadı.");
+
+            existing.KiralikCariId = arac.KiralikCariId <= 0 ? null : arac.KiralikCariId;
+            existing.KomisyoncuCariId = arac.KomisyoncuCariId <= 0 ? null : arac.KomisyoncuCariId;
+            existing.TrafikSigortaBitisTarihi = arac.TrafikSigortaBitisTarihi?.Date;
+            existing.KaskoBitisTarihi = arac.KaskoBitisTarihi?.Date;
+            existing.MuayeneBitisTarihi = arac.MuayeneBitisTarihi?.Date;
+            existing.SatisaAcilmaTarihi = arac.SatisaAcilmaTarihi?.Date;
             
             // Sadece değiştirilebilir alanları güncelle
             existing.Marka = arac.Marka;
@@ -207,25 +224,19 @@ public class AracService : IAracService
             existing.KoltukSayisi = arac.KoltukSayisi;
             existing.AracTipi = arac.AracTipi;
             existing.SahiplikTipi = arac.SahiplikTipi;
-            existing.KiralikCariId = arac.KiralikCariId;
             existing.GunlukKiraBedeli = arac.GunlukKiraBedeli;
             existing.AylikKiraBedeli = arac.AylikKiraBedeli;
             existing.SeferBasinaKiraBedeli = arac.SeferBasinaKiraBedeli;
             existing.KiraHesaplamaTipi = arac.KiraHesaplamaTipi;
             existing.KomisyonVar = arac.KomisyonVar;
-            existing.KomisyoncuCariId = arac.KomisyoncuCariId;
             existing.KomisyonOrani = arac.KomisyonOrani;
             existing.SabitKomisyonTutari = arac.SabitKomisyonTutari;
             existing.KomisyonHesaplamaTipi = arac.KomisyonHesaplamaTipi;
-            existing.TrafikSigortaBitisTarihi = arac.TrafikSigortaBitisTarihi;
-            existing.KaskoBitisTarihi = arac.KaskoBitisTarihi;
-            existing.MuayeneBitisTarihi = arac.MuayeneBitisTarihi;
             existing.KmDurumu = arac.KmDurumu;
             existing.Aktif = arac.Aktif;
             existing.Notlar = arac.Notlar;
             existing.SatisaAcik = arac.SatisaAcik;
             existing.SatisFiyati = arac.SatisFiyati;
-            existing.SatisaAcilmaTarihi = arac.SatisaAcilmaTarihi;
             existing.SatisAciklamasi = arac.SatisAciklamasi;
             existing.UpdatedAt = DateTime.UtcNow;
             
@@ -308,6 +319,67 @@ public class AracService : IAracService
         
         await _context.SaveChangesAsync();
         return yeniPlakaKaydi;
+    }
+
+    public async Task<bool> AddPlakaToAracAsync(AracPlaka yeniPlaka)
+    {
+        if (yeniPlaka.AracId <= 0 || string.IsNullOrWhiteSpace(yeniPlaka.Plaka))
+            return false;
+
+        var plakaText = yeniPlaka.Plaka.Trim().ToUpperInvariant();
+        if (await PlakaMevcutMu(plakaText, yeniPlaka.Id > 0 ? yeniPlaka.Id : null))
+            throw new InvalidOperationException($"Bu plaka ({plakaText}) başka bir araçta aktif olarak kullanılıyor.");
+
+        var arac = await _context.Araclar.FindAsync(yeniPlaka.AracId);
+        if (arac == null)
+            throw new InvalidOperationException("Araç bulunamadı.");
+
+        var girisTarihi = yeniPlaka.GirisTarihi == default ? DateTime.Today : yeniPlaka.GirisTarihi;
+        var yeniKayit = new AracPlaka
+        {
+            AracId = yeniPlaka.AracId,
+            Plaka = plakaText,
+            GirisTarihi = girisTarihi,
+            CikisTarihi = yeniPlaka.CikisTarihi,
+            IslemTipi = yeniPlaka.IslemTipi,
+            IslemTutari = yeniPlaka.IslemTutari,
+            CariId = yeniPlaka.CariId,
+            Aciklama = yeniPlaka.Aciklama,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.AracPlakalar.Add(yeniKayit);
+        await _context.SaveChangesAsync();
+
+        await GuncelleAktifPlaka(yeniPlaka.AracId);
+        return true;
+    }
+
+    public async Task<bool> DeletePlakaFromAracAsync(int aracPlakaId)
+    {
+        var plakaKaydi = await _context.AracPlakalar.FirstOrDefaultAsync(ap => ap.Id == aracPlakaId && !ap.IsDeleted);
+        if (plakaKaydi == null)
+            return false;
+
+        plakaKaydi.IsDeleted = true;
+        plakaKaydi.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        await GuncelleAktifPlaka(plakaKaydi.AracId);
+        return true;
+    }
+
+    public async Task ClosePlakaAsync(int aracPlakaId, DateTime cikisTarihi)
+    {
+        var plakaKaydi = await _context.AracPlakalar.FirstOrDefaultAsync(ap => ap.Id == aracPlakaId && !ap.IsDeleted);
+        if (plakaKaydi == null)
+            throw new InvalidOperationException("Plaka kaydı bulunamadı.");
+
+        plakaKaydi.CikisTarihi = cikisTarihi;
+        plakaKaydi.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        await GuncelleAktifPlaka(plakaKaydi.AracId);
     }
     
     public async Task PlakaCikis(int aracPlakaId, PlakaIslemTipi cikisIslemTipi, 
@@ -553,8 +625,13 @@ public class AracService : IAracService
         using var workbook = new ClosedXML.Excel.XLWorkbook();
         var ws = workbook.Worksheets.Add("Araclar");
         
-        // Başlıklar
-        var headers = new[] { "Şase No *", "Plaka", "Marka", "Model", "Model Yılı", "Motor No", "Renk", "Koltuk Sayısı", "Araç Tipi", "KM" };
+        var headers = new[]
+        {
+            "Şase No *", "Plaka", "Marka", "Model", "Model Yılı", "Motor No", "Renk", "Koltuk Sayısı",
+            "Araç Tipi", "Sahiplik Tipi", "KM", "Muayene Bitiş Tarihi", "Trafik Sigortası Bitiş Tarihi",
+            "Kasko Bitiş Tarihi", "Aktif", "Notlar"
+        };
+
         for (int i = 0; i < headers.Length; i++)
         {
             ws.Cell(1, i + 1).Value = headers[i];
@@ -562,7 +639,6 @@ public class AracService : IAracService
             ws.Cell(1, i + 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGreen;
         }
         
-        // Örnek veriler
         ws.Cell(2, 1).Value = "WVWZZZ3CZWE123456";
         ws.Cell(2, 2).Value = "34ABC123";
         ws.Cell(2, 3).Value = "VOLKSWAGEN";
@@ -572,15 +648,24 @@ public class AracService : IAracService
         ws.Cell(2, 7).Value = "BEYAZ";
         ws.Cell(2, 8).Value = 9;
         ws.Cell(2, 9).Value = "Minibüs";
-        ws.Cell(2, 10).Value = 15000;
+        ws.Cell(2, 10).Value = "Özmal";
+        ws.Cell(2, 11).Value = 15000;
+        ws.Cell(2, 12).Value = DateTime.Today.AddYears(1);
+        ws.Cell(2, 13).Value = DateTime.Today.AddYears(1);
+        ws.Cell(2, 14).Value = DateTime.Today.AddYears(1);
+        ws.Cell(2, 15).Value = "Evet";
+        ws.Cell(2, 16).Value = "Excel şablon örnek kaydı";
+
+        ws.Range(2, 12, 2, 14).Style.DateFormat.Format = "dd.MM.yyyy";
         
-        // Açıklamalar
         ws.Cell(5, 1).Value = "AÇIKLAMALAR:";
         ws.Cell(5, 1).Style.Font.Bold = true;
         ws.Cell(6, 1).Value = "* Şase No: Zorunlu, benzersiz olmalı (17 karakter)";
         ws.Cell(7, 1).Value = "* Araç Tipi: Minibüs, Midibüs, Otobüs, Otomobil, Panelvan";
-        ws.Cell(8, 1).Value = "* Model Yılı: 4 haneli (örn: 2023)";
-        ws.Cell(9, 1).Value = "* Plaka: Opsiyonel, varsa araç bu plaka ile kaydedilir";
+        ws.Cell(8, 1).Value = "* Sahiplik Tipi: Özmal, Kiralık, Komisyon, Diğer";
+        ws.Cell(9, 1).Value = "* Tarih alanları: GG.AA.YYYY formatında";
+        ws.Cell(10, 1).Value = "* Aktif: Evet/Hayır, Aktif/Pasif, True/False";
+        ws.Cell(11, 1).Value = "* Plaka opsiyoneldir, varsa aktif plaka olarak kaydedilir";
         
         ws.Columns().AdjustToContents();
         
@@ -600,26 +685,66 @@ public class AracService : IAracService
             var ws = workbook.Worksheets.First();
             
             var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+            var lastColumn = ws.Row(1).LastCellUsed()?.Address.ColumnNumber ?? 0;
+            var kolonlar = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            // Debug: Başlıkları logla
+            for (int col = 1; col <= lastColumn; col++)
+            {
+                var rawHeader = ws.Cell(1, col).GetString();
+                var header = NormalizeExcelHeader(rawHeader);
+                if (!string.IsNullOrWhiteSpace(header) && !kolonlar.ContainsKey(header))
+                {
+                    kolonlar[header] = col;
+                }
+            }
+
+            // Şase No kolonunu bul - birden fazla varyant dene
+            int? saseNoKolon = null;
+            var saseNoVariants = new[] { "SASE NO", "SASENO", "ŞASE NO", "ŞASİ NO" };
+            foreach (var variant in saseNoVariants)
+            {
+                var normalizedVariant = NormalizeExcelHeader(variant);
+                if (kolonlar.TryGetValue(normalizedVariant, out var col))
+                {
+                    saseNoKolon = col;
+                    break;
+                }
+            }
+
+            if (!saseNoKolon.HasValue)
+            {
+                result.Errors.Add("Şase No kolonu bulunamadı. Lütfen şablonu kontrol edin.");
+                result.Success = false;
+                return result;
+            }
+
             var mevcutSaseNolar = await _context.Araclar.Where(a => !a.IsDeleted).Select(a => a.SaseNo.ToUpper()).ToListAsync();
             
             for (int row = 2; row <= lastRow; row++)
             {
                 try
                 {
-                    var saseNo = ws.Cell(row, 1).GetString()?.Trim().ToUpper();
+                    var saseNo = ws.Cell(row, saseNoKolon.Value).GetString()?.Trim().ToUpper();
                     
                     if (string.IsNullOrWhiteSpace(saseNo))
                         continue;
                     
-                    var plaka = ws.Cell(row, 2).GetString()?.Trim().ToUpper();
-                    var marka = ws.Cell(row, 3).GetString()?.Trim();
-                    var model = ws.Cell(row, 4).GetString()?.Trim();
-                    var modelYiliStr = ws.Cell(row, 5).GetString()?.Trim();
-                    var motorNo = ws.Cell(row, 6).GetString()?.Trim();
-                    var renk = ws.Cell(row, 7).GetString()?.Trim();
-                    var koltukSayisiStr = ws.Cell(row, 8).GetString()?.Trim();
-                    var aracTipiStr = ws.Cell(row, 9).GetString()?.Trim();
-                    var kmStr = ws.Cell(row, 10).GetString()?.Trim();
+                    // Açıklama satırlarını atla
+                    if (saseNo.StartsWith("*") || saseNo.StartsWith("AÇIKLAMA") || saseNo.Length < 5)
+                        continue;
+                    
+                    var plaka = GetCellValue(ws, row, kolonlar, "PLAKA")?.ToUpper();
+                    var marka = GetCellValue(ws, row, kolonlar, "MARKA");
+                    var model = GetCellValue(ws, row, kolonlar, "MODEL");
+                    var modelYiliStr = GetCellValue(ws, row, kolonlar, "MODEL YILI");
+                    var motorNo = GetCellValue(ws, row, kolonlar, "MOTOR NO");
+                    var renk = GetCellValue(ws, row, kolonlar, "RENK");
+                    var koltukSayisiStr = GetCellValue(ws, row, kolonlar, "KOLTUK SAYISI");
+                    var aracTipiStr = GetCellValue(ws, row, kolonlar, "ARAC TIPI");
+                    var sahiplikTipiStr = GetCellValue(ws, row, kolonlar, "SAHIPLIK TIPI");
+                    var kmStr = GetCellValue(ws, row, kolonlar, "KM");
+                    var notlar = GetCellValue(ws, row, kolonlar, "NOTLAR");
                     
                     int? modelYili = null;
                     if (int.TryParse(modelYiliStr, out var y)) modelYili = y;
@@ -631,11 +756,14 @@ public class AracService : IAracService
                     if (int.TryParse(kmStr?.Replace(".", "").Replace(",", ""), out var kmVal)) km = kmVal;
                     
                     var aracTipi = ParseAracTipi(aracTipiStr);
+                    var sahiplikTipi = ParseAracSahiplikTipi(sahiplikTipiStr);
+                    var muayeneBitis = GetCellDateValue(ws, row, kolonlar, "MUAYENE BITIS TARIHI");
+                    var trafikSigortaBitis = GetCellDateValue(ws, row, kolonlar, "TRAFIK SIGORTASI BITIS TARIHI");
+                    var kaskoBitis = GetCellDateValue(ws, row, kolonlar, "KASKO BITIS TARIHI");
+                    var aktif = GetCellBoolValue(ws, row, kolonlar, "AKTIF");
                     
-                    // Mevcut araç var mı?
                     if (mevcutSaseNolar.Contains(saseNo))
                     {
-                        // Güncelle
                         var mevcutArac = await _context.Araclar.FirstOrDefaultAsync(a => a.SaseNo.ToUpper() == saseNo && !a.IsDeleted);
                         if (mevcutArac != null)
                         {
@@ -646,14 +774,19 @@ public class AracService : IAracService
                             if (!string.IsNullOrWhiteSpace(renk)) mevcutArac.Renk = renk;
                             if (koltukSayisi > 0) mevcutArac.KoltukSayisi = koltukSayisi;
                             if (km.HasValue) mevcutArac.KmDurumu = km;
-                            mevcutArac.AracTipi = aracTipi;
+                            if (!string.IsNullOrWhiteSpace(aracTipiStr)) mevcutArac.AracTipi = aracTipi;
+                            if (!string.IsNullOrWhiteSpace(sahiplikTipiStr)) mevcutArac.SahiplikTipi = sahiplikTipi;
+                            if (muayeneBitis.HasValue) mevcutArac.MuayeneBitisTarihi = muayeneBitis.Value;
+                            if (trafikSigortaBitis.HasValue) mevcutArac.TrafikSigortaBitisTarihi = trafikSigortaBitis.Value;
+                            if (kaskoBitis.HasValue) mevcutArac.KaskoBitisTarihi = kaskoBitis.Value;
+                            if (aktif.HasValue) mevcutArac.Aktif = aktif.Value;
+                            if (!string.IsNullOrWhiteSpace(notlar)) mevcutArac.Notlar = notlar;
                             mevcutArac.UpdatedAt = DateTime.UtcNow;
                             result.UpdatedCount++;
                         }
                     }
                     else
                     {
-                        // Yeni ekle
                         var yeniArac = new Arac
                         {
                             SaseNo = saseNo,
@@ -664,12 +797,16 @@ public class AracService : IAracService
                             Renk = renk,
                             KoltukSayisi = koltukSayisi,
                             AracTipi = aracTipi,
+                            SahiplikTipi = sahiplikTipi,
                             KmDurumu = km,
-                            Aktif = true,
+                            MuayeneBitisTarihi = muayeneBitis,
+                            TrafikSigortaBitisTarihi = trafikSigortaBitis,
+                            KaskoBitisTarihi = kaskoBitis,
+                            Aktif = aktif ?? true,
+                            Notlar = notlar,
                             CreatedAt = DateTime.UtcNow
                         };
                         
-                        // Plaka varsa ekle
                         if (!string.IsNullOrWhiteSpace(plaka))
                         {
                             yeniArac.AktifPlaka = plaka;
@@ -695,7 +832,11 @@ public class AracService : IAracService
                 }
             }
             
-            await _context.SaveChangesAsync();
+            if (result.ImportedCount > 0 || result.UpdatedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+            
             result.Success = true;
         }
         catch (Exception ex)
@@ -705,6 +846,51 @@ public class AracService : IAracService
         }
         
         return result;
+    }
+
+    private static string? GetCellValue(ClosedXML.Excel.IXLWorksheet ws, int row, Dictionary<string, int> kolonlar, string baslik)
+    {
+        if (kolonlar.TryGetValue(baslik, out var col))
+        {
+            return ws.Cell(row, col).GetString()?.Trim();
+        }
+        return null;
+    }
+
+    private static DateTime? GetCellDateValue(ClosedXML.Excel.IXLWorksheet ws, int row, Dictionary<string, int> kolonlar, string baslik)
+    {
+        if (!kolonlar.TryGetValue(baslik, out var col))
+            return null;
+
+        var cell = ws.Cell(row, col);
+        if (cell.IsEmpty())
+            return null;
+
+        if (cell.DataType == ClosedXML.Excel.XLDataType.DateTime)
+            return cell.GetDateTime();
+
+        if (cell.DataType == ClosedXML.Excel.XLDataType.Number)
+            return DateTime.FromOADate(cell.GetDouble());
+
+        if (DateTime.TryParse(cell.GetString(), new System.Globalization.CultureInfo("tr-TR"), out var tarih))
+            return tarih;
+
+        return null;
+    }
+
+    private static bool? GetCellBoolValue(ClosedXML.Excel.IXLWorksheet ws, int row, Dictionary<string, int> kolonlar, string baslik)
+    {
+        var value = GetCellValue(ws, row, kolonlar, baslik);
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.ToUpperInvariant().Trim();
+        return normalized switch
+        {
+            "EVET" or "E" or "TRUE" or "1" or "AKTIF" or "AKTİF" => true,
+            "HAYIR" or "H" or "FALSE" or "0" or "PASIF" or "PASİF" => false,
+            _ => null
+        };
     }
 
     private AracTipi ParseAracTipi(string? tip)
@@ -721,6 +907,95 @@ public class AracService : IAracService
             "OTOMOBIL" or "OTOMOBİL" => AracTipi.Otomobil,
             "PANELVAN" => AracTipi.Panelvan,
             _ => AracTipi.Minibus
+        };
+    }
+
+    private AracSahiplikTipi ParseAracSahiplikTipi(string? tip)
+    {
+        if (string.IsNullOrWhiteSpace(tip)) return AracSahiplikTipi.Ozmal;
+
+        var tipUpper = NormalizeExcelHeader(tip);
+        return tipUpper switch
+        {
+            "OZMAL" => AracSahiplikTipi.Ozmal,
+            "KIRALIK" => AracSahiplikTipi.Kiralik,
+            "KOMISYON" => AracSahiplikTipi.Komisyon,
+            "DIGER" => AracSahiplikTipi.Diger,
+            _ => AracSahiplikTipi.Ozmal
+        };
+    }
+
+    private static string NormalizeExcelHeader(string? value)
+    {
+        return string.Join(" ", (value ?? string.Empty)
+            .Replace("*", string.Empty)
+            .Replace("İ", "I")
+            .Replace("I", "I")
+            .Replace("ı", "i")
+            .Replace("Ş", "S")
+            .Replace("ş", "s")
+            .Replace("Ğ", "G")
+            .Replace("ğ", "g")
+            .Replace("Ü", "U")
+            .Replace("ü", "u")
+            .Replace("Ö", "O")
+            .Replace("ö", "o")
+            .Replace("Ç", "C")
+            .Replace("ç", "c")
+            .Trim()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .ToUpperInvariant();
+    }
+
+    private static string GetCellString(ClosedXML.Excel.IXLWorksheet ws, int row, Dictionary<string, int> kolonlar, params string[] basliklar)
+    {
+        foreach (var baslik in basliklar)
+        {
+            if (kolonlar.TryGetValue(NormalizeExcelHeader(baslik), out var col))
+            {
+                return ws.Cell(row, col).GetString()?.Trim() ?? string.Empty;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static DateTime? GetCellDate(ClosedXML.Excel.IXLWorksheet ws, int row, Dictionary<string, int> kolonlar, params string[] basliklar)
+    {
+        foreach (var baslik in basliklar)
+        {
+            if (!kolonlar.TryGetValue(NormalizeExcelHeader(baslik), out var col))
+                continue;
+
+            var cell = ws.Cell(row, col);
+            if (cell.IsEmpty())
+                return null;
+
+            if (cell.DataType == ClosedXML.Excel.XLDataType.DateTime)
+                return cell.GetDateTime();
+
+            if (cell.DataType == ClosedXML.Excel.XLDataType.Number)
+                return DateTime.FromOADate(cell.GetDouble());
+
+            if (DateTime.TryParse(cell.GetString(), new System.Globalization.CultureInfo("tr-TR"), out var tarih))
+                return tarih;
+        }
+
+        return null;
+    }
+
+    private static bool? GetCellBool(ClosedXML.Excel.IXLWorksheet ws, int row, Dictionary<string, int> kolonlar, params string[] basliklar)
+    {
+        var value = GetCellString(ws, row, kolonlar, basliklar);
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = NormalizeExcelHeader(value);
+        return normalized switch
+        {
+            "EVET" or "E" or "TRUE" or "1" or "AKTIF" => true,
+            "HAYIR" or "H" or "FALSE" or "0" or "PASIF" => false,
+            _ => null
         };
     }
 

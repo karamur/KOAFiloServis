@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -23,10 +23,10 @@ public class MaliAnalizService : IMaliAnalizService
         var oncekiAyBaslangic = ayBaslangic.AddMonths(-1);
         var oncekiAyBitis = ayBaslangic.AddDays(-1);
 
-        // Özmal Araç Analizi
+        // Ã–zmal AraÃ§ Analizi
         dashboard.OzmalAracAnaliz = await GetOzmalSegmentAnalizAsync(ayBaslangic, ayBitis);
 
-        // Kiralýk Araç Analizi
+        // KiralÄ±k AraÃ§ Analizi
         dashboard.KiralikAracAnaliz = await GetKiralikSegmentAnalizAsync(ayBaslangic, ayBitis);
 
         // Komisyon Analizi
@@ -41,7 +41,7 @@ public class MaliAnalizService : IMaliAnalizService
                                 dashboard.KiralikAracAnaliz.Gider + 
                                 dashboard.KomisyonAnaliz.Gider;
 
-        // Önceki ay karþýlaþtýrma
+        // Ã–nceki ay karÅŸÄ±laÅŸtÄ±rma
         var oncekiOzmal = await GetOzmalSegmentAnalizAsync(oncekiAyBaslangic, oncekiAyBitis);
         var oncekiKiralik = await GetKiralikSegmentAnalizAsync(oncekiAyBaslangic, oncekiAyBitis);
         var oncekiKomisyon = await GetKomisyonSegmentAnalizAsync(oncekiAyBaslangic, oncekiAyBitis);
@@ -52,9 +52,9 @@ public class MaliAnalizService : IMaliAnalizService
         // Grafik verileri
         dashboard.GelirDagilimi = new List<GrafikVeri>
         {
-            new() { Etiket = "Özmal Araçlar", Deger = dashboard.OzmalAracAnaliz.Gelir, Renk = "#28a745" },
-            new() { Etiket = "Kiralýk Araçlar", Deger = dashboard.KiralikAracAnaliz.Gelir, Renk = "#ffc107" },
-            new() { Etiket = "Komisyon Ýþleri", Deger = dashboard.KomisyonAnaliz.Gelir, Renk = "#17a2b8" }
+            new() { Etiket = "Ã–zmal AraÃ§lar", Deger = dashboard.OzmalAracAnaliz.Gelir, Renk = "#28a745" },
+            new() { Etiket = "KiralÄ±k AraÃ§lar", Deger = dashboard.KiralikAracAnaliz.Gelir, Renk = "#ffc107" },
+            new() { Etiket = "Komisyon Ä°ÅŸleri", Deger = dashboard.KomisyonAnaliz.Gelir, Renk = "#17a2b8" }
         };
 
         dashboard.GiderDagilimi = await GetGiderDagilimiAsync(ayBaslangic, ayBitis);
@@ -71,7 +71,7 @@ public class MaliAnalizService : IMaliAnalizService
         var ayBaslangic = new DateTime(yil, ay, 1);
         var ayBitis = ayBaslangic.AddMonths(1).AddDays(-1);
 
-        // Özmal araçlarý getir
+        // Ã–zmal araÃ§larÄ± getir
         var ozmalAraclar = await _context.Araclar
             .Where(a => a.SahiplikTipi == AracSahiplikTipi.Ozmal && a.Aktif)
             .ToListAsync();
@@ -81,7 +81,7 @@ public class MaliAnalizService : IMaliAnalizService
             var detay = new OzmalAracDetay
             {
                 AracId = arac.Id,
-                Plaka = arac.AktifPlaka,
+                Plaka = arac.AktifPlaka ?? string.Empty,
                 Marka = arac.Marka,
                 Model = arac.Model
             };
@@ -100,7 +100,7 @@ public class MaliAnalizService : IMaliAnalizService
             detay.SeferSayisi = seferler.Count;
             detay.SeferGeliri = seferler.Sum(s => s.Fiyat ?? s.Guzergah.BirimFiyat);
 
-            // En çok çalýþan þoförü bul
+            // En Ã§ok Ã§alÄ±ÅŸan ÅŸofÃ¶rÃ¼ bul
             var soforGrup = seferler.GroupBy(s => s.SoforId)
                                     .OrderByDescending(g => g.Count())
                                     .FirstOrDefault();
@@ -110,7 +110,7 @@ public class MaliAnalizService : IMaliAnalizService
                 detay.AtananSofor = $"{sofor.Ad} {sofor.Soyad}";
             }
 
-            // Çalýþýlan güzergahlar
+            // Ã‡alÄ±ÅŸÄ±lan gÃ¼zergahlar
             detay.CalistigiGuzergahlar = seferler
                 .GroupBy(s => s.GuzergahId)
                 .Select(g => new GuzergahOzet
@@ -158,7 +158,7 @@ public class MaliAnalizService : IMaliAnalizService
         var ayBaslangic = new DateTime(yil, ay, 1);
         var ayBitis = ayBaslangic.AddMonths(1).AddDays(-1);
 
-        // Kiralýk araçlarýn çalýþmalarýný getir
+        // KiralÄ±k araÃ§larÄ±n Ã§alÄ±ÅŸmalarÄ±nÄ± getir
         var kiralikCalismalar = await _context.ServisCalismalari
             .Include(s => s.Arac)
                 .ThenInclude(a => a.KiralikCari)
@@ -172,7 +172,7 @@ public class MaliAnalizService : IMaliAnalizService
                        s.Durum == CalismaDurum.Tamamlandi)
             .ToListAsync();
 
-        // Firma bazýnda grupla
+        // Firma bazÄ±nda grupla
         var firmaGruplari = kiralikCalismalar
             .GroupBy(c => c.Arac.KiralikCariId!.Value)
             .ToList();
@@ -188,7 +188,7 @@ public class MaliAnalizService : IMaliAnalizService
                 FirmaKodu = firma.CariKodu
             };
 
-            // Araç bazýnda grupla
+            // AraÃ§ bazÄ±nda grupla
             var aracGruplari = firmaGrup.GroupBy(c => c.AracId).ToList();
 
             foreach (var aracGrup in aracGruplari)
@@ -202,22 +202,23 @@ public class MaliAnalizService : IMaliAnalizService
                     SoforAdSoyad = $"{sofor?.Ad} {sofor?.Soyad}"
                 };
 
-                // Güzergah bazýnda grupla
+                // GÃ¼zergah bazÄ±nda grupla
                 var guzergahGruplari = aracGrup.GroupBy(c => c.GuzergahId).ToList();
 
                 foreach (var guzergahGrup in guzergahGruplari)
                 {
                     var guzergah = guzergahGrup.First().Guzergah;
                     var seferSayisi = guzergahGrup.Count();
-                    var seferGeliri = guzergahGrup.Sum(c => c.Fiyat ?? guzergah.BirimFiyat);
+                    var birimFiyat = guzergah?.BirimFiyat ?? 0;
+                    var seferGeliri = guzergahGrup.Sum(c => c.Fiyat ?? birimFiyat);
                     var kiraBedeli = seferSayisi * (arac.SeferBasinaKiraBedeli ?? 0);
 
                     aracDetay.GuzergahDetaylari.Add(new KiralikGuzergahDetay
                     {
-                        GuzergahAdi = guzergah.GuzergahAdi,
-                        MusteriUnvan = guzergah.Cari.Unvan,
+                        GuzergahAdi = guzergah?.GuzergahAdi ?? string.Empty,
+                        MusteriUnvan = guzergah?.Cari?.Unvan ?? string.Empty,
                         SeferSayisi = seferSayisi,
-                        BirimFiyat = guzergah.BirimFiyat,
+                        BirimFiyat = birimFiyat,
                         KiraBedeli = arac.SeferBasinaKiraBedeli ?? 0,
                         MusteridenAlinacak = seferGeliri,
                         FirmayaOdenecek = kiraBedeli
@@ -239,7 +240,7 @@ public class MaliAnalizService : IMaliAnalizService
         var ayBaslangic = new DateTime(yil, ay, 1);
         var ayBitis = ayBaslangic.AddMonths(1).AddDays(-1);
 
-        // Komisyonlu çalýþmalarý getir
+        // Komisyonlu Ã§alÄ±ÅŸmalarÄ± getir
         var komisyonluCalismalar = await _context.ServisCalismalari
             .Include(s => s.Arac)
                 .ThenInclude(a => a.KomisyoncuCari)
@@ -252,7 +253,7 @@ public class MaliAnalizService : IMaliAnalizService
                        s.Durum == CalismaDurum.Tamamlandi)
             .ToListAsync();
 
-        // Komisyoncu bazýnda grupla
+        // Komisyoncu bazÄ±nda grupla
         var komisyoncuGruplari = komisyonluCalismalar
             .GroupBy(c => c.Arac.KomisyoncuCariId!.Value)
             .ToList();
@@ -269,7 +270,7 @@ public class MaliAnalizService : IMaliAnalizService
                 KomisyonOrani = arac.KomisyonOrani ?? 0
             };
 
-            // Araç ve güzergah bazýnda grupla
+            // AraÃ§ ve gÃ¼zergah bazÄ±nda grupla
             var gruplar = komisyoncuGrup
                 .GroupBy(c => new { c.AracId, c.GuzergahId })
                 .ToList();
@@ -308,9 +309,9 @@ public class MaliAnalizService : IMaliAnalizService
     {
         var ozet = new ChecklistOzet { Yil = yil, Ay = ay };
         var bugun = DateTime.Today;
-        var uyariGunSayisi = 30; // 30 gün kala uyarý
+        var uyariGunSayisi = 30; // 30 gÃ¼n kala uyarÄ±
 
-        // Þoför Checklist
+        // ÅžofÃ¶r Checklist
         var soforler = await _context.Soforler.Where(s => s.Aktif).ToListAsync();
         foreach (var sofor in soforler)
         {
@@ -321,7 +322,7 @@ public class MaliAnalizService : IMaliAnalizService
                 SoforKodu = sofor.SoforKodu
             };
 
-            // Ehliyet kontrolü (þimdilik entity'de bu alanlar yok, ileride eklenebilir)
+            // Ehliyet kontrolÃ¼ (ÅŸimdilik entity'de bu alanlar yok, ileride eklenebilir)
             soforChecklist.EhliyetDurum = "Tamam";
             soforChecklist.SrcDurum = "Tamam";
             soforChecklist.PsikoteknikDurum = "Tamam";
@@ -331,7 +332,7 @@ public class MaliAnalizService : IMaliAnalizService
             ozet.SoforChecklists.Add(soforChecklist);
         }
 
-        // Araç Checklist
+        // AraÃ§ Checklist
         var araclar = await _context.Araclar.Where(a => a.Aktif).ToListAsync();
         foreach (var arac in araclar)
         {
@@ -354,7 +355,7 @@ public class MaliAnalizService : IMaliAnalizService
             aracChecklist.KaskoBitisTarihi = arac.KaskoBitisTarihi;
             aracChecklist.KaskoDurum = GetTarihDurum(arac.KaskoBitisTarihi, bugun, uyariGunSayisi);
 
-            // Bakým
+            // BakÄ±m
             aracChecklist.BakimDurum = "Tamam";
 
             // Genel durum
@@ -371,7 +372,7 @@ public class MaliAnalizService : IMaliAnalizService
             ozet.AracChecklists.Add(aracChecklist);
         }
 
-        // Güzergah Checklist
+        // GÃ¼zergah Checklist
         var guzergahlar = await _context.Guzergahlar
             .Include(g => g.Cari)
             .Where(g => g.Aktif)
@@ -389,7 +390,7 @@ public class MaliAnalizService : IMaliAnalizService
                 MusteriUnvan = guzergah.Cari.Unvan
             };
 
-            // Sözleþme durumu (þimdilik entity'de yok)
+            // SÃ¶zleÅŸme durumu (ÅŸimdilik entity'de yok)
             guzergahChecklist.SozlesmeDurum = "Tamam";
             guzergahChecklist.FiyatDurum = "Tamam";
 
@@ -404,7 +405,7 @@ public class MaliAnalizService : IMaliAnalizService
             guzergahChecklist.GerceklesenSefer = seferSayisi;
             guzergahChecklist.SeferDurum = "Tamam";
 
-            // Ödeme durumu
+            // Ã–deme durumu
             var bekleyenFaturalar = await _context.Faturalar
                 .Where(f => f.CariId == guzergah.CariId && 
                            f.KalanTutar > 0 &&
@@ -461,7 +462,7 @@ public class MaliAnalizService : IMaliAnalizService
 
     private async Task<SegmentAnaliz> GetOzmalSegmentAnalizAsync(DateTime baslangic, DateTime bitis)
     {
-        var analiz = new SegmentAnaliz { SegmentAdi = "Özmal Araçlar" };
+        var analiz = new SegmentAnaliz { SegmentAdi = "Ã–zmal AraÃ§lar" };
 
         var ozmalAracIds = await _context.Araclar
             .Where(a => a.SahiplikTipi == AracSahiplikTipi.Ozmal)
@@ -498,7 +499,7 @@ public class MaliAnalizService : IMaliAnalizService
 
     private async Task<SegmentAnaliz> GetKiralikSegmentAnalizAsync(DateTime baslangic, DateTime bitis)
     {
-        var analiz = new SegmentAnaliz { SegmentAdi = "Kiralýk Araçlar" };
+        var analiz = new SegmentAnaliz { SegmentAdi = "KiralÄ±k AraÃ§lar" };
 
         var kiralikCalismalar = await _context.ServisCalismalari
             .Include(s => s.Arac)
@@ -519,7 +520,7 @@ public class MaliAnalizService : IMaliAnalizService
 
     private async Task<SegmentAnaliz> GetKomisyonSegmentAnalizAsync(DateTime baslangic, DateTime bitis)
     {
-        var analiz = new SegmentAnaliz { SegmentAdi = "Komisyon Ýþleri" };
+        var analiz = new SegmentAnaliz { SegmentAdi = "Komisyon Ä°ÅŸleri" };
 
         var komisyonluCalismalar = await _context.ServisCalismalari
             .Include(s => s.Arac)
@@ -558,7 +559,7 @@ public class MaliAnalizService : IMaliAnalizService
             .ToListAsync();
 
         var gruplar = masraflar
-            .GroupBy(m => m.MasrafKalemi?.MasrafAdi ?? "Diðer")
+            .GroupBy(m => m.MasrafKalemi?.MasrafAdi ?? "DiÄŸer")
             .Select(g => new GrafikVeri
             {
                 Etiket = g.Key,

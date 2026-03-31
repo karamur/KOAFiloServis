@@ -321,7 +321,8 @@ public enum StokHareketTipi
     SayimFazlasi = 5,       // Sayim fazlasi (giris)
     SayimNoksani = 6,       // Sayim noksani (cikis)
     FireZayiat = 7,         // Fire/Zayiat (cikis)
-    DepoTransferi = 8,      // Depo transferi
+    StokZarari = 8,         // Stok zarari (cikis)
+    DepoTransferi = 9,      // Depo transferi
     AracAlis = 10,          // Arac alimi (giris)
     AracSatis = 11,         // Arac satisi (cikis)
     ServisGiris = 20,       // Servis hizmeti alindi

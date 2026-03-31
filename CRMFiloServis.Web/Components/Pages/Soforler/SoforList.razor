@@ -1,4 +1,4 @@
-@page "/soforler"
+ï»¿@page "/soforler"
 @page "/personel"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
@@ -13,7 +13,7 @@
         <h3><i class="bi bi-people me-2"></i>Personel Listesi</h3>
         <div class="d-flex gap-2">
             <select class="form-select" style="width: 180px;" @bind="secilenGorev" @bind:after="FiltreleAsync">
-                <option value="">Tüm Personel</option>
+                <option value="">TÃ¼m Personel</option>
                 @foreach (PersonelGorev gorev in Enum.GetValues(typeof(PersonelGorev)))
                 {
                     <option value="@gorev">@GetGorevAdi(gorev)</option>
@@ -29,14 +29,14 @@
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Yükleniyor...</span>
+                <span class="visually-hidden">YÃ¼kleniyor...</span>
             </div>
         </div>
     }
     else if (!personeller.Any())
     {
         <div class="alert alert-info">
-            <i class="bi bi-info-circle me-2"></i>Henüz personel kaydý bulunmamaktadýr.
+            <i class="bi bi-info-circle me-2"></i>HenÃ¼z personel kaydÄ± bulunmamaktadÄ±r.
         </div>
     }
     else
@@ -49,13 +49,13 @@
                             <tr>
                                 <th>Personel Kodu</th>
                                 <th>Ad Soyad</th>
-                                <th>Görev</th>
+                                <th>GÃ¶rev</th>
                                 <th>Telefon</th>
-                                <th>Ýþe Baþlama</th>
-                                <th class="text-end">Maaþ</th>
+                                <th>Ä°ÅŸe BaÅŸlama</th>
+                                <th class="text-end">MaaÅŸ</th>
                                 <th class="text-center">Belgeler</th>
                                 <th class="text-center">Durum</th>
-                                <th style="width: 120px;">Ýþlemler</th>
+                                <th style="width: 120px;">Ä°ÅŸlemler</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -110,7 +110,7 @@
                                         }
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(personel.Id)" title="Düzenle">
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(personel.Id)" title="DÃ¼zenle">
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(personel)" title="Sil">
@@ -125,7 +125,7 @@
             </div>
         </div>
         
-        <!-- Özet Bilgiler -->
+        <!-- Ã–zet Bilgiler -->
         <div class="row mt-3">
             <div class="col-md-3">
                 <div class="card bg-light">
@@ -138,7 +138,7 @@
             <div class="col-md-3">
                 <div class="card bg-light">
                     <div class="card-body py-2 text-center">
-                        <small class="text-muted">Þoför Sayýsý</small>
+                        <small class="text-muted">ÅžofÃ¶r SayÄ±sÄ±</small>
                         <h5 class="mb-0">@personeller.Count(p => p.Gorev == PersonelGorev.Sofor)</h5>
                     </div>
                 </div>
@@ -154,7 +154,7 @@
             <div class="col-md-3">
                 <div class="card bg-light">
                     <div class="card-body py-2 text-center">
-                        <small class="text-muted">Toplam Maaþ</small>
+                        <small class="text-muted">Toplam MaaÅŸ</small>
                         <h5 class="mb-0">@personeller.Where(p => p.Aktif).Sum(p => p.NetMaas).ToString("N0") ?</h5>
                     </div>
                 </div>
@@ -169,14 +169,14 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Silme Onayý</h5>
+                    <h5 class="modal-title">Silme OnayÄ±</h5>
                     <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>@silinecekPersonel?.TamAd</strong> isimli personeli silmek istediðinize emin misiniz?</p>
+                    <p><strong>@silinecekPersonel?.TamAd</strong> isimli personeli silmek istediÄŸinize emin misiniz?</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">Ýptal</button>
+                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">Ä°ptal</button>
                     <button type="button" class="btn btn-danger" @onclick="Sil">Sil</button>
                 </div>
             </div>
@@ -243,12 +243,12 @@
     {
         return gorev switch
         {
-            PersonelGorev.Sofor => "Þoför",
-            PersonelGorev.OfisCalisani => "Ofis Çalýþaný",
+            PersonelGorev.Sofor => "ÅžofÃ¶r",
+            PersonelGorev.OfisCalisani => "Ofis Ã‡alÄ±ÅŸanÄ±",
             PersonelGorev.Muhasebe => "Muhasebe",
-            PersonelGorev.Yonetici => "Yönetici",
+            PersonelGorev.Yonetici => "YÃ¶netici",
             PersonelGorev.Teknik => "Teknik",
-            PersonelGorev.Diger => "Diðer",
+            PersonelGorev.Diger => "DiÄŸer",
             _ => gorev.ToString()
         };
     }

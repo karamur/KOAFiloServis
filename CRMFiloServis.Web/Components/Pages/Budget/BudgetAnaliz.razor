@@ -347,15 +347,15 @@
                 else
                 {
                     <!-- Bekleyen Odeme Listesi -->
-                    <div class="card">
+                    <div class="card mb-3">
                         <div class="card-header py-2 d-flex justify-content-between align-items-center">
                             <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Bekleyen Odemeler - @GetAyAdi(aktifTakvimAy) @secilenYil</h6>
                             <div class="d-flex gap-1 align-items-center">
                                 <span class="badge bg-warning text-dark me-2">@bekleyenOdemeler.Count kayit | @FormatPara(bekleyenOdemeler.Sum(o => o.Miktar))</span>
-                                <button class="btn btn-outline-primary btn-sm py-0" @onclick="AylikListeOnIzleme" title="On Izleme">
+                                <button class="btn btn-outline-primary btn-sm py-0" @onclick='() => AylikListeOnIzleme("bekleyen")' title="On Izleme">
                                     <i class="bi bi-eye"></i>
                                 </button>
-                                <button class="btn btn-outline-success btn-sm py-0" @onclick="AylikListeYazdir" title="Yazdir">
+                                <button class="btn btn-outline-success btn-sm py-0" @onclick='() => AylikListeYazdir("bekleyen")' title="Yazdir">
                                     <i class="bi bi-printer"></i>
                                 </button>
                             </div>
@@ -432,6 +432,54 @@
                             </div>
                         </div>
                     </div>
+
+                    @if (devirBekleyenOdemeler.Any())
+                    {
+                        <div class="card">
+                            <div class="card-header py-2 d-flex justify-content-between align-items-center bg-light">
+                                <h6 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>Önceki Aylardan Devir Ödenmeyenler</h6>
+                                <div class="d-flex gap-1 align-items-center">
+                                    <span class="badge bg-danger">@devirBekleyenOdemeler.Count kayıt | @FormatPara(devirBekleyenOdemeler.Sum(o => o.Miktar))</span>
+                                    <button class="btn btn-outline-primary btn-sm py-0" @onclick='() => AylikListeOnIzleme("devir")' title="Ön İzleme">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm py-0" @onclick='() => AylikListeYazdir("devir")' title="Yazdır">
+                                        <i class="bi bi-printer"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm py-0" @onclick='() => AylikListeExcelAktar("devir")' title="Excel Aktar">
+                                        <i class="bi bi-file-earmark-excel"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+                                    <table class="table table-hover table-sm mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th>Dönem</th>
+                                                <th>Tarih</th>
+                                                <th>Masraf</th>
+                                                <th class="text-end">Tutar</th>
+                                                <th>Açıklama</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var odeme in devirBekleyenOdemeler)
+                                            {
+                                                <tr class="table-warning">
+                                                    <td><small>@GetAyAdi(odeme.OdemeAy) @odeme.OdemeYil</small></td>
+                                                    <td><small>@odeme.OdemeTarihi.ToString("dd.MM.yyyy")</small></td>
+                                                    <td>@odeme.MasrafKalemi</td>
+                                                    <td class="text-end"><strong>@FormatPara(odeme.Miktar)</strong></td>
+                                                    <td><small class="text-muted">@odeme.Aciklama</small></td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    }
                 }
             </div>
         </div>
@@ -938,19 +986,21 @@
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-printer me-2"></i>Aylık Liste Ön İzleme / Yazdır</h5>
+                    <h5 class="modal-title"><i class="bi bi-printer me-2"></i>@AktifRaporBaslik</h5>
                     <button type="button" class="btn-close" @onclick="ModalKapat"></button>
                 </div>
                 <div class="modal-body p-0" style="max-height: 70vh; overflow-y: auto;">
                     <div id="printArea" class="p-4 bg-white text-dark">
+                        @if (aktifListeRaporTuru == "bekleyen")
+                        {
                         <!-- 1. SAYFA: TAKVİM -->
-                        <div class="print-page print-calendar">
+                        <div class="print-page print-calendar print-calendar-page">
                             <div class="text-center mb-4">
                                 <h4>Bütçe Takvim Önizlemesi</h4>
                                 <p class="text-muted">Dönem: @GetAyAdi(aktifTakvimAy) @secilenYil</p>
                             </div>
                             
-                            <table class="table table-bordered table-sm mb-0 print-table" style="table-layout: fixed; width: 100%;">
+                            <table class="table table-bordered table-sm mb-0 print-table print-calendar-table" style="table-layout: fixed; width: 100%;">
                                 <thead>
                                     <tr class="text-center bg-light">
                                         <th style="width: 14.28%;">Pzt</th>
@@ -1040,25 +1090,26 @@
                             <small><i class="bi bi-scissors me-1"></i> Sayfa Kesimi (Yazdırırken aktif olur) <i class="bi bi-scissors ms-1"></i></small>
                         </div>
                         <div style="page-break-before: always;" class="d-none d-print-block"></div>
+                        }
 
                         <!-- 2. SAYFA: LİSTE -->
-                        <div class="print-page">
+                        <div class="print-page print-list-page">
                             <div class="text-center mb-4">
-                                <h4>Ödeme Listesi</h4>
-                                <p class="text-muted">Dönem: @GetAyAdi(aktifTakvimAy) @secilenYil</p>
+                                <h4>@AktifRaporBaslik</h4>
+                                <p class="text-muted">@AktifRaporAltBaslik</p>
                             </div>
-                            <table class="table table-bordered table-sm w-100 print-table" style="font-size: 0.9rem;">
+                            <table class="table table-bordered table-sm w-100 print-table print-list-table" style="font-size: 0.9rem;">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Tarih</th>
                                         <th>Masraf Kalemi</th>
-                                        <th>Açıklama</th>
+                                        <th class="print-aciklama-col">Açıklama</th>
                                         <th class="text-center">Taksit</th>
                                         <th class="text-end">Tutar</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var odeme in bekleyenOdemeler)
+                                    @foreach (var odeme in AktifRaporOdemeleri)
                                     {
                                         int kGun2 = (odeme.OdemeTarihi.Date - DateTime.Today).Days;
                                         string trColorClass = "";
@@ -1077,14 +1128,14 @@
                                             timeText2 = $"{kGun2}g Kaldı";
                                         }
 
-                                        <tr class="@trColorClass">
+                                        <tr class="@($"{trColorClass} print-list-row")">
                                             <td>
                                                 @odeme.OdemeTarihi.ToString("dd.MM.yyyy")
                                                 <br />
                                                 <small class="fw-bold">@timeText2</small>
                                             </td>
                                             <td><strong>@odeme.MasrafKalemi</strong></td>
-                                            <td>@(odeme.Aciklama?.Replace("[Tekrarlayan]", "")?.Replace("[tekrarlayan]", "")?.Trim())</td>
+                                            <td class="print-aciklama-col">@(odeme.Aciklama?.Replace("[Tekrarlayan]", "")?.Replace("[tekrarlayan]", "")?.Trim())</td>
                                             <td class="text-center">
                                                 @if (odeme.TaksitliMi)
                                                 {
@@ -1095,14 +1146,14 @@
                                                     <span>-</span>
                                                 }
                                             </td>
-                                            <td class="text-end fw-bold">@odeme.Miktar.ToString("N2") TL</td>
+                                        <td class="text-end fw-bold">@odeme.Miktar.ToString("N2") TL</td>
                                         </tr>
                                     }
                                 </tbody>
                                 <tfoot class="table-light fw-bold">
                                     <tr>
                                         <td colspan="4" class="text-end">TOPLAM:</td>
-                                        <td class="text-end">@bekleyenOdemeler.Sum(o => o.Miktar).ToString("N2") TL</td>
+                                        <td class="text-end">@AktifRaporOdemeleri.Sum(o => o.Miktar).ToString("N2") TL</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -1111,10 +1162,10 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
-                    <button type="button" class="btn btn-primary" @onclick="AylikListeExcelAktar">
+                    <button type="button" class="btn btn-primary" @onclick='() => AylikListeExcelAktar(aktifListeRaporTuru)'>
                         <i class="bi bi-file-excel me-1"></i>Excel İndir
                     </button>
-                    <button type="button" class="btn btn-success" @onclick="AylikListeYazdir">
+                    <button type="button" class="btn btn-success" @onclick='() => AylikListeYazdir(aktifListeRaporTuru)'>
                         <i class="bi bi-printer me-1"></i>Yazdır
                     </button>
                 </div>
@@ -1122,6 +1173,40 @@
         </div>
     </div>
 }
+
+<style>
+    #printArea .print-list-page {
+        display: flex;
+        flex-direction: column;
+    }
+
+    #printArea .print-list-table {
+        table-layout: fixed;
+    }
+
+    #printArea .print-list-table th,
+    #printArea .print-list-table td {
+        padding: 0.2rem 0.35rem !important;
+        line-height: 1.15;
+        vertical-align: top;
+        height: auto;
+        white-space: normal;
+    }
+
+    #printArea .print-list-table tbody tr {
+        page-break-inside: avoid;
+    }
+
+    #printArea .print-list-table small {
+        line-height: 1.05;
+    }
+
+    #printArea .print-list-table .print-aciklama-col {
+        font-size: 0.78rem;
+        line-height: 1.05;
+        word-break: break-word;
+    }
+</style>
 
 @code {
     private int secilenYil;
@@ -1134,6 +1219,8 @@
     private DateTime secilenGunTarih;
     private List<BudgetOdeme> secilenGunOdemeleri = new();
     private List<BudgetOdeme> bekleyenOdemeler = new();
+    private List<BudgetOdeme> devirBekleyenOdemeler = new();
+    private string aktifListeRaporTuru = "bekleyen";
 
     private bool isLoading = true;
     private BudgetOzet? ozet;
@@ -1164,6 +1251,14 @@
 
     private static readonly string[] AyAdlari = { "", "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", 
                                                    "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik" };
+
+    private List<BudgetOdeme> AktifRaporOdemeleri => aktifListeRaporTuru == "devir" ? devirBekleyenOdemeler : bekleyenOdemeler;
+    private string AktifRaporBaslik => aktifListeRaporTuru == "devir"
+        ? "Önceki Aylardan Devir Ödenmeyenler"
+        : "Aylık Bekleyen Ödeme Listesi";
+    private string AktifRaporAltBaslik => aktifListeRaporTuru == "devir"
+        ? $"{GetAyAdi(aktifTakvimAy)} {secilenYil} öncesi devreden ödenmeyen kayıtlar"
+        : $"Dönem: {GetAyAdi(aktifTakvimAy)} {secilenYil}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -1228,6 +1323,9 @@
 
             takvimData = await BudgetService.GetTakvimDataAsync(secilenYil, aktifTakvimAy, secilenFirmaId > 0 ? secilenFirmaId : null);
             aktifKrediler = await BudgetService.GetAktifKredilerAsync(secilenFirmaId > 0 ? secilenFirmaId : null);
+            devirBekleyenOdemeler = await BudgetService.GetDevirBekleyenOdemelerAsync(
+                new DateTime(secilenYil, aktifTakvimAy, 1),
+                secilenFirmaId > 0 ? secilenFirmaId : null);
 
             // Bekleyen ödemeler - aktif takvim ayına göre filtrele
             bekleyenOdemeler = odemeler
@@ -1532,13 +1630,15 @@
         showTekrarlayanListeModal = false;
     }
 
-    private void AylikListeOnIzleme()
+    private void AylikListeOnIzleme(string raporTuru = "bekleyen")
     {
+        aktifListeRaporTuru = raporTuru;
         showAylikListeModal = true;
     }
 
-    private async Task AylikListeYazdir()
+    private async Task AylikListeYazdir(string raporTuru = "bekleyen")
     {
+        aktifListeRaporTuru = raporTuru;
         // Ensure modal is open so printArea element exists in DOM
         if (!showAylikListeModal)
         {
@@ -1554,7 +1654,7 @@
                 var printWindow = window.open('', '_blank');
                 if (printWindow) {
                     printWindow.document.write('<html><head><title>Bütçe Raporu</title>');
-                    printWindow.document.write('<style>@page { size: A4 portrait; margin: 0.5cm; } body{font-family:Arial,sans-serif;margin:0;} table{width:100%;border-collapse:collapse;table-layout:fixed;} th,td{border:1px solid #000;padding:0 !important;overflow:hidden;} .page-break{page-break-before:always;} .print-calendar{height:100vh;max-height:100vh;overflow:hidden;page-break-inside:avoid;} .print-table{height:93%;} td{height:14vh; max-height:14vh;} .d-print-none{display:none !important;} .d-none.d-print-block{display:block !important;} .text-center{text-align:center;} .text-end{text-align:right;} .text-danger{color:#dc3545 !important;} .text-warning{color:#d39e00 !important;} .text-success{color:#198754 !important;} .text-dark{color:#212529 !important;} .text-white{color:#fff !important;} .bg-danger{background-color:#dc3545 !important;color:#fff !important;} .bg-warning{background-color:#ffc107 !important;color:#000 !important;} .bg-success{background-color:#198754 !important;color:#fff !important;} .table-danger td{background-color:#f8d7da !important;color:#842029 !important;} .table-warning td{background-color:#fff3cd !important;color:#664d03 !important;} .table-success td{background-color:#d1e7dd !important;color:#0f5132 !important;} .bg-light{background-color:#f8f9fa !important;} .border-bottom{border-bottom:1px dashed #eee !important;} .border-light{border-color:#f8f9fa !important;} .text-muted{color:#6c757d !important;} .mb-4{margin-bottom:1.5rem;} .mb-1{margin-bottom:0.25rem;} .p-0{padding:0 !important;} .p-1{padding:0.25rem !important;} .px-1{padding-left:0.25rem !important; padding-right:0.25rem !important;} .py-0{padding-top:0 !important; padding-bottom:0 !important;} .py-1{padding-top:0.25rem !important; padding-bottom:0.25rem !important;} .rounded{border-radius:0.25rem !important;} .fw-bold{font-weight:bold;} small{font-size:0.75rem;} h4{margin-bottom:5px;} .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; } .d-flex { display: flex; } .justify-content-between { justify-content: space-between; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }</style>');
+                    printWindow.document.write('<style>@page { size: A4 portrait; margin: 0.5cm; } body{font-family:Arial,sans-serif;margin:0;} table{width:100%;border-collapse:collapse;table-layout:fixed;} th,td{border:1px solid #000;overflow:hidden;} .print-calendar-page{height:100vh;max-height:100vh;overflow:hidden;page-break-inside:avoid;} .print-calendar-table{height:93%;} .print-calendar-table th,.print-calendar-table td{padding:0 !important;} .print-calendar-table td{height:14vh; max-height:14vh;} .print-list-table{font-size:0.82rem;} .print-list-table th,.print-list-table td{padding:4px 6px !important;line-height:1.15;vertical-align:top;height:auto;max-height:none;white-space:normal;} .print-list-table tbody tr{page-break-inside:avoid;} .print-list-table .print-aciklama-col{font-size:0.74rem;line-height:1.02;word-break:break-word;} .page-break{page-break-before:always;} .d-print-none{display:none !important;} .d-none.d-print-block{display:block !important;} .text-center{text-align:center;} .text-end{text-align:right;} .text-danger{color:#dc3545 !important;} .text-warning{color:#d39e00 !important;} .text-success{color:#198754 !important;} .text-dark{color:#212529 !important;} .text-white{color:#fff !important;} .bg-danger{background-color:#dc3545 !important;color:#fff !important;} .bg-warning{background-color:#ffc107 !important;color:#000 !important;} .bg-success{background-color:#198754 !important;color:#fff !important;} .table-danger td{background-color:#f8d7da !important;color:#842029 !important;} .table-warning td{background-color:#fff3cd !important;color:#664d03 !important;} .table-success td{background-color:#d1e7dd !important;color:#0f5132 !important;} .bg-light{background-color:#f8f9fa !important;} .border-bottom{border-bottom:1px dashed #eee !important;} .border-light{border-color:#f8f9fa !important;} .text-muted{color:#6c757d !important;} .mb-4{margin-bottom:1.5rem;} .mb-1{margin-bottom:0.25rem;} .p-0{padding:0 !important;} .p-1{padding:0.25rem !important;} .px-1{padding-left:0.25rem !important; padding-right:0.25rem !important;} .py-0{padding-top:0 !important; padding-bottom:0 !important;} .py-1{padding-top:0.25rem !important; padding-bottom:0.25rem !important;} .rounded{border-radius:0.25rem !important;} .fw-bold{font-weight:bold;} small{font-size:0.75rem;} h4{margin-bottom:5px;} .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; } .d-flex { display: flex; } .justify-content-between { justify-content: space-between; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }</style>');
                     printWindow.document.write('</head><body>');
                     printWindow.document.write(printElement.innerHTML);
                     printWindow.document.write('</body></html>');
@@ -1568,19 +1668,22 @@
         ");
     }
 
-    private async Task AylikListeExcelAktar()
+    private async Task AylikListeExcelAktar(string raporTuru = "bekleyen")
     {
+        aktifListeRaporTuru = raporTuru;
         var headers = "Tarih,Masraf Kalemi,Aciklama,Taksit,Tutar";
         var rows = "";
-        
-        if (bekleyenOdemeler.Any())
+
+        if (AktifRaporOdemeleri.Any())
         {
-            rows = string.Join("\n", bekleyenOdemeler.Select(o => 
+            rows = string.Join("\n", AktifRaporOdemeleri.Select(o => 
                 $"{o.OdemeTarihi:dd.MM.yyyy},{o.MasrafKalemi?.Replace(",", " ")},{o.Aciklama?.Replace(",", " ")},{(o.TaksitliMi ? $"{o.KacinciTaksit}/{o.ToplamTaksitSayisi}" : "")},{o.Miktar}"));
         }
         
         var csv = $"{headers}\n{rows}";
-        var fileName = $"AylikOdemeler_{GetAyAdi(aktifTakvimAy)}_{secilenYil}.csv";
+        var fileName = aktifListeRaporTuru == "devir"
+            ? $"DevirOdenmeyenler_{GetAyAdi(aktifTakvimAy)}_{secilenYil}.csv"
+            : $"AylikOdemeler_{GetAyAdi(aktifTakvimAy)}_{secilenYil}.csv";
 
         var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
         var base64 = Convert.ToBase64String(bytes);
@@ -1594,7 +1697,7 @@
             document.body.removeChild(a);
         ");
 
-        ToastService.ShowSuccess("Excel dosyası indirildi!");
+        ToastService.ShowSuccess("Rapor dosyası indirildi!");
     }
 
     private string GetAyAdi(int ay) => AyAdlari[ay];

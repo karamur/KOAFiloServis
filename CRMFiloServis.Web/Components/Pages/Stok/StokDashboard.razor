@@ -17,6 +17,9 @@
             <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/stok/kartlar")'>
                 <i class="bi bi-list-ul me-1"></i>Stok Kartları
             </button>
+            <button class="btn btn-outline-primary ms-2" @onclick='() => Navigation.NavigateTo("/stok/islemler")'>
+                <i class="bi bi-sliders me-1"></i>Stok İşlemleri
+            </button>
             <button class="btn btn-success ms-2" @onclick='() => Navigation.NavigateTo("/stok/arac-islem")'>
                 <i class="bi bi-truck me-1"></i>Araç Alış/Satış
             </button>
@@ -272,10 +275,13 @@
         StokHareketTipi.SayimFazlasi => "Sayım Fazlası",
         StokHareketTipi.SayimNoksani => "Sayım Noksanı",
         StokHareketTipi.FireZayiat => "Fire/Zayiat",
+        StokHareketTipi.StokZarari => "Stok Zararı",
         StokHareketTipi.DepoTransferi => "Depo Transferi",
         StokHareketTipi.AracAlis => "Araç Alış",
         StokHareketTipi.AracSatis => "Araç Satış",
         StokHareketTipi.ServisGiris => "Servis Giriş",
+        StokHareketTipi.UretimGiris => "Üretim Giriş",
+        StokHareketTipi.UretimCikis => "Üretim Çıkış",
         _ => tip.ToString()
     };
 }

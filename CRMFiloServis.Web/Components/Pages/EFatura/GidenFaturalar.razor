@@ -1196,8 +1196,7 @@
 
     private async Task FaturaDetayAc(Fatura fatura)
     {
-        // Fatura kalemlerini yükle
-        var faturaDetay = await FaturaService.GetByIdAsync(fatura.Id);
+        var faturaDetay = await FaturaService.GetByIdWithKalemlerAsync(fatura.Id);
         detayFatura = faturaDetay ?? fatura;
         showDetayModal = true;
     }
@@ -1860,7 +1859,7 @@
             ToastService.ShowSuccess($"Muhasebe fisi olusturuldu. Fis No: {fis.FisNo}");
             await YenileAsync();
             
-            detayFatura = faturalar.FirstOrDefault(f => f.Id == detayFatura.Id);
+            detayFatura = await FaturaService.GetByIdWithKalemlerAsync(detayFatura.Id);
         }
         catch (Exception ex)
         {

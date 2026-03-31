@@ -315,8 +315,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Tedarikçi carilerini yükle
-        tedarikciCariler = await CariService.GetByTipAsync(CariTipi.Tedarikci);
+        // Tüm carileri yükle (Araç sahibi, kiralayan ve komisyoncular için)
+        tedarikciCariler = await CariService.GetAllAsync();
 
         if (IsEdit)
         {
@@ -324,7 +324,7 @@
             if (existing != null)
             {
                 arac = existing;
-                plaka = arac.AktifPlaka;
+                plaka = arac.AktifPlaka ?? string.Empty;
             }
             else
             {
@@ -375,7 +375,7 @@
         if (!string.IsNullOrWhiteSpace(plaka))
             plaka = plaka.ToUpper().Trim();
 
-        // Özmal araçlarda kira bilgilerini temizle
+        // Özmal araçlarda kira bilgilerimini temizle
         if (arac.SahiplikTipi == AracSahiplikTipi.Ozmal)
         {
             arac.KiralikCariId = null;

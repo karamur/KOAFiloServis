@@ -1,9 +1,12 @@
 ﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using CRMFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
+using System.Security.Claims;
 
 namespace CRMFiloServis.Web.Data;
 
@@ -12,17 +15,14 @@ public sealed class AktiviteLogInterceptor : SaveChangesInterceptor
     private static readonly ConcurrentDictionary<Guid, List<PendingAktiviteLog>> PendingLogs = new();
     private static readonly AsyncLocal<bool> IsWritingLog = new();
 
-    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AktiviteLogInterceptor> _logger;
 
     public AktiviteLogInterceptor(
-        IDbContextFactory<ApplicationDbContext> contextFactory,
-        IHttpContextAccessor httpContextAccessor,
+        IServiceProvider serviceProvider,
         ILogger<AktiviteLogInterceptor> logger)
     {
-        _contextFactory = contextFactory;
-        _httpContextAccessor = httpContextAccessor;
+        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
@@ -157,8 +157,13 @@ public sealed class AktiviteLogInterceptor : SaveChangesInterceptor
         try
         {
             IsWritingLog.Value = true;
-            await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
-            var httpContext = _httpContextAccessor.HttpContext;
+
+            // Lazy olarak DbContextFactory'ye eriş
+            var contextFactory = _serviceProvider.GetRequiredService<IDbContextFactory<ApplicationDbContext>>();
+            await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+
+            var httpContextAccessor = _serviceProvider.GetService<IHttpContextAccessor>();
+            var httpContext = httpContextAccessor?.HttpContext;
             var now = DateTime.Now;
 
             foreach (var item in logs)
@@ -174,7 +179,7 @@ public sealed class AktiviteLogInterceptor : SaveChangesInterceptor
                     Aciklama = item.Aciklama,
                     EskiDeger = item.EskiDeger,
                     YeniDeger = item.YeniDeger,
-                    KullaniciAdi = httpContext?.User?.Identity?.Name ?? "Sistem",
+                    KullaniciAdi = GetCurrentUserNameFromAllSources(httpContext?.User),
                     IpAdresi = httpContext?.Connection?.RemoteIpAddress?.ToString(),
                     Tarayici = httpContext?.Request?.Headers["User-Agent"].ToString(),
                     Seviye = item.IslemTipi == "Silme" ? AktiviteSeviye.Uyari : AktiviteSeviye.Bilgi
@@ -208,6 +213,35 @@ public sealed class AktiviteLogInterceptor : SaveChangesInterceptor
         "BudgetOdeme" or "BudgetMasrafKalemi" or "TekrarlayanOdeme" => "Bütçe",
         _ => entityType
     };
+
+    private string GetCurrentUserNameFromAllSources(ClaimsPrincipal? user)
+    {
+        // 1. Önce CurrentUserAccessor'dan dene (Blazor circuit kullanıcısı)
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var userAccessor = scope.ServiceProvider.GetService<CRMFiloServis.Web.Services.ICurrentUserAccessor>();
+            var blazorUser = userAccessor?.GetCurrentUserName();
+            if (!string.IsNullOrWhiteSpace(blazorUser))
+                return blazorUser;
+        }
+        catch { }
+
+        // 2. HttpContext ClaimsPrincipal'dan dene
+        if (user?.Identity?.IsAuthenticated == true)
+        {
+            var fromClaims = user.FindFirst("AdSoyad")?.Value
+                ?? user.FindFirst(ClaimTypes.Name)?.Value
+                ?? user.Identity?.Name
+                ?? user.FindFirst(ClaimTypes.Email)?.Value
+                ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!string.IsNullOrWhiteSpace(fromClaims))
+                return fromClaims;
+        }
+
+        return "Sistem";
+    }
 
     private sealed class PendingAktiviteLog
     {

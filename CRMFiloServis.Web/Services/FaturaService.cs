@@ -114,7 +114,7 @@ public class FaturaService : IFaturaService
         var existing = await _context.Faturalar
             .Include(f => f.FaturaKalemleri)
             .FirstOrDefaultAsync(f => f.Id == fatura.Id);
-            
+
         if (existing == null) throw new Exception("Fatura bulunamadi");
 
         // Mevcut entity'yi guncelle
@@ -257,11 +257,11 @@ public class FaturaService : IFaturaService
         // Calculate this month's income/expense
         var buAyFaturalar = relevantFaturalar
             .Where(f => f.FaturaTarihi >= buAyBaslangic);
-        
+
         stats.BuAyGelir = buAyFaturalar
             .Where(f => f.FaturaTipi == FaturaTipi.SatisFaturasi)
             .Sum(f => f.GenelToplam);
-        
+
         stats.BuAyGider = buAyFaturalar
             .Where(f => f.FaturaTipi == FaturaTipi.AlisFaturasi)
             .Sum(f => f.GenelToplam);
@@ -285,7 +285,7 @@ public class FaturaService : IFaturaService
 
         // Upcoming due invoices
         var vadeYaklasanIds = relevantFaturalar
-            .Where(f => f.KalanTutar > 0 && f.VadeTarihi.HasValue && 
+            .Where(f => f.KalanTutar > 0 && f.VadeTarihi.HasValue &&
                    f.VadeTarihi.Value >= today && f.VadeTarihi.Value <= today.AddDays(7))
             .OrderBy(f => f.VadeTarihi)
             .Take(10)
@@ -329,7 +329,7 @@ public class FaturaService : IFaturaService
 
         if (baslangic.HasValue)
             query = query.Where(f => f.FaturaTarihi >= baslangic.Value);
-        
+
         if (bitis.HasValue)
             query = query.Where(f => f.FaturaTarihi <= bitis.Value);
 
@@ -354,16 +354,16 @@ public class FaturaService : IFaturaService
     public async Task<EFaturaImportResult> ImportFromExcelAsync(byte[] fileContent, FaturaYonu yon, int? firmaId = null, EFaturaTipi? eFaturaTipi = null)
     {
         var result = new EFaturaImportResult();
-        
+
         // Varsayilan E-Fatura tipi
         var defaultEFaturaTipi = eFaturaTipi ?? EFaturaTipi.EArsiv;
-        
+
         try
         {
             using var stream = new MemoryStream(fileContent);
             using var package = new OfficeOpenXml.ExcelPackage(stream);
             var worksheet = package.Workbook.Worksheets.FirstOrDefault();
-            
+
             if (worksheet == null)
             {
                 result.Errors.Add("Excel dosyasinda sayfa bulunamadi.");
@@ -371,7 +371,7 @@ public class FaturaService : IFaturaService
             }
 
             var rowCount = worksheet.Dimension?.Rows ?? 0;
-            
+
             if (rowCount < 2)
             {
                 result.Errors.Add("Excel dosyasinda veri bulunamadi. (Sadece baslik satiri var)");
@@ -391,9 +391,9 @@ public class FaturaService : IFaturaService
                     var cariVkn = worksheet.Cells[row, 2].Text?.Trim();
                     var tarihStr = worksheet.Cells[row, 4].Text?.Trim();
                     var faturaNo = NormalizeFaturaNo(worksheet.Cells[row, 5].Text);
-                    
+
                     // Bos satiri atla
-                    if (string.IsNullOrEmpty(faturaNo) && string.IsNullOrEmpty(cariUnvan)) 
+                    if (string.IsNullOrEmpty(faturaNo) && string.IsNullOrEmpty(cariUnvan))
                         continue;
 
                     // Zorunlu alan kontrolu
@@ -403,7 +403,7 @@ public class FaturaService : IFaturaService
                         result.ErrorCount++;
                         continue;
                     }
-                    
+
                     if (string.IsNullOrEmpty(cariUnvan))
                     {
                         result.Errors.Add($"Satir {row}: Cari Unvan bos.");
@@ -434,14 +434,14 @@ public class FaturaService : IFaturaService
                     if (!string.IsNullOrEmpty(tarihStr))
                     {
                         // Turkce tarih formatlari
-                        var formats = new[] { 
+                        var formats = new[] {
                             "dd.MM.yyyy", "d.MM.yyyy", "dd.M.yyyy", "d.M.yyyy",
                             "dd/MM/yyyy", "d/MM/yyyy", "dd/M/yyyy", "d/M/yyyy",
                             "yyyy-MM-dd"
                         };
-                        
-                        if (DateTime.TryParseExact(tarihStr, formats, 
-                            new System.Globalization.CultureInfo("tr-TR"), 
+
+                        if (DateTime.TryParseExact(tarihStr, formats,
+                            new System.Globalization.CultureInfo("tr-TR"),
                             System.Globalization.DateTimeStyles.None, out var parsedTarih))
                         {
                             faturaTarihi = DateTime.SpecifyKind(parsedTarih.Date, DateTimeKind.Utc);
@@ -463,32 +463,32 @@ public class FaturaService : IFaturaService
                     // CARİ KONTROL
                     Cari? cari = null;
                     var cariKey = !string.IsNullOrWhiteSpace(cariVkn) ? cariVkn : cariUnvan.ToLowerInvariant();
-                    
+
                     // Once bu importta olusturulmus carilere bak
                     if (!string.IsNullOrEmpty(cariKey) && importCarileri.TryGetValue(cariKey, out var mevcutCari))
                     {
                         cari = mevcutCari;
                     }
-                    
+
                     // Veritabaninda VKN ile ara
                     if (cari == null && !string.IsNullOrWhiteSpace(cariVkn) && cariVkn.Length >= 10)
                     {
                         cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
                     }
-                    
+
                     // Veritabaninda Unvan ile ara
                     if (cari == null && !string.IsNullOrWhiteSpace(cariUnvan))
                     {
-                        cari = await _context.Cariler.FirstOrDefaultAsync(c => 
+                        cari = await _context.Cariler.FirstOrDefaultAsync(c =>
                             c.Unvan.ToLower() == cariUnvan.ToLower());
                     }
-                    
+
                     // Hala bulunamadiysa yeni olustur
                     if (cari == null)
                     {
                         // Benzersiz CariKodu - timestamp ile garantili
                         var uniqueCode = await GetUniqueCariCodeAsync(nextCariNum);
-                        
+
                         cari = new Cari
                         {
                             CariKodu = uniqueCode,
@@ -498,10 +498,10 @@ public class FaturaService : IFaturaService
                             Aktif = true,
                             CreatedAt = DateTime.UtcNow
                         };
-                        
+
                         _context.Cariler.Add(cari);
                         await _context.SaveChangesAsync();
-                        
+
                         if (!string.IsNullOrEmpty(cariKey))
                         {
                             importCarileri[cariKey] = cari;
@@ -541,10 +541,16 @@ public class FaturaService : IFaturaService
                     };
 
                     _context.Faturalar.Add(fatura);
-                    
+
                     // Her faturayı tek tek kaydet - hata durumunda diger faturalar etkilenmesin
                     await _context.SaveChangesAsync();
-                    
+
+                    // Otomatik muhasebe fişi oluştur
+                    await TryCreateMuhasebeFisiAsync(fatura);
+
+                    // Stok hareketi oluştur (Gelen: Giriş, Giden: Çıkış)
+                    await CreateStokHareketleriFromFaturaAsync(fatura, yon);
+
                     result.ImportedItems.Add(fatura);
                     result.ImportedCount++;
                 }
@@ -554,7 +560,7 @@ public class FaturaService : IFaturaService
                     var errorMessage = ex.InnerException?.Message ?? ex.Message;
                     result.Errors.Add($"Satir {row}: {errorMessage}");
                     result.ErrorCount++;
-                    
+
                     // Context'i temizle - hatali entity'leri kaldir
                     foreach (var entry in _context.ChangeTracker.Entries().ToList())
                     {
@@ -565,7 +571,7 @@ public class FaturaService : IFaturaService
                     }
                 }
             }
-            
+
             result.Success = result.ImportedCount > 0;
         }
         catch (Exception ex)
@@ -594,9 +600,9 @@ public class FaturaService : IFaturaService
             {
                 using var ms = new MemoryStream(file.Content);
                 var xdoc = System.Xml.Linq.XDocument.Load(ms);
-                
+
                 // Helper to find elements safely ignoring namespaces
-                string GetValue(System.Xml.Linq.XElement? parent, string localName) => 
+                string GetValue(System.Xml.Linq.XElement? parent, string localName) =>
                     parent?.Descendants().FirstOrDefault(x => x.Name.LocalName == localName)?.Value ?? string.Empty;
 
                 decimal GetDecimalValue(System.Xml.Linq.XElement? parent, string localName) =>
@@ -612,7 +618,7 @@ public class FaturaService : IFaturaService
 
                 var faturaNo = NormalizeFaturaNo(GetValue(invoice, "ID"));
                 var issueDateStr = GetValue(invoice, "IssueDate");
-                
+
                 if (string.IsNullOrWhiteSpace(faturaNo))
                 {
                     result.Errors.Add($"{file.FileName}: Fatura No (ID) bulunamadı.");
@@ -631,7 +637,7 @@ public class FaturaService : IFaturaService
                 var ettn = GetValue(invoice, "UUID");
                 var profileId = GetValue(invoice, "ProfileID");
                 var invoiceTypeCode = GetValue(invoice, "InvoiceTypeCode");
-                
+
                 var fatTip = !string.IsNullOrEmpty(profileId) && profileId.ToUpperInvariant().Contains("EARSIV")
                     ? EFaturaTipi.EArsiv
                     : defaultEFaturaTipi;
@@ -657,7 +663,7 @@ public class FaturaService : IFaturaService
                 string cariPostaKodu = string.Empty;
                 string cariWebSitesi = string.Empty;
                 string cariNotlar = string.Empty;
-                
+
                 System.Xml.Linq.XElement? supplierNode = invoice.Descendants().FirstOrDefault(x => x.Name.LocalName == "AccountingSupplierParty");
                 System.Xml.Linq.XElement? customerNode = invoice.Descendants().FirstOrDefault(x => x.Name.LocalName == "AccountingCustomerParty");
                 var targetNode = yon == FaturaYonu.Giden ? customerNode : supplierNode;
@@ -671,10 +677,10 @@ public class FaturaService : IFaturaService
                     {
                         cariVkn = GetValue(partyIdentification, "ID").Trim();
                     }
-                    
+
                     // 11 haneli ise TCKN - şahıs faturası
                     bool sahisFaturasi = !string.IsNullOrEmpty(cariVkn) && cariVkn.Length == 11;
-                    
+
                     // Şahıs faturası ise önce Person'dan ad soyad al
                     if (sahisFaturasi)
                     {
@@ -691,7 +697,7 @@ public class FaturaService : IFaturaService
                             }
                         }
                     }
-                    
+
                     // Şahıs değilse veya Person'dan alınamadıysa PartyName'den al (Ticari Firma)
                     if (string.IsNullOrWhiteSpace(cariUnvan))
                     {
@@ -706,7 +712,7 @@ public class FaturaService : IFaturaService
                             }
                         }
                     }
-                    
+
                     // Hala boşsa eski yöntemle dene
                     if (string.IsNullOrWhiteSpace(cariUnvan))
                     {
@@ -716,14 +722,14 @@ public class FaturaService : IFaturaService
                             cariUnvan = nameValue;
                         }
                     }
-                    
+
                     // Vergi Dairesi - PartyTaxScheme içinden al
                     var taxScheme = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "PartyTaxScheme");
                     if (taxScheme != null)
                     {
                         // RegistrationName (Ticaret sicil adı varsa)
                         var registrationName = GetValue(taxScheme, "RegistrationName").Trim();
-                        
+
                         // TaxOffice veya Name alanından vergi dairesi
                         cariVergiDairesi = GetValue(taxScheme, "TaxOffice").Trim();
                         if (string.IsNullOrWhiteSpace(cariVergiDairesi))
@@ -735,14 +741,14 @@ public class FaturaService : IFaturaService
                             }
                         }
                     }
-                    
+
                     // Web Sitesi
                     var websiteUri = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "WebsiteURI");
                     if (websiteUri != null)
                     {
                         cariWebSitesi = websiteUri.Value.Trim();
                     }
-                    
+
                     // Adres bilgileri - Detaylı
                     var postalAddress = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "PostalAddress");
                     if (postalAddress != null)
@@ -759,7 +765,7 @@ public class FaturaService : IFaturaService
                         var cityName = GetValue(postalAddress, "CityName").Trim();
                         var postalZone = GetValue(postalAddress, "PostalZone").Trim();
                         var countryName = GetValue(postalAddress.Descendants().FirstOrDefault(x => x.Name.LocalName == "Country"), "Name").Trim();
-                        
+
                         // Tam adres oluştur
                         var adresParcalari = new List<string>();
                         if (!string.IsNullOrWhiteSpace(streetName)) adresParcalari.Add(streetName);
@@ -768,14 +774,14 @@ public class FaturaService : IFaturaService
                         if (!string.IsNullOrWhiteSpace(buildingNumber)) adresParcalari.Add($"No:{buildingNumber}");
                         if (!string.IsNullOrWhiteSpace(floor)) adresParcalari.Add($"Kat:{floor}");
                         if (!string.IsNullOrWhiteSpace(room)) adresParcalari.Add($"Daire:{room}");
-                        
+
                         cariAdres = string.Join(" ", adresParcalari);
                         cariIlce = !string.IsNullOrWhiteSpace(citySubdivisionName) ? citySubdivisionName : district;
                         cariIl = cityName;
                         cariUlke = countryName;
                         cariPostaKodu = postalZone;
                     }
-                    
+
                     // İletişim bilgileri - Detaylı
                     var contact = partyNode.Descendants().FirstOrDefault(x => x.Name.LocalName == "Contact");
                     if (contact != null)
@@ -783,7 +789,7 @@ public class FaturaService : IFaturaService
                         cariTelefon = GetValue(contact, "Telephone").Trim();
                         cariFax = GetValue(contact, "Telefax").Trim();
                         cariEmail = GetValue(contact, "ElectronicMail").Trim();
-                        
+
                         // Note alanı varsa notlara ekle
                         var note = GetValue(contact, "Note").Trim();
                         if (!string.IsNullOrWhiteSpace(note))
@@ -791,7 +797,7 @@ public class FaturaService : IFaturaService
                             cariNotlar = note;
                         }
                     }
-                    
+
                     // Fatura notları varsa al
                     var invoiceNotes = invoice.Descendants().Where(x => x.Name.LocalName == "Note").ToList();
                     if (invoiceNotes.Any() && string.IsNullOrWhiteSpace(cariNotlar))
@@ -809,29 +815,29 @@ public class FaturaService : IFaturaService
                     result.ErrorCount++;
                     continue;
                 }
-                
+
                 Cari? cari = null;
                 // TCKN varsa ona göre ara, yoksa VKN'ye göre
                 var aramaNo = !string.IsNullOrWhiteSpace(cariTcKimlikNo) ? cariTcKimlikNo : cariVkn;
                 var cariKey = !string.IsNullOrWhiteSpace(aramaNo) ? aramaNo : cariUnvan.ToLowerInvariant();
-                
+
                 if (!string.IsNullOrEmpty(cariKey) && importCarileri.TryGetValue(cariKey, out var mevcutCari))
                 {
                     cari = mevcutCari;
                 }
-                
+
                 // TCKN ile ara
                 if (cari == null && !string.IsNullOrWhiteSpace(cariTcKimlikNo))
                 {
                     cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.TcKimlikNo == cariTcKimlikNo);
                 }
-                
+
                 // VKN ile ara
                 if (cari == null && !string.IsNullOrWhiteSpace(cariVkn) && cariVkn.Length >= 10)
                 {
                     cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
                 }
-                
+
                 // Unvan ile ara
                 if (cari == null)
                 {
@@ -842,7 +848,7 @@ public class FaturaService : IFaturaService
                 if (cari != null)
                 {
                     bool guncellendi = false;
-                    
+
                     // Vergi Dairesi
                     if (string.IsNullOrWhiteSpace(cari.VergiDairesi) && !string.IsNullOrWhiteSpace(cariVergiDairesi))
                     {
@@ -915,7 +921,7 @@ public class FaturaService : IFaturaService
                         cari.Notlar = cariNotlar;
                         guncellendi = true;
                     }
-                    
+
                     if (guncellendi)
                     {
                         cari.UpdatedAt = DateTime.UtcNow;
@@ -927,7 +933,7 @@ public class FaturaService : IFaturaService
                 {
                     var uniqueCode = await GetUniqueCariCodeAsync(nextCariNum);
                     var cariTipi = yon == FaturaYonu.Giden ? CariTipi.Musteri : CariTipi.Tedarikci;
-                    
+
                     cari = new Cari
                     {
                         CariKodu = uniqueCode,
@@ -948,7 +954,7 @@ public class FaturaService : IFaturaService
                         Aktif = true,
                         CreatedAt = DateTime.UtcNow
                     };
-                    
+
                     _context.Cariler.Add(cari);
                     await _context.SaveChangesAsync();
                     nextCariNum++;
@@ -958,7 +964,7 @@ public class FaturaService : IFaturaService
                     {
                         var prefix = cariTipi == CariTipi.Musteri ? ayar.MusteriPrefix : ayar.TedarikciPrefix;
                         var yeniHesapKodu = await GetSonrakiHesapKoduAsync(prefix);
-                        
+
                         var yeniHesap = new MuhasebeHesap
                         {
                             HesapKodu = yeniHesapKodu,
@@ -968,7 +974,7 @@ public class FaturaService : IFaturaService
                             Aktif = true,
                             CreatedAt = DateTime.UtcNow
                         };
-                        
+
                         _context.MuhasebeHesaplari.Add(yeniHesap);
                         await _context.SaveChangesAsync();
 
@@ -997,7 +1003,7 @@ public class FaturaService : IFaturaService
 
                 var dKdvTutar = dGenelToplam - dAraToplam;
 
-                // Tevkifat bilgilerini oku
+                // Tevikifat bilgilerini oku
                 var tevikifatliMi = false;
                 decimal tevikifatOrani = 0;
                 decimal tevikifatTutar = 0;
@@ -1008,7 +1014,7 @@ public class FaturaService : IFaturaService
                 {
                     tevikifatliMi = true;
                     tevikifatTutar = GetDecimalValue(withholdingTaxTotal, "TaxAmount");
-                    
+
                     var taxSubtotal = withholdingTaxTotal.Descendants().FirstOrDefault(x => x.Name.LocalName == "TaxSubtotal");
                     if (taxSubtotal != null)
                     {
@@ -1055,12 +1061,12 @@ public class FaturaService : IFaturaService
                 // Fatura kalemlerini oku
                 var invoiceLines = invoice.Descendants().Where(x => x.Name.LocalName == "InvoiceLine").ToList();
                 var siraNo = 1;
-                
+
                 foreach (var line in invoiceLines)
                 {
                     var urunKodu = GetValue(line, "ID");
-                    var aciklama = GetValue(line.Descendants().FirstOrDefault(x => x.Name.LocalName == "Item"), "Name");
-                    
+                    var aciklama = GetInvoiceLineAciklama(line, cari?.Unvan, urunKodu);
+
                     var kalem = new FaturaKalem
                     {
                         SiraNo = siraNo++,
@@ -1094,7 +1100,7 @@ public class FaturaService : IFaturaService
                         }
                     }
 
-                    // Kalem bazında tevkifat
+                    // Kalem bazında tevikifat
                     var lineWithholdingTax = line.Descendants().FirstOrDefault(x => x.Name.LocalName == "WithholdingTaxTotal");
                     if (lineWithholdingTax != null)
                     {
@@ -1120,7 +1126,7 @@ public class FaturaService : IFaturaService
                             kalem.AracId = arac.Id;
                             kalem.KalemTipi = FaturaKalemTipi.Arac;
                             kalem.AltTipi = yon == FaturaYonu.Giden ? FaturaKalemAltTipi.AracSatis : FaturaKalemAltTipi.AracAlis;
-                            
+
                             // Ana faturaya da araç ilişkisi ekle
                             fatura.AracId = arac.Id;
                             fatura.AracFaturasi = true;
@@ -1146,7 +1152,10 @@ public class FaturaService : IFaturaService
 
                 // Otomatik muhasebe fişi oluştur
                 await TryCreateMuhasebeFisiAsync(fatura);
-                
+
+                // Stok hareketi oluştur (Gelen: Giriş, Giden: Çıkış)
+                await CreateStokHareketleriFromFaturaAsync(fatura, yon);
+
                 result.ImportedItems.Add(fatura);
                 result.ImportedCount++;
             }
@@ -1154,7 +1163,7 @@ public class FaturaService : IFaturaService
             {
                 result.Errors.Add($"{file.FileName} parse hatası: {ex.InnerException?.Message ?? ex.Message}");
                 result.ErrorCount++;
-                
+
                 foreach (var entry in _context.ChangeTracker.Entries().ToList())
                 {
                     if (entry.State == EntityState.Added)
@@ -1164,7 +1173,7 @@ public class FaturaService : IFaturaService
                 }
             }
         }
-        
+
         result.Success = result.ImportedCount > 0;
         return result;
     }
@@ -1193,7 +1202,7 @@ public class FaturaService : IFaturaService
     private static bool IsCountryName(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return false;
-        
+
         var upper = value.ToUpperInvariant().Trim();
         var countryNames = new[]
         {
@@ -1203,7 +1212,7 @@ public class FaturaService : IFaturaService
             "ABD", "USA", "AMERIKA", "AMERICA",
             "HOLLANDA", "NETHERLANDS", "BELÇİKA", "BELGIUM"
         };
-        
+
         return countryNames.Contains(upper);
     }
 
@@ -1222,13 +1231,13 @@ public class FaturaService : IFaturaService
         var year = DateTime.UtcNow.Year % 100;
         string code;
         int num = startNum;
-        
+
         do
         {
             code = $"C{year}{num:D4}";
             num++;
         } while (await _context.Cariler.AnyAsync(c => c.CariKodu == code));
-        
+
         return code;
     }
 
@@ -1241,16 +1250,16 @@ public class FaturaService : IFaturaService
     private static decimal ParseDecimal(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return 0;
-        
+
         value = value.Trim();
-        
+
         // XML'den gelen değerlerde nokta ondalık ayracı olarak kullanılır
         // Türkçe formatı düzelt: virgülü noktaya çevir, binlik ayracı olan noktayı kaldır
-        
+
         // Eğer hem nokta hem virgül varsa, hangisi ondalık ayracı?
         var dotIndex = value.LastIndexOf('.');
         var commaIndex = value.LastIndexOf(',');
-        
+
         if (dotIndex > -1 && commaIndex > -1)
         {
             // Her ikisi de var - sonuncusu ondalık ayracı
@@ -1271,10 +1280,10 @@ public class FaturaService : IFaturaService
             value = value.Replace(",", ".");
         }
         // Sadece nokta varsa olduğu gibi bırak (İngilizce format)
-        
+
         if (decimal.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var result))
             return result;
-            
+
         return 0;
     }
 
@@ -1284,11 +1293,11 @@ public class FaturaService : IFaturaService
         {
             // Muhasebe fişi otomatik oluşturma devre dışı veya firma yoksa çık
             if (fatura.FirmaId == null) return;
-            
+
             // İlgili ayar var mı kontrol et
             var ayar = await _context.MuhasebeAyarlari.FirstOrDefaultAsync();
             if (ayar == null || !ayar.FaturaOtomatikMuhasebeFisi) return;
-            
+
             // Fatura kalemlerini yükle
             await _context.Entry(fatura).Collection(f => f.FaturaKalemleri).LoadAsync();
         }
@@ -1313,19 +1322,19 @@ public class FaturaService : IFaturaService
     {
         var year = DateTime.UtcNow.Year % 100;
         var prefix = $"C{year}";
-        
+
         var sonCari = await _context.Cariler
             .Where(c => c.CariKodu.StartsWith(prefix))
             .OrderByDescending(c => c.CariKodu)
             .FirstOrDefaultAsync();
-        
+
         if (sonCari == null)
             return 1;
-        
+
         var numStr = sonCari.CariKodu.Replace(prefix, "");
         if (int.TryParse(numStr, out var num))
             return num + 1;
-        
+
         return 1;
     }
 
@@ -1339,19 +1348,19 @@ public class FaturaService : IFaturaService
             .Include(k => k.Fatura)
                 .ThenInclude(f => f.Cari)
             .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted);
-        
+
         if (baslangic.HasValue)
         {
             var start = DateTime.SpecifyKind(baslangic.Value.Date, DateTimeKind.Utc);
             query = query.Where(k => k.Fatura.FaturaTarihi >= start);
         }
-        
+
         if (bitis.HasValue)
         {
             var end = DateTime.SpecifyKind(bitis.Value.Date.AddDays(1), DateTimeKind.Utc);
             query = query.Where(k => k.Fatura.FaturaTarihi < end);
         }
-        
+
         return await query
             .OrderByDescending(k => k.Fatura.FaturaTarihi)
             .ThenBy(k => k.Fatura.FaturaNo)
@@ -1359,13 +1368,149 @@ public class FaturaService : IFaturaService
             .ToListAsync();
     }
 
+    public async Task<List<FaturaKalem>> GetEslesmemisKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null)
+    {
+        // Mevcut stok kartlarının adlarını ve kodlarını al
+        var stokKartlari = await _context.StokKartlari
+            .Where(s => !s.IsDeleted)
+            .Select(s => new { Adi = s.StokAdi.ToLower().Trim(), Kodu = s.StokKodu.ToUpper().Trim() })
+            .ToListAsync();
+        
+        var stokAdlariSet = stokKartlari.Select(s => s.Adi).ToHashSet();
+        var stokKodlariSet = stokKartlari.Where(s => !string.IsNullOrWhiteSpace(s.Kodu)).Select(s => s.Kodu).ToHashSet();
+
+        var query = _context.FaturaKalemleri
+            .Include(k => k.Fatura)
+                .ThenInclude(f => f.Cari)
+            .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted);
+
+        if (baslangic.HasValue)
+        {
+            var start = DateTime.SpecifyKind(baslangic.Value.Date, DateTimeKind.Utc);
+            query = query.Where(k => k.Fatura.FaturaTarihi >= start);
+        }
+
+        if (bitis.HasValue)
+        {
+            var end = DateTime.SpecifyKind(bitis.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(k => k.Fatura.FaturaTarihi < end);
+        }
+
+        var kalemler = await query
+            .OrderByDescending(k => k.Fatura.FaturaTarihi)
+            .ThenBy(k => k.Fatura.FaturaNo)
+            .ThenBy(k => k.SiraNo)
+            .ToListAsync();
+
+        // Eşleşmemiş olanları filtrele (stok kartı olmayan) ve tekrarlayanları çıkar
+        var eslesmemisler = kalemler.Where(k =>
+            string.IsNullOrWhiteSpace(k.Aciklama) ||
+            (!stokAdlariSet.Contains(k.Aciklama.ToLower().Trim()) &&
+             (string.IsNullOrWhiteSpace(k.UrunKodu) || !stokKodlariSet.Contains(k.UrunKodu.ToUpper().Trim())))
+        ).ToList();
+
+        // Tekrarlayan açıklamaları filtrele - sadece benzersiz açıklamaları göster
+        var benzersizAciklamalar = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var filtrelenmis = new List<FaturaKalem>();
+        
+        foreach (var kalem in eslesmemisler)
+        {
+            var key = (kalem.Aciklama ?? "").Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                filtrelenmis.Add(kalem);
+                continue;
+            }
+            
+            if (!benzersizAciklamalar.Contains(key))
+            {
+                benzersizAciklamalar.Add(key);
+                filtrelenmis.Add(kalem);
+            }
+        }
+
+        return filtrelenmis;
+    }
+
+    public async Task<List<FaturaKalem>> GetEslesmisKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null)
+    {
+        // Mevcut stok kartlarının adlarını ve kodlarını al
+        var stokKartlari = await _context.StokKartlari
+            .Where(s => !s.IsDeleted)
+            .Select(s => new { Adi = s.StokAdi.ToLower().Trim(), Kodu = s.StokKodu.ToUpper().Trim() })
+            .ToListAsync();
+        
+        var stokAdlariSet = stokKartlari.Select(s => s.Adi).ToHashSet();
+        var stokKodlariSet = stokKartlari.Where(s => !string.IsNullOrWhiteSpace(s.Kodu)).Select(s => s.Kodu).ToHashSet();
+
+        var query = _context.FaturaKalemleri
+            .Include(k => k.Fatura)
+                .ThenInclude(f => f.Cari)
+            .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted);
+
+        if (baslangic.HasValue)
+        {
+            var start = DateTime.SpecifyKind(baslangic.Value.Date, DateTimeKind.Utc);
+            query = query.Where(k => k.Fatura.FaturaTarihi >= start);
+        }
+
+        if (bitis.HasValue)
+        {
+            var end = DateTime.SpecifyKind(bitis.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(k => k.Fatura.FaturaTarihi < end);
+        }
+
+        var kalemler = await query
+            .OrderByDescending(k => k.Fatura.FaturaTarihi)
+            .ThenBy(k => k.Fatura.FaturaNo)
+            .ThenBy(k => k.SiraNo)
+            .ToListAsync();
+
+        // Eşleşmiş olanları filtrele (stok kartı olan - ad veya kod eşleşmesi)
+        var eslesmisler = kalemler.Where(k =>
+            !string.IsNullOrWhiteSpace(k.Aciklama) &&
+            (stokAdlariSet.Contains(k.Aciklama.ToLower().Trim()) ||
+             (!string.IsNullOrWhiteSpace(k.UrunKodu) && stokKodlariSet.Contains(k.UrunKodu.ToUpper().Trim())))
+        ).ToList();
+
+        // Tekrarlayan açıklamaları filtrele - sadece benzersiz stok kartlarını göster
+        var benzersizAciklamalar = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var filtrelenmis = new List<FaturaKalem>();
+        
+        foreach (var kalem in eslesmisler)
+        {
+            var key = (kalem.Aciklama ?? "").Trim().ToLowerInvariant();
+            if (!benzersizAciklamalar.Contains(key))
+            {
+                benzersizAciklamalar.Add(key);
+                filtrelenmis.Add(kalem);
+            }
+        }
+
+        return filtrelenmis;
+    }
+
     public async Task UpdateFaturaKalemleriAsync(List<FaturaKalem> kalemler)
     {
+        if (kalemler == null || !kalemler.Any())
+            return;
+
+        var kalemIds = kalemler.Select(k => k.Id).ToList();
+        var mevcutKalemler = await _context.FaturaKalemleri
+            .AsTracking()
+            .Include(k => k.Fatura)
+                .ThenInclude(f => f.Cari)
+            .Where(k => kalemIds.Contains(k.Id))
+            .ToListAsync();
+
         foreach (var kalem in kalemler)
         {
-            var existing = await _context.FaturaKalemleri.FindAsync(kalem.Id);
+            var existing = mevcutKalemler.FirstOrDefault(k => k.Id == kalem.Id);
             if (existing != null)
             {
+                var yeniUrunKodu = string.IsNullOrWhiteSpace(kalem.UrunKodu) ? null : kalem.UrunKodu.Trim();
+                existing.Aciklama = NormalizeImportedAciklama(existing.Aciklama, existing.Fatura?.Cari?.Unvan, yeniUrunKodu);
+                existing.UrunKodu = yeniUrunKodu;
                 existing.KalemTipi = kalem.KalemTipi;
                 existing.AltTipi = kalem.AltTipi;
                 existing.UpdatedAt = DateTime.UtcNow;
@@ -1373,33 +1518,45 @@ public class FaturaService : IFaturaService
         }
         
         await _context.SaveChangesAsync();
+
+        var faturaIds = mevcutKalemler.Select(k => k.FaturaId).Distinct().ToList();
+        await RebuildDerivedRecordsForInvoicesAsync(faturaIds);
     }
 
     public async Task<StokKartiOlusturSonuc> UpdateFaturaKalemleriVeStokKartiOlusturAsync(List<FaturaKalem> kalemler, bool stokKartiOlustur = true)
     {
         var sonuc = new StokKartiOlusturSonuc();
-        
+
         if (kalemler == null || !kalemler.Any())
-        {
             return sonuc;
-        }
-        
-        // Mevcut stok kartlarını al (kod bazlı kontrol için)
+
+        // Muhasebe ayarlarını al
+        var ayar = await _context.MuhasebeAyarlari.AsNoTracking().FirstOrDefaultAsync();
+        var giderHesapKodu = "770.99.999"; // Varsayılan gider hesabı
+
+        // Mevcut stok kartlarını al
         var mevcutStoklar = await _context.StokKartlari
+            .AsTracking()
             .Where(s => !s.IsDeleted)
-            .Select(s => new { s.StokKodu, s.StokAdi })
             .ToListAsync();
-        
-        var mevcutStokAdlari = mevcutStoklar.Select(s => s.StokAdi.ToLowerInvariant().Trim()).ToHashSet();
-        var mevcutStokKodlari = mevcutStoklar.Select(s => s.StokKodu.ToUpperInvariant().Trim()).ToHashSet();
-        
-        // Sonraki stok kodu için sayaç
+
+        var mevcutStokOzetleri = mevcutStoklar
+            .Select(s => new { s.Id, s.StokKodu, s.StokAdi })
+            .ToList();
+
+        var mevcutStokAdlari = mevcutStokOzetleri.Select(s => s.StokAdi.ToLowerInvariant().Trim()).ToHashSet();
+        var mevcutStokKodlari = mevcutStokOzetleri.Select(s => s.StokKodu.ToUpperInvariant().Trim()).ToHashSet();
+        var stokAdToId = mevcutStokOzetleri.ToDictionary(s => s.StokAdi.ToLowerInvariant().Trim(), s => s.Id);
+        var stokKodToId = mevcutStokOzetleri
+            .Where(s => !string.IsNullOrWhiteSpace(s.StokKodu))
+            .ToDictionary(s => s.StokKodu.ToUpperInvariant().Trim(), s => s.Id);
+
         var sonStokKodu = await _context.StokKartlari
             .Where(s => s.StokKodu.StartsWith("STK"))
             .OrderByDescending(s => s.StokKodu)
             .Select(s => s.StokKodu)
             .FirstOrDefaultAsync();
-        
+
         int stokSayac = 1;
         if (!string.IsNullOrEmpty(sonStokKodu))
         {
@@ -1408,70 +1565,119 @@ public class FaturaService : IFaturaService
                 stokSayac = num + 1;
         }
 
-        // Kalem ID'lerini al
         var kalemIds = kalemler.Select(k => k.Id).ToList();
-        
-        // Veritabanından mevcut kalemleri çek
         var mevcutKalemler = await _context.FaturaKalemleri
+            .AsTracking()
+            .Include(k => k.Fatura)
+                .ThenInclude(f => f.Cari)
             .Where(k => kalemIds.Contains(k.Id))
             .ToListAsync();
+
+        var olusturulacakStoklar = new List<StokKarti>();
+        var stokHareketleri = new List<StokHareket>();
+        var giderKayitlari = new List<(FaturaKalem kalem, StokKarti stok, decimal tutar)>();
 
         foreach (var kalem in kalemler)
         {
             try
             {
-                // Mevcut kalemi bul
                 var existing = mevcutKalemler.FirstOrDefault(k => k.Id == kalem.Id);
                 if (existing != null)
                 {
-                    // Kalem tipini güncelle
+                    var yeniUrunKodu = string.IsNullOrWhiteSpace(kalem.UrunKodu) ? null : kalem.UrunKodu.Trim();
+                    existing.Aciklama = NormalizeImportedAciklama(existing.Aciklama, existing.Fatura?.Cari?.Unvan, yeniUrunKodu);
+                    existing.UrunKodu = yeniUrunKodu;
                     existing.KalemTipi = kalem.KalemTipi;
                     existing.AltTipi = kalem.AltTipi;
                     existing.UpdatedAt = DateTime.UtcNow;
                     sonuc.GuncellenenKalemSayisi++;
-                    
-                    // Stok kartı oluştur (eğer isteniyorsa ve yoksa)
+
                     if (stokKartiOlustur && !string.IsNullOrWhiteSpace(existing.Aciklama))
                     {
                         var stokAdi = existing.Aciklama.Trim();
                         var stokAdiLower = stokAdi.ToLowerInvariant();
-                        
-                        // Stok kodu belirle
+
                         var stokKodu = !string.IsNullOrWhiteSpace(existing.UrunKodu) 
                             ? existing.UrunKodu.ToUpperInvariant().Trim() 
                             : $"STK{stokSayac:D5}";
-                        
-                        // Zaten var mı kontrol et (kod veya ad bazlı)
-                        if (mevcutStokKodlari.Contains(stokKodu.ToUpperInvariant()) || 
-                            mevcutStokAdlari.Contains(stokAdiLower))
-                        {
-                            sonuc.AtlananStokKartiSayisi++;
-                            continue;
-                        }
-                        
-                        // Stok tipini belirle
+
+                        // Stok kartı zaten var mı kontrol et
+                        bool stokZatenVar = mevcutStokKodlari.Contains(stokKodu.ToUpperInvariant()) || 
+                                           mevcutStokAdlari.Contains(stokAdiLower);
+
                         var stokTipi = KalemTipindenStokTipi(kalem.KalemTipi);
                         var stokAltTipi = KalemAltTipindenStokAltTipi(kalem.AltTipi);
-                        
-                        // Yeni stok kartı oluştur
-                        var yeniStok = new StokKarti
+
+                        StokKarti? yeniStok = null;
+                        int stokKartiId = 0;
+
+                        if (stokZatenVar)
                         {
-                            StokKodu = stokKodu,
-                            StokAdi = stokAdi.Length > 200 ? stokAdi.Substring(0, 200) : stokAdi,
-                            StokTipi = stokTipi,
-                            AltTipi = stokAltTipi,
-                            Birim = existing.Birim ?? "Adet",
-                            KdvOrani = existing.KdvOrani,
-                            Aktif = true,
-                            StokTakibiYapilsin = stokTipi == StokTipi.Mal || stokTipi == StokTipi.YedekParca,
-                            CreatedAt = DateTime.UtcNow
-                        };
-                        
-                        _context.StokKartlari.Add(yeniStok);
-                        mevcutStokAdlari.Add(stokAdiLower);
-                        mevcutStokKodlari.Add(stokKodu.ToUpperInvariant());
-                        stokSayac++; // Sayacı artır
-                        sonuc.OlusturulanStokKartiSayisi++;
+                            // Mevcut stok kartı ID'sini bul
+                            if (stokKodToId.TryGetValue(stokKodu.ToUpperInvariant(), out var stokKodId))
+                            {
+                                stokKartiId = stokKodId;
+                            }
+                            else if (stokAdToId.TryGetValue(stokAdiLower, out var mevcutId))
+                            {
+                                stokKartiId = mevcutId;
+                            }
+
+                            var mevcutStok = mevcutStoklar.FirstOrDefault(s => s.Id == stokKartiId);
+                            if (mevcutStok != null)
+                            {
+                                mevcutStok.StokTipi = stokTipi;
+                                mevcutStok.AltTipi = stokAltTipi;
+                                mevcutStok.Birim = existing.Birim ?? mevcutStok.Birim;
+                                mevcutStok.KdvOrani = existing.KdvOrani;
+                                if (existing.BirimFiyat > 0)
+                                    mevcutStok.AlisFiyati = existing.BirimFiyat;
+                                mevcutStok.StokTakibiYapilsin = stokTipi == StokTipi.Mal || stokTipi == StokTipi.YedekParca || stokTipi == StokTipi.SarfMalzeme;
+                                mevcutStok.UpdatedAt = DateTime.UtcNow;
+                            }
+
+                            sonuc.AtlananStokKartiSayisi++;
+                        }
+                        else
+                        {
+                            // Yeni stok kartı oluştur
+                            yeniStok = new StokKarti
+                            {
+                                StokKodu = stokKodu,
+                                StokAdi = stokAdi.Length > 200 ? stokAdi.Substring(0, 200) : stokAdi,
+                                StokTipi = stokTipi,
+                                AltTipi = stokAltTipi,
+                                Birim = existing.Birim ?? "Adet",
+                                KdvOrani = existing.KdvOrani,
+                                AlisFiyati = existing.BirimFiyat,
+                                Aktif = true,
+                                StokTakibiYapilsin = stokTipi == StokTipi.Mal || stokTipi == StokTipi.YedekParca || stokTipi == StokTipi.SarfMalzeme,
+                                CreatedAt = DateTime.UtcNow
+                            };
+
+                            olusturulacakStoklar.Add(yeniStok);
+                            mevcutStokAdlari.Add(stokAdiLower);
+                            mevcutStokKodlari.Add(stokKodu.ToUpperInvariant());
+                            stokSayac++;
+                            sonuc.OlusturulanStokKartiSayisi++;
+                        }
+
+                        // Mal veya Sarf Malzeme ise gider kaydı için işaretle
+                        if (stokTipi == StokTipi.Mal || stokTipi == StokTipi.SarfMalzeme)
+                        {
+                            if (yeniStok != null)
+                            {
+                                giderKayitlari.Add((existing, yeniStok, existing.ToplamTutar));
+                            }
+                            else if (stokKartiId > 0)
+                            {
+                                var mevcutStok = await _context.StokKartlari.FindAsync(stokKartiId);
+                                if (mevcutStok != null)
+                                {
+                                    giderKayitlari.Add((existing, mevcutStok, existing.ToplamTutar));
+                                }
+                            }
+                        }
                     }
                 }
                 else
@@ -1484,49 +1690,258 @@ public class FaturaService : IFaturaService
                 sonuc.Hatalar.Add($"Kalem {kalem.Id}: {ex.Message}");
             }
         }
-        
+
+        if (olusturulacakStoklar.Any())
+        {
+            _context.StokKartlari.AddRange(olusturulacakStoklar);
+        }
+
         try
         {
             await _context.SaveChangesAsync();
+            var faturaIds = mevcutKalemler.Select(k => k.FaturaId).Distinct().ToList();
+            var rebuildSonuc = await RebuildDerivedRecordsForInvoicesAsync(faturaIds);
+            sonuc.OlusturulanStokHareketSayisi = rebuildSonuc.StokHareketSayisi;
+            sonuc.OlusturulanGiderKayitSayisi = rebuildSonuc.MuhasebeFisSayisi;
         }
         catch (Exception ex)
         {
             sonuc.Hatalar.Add($"Kayıt hatası: {ex.Message}");
+            if (ex.InnerException != null)
+                sonuc.Hatalar.Add($"Detay: {ex.InnerException.Message}");
         }
-        
+
         return sonuc;
     }
 
-    private static StokTipi KalemTipindenStokTipi(FaturaKalemTipi kalemTipi)
+    /// <summary>
+    /// Mal/Sarf Malzeme gider aktarımı için muhasebe kaydı oluşturur
+    /// Borç: 770.99.999 (Genel Yönetim Giderleri)
+    /// Alacak: 153 (Ticari Mallar)
+    /// </summary>
+    private async Task CreateGiderMuhasebeKaydiAsync(Fatura fatura, decimal tutar, string giderHesapKodu)
     {
-        return kalemTipi switch
+        try
         {
-            FaturaKalemTipi.Hizmet => StokTipi.Hizmet,
-            FaturaKalemTipi.Mal => StokTipi.Mal,
-            FaturaKalemTipi.Demirbas => StokTipi.Demirbas,
-            FaturaKalemTipi.Arac => StokTipi.Arac,
-            FaturaKalemTipi.Servis => StokTipi.Hizmet,
-            _ => StokTipi.Diger
-        };
+            // Gider hesabını bul veya oluştur
+            var giderHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == giderHesapKodu);
+            if (giderHesap == null)
+            {
+                var ustKod = "770.99";
+                var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
+
+                giderHesap = new MuhasebeHesap
+                {
+                    HesapKodu = giderHesapKodu,
+                    HesapAdi = "Genel Yönetim Giderleri - Mal/Sarf Malzeme",
+                    HesapTuru = HesapTuru.Gider,
+                    HesapGrubu = HesapGrubu.MaliyetHesaplari,
+                    UstHesapId = ustHesap?.Id,
+                    Aktif = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.MuhasebeHesaplari.Add(giderHesap);
+                await _context.SaveChangesAsync();
+            }
+
+            // Stok hesabı (153)
+            var stokHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "153");
+            if (stokHesap == null)
+            {
+                var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "15");
+
+                stokHesap = new MuhasebeHesap
+                {
+                    HesapKodu = "153",
+                    HesapAdi = "Ticari Mallar",
+                    HesapTuru = HesapTuru.Aktif,
+                    HesapGrubu = HesapGrubu.DonenVarliklar,
+                    UstHesapId = ustHesap?.Id,
+                    Aktif = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.MuhasebeHesaplari.Add(stokHesap);
+                await _context.SaveChangesAsync();
+            }
+
+            // Muhasebe fişi oluştur
+            var fisNo = await GenerateNextFisNoAsync();
+            var fis = new MuhasebeFis
+            {
+                FisNo = fisNo,
+                FisTarihi = DateTime.SpecifyKind(fatura.FaturaTarihi, DateTimeKind.Utc),
+                FisTipi = FisTipi.Mahsup,
+                Aciklama = $"Fatura {fatura.FaturaNo} - Mal/Sarf Malzeme Gider Kaydı",
+                ToplamBorc = tutar,
+                ToplamAlacak = tutar,
+                Durum = FisDurum.Onaylandi,
+                Kaynak = FisKaynak.Fatura,
+                KaynakId = fatura.Id,
+                KaynakTip = "GiderAktarim",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            fis.Kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = giderHesap.Id,
+                SiraNo = 1,
+                Borc = tutar,
+                Alacak = 0,
+                Tarih = fatura.FaturaTarihi,
+                Aciklama = $"Gider Kaydı - {fatura.FaturaNo}",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            fis.Kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = stokHesap.Id,
+                SiraNo = 2,
+                Borc = 0,
+                Alacak = tutar,
+                Tarih = fatura.FaturaTarihi,
+                Aciklama = $"Stok Çıkışı - {fatura.FaturaNo}",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            _context.MuhasebeFisleri.Add(fis);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Gider muhasebe kaydı hatası: {ex.Message}");
+        }
     }
 
-    private static StokAltTipi? KalemAltTipindenStokAltTipi(FaturaKalemAltTipi? altTipi)
+    private string GetInvoiceLineAciklama(System.Xml.Linq.XElement line, string? cariUnvani, string? urunKodu)
     {
-        if (altTipi == null) return null;
-        
-        return altTipi switch
-        {
-            FaturaKalemAltTipi.TasimaHizmeti => StokAltTipi.TasimaHizmeti,
-            FaturaKalemAltTipi.KiralamaHizmeti => StokAltTipi.KiralamaHizmeti,
-            FaturaKalemAltTipi.DanismanlikHizmeti => StokAltTipi.DanismanlikHizmeti,
-            FaturaKalemAltTipi.TicariMal => StokAltTipi.TicariMal,
-            FaturaKalemAltTipi.YedekParca => StokAltTipi.MotorParcasi,
-            FaturaKalemAltTipi.SarfMalzeme => StokAltTipi.Diger,
-            FaturaKalemAltTipi.Yakit => StokAltTipi.Yakit,
-            FaturaKalemAltTipi.BakimOnarim => StokAltTipi.ServisHizmeti,
-            _ => null
-        };
+        var item = line.Descendants().FirstOrDefault(x => x.Name.LocalName == "Item");
+        var name = item?.Descendants().FirstOrDefault(x => x.Name.LocalName == "Name")?.Value?.Trim() ?? string.Empty;
+        var description = item?.Descendants().FirstOrDefault(x => x.Name.LocalName == "Description")?.Value?.Trim();
+        var note = line.Descendants().FirstOrDefault(x => x.Name.LocalName == "Note")?.Value?.Trim();
+
+        var aciklama = !string.IsNullOrWhiteSpace(description)
+            ? description
+            : !string.IsNullOrWhiteSpace(note)
+                ? note
+                : name;
+
+        return NormalizeImportedAciklama(aciklama, cariUnvani, urunKodu);
     }
+
+    private static string NormalizeImportedAciklama(string? aciklama, string? cariUnvani, string? urunKodu)
+    {
+        var temizAciklama = string.IsNullOrWhiteSpace(aciklama) ? "" : aciklama.Trim();
+        var cariLower = (cariUnvani ?? "").ToLowerInvariant();
+        var kod = urunKodu?.Trim();
+
+        if (cariLower.Contains("başkent elektrik") || cariLower.Contains("baskent elektrik"))
+        {
+            if (kod == "1")
+                return "Elektrik";
+
+            if (kod == "2")
+                return "Elektrik Çarpan";
+
+            if (temizAciklama.Contains("çarpan", StringComparison.OrdinalIgnoreCase))
+                return "Elektrik Çarpan";
+        }
+
+        return temizAciklama;
+    }
+
+    private async Task<(int StokHareketSayisi, int MuhasebeFisSayisi)> RebuildDerivedRecordsForInvoicesAsync(List<int> faturaIds)
+    {
+        if (faturaIds == null || !faturaIds.Any())
+            return (0, 0);
+
+        var invoiceIdSet = faturaIds.Distinct().ToList();
+
+        var etkilenmisStokIds = await _context.StokHareketler
+            .Where(h => h.FaturaId.HasValue && invoiceIdSet.Contains(h.FaturaId.Value))
+            .Select(h => h.StokKartiId)
+            .Distinct()
+            .ToListAsync();
+
+        var silinecekHareketler = await _context.StokHareketler
+            .Where(h => h.FaturaId.HasValue && invoiceIdSet.Contains(h.FaturaId.Value))
+            .ToListAsync();
+
+        if (silinecekHareketler.Any())
+            _context.StokHareketler.RemoveRange(silinecekHareketler);
+
+        var silinecekFisler = await _context.MuhasebeFisleri
+            .Include(f => f.Kalemler)
+            .Where(f => f.Kaynak == FisKaynak.Fatura &&
+                        f.KaynakId.HasValue && invoiceIdSet.Contains(f.KaynakId.Value) &&
+                        (f.KaynakTip == "GiderAktarim" || f.KaynakTip == "MasrafAktarim" || f.KaynakTip == "Fatura"))
+            .ToListAsync();
+
+        if (silinecekFisler.Any())
+            _context.MuhasebeFisleri.RemoveRange(silinecekFisler);
+
+        await _context.SaveChangesAsync();
+
+        if (etkilenmisStokIds.Any())
+        {
+            foreach (var stokId in etkilenmisStokIds)
+            {
+                var stok = await _context.StokKartlari.AsTracking().FirstOrDefaultAsync(s => s.Id == stokId);
+                if (stok == null)
+                    continue;
+
+                stok.MevcutStok = await _context.StokHareketler
+                    .Where(h => h.StokKartiId == stokId)
+                    .SumAsync(h => h.Miktar);
+                stok.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        var faturalar = await _context.Faturalar
+            .AsTracking()
+            .Include(f => f.Cari)
+            .Include(f => f.FaturaKalemleri)
+            .Where(f => invoiceIdSet.Contains(f.Id))
+            .ToListAsync();
+
+        foreach (var fatura in faturalar)
+        {
+            await CreateStokHareketleriFromFaturaAsync(fatura, fatura.FaturaYonu);
+            await TryCreateMuhasebeFisiAsync(fatura);
+        }
+
+        var stokHareketSayisi = await _context.StokHareketler
+            .CountAsync(h => h.FaturaId.HasValue && invoiceIdSet.Contains(h.FaturaId.Value));
+
+        var muhasebeFisSayisi = await _context.MuhasebeFisleri
+            .CountAsync(f => f.Kaynak == FisKaynak.Fatura && f.KaynakId.HasValue && invoiceIdSet.Contains(f.KaynakId.Value));
+
+        return (stokHareketSayisi, muhasebeFisSayisi);
+    }
+
+    private static StokTipi KalemTipindenStokTipi(FaturaKalemTipi kalemTipi) => kalemTipi switch
+    {
+        FaturaKalemTipi.Arac => StokTipi.Arac,
+        FaturaKalemTipi.Demirbas => StokTipi.Demirbas,
+        FaturaKalemTipi.Mal => StokTipi.Mal,
+        FaturaKalemTipi.Hizmet => StokTipi.Hizmet,
+        FaturaKalemTipi.Servis => StokTipi.Hizmet,
+        _ => StokTipi.Diger
+    };
+
+    private static StokAltTipi? KalemAltTipindenStokAltTipi(FaturaKalemAltTipi? altTipi) => altTipi switch
+    {
+        null => null,
+        FaturaKalemAltTipi.TasimaHizmeti => StokAltTipi.TasimaHizmeti,
+        FaturaKalemAltTipi.KiralamaHizmeti => StokAltTipi.KiralamaHizmeti,
+        FaturaKalemAltTipi.DanismanlikHizmeti => StokAltTipi.DanismanlikHizmeti,
+        FaturaKalemAltTipi.TicariMal => StokAltTipi.TicariMal,
+        FaturaKalemAltTipi.YedekParca => StokAltTipi.MotorParcasi,
+        FaturaKalemAltTipi.SarfMalzeme => StokAltTipi.Yakit,
+        FaturaKalemAltTipi.BakimOnarim => StokAltTipi.ServisHizmeti,
+        _ => null
+    };
 
     #endregion
 
@@ -1538,12 +1953,12 @@ public class FaturaService : IFaturaService
             .Include(f => f.Cari)
             .Include(f => f.FaturaKalemleri)
             .FirstOrDefaultAsync(f => f.Id == faturaId);
-        
+
         if (fatura == null)
-            throw new Exception("Fatura bulunamadı.");
-        
+            throw new Exception("Fatura bulunamadi.");
+
         var fisNo = await GenerateNextFisNoAsync();
-        
+
         var fis = new MuhasebeFis
         {
             FisNo = fisNo,
@@ -1558,10 +1973,10 @@ public class FaturaService : IFaturaService
             KaynakTip = "Fatura",
             CreatedAt = DateTime.UtcNow
         };
-        
+
         _context.MuhasebeFisleri.Add(fis);
         await _context.SaveChangesAsync();
-        
+
         return fis;
     }
 
@@ -1569,20 +1984,20 @@ public class FaturaService : IFaturaService
     {
         var yil = DateTime.UtcNow.Year;
         var prefix = $"MF{yil}";
-        
+
         var sonFisNo = await _context.MuhasebeFisleri
             .Where(f => f.FisNo.StartsWith(prefix))
             .OrderByDescending(f => f.FisNo)
             .Select(f => f.FisNo)
             .FirstOrDefaultAsync();
-        
+
         if (sonFisNo == null)
             return $"{prefix}000001";
-        
+
         var sonNo = sonFisNo.Replace(prefix, "");
         if (int.TryParse(sonNo, out var no))
             return $"{prefix}{no + 1:D6}";
-        
+
         return $"{prefix}000001";
     }
 
@@ -1590,11 +2005,11 @@ public class FaturaService : IFaturaService
     {
         using var package = new ExcelPackage();
         var ws = package.Workbook.Worksheets.Add(yon == FaturaYonu.Giden ? "Satış Faturaları" : "Alış Faturaları");
-        
-        var headers = new[] { "Ünvanı", "Vkn/Tckn", "Fatura Tipi", "Fatura Tarihi", "Fatura No", 
-            "İskonto", "%0 Matrah", "%1 Matrah", "%10 Matrah", "%20 Matrah", 
+
+        var headers = new[] { "Ünvanı", "Vkn/Tckn", "Fatura Tipi", "Fatura Tarihi", "Fatura No",
+            "İskonto", "%0 Matrah", "%1 Matrah", "%10 Matrah", "%20 Matrah",
             "%1 KDV", "%10 KDV", "%20 KDV", "Ödenecek Tutar" };
-        
+
         for (int i = 0; i < headers.Length; i++)
         {
             ws.Cells[1, i + 1].Value = headers[i];
@@ -1602,7 +2017,7 @@ public class FaturaService : IFaturaService
             ws.Cells[1, i + 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
             ws.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGreen);
         }
-        
+
         ws.Cells[2, 1].Value = "ÖRNEK FİRMA A.Ş.";
         ws.Cells[2, 2].Value = "1234567890";
         ws.Cells[2, 3].Value = yon == FaturaYonu.Giden ? "SATIS" : "ALIS";
@@ -1611,7 +2026,7 @@ public class FaturaService : IFaturaService
         ws.Cells[2, 10].Value = "1000,00";
         ws.Cells[2, 13].Value = "200,00";
         ws.Cells[2, 14].Value = "1200,00";
-        
+
         ws.Cells.AutoFitColumns();
         return await Task.FromResult(package.GetAsByteArray());
     }
@@ -1620,7 +2035,7 @@ public class FaturaService : IFaturaService
     {
         using var package = new ExcelPackage();
         var ws = package.Workbook.Worksheets.Add("Faturalar");
-        
+
         var headers = new[] { "Fatura No", "Tarih", "Vade", "Cari", "VKN", "Matrah", "KDV", "Toplam", "Ödenen", "Kalan", "Durum", "Tip", "ETTN" };
         for (int i = 0; i < headers.Length; i++)
         {
@@ -1629,7 +2044,7 @@ public class FaturaService : IFaturaService
             ws.Cells[1, i + 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
             ws.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGreen);
         }
-        
+
         int row = 2;
         foreach (var f in faturalar)
         {
@@ -1648,7 +2063,7 @@ public class FaturaService : IFaturaService
             ws.Cells[row, 13].Value = f.EttnNo;
             row++;
         }
-        
+
         ws.Cells.AutoFitColumns();
         return await Task.FromResult(package.GetAsByteArray());
     }
@@ -1664,7 +2079,7 @@ public class FaturaService : IFaturaService
 
         var lower = (aciklama ?? "").ToLowerInvariant();
 
-        if (lower.Contains("araç") || lower.Contains("otomobil") || lower.Contains("minibüs") || 
+        if (lower.Contains("araç") || lower.Contains("otomobil") || lower.Contains("minibüs") ||
             lower.Contains("otobüs") || lower.Contains("midibüs") || lower.Contains("panelvan") ||
             lower.Contains("şase") || lower.Contains("plaka") || lower.Contains("arac"))
             return FaturaKalemTipi.Arac;
@@ -1674,7 +2089,7 @@ public class FaturaService : IFaturaService
             lower.Contains("kasko") || lower.Contains("bakim") || lower.Contains("onarim"))
             return FaturaKalemTipi.Servis;
 
-        if (lower.Contains("demirbaş") || lower.Contains("demirbas") || lower.Contains("ofis") || 
+        if (lower.Contains("demirbaş") || lower.Contains("demirbas") || lower.Contains("ofis") ||
             lower.Contains("makina") || lower.Contains("makine") || lower.Contains("ekipman"))
             return FaturaKalemTipi.Demirbas;
 
@@ -1735,7 +2150,7 @@ public class FaturaService : IFaturaService
 
         var saseMatch = System.Text.RegularExpressions.Regex.Match(aciklama, @"\b[A-HJ-NPR-Z0-9]{17}\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         var plakaMatch = System.Text.RegularExpressions.Regex.Match(aciklama, @"\b\d{2}\s*[A-Z]{1,3}\s*\d{2,4}\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        
+
         if (saseMatch.Success || plakaMatch.Success)
         {
             return (
@@ -1743,33 +2158,33 @@ public class FaturaService : IFaturaService
                 plakaMatch.Success ? plakaMatch.Value.Replace(" ", "").ToUpperInvariant() : null
             );
         }
-        
+
         return null;
     }
 
     private async Task<Arac?> FindOrCreateAracAsync((string? SaseNo, string? Plaka) aracBilgisi, FaturaYonu yon, int cariId)
     {
         Arac? arac = null;
-        
+
         if (!string.IsNullOrWhiteSpace(aracBilgisi.SaseNo))
         {
             arac = await _context.Araclar
                 .Include(a => a.PlakaGecmisi)
                 .FirstOrDefaultAsync(a => a.SaseNo == aracBilgisi.SaseNo && !a.IsDeleted);
         }
-        
+
         if (arac == null && !string.IsNullOrWhiteSpace(aracBilgisi.Plaka))
         {
             var plakaKaydi = await _context.AracPlakalar
                 .Include(p => p.Arac)
                 .FirstOrDefaultAsync(p => p.Plaka == aracBilgisi.Plaka && !p.IsDeleted);
-            
+
             if (plakaKaydi != null)
             {
                 arac = plakaKaydi.Arac;
             }
         }
-        
+
         return arac;
     }
 
@@ -1801,5 +2216,285 @@ public class FaturaService : IFaturaService
         }
     }
 
+    /// <summary>
+    /// Fatura için stok hareketleri oluşturur ve muhasebe kaydı yapar
+    /// Gelen Fatura: Stok Girişi (Mal/Sarf Malzeme ise masrafa aktarım)
+    /// Giden Fatura: Stok Çıkışı
+    /// </summary>
+    private async Task CreateStokHareketleriFromFaturaAsync(Fatura fatura, FaturaYonu yon)
+    {
+        try
+        {
+            if (fatura.FaturaKalemleri == null || !fatura.FaturaKalemleri.Any())
+                return;
+
+            // Tüm verileri önce çek - tek sorguda
+            var ayar = await _context.MuhasebeAyarlari.AsNoTracking().FirstOrDefaultAsync();
+            if (ayar == null || !ayar.StokMasrafAktarimiOtomatik)
+                return;
+
+            var stokKartlari = await _context.StokKartlari
+                .AsNoTracking()
+                .Where(s => !s.IsDeleted && s.Aktif)
+                .ToListAsync();
+
+            if (!stokKartlari.Any())
+                return;
+
+            // Dictionary'ler oluştur (memory içi işlem)
+            var stokAdSozluk = stokKartlari
+                .GroupBy(s => s.StokAdi.ToLower().Trim())
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var stokKodSozluk = stokKartlari
+                .Where(s => !string.IsNullOrWhiteSpace(s.StokKodu))
+                .GroupBy(s => s.StokKodu.ToUpper().Trim())
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var stokHareketleri = new List<StokHareket>();
+            decimal toplamMalMasrafTutar = 0;
+            decimal toplamSarfMasrafTutar = 0;
+            var guncellenecekStoklar = new Dictionary<int, decimal>();
+
+            // Kalemleri işle (DB sorgusu yok)
+            foreach (var kalem in fatura.FaturaKalemleri)
+            {
+                if (string.IsNullOrWhiteSpace(kalem.Aciklama))
+                    continue;
+
+                StokKarti? stokKarti = null;
+
+                if (!string.IsNullOrWhiteSpace(kalem.UrunKodu))
+                {
+                    stokKodSozluk.TryGetValue(kalem.UrunKodu.ToUpper().Trim(), out stokKarti);
+                }
+
+                if (stokKarti == null)
+                {
+                    stokAdSozluk.TryGetValue(kalem.Aciklama.ToLower().Trim(), out stokKarti);
+                }
+
+                if (stokKarti != null && stokKarti.StokTakibiYapilsin)
+                {
+                    bool isMal = stokKarti.StokTipi == StokTipi.Mal;
+                    bool isSarfMalzeme = stokKarti.StokTipi == StokTipi.SarfMalzeme;
+                    bool masrafaAktar = yon == FaturaYonu.Gelen && (isMal || isSarfMalzeme);
+
+                    var masrafHesapKodu = isMal ? ayar.MalMasrafHesabi : ayar.SarfMalzemeMasrafHesabi;
+
+                    if (masrafaAktar)
+                    {
+                        stokHareketleri.Add(new StokHareket
+                        {
+                            StokKartiId = stokKarti.Id,
+                            HareketTipi = StokHareketTipi.Giris,
+                            IslemTarihi = DateTime.SpecifyKind(fatura.FaturaTarihi, DateTimeKind.Utc),
+                            Miktar = kalem.Miktar,
+                            BirimFiyat = kalem.BirimFiyat,
+                            Aciklama = $"Fatura Girişi: {fatura.FaturaNo} - {kalem.Aciklama}",
+                            BelgeNo = fatura.FaturaNo,
+                            FaturaId = fatura.Id,
+                            CariId = fatura.CariId,
+                            FaturaKalemId = kalem.Id,
+                            CreatedAt = DateTime.UtcNow
+                        });
+
+                        stokHareketleri.Add(new StokHareket
+                        {
+                            StokKartiId = stokKarti.Id,
+                            HareketTipi = StokHareketTipi.Cikis,
+                            IslemTarihi = DateTime.SpecifyKind(fatura.FaturaTarihi, DateTimeKind.Utc),
+                            Miktar = kalem.Miktar,
+                            BirimFiyat = kalem.BirimFiyat,
+                            Aciklama = $"Masrafa Aktarım: {fatura.FaturaNo} - {kalem.Aciklama} -> {masrafHesapKodu}",
+                            BelgeNo = fatura.FaturaNo,
+                            FaturaId = fatura.Id,
+                            CariId = fatura.CariId,
+                            FaturaKalemId = kalem.Id,
+                            CreatedAt = DateTime.UtcNow
+                        });
+
+                        if (isMal)
+                            toplamMalMasrafTutar += kalem.ToplamTutar;
+                        else
+                            toplamSarfMasrafTutar += kalem.ToplamTutar;
+                    }
+                    else
+                    {
+                        stokHareketleri.Add(new StokHareket
+                        {
+                            StokKartiId = stokKarti.Id,
+                            HareketTipi = yon == FaturaYonu.Giden ? StokHareketTipi.Cikis : StokHareketTipi.Giris,
+                            IslemTarihi = DateTime.SpecifyKind(fatura.FaturaTarihi, DateTimeKind.Utc),
+                            Miktar = kalem.Miktar,
+                            BirimFiyat = kalem.BirimFiyat,
+                            Aciklama = $"Fatura: {fatura.FaturaNo} - {kalem.Aciklama}",
+                            BelgeNo = fatura.FaturaNo,
+                            FaturaId = fatura.Id,
+                            CariId = fatura.CariId,
+                            FaturaKalemId = kalem.Id,
+                            CreatedAt = DateTime.UtcNow
+                        });
+
+                        var miktarDegisimi = yon == FaturaYonu.Giden ? -kalem.Miktar : kalem.Miktar;
+                        if (guncellenecekStoklar.ContainsKey(stokKarti.Id))
+                            guncellenecekStoklar[stokKarti.Id] += miktarDegisimi;
+                        else
+                            guncellenecekStoklar[stokKarti.Id] = miktarDegisimi;
+                    }
+                }
+            }
+
+            // Eğer işlenecek bir şey yoksa çık
+            if (!stokHareketleri.Any() && toplamMalMasrafTutar == 0 && toplamSarfMasrafTutar == 0)
+                return;
+
+            // Stok hareketlerini ekle
+            if (stokHareketleri.Any())
+            {
+                _context.StokHareketler.AddRange(stokHareketleri);
+            }
+
+            // Stok miktarlarını güncelle - tek sorguda ID'leri al
+            if (guncellenecekStoklar.Any())
+            {
+                var stokIds = guncellenecekStoklar.Keys.ToList();
+                var stoklarToUpdate = await _context.StokKartlari
+                    .Where(s => stokIds.Contains(s.Id))
+                    .ToListAsync();
+
+                foreach (var stok in stoklarToUpdate)
+                {
+                    if (guncellenecekStoklar.TryGetValue(stok.Id, out var miktar))
+                    {
+                        stok.MevcutStok += miktar;
+                        stok.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+            }
+
+            // İlk kaydet
+            await _context.SaveChangesAsync();
+
+            // Muhasebe kayıtlarını ayrı ayrı oluştur (her biri kendi SaveChanges'ini yapacak)
+            if (toplamMalMasrafTutar > 0)
+            {
+                await CreateMasrafMuhasebeKaydiInternalAsync(fatura, toplamMalMasrafTutar, ayar.MalMasrafHesabi, ayar.StokCikisHesabi, "Ticari Mal");
+            }
+
+            if (toplamSarfMasrafTutar > 0)
+            {
+                await CreateMasrafMuhasebeKaydiInternalAsync(fatura, toplamSarfMasrafTutar, ayar.SarfMalzemeMasrafHesabi, ayar.StokCikisHesabi, "Sarf Malzeme");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Hata durumunda sessizce devam et - fatura importu başarılı olsun
+            System.Diagnostics.Debug.WriteLine($"Stok hareketi oluşturma hatası: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Masraf aktarımı için muhasebe fişi oluşturur (internal - SaveChanges yapar)
+    /// </summary>
+    private async Task CreateMasrafMuhasebeKaydiInternalAsync(Fatura fatura, decimal tutar, string masrafHesapKodu, string stokCikisHesapKodu, string aciklamaTipi)
+    {
+        try
+        {
+            // Hesapları bul
+            var masrafHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == masrafHesapKodu);
+            var stokHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == stokCikisHesapKodu);
+
+            // Masraf hesabı yoksa oluştur
+            if (masrafHesap == null)
+            {
+                var ustKod = masrafHesapKodu.Contains('.') 
+                    ? string.Join(".", masrafHesapKodu.Split('.').Take(masrafHesapKodu.Split('.').Length - 1))
+                    : masrafHesapKodu.Substring(0, Math.Min(3, masrafHesapKodu.Length));
+                var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
+
+                masrafHesap = new MuhasebeHesap
+                {
+                    HesapKodu = masrafHesapKodu,
+                    HesapAdi = $"Masraflar - {aciklamaTipi}",
+                    HesapTuru = HesapTuru.Gider,
+                    HesapGrubu = HesapGrubu.MaliyetHesaplari,
+                    UstHesapId = ustHesap?.Id,
+                    Aktif = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.MuhasebeHesaplari.Add(masrafHesap);
+                await _context.SaveChangesAsync();
+            }
+
+            // Stok hesabı yoksa oluştur
+            if (stokHesap == null)
+            {
+                var ustKod = stokCikisHesapKodu.Length >= 2 ? stokCikisHesapKodu.Substring(0, 2) : stokCikisHesapKodu;
+                var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
+
+                stokHesap = new MuhasebeHesap
+                {
+                    HesapKodu = stokCikisHesapKodu,
+                    HesapAdi = "Ticari Mallar",
+                    HesapTuru = HesapTuru.Aktif,
+                    HesapGrubu = HesapGrubu.DonenVarliklar,
+                    UstHesapId = ustHesap?.Id,
+                    Aktif = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.MuhasebeHesaplari.Add(stokHesap);
+                await _context.SaveChangesAsync();
+            }
+
+            // Fiş numarası al
+            var fisNo = await GenerateNextFisNoAsync();
+
+            // Muhasebe fişi oluştur
+            var fis = new MuhasebeFis
+            {
+                FisNo = fisNo,
+                FisTarihi = DateTime.SpecifyKind(fatura.FaturaTarihi, DateTimeKind.Utc),
+                FisTipi = FisTipi.Mahsup,
+                Aciklama = $"Fatura {fatura.FaturaNo} - {aciklamaTipi} Masraf Aktarımı",
+                ToplamBorc = tutar,
+                ToplamAlacak = tutar,
+                Durum = FisDurum.Onaylandi,
+                Kaynak = FisKaynak.Fatura,
+                KaynakId = fatura.Id,
+                KaynakTip = "MasrafAktarim",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            fis.Kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = masrafHesap.Id,
+                SiraNo = 1,
+                Borc = tutar,
+                Alacak = 0,
+                Tarih = fatura.FaturaTarihi,
+                Aciklama = $"Masraf Aktarımı ({aciklamaTipi}) - {fatura.FaturaNo}",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            fis.Kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = stokHesap.Id,
+                SiraNo = 2,
+                Borc = 0,
+                Alacak = tutar,
+                Tarih = fatura.FaturaTarihi,
+                Aciklama = $"Stok Çıkışı ({aciklamaTipi}) - {fatura.FaturaNo}",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            _context.MuhasebeFisleri.Add(fis);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Muhasebe kaydı oluşturma hatası: {ex.Message}");
+        }
+    }
     #endregion
 }

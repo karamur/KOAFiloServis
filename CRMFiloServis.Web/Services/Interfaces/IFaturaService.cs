@@ -38,6 +38,8 @@ public interface IFaturaService
     
     // Fatura Kalemleri - Stok Türü Eşleştirme
     Task<List<FaturaKalem>> GetFaturaKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null);
+    Task<List<FaturaKalem>> GetEslesmemisKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null);
+    Task<List<FaturaKalem>> GetEslesmisKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null);
     Task<StokKartiOlusturSonuc> UpdateFaturaKalemleriVeStokKartiOlusturAsync(List<FaturaKalem> kalemler, bool stokKartiOlustur = true);
     Task UpdateFaturaKalemleriAsync(List<FaturaKalem> kalemler);
 }
@@ -47,6 +49,8 @@ public class StokKartiOlusturSonuc
     public int GuncellenenKalemSayisi { get; set; }
     public int OlusturulanStokKartiSayisi { get; set; }
     public int AtlananStokKartiSayisi { get; set; }
+    public int OlusturulanStokHareketSayisi { get; set; }
+    public int OlusturulanGiderKayitSayisi { get; set; }
     public List<string> Hatalar { get; set; } = new();
 }
 

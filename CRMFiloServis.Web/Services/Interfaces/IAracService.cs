@@ -25,6 +25,9 @@ public interface IAracService
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null);
     Task PlakaCikis(int aracPlakaId, PlakaIslemTipi cikisIslemTipi,
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null);
+    Task<bool> AddPlakaToAracAsync(AracPlaka yeniPlaka);
+    Task<bool> DeletePlakaFromAracAsync(int aracPlakaId);
+    Task ClosePlakaAsync(int aracPlakaId, DateTime cikisTarihi);
 
     // Satışa Açık Araçlar
     Task<List<Arac>> GetSatisaAcikAraclarAsync();

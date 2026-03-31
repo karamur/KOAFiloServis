@@ -1,7 +1,7 @@
 {
   "AutoBackupEnabled": true,
-  "AutoBackupIntervalHours": 24,
-  "KeepBackupCount": 10,
+  "AutoBackupIntervalHours": 6,
+  "KeepBackupCount": 30,
   "BackupFolder": "Backups",
-  "LastBackupTime": "2026-03-29T21:48:59.3247276+03:00"
+  "LastBackupTime": "2026-03-31T23:39:09.9257669+03:00"
 }

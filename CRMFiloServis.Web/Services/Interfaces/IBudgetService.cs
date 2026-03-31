@@ -7,6 +7,7 @@ public interface IBudgetService
     // Odeme Islemleri
     Task<List<BudgetOdeme>> GetOdemelerAsync(int yil, int? ay = null, int? firmaId = null);
     Task<List<BudgetOdeme>> GetBekleyenOdemelerAsync(int yil, int? ay = null);
+    Task<List<BudgetOdeme>> GetDevirBekleyenOdemelerAsync(DateTime donemBaslangic, int? firmaId = null);
     Task<List<BudgetOdeme>> GetOdemelerByDateRangeAsync(DateTime baslangic, DateTime bitis);
     Task<BudgetOdeme?> GetOdemeByIdAsync(int id);
     Task<BudgetOdeme> CreateOdemeAsync(BudgetOdeme odeme);

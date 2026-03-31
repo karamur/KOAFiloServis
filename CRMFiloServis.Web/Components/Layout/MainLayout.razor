@@ -1,4 +1,4 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
 @inject CRMFiloServis.Web.Services.IKullaniciService KullaniciService
 @inject CRMFiloServis.Web.Services.ILisansService LisansService
@@ -248,6 +248,7 @@
     {
         try
         {
+            firmalar = await FirmaService.GetAktifFirmalarAsync();
             var aktifFirma = FirmaService.GetAktifFirma();
             aktifFirmaId = aktifFirma.FirmaId;
             aktifFirmaAdi = aktifFirma.FirmaAdi;
@@ -261,6 +262,6 @@
         aktifFirmaId = firma.Id;
         aktifFirmaAdi = firma.FirmaAdi;
         StateHasChanged();
-        Navigation.NavigateTo(Navigation.Uri, false);
+        Navigation.NavigateTo(Navigation.Uri, true);
     }
 }

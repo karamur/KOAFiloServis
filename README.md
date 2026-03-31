@@ -1,4 +1,4 @@
-# CRM Filo Servis
+﻿# CRM Filo Servis
 
 Filo Yonetimi, Muhasebe ve CRM Uygulamasi - .NET 10 Blazor Server
 
@@ -94,6 +94,20 @@ Filo Yonetimi, Muhasebe ve CRM Uygulamasi - .NET 10 Blazor Server
 
 ## ?? Kurulum
 
+### Masaustu Kurulum Programi ile
+
+1. `CRMFiloServisKurulum.exe` calistirin
+2. Kurulum tipi secin:
+   - **Normal**: Windows Server / IIS
+   - **Docker**: Docker Compose
+3. Kurulum modu secin:
+   - **Sifir Kurulum**: Yeni veritabani
+   - **Mevcut Yedek Ile**: Var olan veriyi tasima
+4. Kurulum paketini secin (.zip)
+5. Kurulumu baslatin
+
+### Manuel Kurulum
+
 1. **Repository'yi klonlayin:**
 ```bash
 git clone https://github.com/karamur/CRMFiloServis.git
@@ -126,24 +140,38 @@ http://localhost:5190
 ```
 CRMFiloServis/
 ??? CRMFiloServis.Shared/        # Paylasilan entity ve modeller
-?   ??? Entities/
 ??? CRMFiloServis.Web/           # Ana Blazor uygulamasi
-?   ??? Components/
-?   ?   ??? Layout/              # Ana layout ve menu
-?   ?   ??? Pages/               # Sayfalar
-?   ?   ?   ??? Ayarlar/         # Ayarlar sayfalari
-?   ?   ?   ??? Budget/          # Butce modulu
-?   ?   ?   ??? EFatura/         # E-Fatura modulu
-?   ?   ?   ??? Muhasebe/        # Muhasebe modulu
-?   ?   ?   ??? Personel/        # Personel modulu
-?   ?   ?   ??? Raporlar/        # Raporlar
-?   ?   ?   ??? Satis/           # Satis modulu
-?   ?   ??? Shared/              # Ortak bilesenler
-?   ??? Data/                    # DbContext ve Migrations
-?   ??? Services/                # Is mantigi servisleri
-?   ??? wwwroot/                 # Statik dosyalar
-??? README.md
+??? CRMFiloServis.Installer/     # Masaustu kurulum programi
+??? CRMFiloServis.LisansDesktop/ # Lisans olusturucu
+??? deploy/                      # Yayin scriptleri
 ```
+
+## ?? Yayin Paketi Olusturma
+
+```powershell
+# Tum paketler
+.\deploy\Build-All.ps1 -Version "1.0.0"
+
+# Sadece web paketi
+.\deploy\Build-WebPackage.ps1 -Version "1.0.0"
+
+# Sadece kurulum programi
+.\deploy\Build-Installer.ps1
+```
+
+## ?? Program Ici Guncelleme
+
+1. `Ayarlar > Uygulama Guncelleme` menusune gidin
+2. Yeni versiyon ZIP dosyasini yukleyin
+3. Guncellemeyi baslatin
+4. Uygulama otomatik yeniden baslar
+
+## ?? Lisanslama
+
+1. `Ayarlar > Lisans` menusunden PC Kodunu kopyalayin
+2. PC Kodunu lisans yetkilisine gonderin
+3. Alinan aktivasyon kodunu girin
+4. Lisans aktive edilir
 
 ## ?? Varsayilan Giris
 
@@ -164,6 +192,13 @@ CRMFiloServis/
 | Satis Modulu | ? | - | ? | ? |
 
 ## ?? Son Guncellemeler
+
+### v1.2.0 (2025)
+- ? Masaustu kurulum programi eklendi (Normal / Docker secenekli)
+- ? Program ici guncelleme destegi
+- ? PC Kodu lisans menusunden alinabiliyor
+- ? Stok turu eslestirmede stok kodu arama/sec/manuel yaz
+- ? Gecmis odenmemis borclar ana sayfada
 
 ### v1.1.0 (2024)
 - ? Butce analiz - odeme yapilinca listeden kaldirilir
@@ -208,4 +243,4 @@ Bu proje MIT lisansi altinda lisanslanmistir - detaylar icin [LICENSE](LICENSE) 
 
 ---
 
-**� 2025 Allbatros Global Teknoloji - Tum Haklari Saklidir**
+**© 2025 Allbatros Global Teknoloji - Tum Haklari Saklidir**

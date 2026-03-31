@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -44,13 +44,13 @@ public class RaporService : IRaporService
 
         var data = await query.ToListAsync();
 
-        // Gruplama ve özet hesaplama
+        // Gruplama ve Ã¶zet hesaplama
         var grouped = data
             .GroupBy(s => new { s.AracId, s.SoforId, s.GuzergahId })
             .Select(g => new ServisCalismaRaporItem
             {
                 Tarih = g.Min(x => x.CalismaTarihi),
-                Plaka = g.First().Arac?.AktifPlaka,
+                Plaka = g.First().Arac?.AktifPlaka ?? string.Empty,
                 SoforAdi = g.First().Sofor.TamAd,
                 GuzergahAdi = g.First().Guzergah.GuzergahAdi,
                 FirmaAdi = g.First().Guzergah.Cari.Unvan,
@@ -128,7 +128,7 @@ public class RaporService : IRaporService
         return data.Select(m => new AracMasrafRaporItem
         {
             MasrafTarihi = m.MasrafTarihi,
-            Plaka = m.Arac?.AktifPlaka,
+            Plaka = m.Arac?.AktifPlaka ?? string.Empty,
             MasrafKalemi = m.MasrafKalemi.MasrafAdi,
             Kategori = m.MasrafKalemi.Kategori.ToString(),
             GuzergahAdi = m.Guzergah?.GuzergahAdi,
@@ -146,7 +146,7 @@ public class RaporService : IRaporService
     {
         var cari = await _context.Cariler.FindAsync(cariId);
         if (cari == null)
-            throw new ArgumentException("Cari bulunamadý", nameof(cariId));
+            throw new ArgumentException("Cari bulunamadÄ±", nameof(cariId));
 
         var ekstre = new CariEkstre
         {
@@ -159,7 +159,7 @@ public class RaporService : IRaporService
 
         var hareketler = new List<CariEkstreItem>();
 
-        // Faturalarý getir
+        // FaturalarÄ± getir
         var faturalar = await _context.Faturalar
             .Where(f => f.CariId == cariId)
             .Where(f => !startDate.HasValue || f.FaturaTarihi >= startDate.Value)
@@ -196,13 +196,13 @@ public class RaporService : IRaporService
                 Tarih = hareket.IslemTarihi,
                 BelgeNo = hareket.IslemNo,
                 IslemTipi = hareket.HareketTipi.ToString(),
-                Aciklama = hareket.Aciklama ?? "Ödeme/Tahsilat",
+                Aciklama = hareket.Aciklama ?? "Ã–deme/Tahsilat",
                 Borc = hareket.HareketTipi == HareketTipi.Cikis ? hareket.Tutar : 0,
                 Alacak = hareket.HareketTipi == HareketTipi.Giris ? hareket.Tutar : 0
             });
         }
 
-        // Tarihe göre sýrala ve bakiye hesapla
+        // Tarihe gÃ¶re sÄ±rala ve bakiye hesapla
         hareketler = hareketler.OrderBy(h => h.Tarih).ThenBy(h => h.BelgeNo).ToList();
 
         decimal bakiye = 0;

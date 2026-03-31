@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+Ôªøusing CRMFiloServis.Shared.Entities;
 
 namespace CRMFiloServis.Web.Services;
 
@@ -12,12 +12,18 @@ public interface IAktiviteLogService
     Task LogEklemeAsync(string modul, string entityTipi, int entityId, string entityAdi);
     Task LogGuncellemeAsync(string modul, string entityTipi, int entityId, string entityAdi, object? eskiDeger = null, object? yeniDeger = null);
     Task LogSilmeAsync(string modul, string entityTipi, int entityId, string entityAdi);
+    Task LogGoruntulemeAsync(string modul, string entityTipi, int entityId, string entityAdi, string? aciklama = null);
     Task LogHataAsync(string modul, string aciklama, Exception? ex = null);
 
     Task<List<AktiviteLogItem>> GetLogsAsync(AktiviteLogFilter? filter = null);
+    Task<AktiviteLogDetay?> GetLogByIdAsync(int id);
     Task<AktiviteLogOzet> GetOzetAsync(int gunSayisi = 7);
     Task<int> GetLogCountAsync(DateTime? baslangic = null, DateTime? bitis = null);
     Task CleanupOldLogsAsync(int gunSakla = 90);
+
+    // Geri alma i≈ülemleri
+    Task<GeriAlmaSonuc> GeriAlAsync(int logId);
+    bool GeriAlinabilirMi(AktiviteLogDetay log);
 }
 
 public class AktiviteLogItem
@@ -35,7 +41,7 @@ public class AktiviteLogItem
 
     public string SeviyeClass => Seviye switch
     {
-        AktiviteSeviye.Bilgi => "bg-info",
+        AktiviteSeviye.Bilgi => "bg-info text-dark",
         AktiviteSeviye.Uyari => "bg-warning text-dark",
         AktiviteSeviye.Hata => "bg-danger",
         AktiviteSeviye.Kritik => "bg-dark",
@@ -45,15 +51,24 @@ public class AktiviteLogItem
     public string IslemTipiIcon => IslemTipi switch
     {
         "Ekleme" => "bi-plus-circle text-success",
-        "G¸ncelleme" => "bi-pencil text-primary",
+        "G√ºncelleme" => "bi-pencil text-primary",
         "Silme" => "bi-trash text-danger",
-        "Giri˛" => "bi-box-arrow-in-right text-info",
-        "«˝k˝˛" => "bi-box-arrow-right text-secondary",
+        "Giri≈ü" => "bi-box-arrow-in-right text-info",
+        "√áƒ±kƒ±≈ü" => "bi-box-arrow-right text-secondary",
+        "G√∂r√ºnt√ºleme" => "bi-eye text-secondary",
         "Hata" => "bi-exclamation-triangle text-danger",
         "Yedekleme" => "bi-database text-success",
-        "Geri Y¸kleme" => "bi-arrow-counterclockwise text-warning",
+        "Geri Y√ºkleme" => "bi-arrow-counterclockwise text-warning",
         _ => "bi-activity text-muted"
     };
+}
+
+public class AktiviteLogDetay : AktiviteLogItem
+{
+    public string? IpAdresi { get; set; }
+    public string? Tarayici { get; set; }
+    public string? EskiDeger { get; set; }
+    public string? YeniDeger { get; set; }
 }
 
 public class AktiviteLogFilter
@@ -64,6 +79,8 @@ public class AktiviteLogFilter
     public string? IslemTipi { get; set; }
     public AktiviteSeviye? Seviye { get; set; }
     public string? AramaMetni { get; set; }
+    public string? KullaniciAdi { get; set; }
+    public string? EntityTipi { get; set; }
     public int Sayfa { get; set; } = 1;
     public int SayfaBoyutu { get; set; } = 50;
 }
@@ -90,4 +107,14 @@ public class GunlukAktivite
 {
     public DateTime Tarih { get; set; }
     public int Adet { get; set; }
+}
+
+public class GeriAlmaSonuc
+{
+    public bool Basarili { get; set; }
+    public string Mesaj { get; set; } = string.Empty;
+    public string? EntityTipi { get; set; }
+    public int? EntityId { get; set; }
+    public string? IslemTipi { get; set; }
+    public int? OrijinalLogId { get; set; }
 }

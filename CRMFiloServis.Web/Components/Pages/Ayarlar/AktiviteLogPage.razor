@@ -1,4 +1,4 @@
-@page "/aktivite-log"
+﻿@page "/aktivite-log"
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Shared.Entities
 @inject IAktiviteLogService AktiviteLogService
@@ -11,9 +11,6 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3><i class="bi bi-clock-history me-2"></i>Aktivite Logu</h3>
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-warning" @onclick="EskiLoglariTemizle">
-                <i class="bi bi-trash me-1"></i>90 G�nden Eski Loglar� Temizle
-            </button>
             <button class="btn btn-outline-primary" @onclick="YenileAsync">
                 <i class="bi bi-arrow-clockwise me-1"></i>Yenile
             </button>
@@ -25,35 +22,40 @@
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-2">
-                    <label class="form-label small">Ba�lang�� Tarihi</label>
+                    <label class="form-label small">Başlangıç Tarihi</label>
                     <input type="date" class="form-control" @bind="filter.BaslangicTarihi" />
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small">Biti� Tarihi</label>
+                    <label class="form-label small">Bitiş Tarihi</label>
                     <input type="date" class="form-control" @bind="filter.BitisTarihi" />
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small">Mod�l</label>
+                    <label class="form-label small">Modül</label>
                     <select class="form-select" @bind="filter.Modul">
-                        <option value="">T�m�</option>
+                        <option value="">Tümü</option>
                         <option value="Cari">Cari</option>
-                        <option value="Ara�">Ara�</option>
+                        <option value="Araç">Araç</option>
                         <option value="Personel">Personel</option>
                         <option value="Fatura">Fatura</option>
-                        <option value="G�zergah">G�zergah</option>
+                        <option value="Finans">Finans</option>
                         <option value="Servis">Servis</option>
-                        <option value="Banka">Banka</option>
-                        <option value="B�t�e">B�t�e</option>
+                        <option value="Bütçe">Bütçe</option>
+                        <option value="CRM">CRM</option>
+                        <option value="Satış">Satış</option>
+                        <option value="Piyasa Araştırma">Piyasa Araştırma</option>
                         <option value="Sistem">Sistem</option>
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small">��lem Tipi</label>
+                    <label class="form-label small">İşlem Tipi</label>
                     <select class="form-select" @bind="filter.IslemTipi">
-                        <option value="">T�m�</option>
+                        <option value="">Tümü</option>
                         <option value="Ekleme">Ekleme</option>
-                        <option value="G�ncelleme">G�ncelleme</option>
+                        <option value="Güncelleme">Güncelleme</option>
                         <option value="Silme">Silme</option>
+                        <option value="Görüntüleme">Görüntüleme</option>
+                        <option value="Giriş">Giriş</option>
+                        <option value="Çıkış">Çıkış</option>
                         <option value="Hata">Hata</option>
                         <option value="Yedekleme">Yedekleme</option>
                     </select>
@@ -61,9 +63,9 @@
                 <div class="col-md-2">
                     <label class="form-label small">Seviye</label>
                     <select class="form-select" @bind="secilenSeviye">
-                        <option value="">T�m�</option>
+                        <option value="">Tümü</option>
                         <option value="1">Bilgi</option>
-                        <option value="2">Uyar�</option>
+                        <option value="2">Uyarı</option>
                         <option value="3">Hata</option>
                         <option value="4">Kritik</option>
                     </select>
@@ -74,15 +76,34 @@
                     </button>
                 </div>
             </div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                    <label class="form-label small">Kullanıcı</label>
+                    <input type="text" class="form-control" placeholder="Kullanıcı adı/ad soyad..." @bind="filtreKullanici" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Arama (Açıklama, Kayıt Adı)</label>
+                    <input type="text" class="form-control" placeholder="Aranacak metin..." @bind="filter.AramaMetni" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Entity Tipi</label>
+                    <input type="text" class="form-control" placeholder="Cari, Fatura, Arac..." @bind="filtreEntityTipi" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary w-100" @onclick="FiltreTemizle">
+                        <i class="bi bi-x-lg me-1"></i>Temizle
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- �zet Kartlar� -->
+    <!-- Özet Kartları -->
     @if (ozet != null)
     {
         <div class="row mb-4">
             <div class="col-md-2">
-                <div class="card bg-primary text-white">
+                <div class="card border-primary" style="background-color:#e7f1ff;color:#084298;">
                     <div class="card-body py-2 text-center">
                         <h4 class="mb-0">@ozet.ToplamLog</h4>
                         <small>Toplam Log</small>
@@ -90,15 +111,15 @@
                 </div>
             </div>
             <div class="col-md-2">
-                <div class="card bg-info text-white">
+                <div class="card border-info" style="background-color:#cff4fc;color:#055160;">
                     <div class="card-body py-2 text-center">
                         <h4 class="mb-0">@ozet.BugunLog</h4>
-                        <small>Bug�n</small>
+                        <small>Bugün</small>
                     </div>
                 </div>
             </div>
             <div class="col-md-2">
-                <div class="card bg-success text-white">
+                <div class="card border-success" style="background-color:#d1e7dd;color:#0f5132;">
                     <div class="card-body py-2 text-center">
                         <h4 class="mb-0">@ozet.EklemeAdet</h4>
                         <small>Ekleme</small>
@@ -106,15 +127,15 @@
                 </div>
             </div>
             <div class="col-md-2">
-                <div class="card bg-warning text-dark">
+                <div class="card border-warning" style="background-color:#fff3cd;color:#664d03;">
                     <div class="card-body py-2 text-center">
                         <h4 class="mb-0">@ozet.GuncellemeAdet</h4>
-                        <small>G�ncelleme</small>
+                        <small>Güncelleme</small>
                     </div>
                 </div>
             </div>
             <div class="col-md-2">
-                <div class="card bg-secondary text-white">
+                <div class="card border-secondary" style="background-color:#e2e3e5;color:#41464b;">
                     <div class="card-body py-2 text-center">
                         <h4 class="mb-0">@ozet.SilmeAdet</h4>
                         <small>Silme</small>
@@ -122,7 +143,7 @@
                 </div>
             </div>
             <div class="col-md-2">
-                <div class="card bg-danger text-white">
+                <div class="card border-danger" style="background-color:#f8d7da;color:#842029;">
                     <div class="card-body py-2 text-center">
                         <h4 class="mb-0">@ozet.HataAdet</h4>
                         <small>Hata</small>
@@ -135,9 +156,9 @@
     <!-- Log Listesi -->
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h6 class="mb-0">Log Kay�tlar�</h6>
+            <h6 class="mb-0">Log Kayıtları</h6>
             <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-secondary">@logs.Count kay�t</span>
+                <span class="badge bg-secondary">@logs.Count kayıt</span>
                 <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-secondary" @onclick="OncekiSayfa" disabled="@(filter.Sayfa <= 1)">
                         <i class="bi bi-chevron-left"></i>
@@ -155,18 +176,20 @@
                     <thead class="table-light">
                         <tr>
                             <th style="width: 140px;">Zaman</th>
-                            <th style="width: 100px;">��lem</th>
-                            <th style="width: 100px;">Mod�l</th>
-                            <th>Kay�t</th>
-                            <th>A��klama</th>
+                            <th style="width: 100px;">İşlem</th>
+                            <th style="width: 100px;">Modül</th>
+                            <th>Kayıt</th>
+                            <th>Açıklama</th>
                             <th style="width: 80px;">Seviye</th>
-                            <th style="width: 100px;">Kullan�c�</th>
+                            <th style="width: 100px;">Kullanıcı</th>
+                            <th style="width: 50px;"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var log in logs)
                         {
-                            <tr class="@(log.Seviye == AktiviteSeviye.Hata || log.Seviye == AktiviteSeviye.Kritik ? "table-danger" : "")">
+                            var geriAlinabilirMi = log.IslemTipi is "Ekleme" or "Güncelleme" or "Silme" or "Geri Alma" && log.EntityId.HasValue;
+                            <tr class="@(log.Seviye == AktiviteSeviye.Hata || log.Seviye == AktiviteSeviye.Kritik ? "table-danger" : "")" style="cursor:pointer;" @onclick="() => LogDetayAc(log.Id)">
                                 <td>
                                     <small>@log.IslemZamani.ToString("dd.MM.yyyy")</small><br />
                                     <small class="text-muted">@log.IslemZamani.ToString("HH:mm:ss")</small>
@@ -193,14 +216,27 @@
                                 <td><small>@log.Aciklama</small></td>
                                 <td><span class="badge @log.SeviyeClass">@log.Seviye</span></td>
                                 <td><small>@(log.KullaniciAdi ?? "-")</small></td>
+                                <td class="text-center">
+                                    @if (geriAlinabilirMi)
+                                    {
+                                        @if (log.IslemTipi == "Geri Alma")
+                                        {
+                                            <i class="bi bi-arrow-repeat text-info" title="Eski haline getirilebilir"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-arrow-counterclockwise text-warning" title="Geri alınabilir"></i>
+                                        }
+                                    }
+                                </td>
                             </tr>
                         }
                         @if (!logs.Any())
                         {
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
+                                <td colspan="8" class="text-center text-muted py-4">
                                     <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                                    <p class="mb-0 mt-2">Kriterlere uygun log kayd� bulunamad�</p>
+                                    <p class="mb-0 mt-2">Kriterlere uygun log kaydı bulunamadı</p>
                                 </td>
                             </tr>
                         }
@@ -211,11 +247,178 @@
     </div>
 </div>
 
+@if (showDetayModal && seciliLog != null)
+{
+    var detay = seciliLog;
+    var geriAlinabilir = AktiviteLogService.GeriAlinabilirMi(detay);
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,.5)">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-activity me-2"></i>Aktivite Log Detayı</h5>
+                    <button type="button" class="btn-close" @onclick="DetayKapat"></button>
+                </div>
+                <div class="modal-body">
+                    @if (geriAlinabilir)
+                    {
+                        <div class="alert alert-info d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <i class="bi bi-info-circle me-2"></i>
+                                @if (detay.IslemTipi == "Geri Alma")
+                                {
+                                    @("Bu geri alma işlemi tekrar eski haline getirilebilir.")
+                                }
+                                else
+                                {
+                                    @("Bu işlem geri alınabilir. Eski değerler mevcut.")
+                                }
+                            </div>
+                            <button class="btn btn-warning btn-sm" @onclick="() => GeriAlOnayAc(detay)" disabled="@isGeriAliniyor">
+                                @if (detay.IslemTipi == "Geri Alma")
+                                {
+                                    <i class="bi bi-arrow-repeat me-1"></i>@("Eski Haline Getir")
+                                }
+                                else
+                                {
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i>@("İşlemi Geri Al")
+                                }
+                            </button>
+                        </div>
+                    }
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3"><strong>İşlem:</strong><div>@detay!.IslemTipi</div></div>
+                        <div class="col-md-2"><strong>Modül:</strong><div>@detay.Modul</div></div>
+                        <div class="col-md-3"><strong>Kullanıcı:</strong><div>@(string.IsNullOrWhiteSpace(detay.KullaniciAdi) ? "-" : detay.KullaniciAdi)</div></div>
+                        <div class="col-md-2"><strong>Seviye:</strong><div><span class="badge @detay.SeviyeClass">@detay.Seviye</span></div></div>
+                        <div class="col-md-2"><strong>Zaman:</strong><div>@detay.IslemZamani.ToString("dd.MM.yyyy HH:mm:ss")</div></div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4"><strong>Kayıt:</strong><div>@(detay.EntityAdi ?? "-") @if (detay.EntityId.HasValue){<span class="text-muted">(#@detay.EntityId)</span>}</div></div>
+                        <div class="col-md-4"><strong>Entity Tipi:</strong><div>@(detay.EntityTipi ?? "-")</div></div>
+                        <div class="col-md-4"><strong>IP:</strong><div>@(detay.IpAdresi ?? "-")</div></div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Açıklama</strong>
+                        <div class="border rounded p-2 bg-light mt-1">@(string.IsNullOrWhiteSpace(detay.Aciklama) ? "-" : detay.Aciklama)</div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Tarayıcı</strong>
+                        <div class="border rounded p-2 bg-light mt-1">@(string.IsNullOrWhiteSpace(detay.Tarayici) ? "-" : detay.Tarayici)</div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <strong>Eski Değer</strong>
+                            <pre class="border rounded p-2 bg-light mt-1 small" style="min-height:200px; white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(detay.EskiDeger) ? "-" : detay.EskiDeger)</pre>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Yeni Değer</strong>
+                            <pre class="border rounded p-2 bg-light mt-1 small" style="min-height:200px; white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(detay.YeniDeger) ? "-" : detay.YeniDeger)</pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    @if (geriAlinabilir)
+                    {
+                        <button class="btn btn-warning" @onclick="() => GeriAlOnayAc(detay)" disabled="@isGeriAliniyor">
+                            @if (isGeriAliniyor)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            @if (detay.IslemTipi == "Geri Alma")
+                            {
+                                <i class="bi bi-arrow-repeat me-1"></i>@("Eski Haline Getir")
+                            }
+                            else
+                            {
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>@("İşlemi Geri Al")
+                            }
+                        </button>
+                    }
+                    <button class="btn btn-secondary" @onclick="DetayKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showGeriAlOnayModal && geriAlinacakLog != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,.7)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>İşlemi Geri Al</h5>
+                    <button type="button" class="btn-close" @onclick="GeriAlOnayKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <strong>Dikkat!</strong> Bu işlem geri alınacak ve veriler eski haline getirilecek.
+                    </div>
+                    <table class="table table-sm">
+                        <tr><th>İşlem Tipi:</th><td>@geriAlinacakLog.IslemTipi</td></tr>
+                        <tr><th>Modül:</th><td>@geriAlinacakLog.Modul</td></tr>
+                        <tr><th>Kayıt:</th><td>@geriAlinacakLog.EntityAdi @if(geriAlinacakLog.EntityId.HasValue){<span class="text-muted">(#@geriAlinacakLog.EntityId)</span>}</td></tr>
+                        <tr><th>İşlem Zamanı:</th><td>@geriAlinacakLog.IslemZamani.ToString("dd.MM.yyyy HH:mm:ss")</td></tr>
+                        <tr><th>Yapan:</th><td>@geriAlinacakLog.KullaniciAdi</td></tr>
+                    </table>
+                    <div class="mt-3">
+                        <strong>Ne olacak?</strong>
+                        <ul class="mb-0 mt-2">
+                            @if (geriAlinacakLog.IslemTipi == "Ekleme")
+                            {
+                                <li>Eklenen kayıt silinecek (soft delete)</li>
+                            }
+                            else if (geriAlinacakLog.IslemTipi == "Güncelleme")
+                            {
+                                <li>Kayıt eski değerlerine geri döndürülecek</li>
+                            }
+                            else if (geriAlinacakLog.IslemTipi == "Silme")
+                            {
+                                <li>Silinen kayıt geri yüklenecek</li>
+                            }
+                            else if (geriAlinacakLog.IslemTipi == "Geri Alma")
+                            {
+                                <li>Geri alınan işlem tekrar eski haline getirilecek</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="GeriAlOnayKapat">İptal</button>
+                    <button class="btn btn-warning" @onclick="GeriAlUygula" disabled="@isGeriAliniyor">
+                        @if (isGeriAliniyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        @if (geriAlinacakLog.IslemTipi == "Geri Alma")
+                        {
+                            <i class="bi bi-arrow-repeat me-1"></i>@("Eski Haline Getir")
+                        }
+                        else
+                        {
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>@("Evet, Geri Al")
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<AktiviteLogItem> logs = new();
     private AktiviteLogOzet? ozet;
     private AktiviteLogFilter filter = new() { SayfaBoyutu = 50 };
     private string secilenSeviye = "";
+    private string filtreKullanici = "";
+    private string filtreEntityTipi = "";
+    private bool showDetayModal;
+    private AktiviteLogDetay? seciliLog;
+
+    // Geri alma
+    private bool showGeriAlOnayModal;
+    private AktiviteLogDetay? geriAlinacakLog;
+    private bool isGeriAliniyor;
 
     protected override async Task OnInitializedAsync()
     {
@@ -235,6 +438,9 @@
             filter.Seviye = null;
         }
 
+        filter.KullaniciAdi = string.IsNullOrWhiteSpace(filtreKullanici) ? null : filtreKullanici.Trim();
+        filter.EntityTipi = string.IsNullOrWhiteSpace(filtreEntityTipi) ? null : filtreEntityTipi.Trim();
+
         logs = await AktiviteLogService.GetLogsAsync(filter);
         ozet = await AktiviteLogService.GetOzetAsync(7);
         StateHasChanged();
@@ -243,6 +449,21 @@
     private async Task FiltreleAsync()
     {
         filter.Sayfa = 1;
+        await YenileAsync();
+    }
+
+    private async Task FiltreTemizle()
+    {
+        filter = new AktiviteLogFilter
+        {
+            BaslangicTarihi = DateTime.Today.AddDays(-7),
+            BitisTarihi = DateTime.Today,
+            SayfaBoyutu = 50,
+            Sayfa = 1
+        };
+        secilenSeviye = "";
+        filtreKullanici = "";
+        filtreEntityTipi = "";
         await YenileAsync();
     }
 
@@ -261,10 +482,69 @@
         await YenileAsync();
     }
 
-    private async Task EskiLoglariTemizle()
+    private async Task LogDetayAc(int logId)
     {
-        await AktiviteLogService.CleanupOldLogsAsync(90);
-        ToastService.ShowSuccess("90 g�nden eski loglar temizlendi.");
-        await YenileAsync();
+        seciliLog = await AktiviteLogService.GetLogByIdAsync(logId);
+        if (seciliLog == null)
+        {
+            ToastService.ShowWarning("Log detayı bulunamadı.");
+            return;
+        }
+
+        showDetayModal = true;
+    }
+
+    private void DetayKapat()
+    {
+        showDetayModal = false;
+        seciliLog = null;
+    }
+
+    private void GeriAlOnayAc(AktiviteLogDetay log)
+    {
+        geriAlinacakLog = log;
+        showGeriAlOnayModal = true;
+    }
+
+    private void GeriAlOnayKapat()
+    {
+        showGeriAlOnayModal = false;
+        geriAlinacakLog = null;
+    }
+
+    private async Task GeriAlUygula()
+    {
+        if (geriAlinacakLog == null) return;
+
+        isGeriAliniyor = true;
+        StateHasChanged();
+
+        try
+        {
+            var sonuc = await AktiviteLogService.GeriAlAsync(geriAlinacakLog.Id);
+
+            if (sonuc.Basarili)
+            {
+                ToastService.ShowSuccess(sonuc.Mesaj);
+                showGeriAlOnayModal = false;
+                showDetayModal = false;
+                geriAlinacakLog = null;
+                seciliLog = null;
+                await YenileAsync();
+            }
+            else
+            {
+                ToastService.ShowError(sonuc.Mesaj);
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Geri alma hatası: {ex.Message}");
+        }
+        finally
+        {
+            isGeriAliniyor = false;
+            StateHasChanged();
+        }
     }
 }

@@ -324,6 +324,14 @@
                                 </NavLink>
                             </div>
                         }
+                        @if (HasYetki("personel.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="personel/ozluk-evrak">
+                                    <i class="bi bi-clipboard-check me-2"></i> Özlük Evrak Checklist
+                                </NavLink>
+                            </div>
+                        }
                     </div>
                 }
             </div>

@@ -201,8 +201,21 @@ public class MuhasebeAyar : BaseEntity
     [StringLength(50)]
     public string TevkifatAlacakHesabi { get; set; } = "136.01"; // Diğer Çeşitli Alacaklar (Tevkifat)
 
+    // Stok Masraf Aktarım Hesapları (Mal/Sarf Malzeme için)
+    [StringLength(50)]
+    public string MalMasrafHesabi { get; set; } = "740.99.001"; // Ticari Mal Masraf Hesabı
+
+    [StringLength(50)]
+    public string SarfMalzemeMasrafHesabi { get; set; } = "740.99.002"; // Sarf Malzeme Masraf Hesabı
+
+    [StringLength(50)]
+    public string StokCikisHesabi { get; set; } = "153"; // Ticari Mallar (Stok çıkış karşılığı)
+
     // Faturadan otomatik muhasebe fişi oluşturulsun mu?
     public bool FaturaOtomatikMuhasebeFisi { get; set; } = false;
+
+    // Stok masraf aktarımı otomatik yapılsın mı?
+    public bool StokMasrafAktarimiOtomatik { get; set; } = true;
 
     // XML Import ayarları
     public bool XmlImportOtomatikCariOlustur { get; set; } = true;

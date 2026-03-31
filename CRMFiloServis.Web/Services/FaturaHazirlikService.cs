@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -27,7 +27,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
             BitisTarihi = bitisTarihi
         };
 
-        // Tamamlanmýþ servis çalýþmalarýný getir
+        // TamamlanmÄ±ÅŸ servis Ã§alÄ±ÅŸmalarÄ±nÄ± getir
         var query = _context.ServisCalismalari
             .Include(s => s.Arac)
                 .ThenInclude(a => a.KiralikCari)
@@ -47,10 +47,10 @@ public class FaturaHazirlikService : IFaturaHazirlikService
 
         var calismalar = await query.OrderBy(s => s.CalismaTarihi).ToListAsync();
 
-        // 1. KELÝLECEK FATURALAR (Müþterilere - Satýþ Faturalarý)
+        // 1. KELÄ°LECEK FATURALAR (MÃ¼ÅŸterilere - SatÄ±ÅŸ FaturalarÄ±)
         liste.KesilecekFaturalar = HesaplaKesilecekFaturalar(calismalar);
 
-        // 2. GELECEK FATURALAR (Tedarikçilerden - Alýþ Faturalarý)
+        // 2. GELECEK FATURALAR (TedarikÃ§ilerden - AlÄ±ÅŸ FaturalarÄ±)
         liste.GelecekFaturalar = HesaplaGelecekFaturalar(calismalar);
 
         return liste;
@@ -60,7 +60,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
     {
         var result = new List<KesilecekFaturaItem>();
 
-        // Cari bazýnda grupla
+        // Cari bazÄ±nda grupla
         var cariGruplari = calismalar
             .GroupBy(c => c.Guzergah.CariId)
             .ToList();
@@ -76,7 +76,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
                 CariKodu = cari.CariKodu
             };
 
-            // Güzergah bazýnda grupla
+            // GÃ¼zergah bazÄ±nda grupla
             var guzergahGruplari = cariGrup
                 .GroupBy(c => c.GuzergahId)
                 .ToList();
@@ -96,7 +96,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
                     BirimFiyat = guzergah.BirimFiyat
                 };
 
-                // Her sefer için detay
+                // Her sefer iÃ§in detay
                 foreach (var calisma in guzergahGrup)
                 {
                     var seferFiyat = calisma.Fiyat ?? guzergah.BirimFiyat;
@@ -106,15 +106,15 @@ public class FaturaHazirlikService : IFaturaHazirlikService
                         ServisCalismaId = calisma.Id,
                         Tarih = calisma.CalismaTarihi,
                         ServisTuru = calisma.ServisTuru.ToString(),
-                        AracPlaka = calisma.Arac?.AktifPlaka,
+                        AracPlaka = calisma.Arac?.AktifPlaka ?? string.Empty,
                         SoforAdSoyad = $"{calisma.Sofor.Ad} {calisma.Sofor.Soyad}",
                         Fiyat = seferFiyat,
-                        KiralikArac = calisma.Arac.SahiplikTipi == AracSahiplikTipi.Kiralik,
-                        KiralikAracSahibi = calisma.Arac.KiralikCari?.Unvan,
-                        KiraBedeli = HesaplaKiraBedeli(calisma.Arac, seferFiyat),
-                        KomisyonVar = calisma.Arac.KomisyonVar,
-                        KomisyoncuUnvan = calisma.Arac.KomisyoncuCari?.Unvan,
-                        KomisyonTutari = HesaplaKomisyon(calisma.Arac, seferFiyat)
+                        KiralikArac = calisma.Arac?.SahiplikTipi == AracSahiplikTipi.Kiralik,
+                        KiralikAracSahibi = calisma.Arac?.KiralikCari?.Unvan,
+                        KiraBedeli = calisma.Arac != null ? HesaplaKiraBedeli(calisma.Arac, seferFiyat) : 0,
+                        KomisyonVar = calisma.Arac?.KomisyonVar ?? false,
+                        KomisyoncuUnvan = calisma.Arac?.KomisyoncuCari?.Unvan,
+                        KomisyonTutari = calisma.Arac != null ? HesaplaKomisyon(calisma.Arac, seferFiyat) : 0
                     };
 
                     detay.Seferler.Add(seferDetay);
@@ -134,7 +134,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
     {
         var result = new List<GelecekFaturaItem>();
 
-        // 1. KÝRALIK ARAÇ ÖDEMELERÝ
+        // 1. KÄ°RALIK ARAÃ‡ Ã–DEMELERÄ°
         var kiralikAracCalismalar = calismalar
             .Where(c => c.Arac.SahiplikTipi == AracSahiplikTipi.Kiralik && c.Arac.KiralikCariId.HasValue)
             .ToList();
@@ -155,7 +155,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
                 FaturaTipi = GelecekFaturaTipi.AracKirasi
             };
 
-            // Araç bazýnda grupla
+            // AraÃ§ bazÄ±nda grupla
             var aracGruplari = kiraGrup.GroupBy(c => c.AracId).ToList();
 
             foreach (var aracGrup in aracGruplari)
@@ -167,7 +167,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
                 {
                     AracPlaka = plakaGosterim,
                     SeferSayisi = aracGrup.Count(),
-                    Aciklama = $"{plakaGosterim} plakalý araç kirasý"
+                    Aciklama = $"{plakaGosterim} plakalÄ± araÃ§ kirasÄ±"
                 };
 
                 foreach (var calisma in aracGrup)
@@ -195,7 +195,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
             result.Add(faturaItem);
         }
 
-        // 2. KOMÝSYON ÖDEMELERÝ
+        // 2. KOMÄ°SYON Ã–DEMELERÄ°
         var komisyonluCalismalar = calismalar
             .Where(c => c.Arac.KomisyonVar && c.Arac.KomisyoncuCariId.HasValue)
             .ToList();
@@ -216,7 +216,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
                 FaturaTipi = GelecekFaturaTipi.Komisyon
             };
 
-            // Araç bazýnda grupla
+            // AraÃ§ bazÄ±nda grupla
             var aracGruplari = komisyonGrup.GroupBy(c => c.AracId).ToList();
 
             foreach (var aracGrup in aracGruplari)
@@ -228,7 +228,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
                 {
                     AracPlaka = plakaGosterim,
                     SeferSayisi = aracGrup.Count(),
-                    Aciklama = $"{plakaGosterim} plakalý araç komisyonu"
+                    Aciklama = $"{plakaGosterim} plakalÄ± araÃ§ komisyonu"
                 };
 
                 foreach (var calisma in aracGrup)
@@ -269,7 +269,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
         {
             KiraHesaplamaTipi.SeferBasina => arac.SeferBasinaKiraBedeli ?? 0,
             KiraHesaplamaTipi.Gunluk => arac.GunlukKiraBedeli ?? 0,
-            KiraHesaplamaTipi.Aylik => (arac.AylikKiraBedeli ?? 0) / 30, // Günlük ortalama
+            KiraHesaplamaTipi.Aylik => (arac.AylikKiraBedeli ?? 0) / 30, // GÃ¼nlÃ¼k ortalama
             _ => arac.SeferBasinaKiraBedeli ?? 0
         };
     }

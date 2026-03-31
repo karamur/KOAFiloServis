@@ -1,4 +1,4 @@
-@page "/satis/ilan/{IlanId:int}"
+﻿@page "/satis/ilan/{IlanId:int}"
 @page "/satis/ilan/yeni"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
@@ -57,7 +57,7 @@
                             <!-- Temel Bilgiler -->
                             <div class="col-md-3">
                                 <label class="form-label">Plaka *</label>
-                                <input type="text" class="form-control" @bind="ilan.Plaka" />
+                                <input type="text" class="form-control" @bind="ilan!.Plaka" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Marka *</label>

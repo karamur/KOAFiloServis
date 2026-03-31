@@ -198,7 +198,7 @@
         {
             eslestirmeler = await FiloKomisyonService.GetEslestirmelerAsync(aktifFirmaId, sadeceAktifler: false);
         }
-        catch (Exception ex)
+        catch
         {
             ToastService.ShowError("Veriler yüklenirken hata oluştu.");
         }

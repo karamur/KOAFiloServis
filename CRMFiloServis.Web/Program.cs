@@ -25,8 +25,11 @@ if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")) 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddSingleton<AktiviteLogInterceptor>();
+builder.Services.AddSingleton<ICurrentUserAccessor, CurrentUserAccessor>();
+
 // Database - Pooled DbContextFactory kullan (thread-safe)
-builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
+builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =>
 {
     if (dbProvider == "PostgreSQL")
     {
@@ -51,6 +54,7 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     // Pending migration uyarisini devre disi birak
     options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    options.AddInterceptors(sp.GetRequiredService<AktiviteLogInterceptor>());
 });
 
 // DbContext - Factory'den olustur
@@ -108,6 +112,7 @@ builder.Services.AddScoped<IMusteriKiralamaService, MusteriKiralamaService>(); /
 builder.Services.AddScoped<ICRMService, CRMService>(); // CRM Servisi - Bildirim, Mesaj, Hatırlatıcı
 builder.Services.AddScoped<CRMFiloServis.Web.Services.Interfaces.IWhatsAppService, WhatsAppService>(); // WhatsApp Servisi
 builder.Services.AddScoped<IStokService, StokService>(); // Stok/Envanter Servisi
+builder.Services.AddScoped<IPersonelOzlukService, PersonelOzlukService>(); // Personel Özlük Evrak Servisi
 builder.Services.AddHttpClient("OpenAI"); // OpenAI icin HttpClient
 builder.Services.AddHttpClient("Scraper"); // Scraper icin HttpClient
 builder.Services.AddHostedService<AutoBackupService>();
@@ -152,6 +157,16 @@ using (var scope = app.Services.CreateScope())
     
     // Cari alan genişletme migration (Il, Ilce, Fax vb.)
     await CRMFiloServis.Web.Data.Migrations.CariMigrationHelper.ApplyCariAlanGenisletmeAsync(context);
+    
+    // Personel özlük evrak tabloları migration
+    await CRMFiloServis.Web.Data.Migrations.OzlukEvrakMigrationHelper.ApplyOzlukEvrakMigrationAsync(context);
+    
+    // Muhasebe ayarları - stok masraf aktarım alanları
+    await CRMFiloServis.Web.Data.Migrations.MuhasebeAyarMigrationHelper.ApplyStokMasrafAyarlariAsync(context);
+    
+    // Personel özlük evrak tanımları seed
+    var ozlukService = scope.ServiceProvider.GetRequiredService<IPersonelOzlukService>();
+    await ozlukService.SeedDefaultEvrakTanimlariAsync();
 }
 
 // Configure the HTTP request pipeline.

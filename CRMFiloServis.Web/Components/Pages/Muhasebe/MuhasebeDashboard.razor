@@ -1,4 +1,4 @@
-@page "/muhasebe"
+﻿@page "/muhasebe"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject IMuhasebeService MuhasebeService
@@ -181,6 +181,7 @@
 
 @code {
     private bool isLoading = true;
+    private bool isLoadInProgress;
     private bool hesapPlaniVar = false;
     private int hesapSayisi = 0;
     private int fisSayisi = 0;
@@ -194,6 +195,10 @@
 
     private async Task LoadDataAsync()
     {
+        if (isLoadInProgress)
+            return;
+
+        isLoadInProgress = true;
         isLoading = true;
         StateHasChanged();
 
@@ -218,12 +223,16 @@
         finally
         {
             isLoading = false;
+            isLoadInProgress = false;
             StateHasChanged();
         }
     }
 
     private async Task HesapPlaniOlustur()
     {
+        if (isLoadInProgress)
+            return;
+
         try
         {
             await MuhasebeService.SeedVarsayilanHesapPlaniAsync();

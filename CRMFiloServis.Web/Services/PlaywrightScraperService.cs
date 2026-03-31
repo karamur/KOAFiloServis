@@ -1,4 +1,4 @@
-using Microsoft.Playwright;
+ï»¿using Microsoft.Playwright;
 using CRMFiloServis.Shared.Entities;
 using System.Text.RegularExpressions;
 
@@ -99,7 +99,7 @@ public class PlaywrightScraperService : IPlaywrightScraperService
         {
             taranacakKaynaklar = aktifKaynaklar
                 .Where(k => k.Aktif) // Sadece aktif olanlar
-                .Select(k => new KaynakTanim(k.Kod, k.Ad, k.BaseUrl, k.KaynakTipi ?? "Genel", k.Sira, k.DesteklenenMarkalar))
+                .Select(k => new KaynakTanim(k.Kod, k.Ad, k.BaseUrl, k.KaynakTipi ?? "Genel", k.Sira, k.DesteklenenMarkalar ?? string.Empty))
                 .ToList();
             
             _logger.LogInformation("Veritabanindan {Count} aktif kaynak yuklendi", taranacakKaynaklar.Count);
@@ -827,10 +827,10 @@ public class PlaywrightScraperService : IPlaywrightScraperService
 
         var lowerText = text.ToLower().Trim();
 
-        if (lowerText.Contains("bugun") || lowerText.Contains("bugün"))
+        if (lowerText.Contains("bugun") || lowerText.Contains("bugÃ¼n"))
             return DateTime.Today;
 
-        if (lowerText.Contains("dun") || lowerText.Contains("dün"))
+        if (lowerText.Contains("dun") || lowerText.Contains("dÃ¼n"))
             return DateTime.Today.AddDays(-1);
 
         var gunMatch = Regex.Match(lowerText, @"(\d+)\s*gun\s*once");
@@ -857,8 +857,8 @@ public class PlaywrightScraperService : IPlaywrightScraperService
     {
         if (string.IsNullOrEmpty(text)) return "";
         return text.ToLower()
-            .Replace("ý", "i").Replace("ö", "o").Replace("ü", "u")
-            .Replace("þ", "s").Replace("ð", "g").Replace("ç", "c")
+            .Replace("Ä±", "i").Replace("Ã¶", "o").Replace("Ã¼", "u")
+            .Replace("ÅŸ", "s").Replace("ÄŸ", "g").Replace("Ã§", "c")
             .Replace(" ", "-").Replace(".", "").Replace(",", "")
             .Replace("--", "-").Trim('-');
     }

@@ -239,7 +239,7 @@ public class CariService : ICariService
             cari.CariKodu = girilenCariKodu;
         }
 
-        existing.CariKodu = cari.CariKodu;
+        existing.CariKodu = cari.CariKodu ?? string.Empty;
         existing.Unvan = cari.Unvan;
         existing.CariTipi = cari.CariTipi;
         existing.VergiDairesi = cari.VergiDairesi;
