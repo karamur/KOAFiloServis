@@ -739,4 +739,35 @@ public class BackupService : IBackupService
 
         return folder;
     }
+
+    public async Task<bool> ApplyMigrationsAsync()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+            var pendingCount = pendingMigrations.Count();
+
+            if (pendingCount > 0)
+            {
+                _logger.LogInformation("{Count} adet migration uygulanacak", pendingCount);
+                await context.Database.MigrateAsync();
+                _logger.LogInformation("Migration basariyla uygulandi");
+                return true;
+            }
+            else
+            {
+                _logger.LogInformation("Uygulanacak migration yok, EnsureCreated deneniyor");
+                await context.Database.EnsureCreatedAsync();
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Migration hatasi");
+            throw;
+        }
+    }
 }

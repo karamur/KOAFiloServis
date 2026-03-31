@@ -1,4 +1,4 @@
-namespace CRMFiloServis.Web.Services;
+﻿namespace CRMFiloServis.Web.Services;
 
 public interface IBackupService
 {
@@ -10,6 +10,7 @@ public interface IBackupService
     Task CleanupOldBackupsAsync(int keepCount = 10);
     BackupSettings GetSettings();
     Task SaveSettingsAsync(BackupSettings settings);
+    Task<bool> ApplyMigrationsAsync();
 }
 
 public class BackupResult

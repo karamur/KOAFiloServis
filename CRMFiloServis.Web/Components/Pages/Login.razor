@@ -1,4 +1,4 @@
-@page "/login"
+﻿@page "/login"
 @layout EmptyLayout
 @attribute [AllowAnonymous]
 @using CRMFiloServis.Web.Services
@@ -69,7 +69,7 @@
                 <a href="#" class="forgot-password" @onclick="SifremiUnuttum" @onclick:preventDefault>Sifremi Unuttum</a>
             </div>
 
-            <button class="btn btn-primary btn-login w-100 mb-2" @onclick="GirisYapAsync" disabled="@isLoading">
+            <button class="btn btn-primary btn-login w-100" @onclick="GirisYapAsync" disabled="@isLoading">
                 @if (isLoading)
                 {
                     <span class="spinner-border spinner-border-sm me-2"></span>
@@ -80,10 +80,6 @@
                     <i class="bi bi-box-arrow-in-right me-2"></i>
                     <span>Giris Yap</span>
                 }
-            </button>
-
-            <button class="btn btn-outline-warning w-100" @onclick="HizliGirisYap" disabled="@isLoading">
-                <i class="bi bi-lightning-fill me-2"></i>Hizli Giris (Test)
             </button>
         </div>
 
@@ -104,7 +100,7 @@
                     <i class="bi bi-github"></i> AYDAAnaliz
                 </a>
             </div>
-            <p class="version mb-1">v1.0.0 � @DateTime.Now.Year Allbatros Global Teknoloji</p>
+            <p class="version mb-1">v1.0.0 © @DateTime.Now.Year Allbatros Global Teknoloji</p>
             <p class="version small">Tum Haklari Saklidir</p>
         </div>
     </div>
@@ -462,15 +458,5 @@
     {
         errorMessage = null;
         successMessage = "Sifre sifirlama icin sistem yoneticisi ile iletisime gecin.";
-    }
-
-    private async Task HizliGirisYap()
-    {
-        kullaniciAdi = "test";
-        sifre = "test123";
-        beniHatirla = true;
-        StateHasChanged();
-        await Task.Delay(100);
-        await GirisYapAsync();
     }
 }

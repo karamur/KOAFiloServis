@@ -1,5 +1,6 @@
-@page "/ayarlar/yedekleme"
+﻿@page "/ayarlar/yedekleme"
 @using CRMFiloServis.Web.Services
+@using Microsoft.AspNetCore.Components.Forms
 @inject IBackupService BackupService
 @inject IToastService ToastService
 @inject IJSRuntime JS
@@ -11,6 +12,12 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3><i class="bi bi-database-down me-2"></i>Veritabani Yedekleme</h3>
         <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" @onclick="() => showMigrationModal = true">
+                <i class="bi bi-arrow-repeat me-1"></i>Migration
+            </button>
+            <button class="btn btn-outline-warning" @onclick="() => showYukleModal = true">
+                <i class="bi bi-upload me-1"></i>Yedek Yukle
+            </button>
             <button class="btn btn-success" @onclick="YedekAl" disabled="@isBackingUp">
                 @if (isBackingUp)
                 {
@@ -245,6 +252,87 @@
     </div>
 }
 
+<!-- Yedek Yukle Modal -->
+@if (showYukleModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Yedek Dosyasi Yukle</h5>
+                    <button type="button" class="btn-close" @onclick="() => showYukleModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Dikkat!</strong> Yuklenen yedek dosyasi geri yuklendiginde mevcut veriler silinecektir!
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Yedek Dosyasi Secin</label>
+                        <InputFile class="form-control" OnChange="YedekDosyaSecildi" accept=".sql,.db,.bak,.backup" />
+                        <small class="text-muted">Desteklenen formatlar: .sql, .db, .bak, .backup</small>
+                    </div>
+                    @if (yuklenecekDosya != null)
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-file-earmark me-2"></i>
+                            <strong>@yuklenecekDosya.Name</strong> - @FormatSize(yuklenecekDosya.Size)
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => { showYukleModal = false; yuklenecekDosya = null; }">Iptal</button>
+                    <button class="btn btn-warning" @onclick="YedekDosyaYukle" disabled="@(yuklenecekDosya == null || isUploading)">
+                        @if (isUploading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-upload me-1"></i>Yukle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Migration Modal -->
+@if (showMigrationModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>Veritabani Migration</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showMigrationModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Migration islemi veritabani sema degisikliklerini uygular. Yeni tablolar, alanlar veya indeksler eklenir.
+                    </div>
+                    <p><strong>Aktif Veritabani:</strong> @dbProvider</p>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="chkMigrationOnay" @bind="migrationOnay" />
+                        <label class="form-check-label" for="chkMigrationOnay">
+                            Migration islemini onayliyorum
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => { showMigrationModal = false; migrationOnay = false; }">Iptal</button>
+                    <button class="btn btn-primary" @onclick="MigrationUygula" disabled="@(!migrationOnay || isMigrating)">
+                        @if (isMigrating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-play-fill me-1"></i>Migration Uygula
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<BackupInfo> backups = new();
     private BackupSettings settings = new();
@@ -252,10 +340,16 @@
     private bool isLoading = true;
     private bool isBackingUp = false;
     private bool isRestoring = false;
+    private bool isUploading = false;
+    private bool isMigrating = false;
     private bool showSilModal = false;
     private bool showRestoreModal = false;
+    private bool showYukleModal = false;
+    private bool showMigrationModal = false;
+    private bool migrationOnay = false;
     private BackupInfo? silinecekYedek;
     private BackupInfo? yuklenecekYedek;
+    private IBrowserFile? yuklenecekDosya;
 
     protected override async Task OnInitializedAsync()
     {
@@ -444,5 +538,77 @@
             return $"{bytes / 1024.0:F1} KB";
         else
             return $"{bytes / (1024.0 * 1024.0):F2} MB";
+    }
+
+    private void YedekDosyaSecildi(InputFileChangeEventArgs e)
+    {
+        yuklenecekDosya = e.File;
+    }
+
+    private async Task YedekDosyaYukle()
+    {
+        if (yuklenecekDosya == null) return;
+
+        isUploading = true;
+        StateHasChanged();
+
+        try
+        {
+            var backupFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, settings.BackupFolder ?? "Backups");
+            Directory.CreateDirectory(backupFolder);
+
+            var fileName = $"uploaded_{DateTime.Now:yyyyMMdd_HHmmss}_{yuklenecekDosya.Name}";
+            var filePath = Path.Combine(backupFolder, fileName);
+
+            using var stream = yuklenecekDosya.OpenReadStream(maxAllowedSize: 500 * 1024 * 1024); // 500MB max
+            using var fileStream = new FileStream(filePath, FileMode.Create);
+            await stream.CopyToAsync(fileStream);
+
+            ToastService.ShowSuccess($"Yedek dosyasi yuklendi: {fileName}");
+            showYukleModal = false;
+            yuklenecekDosya = null;
+            await YedekleriYenile();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Yukleme hatasi: {ex.Message}");
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task MigrationUygula()
+    {
+        if (!migrationOnay) return;
+
+        isMigrating = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await BackupService.ApplyMigrationsAsync();
+            if (result)
+            {
+                ToastService.ShowSuccess("Migration basariyla uygulandi!");
+            }
+            else
+            {
+                ToastService.ShowWarning("Migration islemi tamamlandi, ancak degisiklik olmayabilir.");
+            }
+            showMigrationModal = false;
+            migrationOnay = false;
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Migration hatasi: {ex.Message}");
+        }
+        finally
+        {
+            isMigrating = false;
+            StateHasChanged();
+        }
     }
 }
