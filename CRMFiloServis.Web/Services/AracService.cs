@@ -762,9 +762,14 @@ public class AracService : IAracService
                     var kaskoBitis = GetCellDateValue(ws, row, kolonlar, "KASKO BITIS TARIHI");
                     var aktif = GetCellBoolValue(ws, row, kolonlar, "AKTIF");
                     
+                    await using var transaction = await _context.Database.BeginTransactionAsync();
+
                     if (mevcutSaseNolar.Contains(saseNo))
                     {
-                        var mevcutArac = await _context.Araclar.FirstOrDefaultAsync(a => a.SaseNo.ToUpper() == saseNo && !a.IsDeleted);
+                        var mevcutArac = await _context.Araclar
+                            .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
+                            .FirstOrDefaultAsync(a => a.SaseNo.ToUpper() == saseNo && !a.IsDeleted);
+
                         if (mevcutArac != null)
                         {
                             if (!string.IsNullOrWhiteSpace(marka)) mevcutArac.Marka = marka;
@@ -776,17 +781,53 @@ public class AracService : IAracService
                             if (km.HasValue) mevcutArac.KmDurumu = km;
                             if (!string.IsNullOrWhiteSpace(aracTipiStr)) mevcutArac.AracTipi = aracTipi;
                             if (!string.IsNullOrWhiteSpace(sahiplikTipiStr)) mevcutArac.SahiplikTipi = sahiplikTipi;
-                            if (muayeneBitis.HasValue) mevcutArac.MuayeneBitisTarihi = muayeneBitis.Value;
-                            if (trafikSigortaBitis.HasValue) mevcutArac.TrafikSigortaBitisTarihi = trafikSigortaBitis.Value;
-                            if (kaskoBitis.HasValue) mevcutArac.KaskoBitisTarihi = kaskoBitis.Value;
+                            if (muayeneBitis.HasValue) mevcutArac.MuayeneBitisTarihi = DateTime.SpecifyKind(muayeneBitis.Value.Date, DateTimeKind.Utc);
+                            if (trafikSigortaBitis.HasValue) mevcutArac.TrafikSigortaBitisTarihi = DateTime.SpecifyKind(trafikSigortaBitis.Value.Date, DateTimeKind.Utc);
+                            if (kaskoBitis.HasValue) mevcutArac.KaskoBitisTarihi = DateTime.SpecifyKind(kaskoBitis.Value.Date, DateTimeKind.Utc);
                             if (aktif.HasValue) mevcutArac.Aktif = aktif.Value;
                             if (!string.IsNullOrWhiteSpace(notlar)) mevcutArac.Notlar = notlar;
+
+                            if (!string.IsNullOrWhiteSpace(plaka) && !string.Equals(mevcutArac.AktifPlaka, plaka, StringComparison.OrdinalIgnoreCase))
+                            {
+                                var plakaKullanimda = await _context.AracPlakalar
+                                    .AnyAsync(ap => ap.Plaka == plaka && !ap.IsDeleted && (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today) && ap.AracId != mevcutArac.Id);
+
+                                if (plakaKullanimda)
+                                    throw new InvalidOperationException($"Plaka başka bir araçta aktif: {plaka}");
+
+                                foreach (var aktifPlakaKaydi in mevcutArac.PlakaGecmisi.Where(p => p.CikisTarihi == null))
+                                {
+                                    aktifPlakaKaydi.CikisTarihi = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc);
+                                }
+
+                                mevcutArac.AktifPlaka = plaka;
+                                mevcutArac.PlakaGecmisi.Add(new AracPlaka
+                                {
+                                    Plaka = plaka,
+                                    GirisTarihi = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc),
+                                    IslemTipi = PlakaIslemTipi.PlakaDevir,
+                                    Aciklama = "Excel'den güncellendi",
+                                    CreatedAt = DateTime.UtcNow
+                                });
+                            }
+
                             mevcutArac.UpdatedAt = DateTime.UtcNow;
+                            await _context.SaveChangesAsync();
+                            await transaction.CommitAsync();
                             result.UpdatedCount++;
                         }
                     }
                     else
                     {
+                        if (!string.IsNullOrWhiteSpace(plaka))
+                        {
+                            var plakaKullanimda = await _context.AracPlakalar
+                                .AnyAsync(ap => ap.Plaka == plaka && !ap.IsDeleted && (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today));
+
+                            if (plakaKullanimda)
+                                throw new InvalidOperationException($"Plaka başka bir araçta aktif: {plaka}");
+                        }
+
                         var yeniArac = new Arac
                         {
                             SaseNo = saseNo,
@@ -799,42 +840,40 @@ public class AracService : IAracService
                             AracTipi = aracTipi,
                             SahiplikTipi = sahiplikTipi,
                             KmDurumu = km,
-                            MuayeneBitisTarihi = muayeneBitis,
-                            TrafikSigortaBitisTarihi = trafikSigortaBitis,
-                            KaskoBitisTarihi = kaskoBitis,
+                            MuayeneBitisTarihi = muayeneBitis.HasValue ? DateTime.SpecifyKind(muayeneBitis.Value.Date, DateTimeKind.Utc) : null,
+                            TrafikSigortaBitisTarihi = trafikSigortaBitis.HasValue ? DateTime.SpecifyKind(trafikSigortaBitis.Value.Date, DateTimeKind.Utc) : null,
+                            KaskoBitisTarihi = kaskoBitis.HasValue ? DateTime.SpecifyKind(kaskoBitis.Value.Date, DateTimeKind.Utc) : null,
                             Aktif = aktif ?? true,
                             Notlar = notlar,
                             CreatedAt = DateTime.UtcNow
                         };
-                        
+
                         if (!string.IsNullOrWhiteSpace(plaka))
                         {
                             yeniArac.AktifPlaka = plaka;
                             yeniArac.PlakaGecmisi.Add(new AracPlaka
                             {
                                 Plaka = plaka,
-                                GirisTarihi = DateTime.UtcNow,
+                                GirisTarihi = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc),
                                 IslemTipi = PlakaIslemTipi.Alis,
                                 Aciklama = "Excel'den aktarıldı",
                                 CreatedAt = DateTime.UtcNow
                             });
                         }
-                        
+
                         _context.Araclar.Add(yeniArac);
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
                         mevcutSaseNolar.Add(saseNo);
                         result.ImportedCount++;
                     }
                 }
                 catch (Exception ex)
                 {
+                    _context.ChangeTracker.Clear();
                     result.Errors.Add($"Satır {row}: {ex.Message}");
                     result.ErrorCount++;
                 }
-            }
-            
-            if (result.ImportedCount > 0 || result.UpdatedCount > 0)
-            {
-                await _context.SaveChangesAsync();
             }
             
             result.Success = true;
