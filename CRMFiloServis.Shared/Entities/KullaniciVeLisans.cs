@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+ï»¿using System.ComponentModel.DataAnnotations;
 
 namespace CRMFiloServis.Shared.Entities;
 
@@ -98,7 +98,7 @@ public class Kullanici : BaseEntity
     public string Tema { get; set; } = "Default";
     public bool KompaktMod { get; set; } = false;
     
-    // CRM Ýliþkileri
+    // CRM Ä°liÅŸkileri
     public virtual ICollection<Bildirim> Bildirimler { get; set; } = new List<Bildirim>();
     public virtual ICollection<Mesaj> GonderilenMesajlar { get; set; } = new List<Mesaj>();
     public virtual ICollection<Mesaj> AlinanMesajlar { get; set; } = new List<Mesaj>();
@@ -185,7 +185,7 @@ public static class SistemRolleri
                 Yetkiler.Dashboard,
                 // Ana Menu Erisim
                 Yetkiler.MenuCariModulu, Yetkiler.MenuMuhasebe, Yetkiler.MenuFaturaModulu, 
-                Yetkiler.MenuBankaKasa, Yetkiler.MenuRaporlar,
+                Yetkiler.MenuBankaKasa, Yetkiler.MenuButceModulu, Yetkiler.MenuRaporlar,
                 // Cari
                 Yetkiler.CarilerOku, Yetkiler.CarilerYaz, Yetkiler.CarilerDuzenle,
                 // Fatura
@@ -198,6 +198,7 @@ public static class SistemRolleri
                 // Butce
                 Yetkiler.ButceAnalizOku, Yetkiler.ButceAnalizYaz, Yetkiler.ButceAnalizDuzenle, Yetkiler.ButceAnalizSil,
                 Yetkiler.OdemeYonetimiOku, Yetkiler.OdemeYonetimiYaz, Yetkiler.OdemeYonetimiDuzenle,
+                Yetkiler.TekrarlayanOdemeOku, Yetkiler.TekrarlayanOdemeYaz, Yetkiler.TekrarlayanOdemeDuzenle,
                 // Muhasebe
                 Yetkiler.MuhasebeDashboardOku, 
                 Yetkiler.HesapPlaniOku, Yetkiler.HesapPlaniYaz, Yetkiler.HesapPlaniDuzenle,
@@ -214,7 +215,7 @@ public static class SistemRolleri
             {
                 Yetkiler.Dashboard,
                 // Ana Menu Erisim
-                Yetkiler.MenuFiloServis, Yetkiler.MenuPersonel, Yetkiler.MenuRaporlar,
+                Yetkiler.MenuFiloServis, Yetkiler.MenuPersonel, Yetkiler.MenuStokEnvanter, Yetkiler.MenuRaporlar,
                 // Arac
                 Yetkiler.AraclarOku, Yetkiler.AraclarYaz, Yetkiler.AraclarDuzenle,
                 // Guzergah
@@ -227,6 +228,8 @@ public static class SistemRolleri
                 Yetkiler.AracMasraflariOku, Yetkiler.AracMasraflariYaz,
                 // Personel
                 Yetkiler.PersonelOku, Yetkiler.PersonelYaz, Yetkiler.PersonelDuzenle,
+                // Stok
+                Yetkiler.StokDashboardOku, Yetkiler.StokKartlariOku, Yetkiler.AracIslemOku, Yetkiler.ServisKaydiOku,
                 // Rapor
                 Yetkiler.RaporlarOku,
             },
@@ -237,7 +240,8 @@ public static class SistemRolleri
                 // Ana Menu Erisim
                 Yetkiler.MenuSatisModulu, Yetkiler.MenuCariModulu,
                 // Satis
-                Yetkiler.SatisDashboardOku,
+                Yetkiler.SatisDashboardOku, Yetkiler.SatisMenuOku,
+                Yetkiler.PiyasaMenuOku,
                 Yetkiler.PiyasaArastirmaOku, Yetkiler.PiyasaArastirmaYaz, Yetkiler.PiyasaArastirmaDuzenle,
                 Yetkiler.SatisIlanlariOku, Yetkiler.SatisIlanlariYaz, Yetkiler.SatisIlanlariDuzenle,
                 // Cari
@@ -261,9 +265,10 @@ public static class SistemRolleri
             {
                 Yetkiler.Dashboard,
                 // Ana Menu Erisim
-                Yetkiler.MenuCariModulu, Yetkiler.MenuRaporlar,
+                Yetkiler.MenuCariModulu, Yetkiler.MenuRaporlar, Yetkiler.MenuButceModulu,
                 // Sadece okuma yetkileri
                 Yetkiler.CarilerOku,
+                Yetkiler.ButceAnalizOku,
                 Yetkiler.RaporlarOku,
             },
 
@@ -312,9 +317,11 @@ public static class Yetkiler
     public const string MenuPersonel = "menu.personel";
     public const string MenuFaturaModulu = "menu.fatura";
     public const string MenuBankaKasa = "menu.bankakasa";
+    public const string MenuButceModulu = "menu.butce";
     public const string MenuChecklist = "menu.checklist";
     public const string MenuRaporlar = "menu.raporlar";
     public const string MenuSatisModulu = "menu.satis";
+    public const string MenuStokEnvanter = "menu.stok";
     public const string MenuAyarlar = "menu.ayarlar";
 
     // === CRM MODULU YETKILERI ===
@@ -362,6 +369,9 @@ public static class Yetkiler
     public const string BelgeUyarilariYaz = "belgeuyari.yaz";
     public const string BelgeUyarilariDuzenle = "belgeuyari.duzenle";
     public const string BelgeUyarilariSil = "belgeuyari.sil";
+
+    // -- Dashboard --
+    public const string DashboardOku = "dashboard";
 
     // -- Cariler --
     public const string CarilerOku = "cariler.oku";
@@ -498,18 +508,44 @@ public static class Yetkiler
     public const string OdemeYonetimiDuzenle = "odemeyonetim.duzenle";
     public const string OdemeYonetimiSil = "odemeyonetim.sil";
 
+    // -- Tekrarlayan Odemeler / Kredi Taksitler --
+    public const string TekrarlayanOdemeOku = "tekrarlayanodem.oku";
+    public const string TekrarlayanOdemeYaz = "tekrarlayanodem.yaz";
+    public const string TekrarlayanOdemeDuzenle = "tekrarlayanodem.duzenle";
+    public const string TekrarlayanOdemeSil = "tekrarlayanodem.sil";
+
     // -- Raporlar (Genel) --
     public const string RaporlarOku = "raporlar.oku";
     public const string RaporlarExport = "raporlar.export";
 
     // -- Satis Dashboard --
     public const string SatisDashboardOku = "satisdash.oku";
+    public const string SatisMenuOku = "satis.oku";
 
     // -- Piyasa Arastirma --
+    public const string PiyasaMenuOku = "piyasa.oku";
     public const string PiyasaArastirmaOku = "piyasaarastir.oku";
     public const string PiyasaArastirmaYaz = "piyasaarastir.yaz";
     public const string PiyasaArastirmaDuzenle = "piyasaarastir.duzenle";
     public const string PiyasaArastirmaSil = "piyasaarastir.sil";
+
+    // -- Stok / Envanter --
+    public const string StokDashboardOku = "stokdash.oku";
+    public const string StokKartlariOku = "stokkart.oku";
+    public const string StokKartlariYaz = "stokkart.yaz";
+    public const string StokKartlariDuzenle = "stokkart.duzenle";
+    public const string StokKartlariSil = "stokkart.sil";
+    public const string AracIslemOku = "aracislem.oku";
+    public const string AracIslemYaz = "aracislem.yaz";
+    public const string AracIslemDuzenle = "aracislem.duzenle";
+    public const string AracIslemSil = "aracislem.sil";
+    public const string ServisKaydiOku = "serviskaydi.oku";
+    public const string ServisKaydiYaz = "serviskaydi.yaz";
+    public const string ServisKaydiDuzenle = "serviskaydi.duzenle";
+    public const string ServisKaydiSil = "serviskaydi.sil";
+
+    // -- Ek rapor/menu uyumluluklari --
+    public const string KiralikAracRaporuOkuAlias = "raporkirala.oku";
 
     // -- Satis Ilanlari --
     public const string SatisIlanlariOku = "satisilan.oku";
@@ -589,6 +625,10 @@ public static class Yetkiler
         {
             new("Ana Sayfa", "bi-house-door", MenuAnaSayfa, new List<AltMenuYetki>
             {
+                new("Dashboard", "bi-speedometer2", new List<YetkiTanim>
+                {
+                    new(DashboardOku, "Goruntuleme", "bi-eye"),
+                }),
                 new("Belge Uyarilari", "bi-exclamation-triangle", new List<YetkiTanim>
                 {
                     new(BelgeUyarilariOku, "Okuma", "bi-eye"),
@@ -624,7 +664,7 @@ public static class Yetkiler
                     new(EmailGonder, "Gonder", "bi-send"),
                     new(EmailAyar, "Ayarlar", "bi-gear"),
                 }),
-                new("Hatýrlatýcýlar", "bi-alarm", new List<YetkiTanim>
+                new("HatÄ±rlatÄ±cÄ±lar", "bi-alarm", new List<YetkiTanim>
                 {
                     new(HatirlaticiOku, "Okuma", "bi-eye"),
                     new(HatirlaticiYaz, "Yazma", "bi-plus"),
@@ -809,7 +849,7 @@ public static class Yetkiler
                 }),
             }),
 
-            new("Raporlar", "bi-bar-chart", MenuRaporlar, new List<AltMenuYetki>
+            new("Butce Modulu", "bi-wallet2", MenuButceModulu, new List<AltMenuYetki>
             {
                 new("Butce Analiz", "bi-wallet2", new List<YetkiTanim>
                 {
@@ -825,6 +865,17 @@ public static class Yetkiler
                     new(OdemeYonetimiDuzenle, "Duzenleme", "bi-pencil"),
                     new(OdemeYonetimiSil, "Silme", "bi-trash"),
                 }),
+                new("Kredi / Taksitler", "bi-calendar-plus", new List<YetkiTanim>
+                {
+                    new(TekrarlayanOdemeOku, "Okuma", "bi-eye"),
+                    new(TekrarlayanOdemeYaz, "Yazma", "bi-plus"),
+                    new(TekrarlayanOdemeDuzenle, "Duzenleme", "bi-pencil"),
+                    new(TekrarlayanOdemeSil, "Silme", "bi-trash"),
+                }),
+            }),
+
+            new("Raporlar", "bi-bar-chart", MenuRaporlar, new List<AltMenuYetki>
+            {
                 new("Tum Raporlar", "bi-file-earmark-bar-graph", new List<YetkiTanim>
                 {
                     new(RaporlarOku, "Goruntuleme", "bi-eye"),
@@ -837,9 +888,11 @@ public static class Yetkiler
                 new("Satis Dashboard", "bi-speedometer2", new List<YetkiTanim>
                 {
                     new(SatisDashboardOku, "Goruntuleme", "bi-eye"),
+                    new(SatisMenuOku, "Menu Giris", "bi-box-arrow-in-right"),
                 }),
                 new("Piyasa Arastirma", "bi-search", new List<YetkiTanim>
                 {
+                    new(PiyasaMenuOku, "Menu Giris", "bi-box-arrow-in-right"),
                     new(PiyasaArastirmaOku, "Okuma", "bi-eye"),
                     new(PiyasaArastirmaYaz, "Yazma", "bi-plus"),
                     new(PiyasaArastirmaDuzenle, "Duzenleme", "bi-pencil"),
@@ -858,6 +911,35 @@ public static class Yetkiler
                     new(SatisPersoneliYaz, "Yazma", "bi-plus"),
                     new(SatisPersoneliDuzenle, "Duzenleme", "bi-pencil"),
                     new(SatisPersoneliSil, "Silme", "bi-trash"),
+                }),
+            }),
+
+            new("Stok / Envanter", "bi-box-seam", MenuStokEnvanter, new List<AltMenuYetki>
+            {
+                new("Stok Dashboard", "bi-speedometer2", new List<YetkiTanim>
+                {
+                    new(StokDashboardOku, "Goruntuleme", "bi-eye"),
+                }),
+                new("Stok Kartlari", "bi-box-seam", new List<YetkiTanim>
+                {
+                    new(StokKartlariOku, "Okuma", "bi-eye"),
+                    new(StokKartlariYaz, "Yazma", "bi-plus"),
+                    new(StokKartlariDuzenle, "Duzenleme", "bi-pencil"),
+                    new(StokKartlariSil, "Silme", "bi-trash"),
+                }),
+                new("Arac Alis / Satis", "bi-truck", new List<YetkiTanim>
+                {
+                    new(AracIslemOku, "Okuma", "bi-eye"),
+                    new(AracIslemYaz, "Yazma", "bi-plus"),
+                    new(AracIslemDuzenle, "Duzenleme", "bi-pencil"),
+                    new(AracIslemSil, "Silme", "bi-trash"),
+                }),
+                new("Servis Kayitlari", "bi-tools", new List<YetkiTanim>
+                {
+                    new(ServisKaydiOku, "Okuma", "bi-eye"),
+                    new(ServisKaydiYaz, "Yazma", "bi-plus"),
+                    new(ServisKaydiDuzenle, "Duzenleme", "bi-pencil"),
+                    new(ServisKaydiSil, "Silme", "bi-trash"),
                 }),
             }),
 
@@ -916,6 +998,10 @@ public static class Yetkiler
                     new(YedeklemeOlustur, "Olusturma", "bi-plus"),
                     new(YedeklemeGeriYukle, "Geri Yukleme", "bi-arrow-counterclockwise"),
                     new(YedeklemeSil, "Silme", "bi-trash"),
+                }),
+                new("Kiralik Arac Raporu Menu Uyumlulugu", "bi-building", new List<YetkiTanim>
+                {
+                    new(KiralikAracRaporuOkuAlias, "Goruntuleme", "bi-eye"),
                 }),
                 new("Uygulama Guncelleme", "bi-cloud-arrow-down", new List<YetkiTanim>
                 {
