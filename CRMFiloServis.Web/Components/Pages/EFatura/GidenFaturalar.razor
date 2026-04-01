@@ -683,6 +683,7 @@
                             <select class="form-select" @bind="importTipi">
                                 <option value="excel">Excel'den Yükle</option>
                                 <option value="xml">XML (UBL) Yükle</option>
+                                <option value="xmlpdf">XML + PDF Yükle</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -698,18 +699,30 @@
                             {
                                 <InputFile class="form-control" OnChange="DosyaSecildi" accept=".xlsx,.xls" />
                             }
-                            else
+                            else if (importTipi == "xml")
                             {
                                 <InputFile class="form-control" OnChange="XmlDosyalariSecildi" accept=".xml" multiple />
                             }
+                            else
+                            {
+                                <InputFile class="form-control" OnChange="XmlPdfDosyalariSecildi" accept=".xml,.pdf" multiple />
+                            }
                         </div>
                     </div>
-                    
+
                     @if(importTipi == "xml")
                     {
                         <div class="alert alert-info py-2">
                             <i class="bi bi-info-circle me-1"></i>
                             Birden fazla XML dosyası seçebilirsiniz. Faturalar <strong>@(firmalar?.FirstOrDefault(f => f.Id == importFirmaId)?.FirmaAdi ?? "seçilen firma")</strong> adına kaydedilecektir.
+                        </div>
+                    }
+                    else if(importTipi == "xmlpdf")
+                    {
+                        <div class="alert alert-info py-2">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>
+                            XML ve PDF dosyalarını birlikte seçin. PDF dosyaları aynı isimli XML ile eşleştirilecektir.
+                            <br/><small class="text-muted">Örn: ABC123.xml ve ABC123.pdf birlikte yüklenirse PDF otomatik eşleşir.</small>
                         </div>
                     }
                     else
@@ -719,7 +732,7 @@
                             Şablon dosyasını indirip doldurduktan sonra yükleyin. Faturalar <strong>@(firmalar?.FirstOrDefault(f => f.Id == importFirmaId)?.FirmaAdi ?? "seçilen firma")</strong> adına kaydedilecektir.
                         </div>
                     }
-                    
+
                     @if (importResult != null)
                     {
                         <div class="row g-2 mb-3">
@@ -1050,11 +1063,12 @@
     private string importTipi = "excel";
     private IBrowserFile? importFile;
     private IReadOnlyList<IBrowserFile>? importXmlFiles;
+    private IReadOnlyList<IBrowserFile>? importXmlPdfFiles;
     private EFaturaImportResult? importResult;
     private bool isImporting = false;
     private int importEFaturaTipi = 1; // Default to E-Fatura (1)
     private int importFirmaId = 0; // Fatura yüklenecek firma
-    
+
     // Detay Modal
     private bool isMuhasebeLeniyor = false;
 
@@ -1428,6 +1442,7 @@
     {
         importFile = null;
         importXmlFiles = null;
+        importXmlPdfFiles = null;
         importResult = null;
         importFirmaId = filtreFirmaId > 0 ? filtreFirmaId : (firmalar?.FirstOrDefault()?.Id ?? 0); // Filtredeki firma veya ilk firma
         showImportModal = true;
@@ -1445,6 +1460,12 @@
         importResult = null;
     }
 
+    private void XmlPdfDosyalariSecildi(InputFileChangeEventArgs e)
+    {
+        importXmlPdfFiles = e.GetMultipleFiles(1000); // XML + PDF
+        importResult = null;
+    }
+
     private async Task ImportYap()
     {
         // Firma seçimi kontrolü
@@ -1453,9 +1474,10 @@
             ToastService.ShowWarning("Lütfen bir firma seçin!");
             return;
         }
-        
+
         if (importTipi == "excel" && importFile == null) return;
         if (importTipi == "xml" && (importXmlFiles == null || !importXmlFiles.Any())) return;
+        if (importTipi == "xmlpdf" && (importXmlPdfFiles == null || !importXmlPdfFiles.Any())) return;
 
         isImporting = true;
         importResult = null;
@@ -1483,6 +1505,42 @@
                     xmlContents.Add(new CRMFiloServis.Web.Services.XmlFileContent { FileName = f.Name, Content = ms.ToArray() });
                 }
                 importResult = await FaturaService.ImportFromXmlAsync(xmlContents, FaturaYonu.Giden, firmaId, eFaturaTip);
+            }
+            else if(importTipi == "xmlpdf")
+            {
+                // XML ve PDF dosyalarını grupla
+                var xmlFiles = importXmlPdfFiles!.Where(f => f.Name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)).ToList();
+                var pdfFiles = importXmlPdfFiles!.Where(f => f.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)).ToList();
+
+                var xmlPdfContents = new List<CRMFiloServis.Web.Services.XmlPdfFileContent>();
+                foreach (var xmlFile in xmlFiles)
+                {
+                    using var xmlMs = new MemoryStream();
+                    await xmlFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024).CopyToAsync(xmlMs);
+
+                    var xmlBaseName = Path.GetFileNameWithoutExtension(xmlFile.Name);
+                    var matchingPdf = pdfFiles.FirstOrDefault(p => 
+                        Path.GetFileNameWithoutExtension(p.Name).Equals(xmlBaseName, StringComparison.OrdinalIgnoreCase));
+
+                    byte[]? pdfContent = null;
+                    string? pdfFileName = null;
+                    if (matchingPdf != null)
+                    {
+                        using var pdfMs = new MemoryStream();
+                        await matchingPdf.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(pdfMs);
+                        pdfContent = pdfMs.ToArray();
+                        pdfFileName = matchingPdf.Name;
+                    }
+
+                    xmlPdfContents.Add(new CRMFiloServis.Web.Services.XmlPdfFileContent 
+                    { 
+                        XmlFileName = xmlFile.Name, 
+                        XmlContent = xmlMs.ToArray(),
+                        PdfFileName = pdfFileName,
+                        PdfContent = pdfContent
+                    });
+                }
+                importResult = await FaturaService.ImportFromXmlWithPdfAsync(xmlPdfContents, FaturaYonu.Giden, firmaId, eFaturaTip);
             }
 
             if (importResult != null && importResult.Success)

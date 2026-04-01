@@ -19,6 +19,10 @@ public class Fatura : BaseEntity
     public DateTime? GibOnayTarihi { get; set; }
     public string? ImportKaynak { get; set; } // Excel, Luca, Manuel, XML
 
+    // Dosya Yolları
+    public string? XmlDosyaYolu { get; set; }
+    public string? PdfDosyaYolu { get; set; }
+
     // Firma bilgisi
     public int? FirmaId { get; set; }
     public virtual Firma? Firma { get; set; }

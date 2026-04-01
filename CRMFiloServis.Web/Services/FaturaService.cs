@@ -9,11 +9,13 @@ public class FaturaService : IFaturaService
 {
     private readonly ApplicationDbContext _context;
     private readonly IMuhasebeService _muhasebeService;
+    private readonly IWebHostEnvironment _env;
 
-    public FaturaService(ApplicationDbContext context, IMuhasebeService muhasebeService)
+    public FaturaService(ApplicationDbContext context, IMuhasebeService muhasebeService, IWebHostEnvironment env)
     {
         _context = context;
         _muhasebeService = muhasebeService;
+        _env = env;
     }
 
     public async Task<List<Fatura>> GetAllAsync()
@@ -1176,6 +1178,61 @@ public class FaturaService : IFaturaService
 
         result.Success = result.ImportedCount > 0;
         return result;
+    }
+
+    public async Task<EFaturaImportResult> ImportFromXmlWithPdfAsync(List<XmlPdfFileContent> files, FaturaYonu yon, int? firmaId = null, EFaturaTipi? eFaturaTipi = null)
+    {
+        // Önce XML'leri import et
+        var xmlContents = files.Select(f => new XmlFileContent { FileName = f.XmlFileName, Content = f.XmlContent }).ToList();
+        var result = await ImportFromXmlAsync(xmlContents, yon, firmaId, eFaturaTipi);
+
+        // Başarıyla import edilen faturalara PDF'leri kaydet
+        foreach (var fatura in result.ImportedItems)
+        {
+            // Eşleşen PDF'i bul (ETTN veya fatura numarasına göre)
+            var matchingFile = files.FirstOrDefault(f => 
+                !string.IsNullOrEmpty(f.PdfFileName) && 
+                f.PdfContent != null &&
+                (f.XmlFileName.Replace(".xml", "", StringComparison.OrdinalIgnoreCase).Equals(f.PdfFileName.Replace(".pdf", "", StringComparison.OrdinalIgnoreCase), StringComparison.OrdinalIgnoreCase) ||
+                 (!string.IsNullOrEmpty(fatura.EttnNo) && f.PdfFileName.Contains(fatura.EttnNo, StringComparison.OrdinalIgnoreCase)) ||
+                 f.PdfFileName.Contains(fatura.FaturaNo, StringComparison.OrdinalIgnoreCase)));
+
+            if (matchingFile?.PdfContent != null)
+            {
+                await UploadFaturaPdfAsync(fatura.Id, matchingFile.PdfFileName!, matchingFile.PdfContent);
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<bool> UploadFaturaPdfAsync(int faturaId, string fileName, byte[] pdfContent)
+    {
+        var fatura = await _context.Faturalar.FindAsync(faturaId);
+        if (fatura == null) return false;
+
+        try
+        {
+            // Dosya yolunu oluştur
+            var uploadsFolder = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", "faturalar", fatura.FaturaYonu.ToString().ToLower());
+            Directory.CreateDirectory(uploadsFolder);
+
+            var safeFileName = $"{fatura.FaturaNo.Replace("/", "_")}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+            var filePath = Path.Combine(uploadsFolder, safeFileName);
+
+            await File.WriteAllBytesAsync(filePath, pdfContent);
+
+            // Relatif yolu kaydet
+            fatura.PdfDosyaYolu = $"/uploads/faturalar/{fatura.FaturaYonu.ToString().ToLower()}/{safeFileName}";
+            fatura.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private async Task<string> GetSonrakiHesapKoduAsync(string prefix)
