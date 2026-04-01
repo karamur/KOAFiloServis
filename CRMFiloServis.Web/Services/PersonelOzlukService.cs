@@ -456,6 +456,146 @@ public class PersonelOzlukService : IPersonelOzlukService
         return stream.ToArray();
     }
 
+    public async Task<byte[]> ExportPersonelDosyaPdfAsync(int soforId)
+    {
+        var personel = await _context.Soforler.FirstOrDefaultAsync(s => s.Id == soforId && !s.IsDeleted);
+        if (personel == null)
+            throw new InvalidOperationException("Personel bulunamadı.");
+
+        var evrakTanimlari = await GetGecerliEvrakTanimlariAsync(personel.Gorev);
+        return GeneratePersonelDosyaPdf(personel, evrakTanimlari, true);
+    }
+
+    public async Task<byte[]> ExportBosPersonelDosyaPdfAsync()
+    {
+        var evrakTanimlari = await GetAktifEvrakTanimlariAsync();
+        return GeneratePersonelDosyaPdf(null, evrakTanimlari, false);
+    }
+
+    private static byte[] GeneratePersonelDosyaPdf(Sofor? personel, List<OzlukEvrakTanim> evrakTanimlari, bool personelBilgili)
+    {
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(1.2f, Unit.Centimetre);
+                page.DefaultTextStyle(x => x.FontSize(10));
+
+                page.Header().Column(col =>
+                {
+                    col.Item().Text(personelBilgili ? "PERSONEL DOSYASI HAZIRLIK FORMU" : "BOŞ PERSONEL DOSYASI HAZIRLIK FORMU")
+                        .FontSize(15).Bold().AlignCenter();
+                    col.Item().Text($"Tarih: {DateTime.Now:dd.MM.yyyy}").FontSize(9).AlignRight();
+                });
+
+                page.Content().Column(col =>
+                {
+                    col.Item().PaddingTop(10).Text("1. SAYFA - PERSONEL BİLGİLERİ").Bold().FontSize(12);
+                    col.Item().PaddingTop(8).Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.RelativeColumn(1.2f);
+                            columns.RelativeColumn(2.8f);
+                        });
+
+                        void AddRow(string label, string? value = null)
+                        {
+                            table.Cell().Border(1).Padding(5).Background("#f8f9fa").Text(label).SemiBold();
+                            table.Cell().Border(1).Padding(5).MinHeight(24).Text(value ?? string.Empty);
+                        }
+
+                        AddRow("Personel Kodu", personelBilgili ? personel?.SoforKodu : null);
+                        AddRow("Ad Soyad", personelBilgili ? personel?.TamAd : null);
+                        AddRow("T.C. Kimlik No", personelBilgili ? personel?.TcKimlikNo : null);
+                        AddRow("Telefon", personelBilgili ? personel?.Telefon : null);
+                        AddRow("E-Posta", personelBilgili ? personel?.Email : null);
+                        AddRow("Adres", personelBilgili ? personel?.Adres : null);
+                        AddRow("Görev", personelBilgili && personel != null ? GetGorevAdi(personel.Gorev) : null);
+                        AddRow("Departman", personelBilgili ? personel?.Departman : null);
+                        AddRow("Pozisyon", personelBilgili ? personel?.Pozisyon : null);
+                        AddRow("İşe Başlama Tarihi", personelBilgili ? personel?.IseBaslamaTarihi?.ToString("dd.MM.yyyy") : null);
+                        AddRow("Ehliyet No", personelBilgili ? personel?.EhliyetNo : null);
+                        AddRow("Ehliyet Geçerlilik", personelBilgili ? personel?.EhliyetGecerlilikTarihi?.ToString("dd.MM.yyyy") : null);
+                        AddRow("SRC Geçerlilik", personelBilgili ? personel?.SrcBelgesiGecerlilikTarihi?.ToString("dd.MM.yyyy") : null);
+                        AddRow("Psikoteknik Geçerlilik", personelBilgili ? personel?.PsikoteknikGecerlilikTarihi?.ToString("dd.MM.yyyy") : null);
+                        AddRow("Sağlık Raporu Geçerlilik", personelBilgili ? personel?.SaglikRaporuGecerlilikTarihi?.ToString("dd.MM.yyyy") : null);
+                        AddRow("Net Maaş", personelBilgili ? personel?.NetMaas.ToString("N2") : null);
+                        AddRow("IBAN", personelBilgili ? personel?.IBAN : null);
+                        AddRow("Notlar", personelBilgili ? personel?.Notlar : null);
+                    });
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span("Sayfa ");
+                    x.CurrentPageNumber();
+                    x.Span(" / ");
+                    x.TotalPages();
+                });
+            });
+
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(1.1f, Unit.Centimetre);
+                page.DefaultTextStyle(x => x.FontSize(9));
+
+                page.Header().Column(col =>
+                {
+                    col.Item().Text("2. SAYFA - ÖZLÜK EVRAK CHECKLIST").FontSize(13).Bold().AlignCenter();
+                    if (personelBilgili && personel != null)
+                        col.Item().Text($"{personel.TamAd} ({personel.SoforKodu})").AlignCenter();
+                });
+
+                page.Content().Column(col =>
+                {
+                    foreach (var kategori in evrakTanimlari.GroupBy(e => e.Kategori).OrderBy(g => g.Key))
+                    {
+                        col.Item().PaddingTop(6).Text($"{GetKategoriAdi(kategori.Key)}:").Bold();
+                        col.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.RelativeColumn(5);
+                                columns.RelativeColumn(0.8f);
+                                columns.RelativeColumn(0.8f);
+                                columns.RelativeColumn(1.4f);
+                            });
+
+                            table.Header(header =>
+                            {
+                                header.Cell().Border(1).Background("#e9ecef").Padding(4).Text("Evrak").SemiBold();
+                                header.Cell().Border(1).Background("#e9ecef").Padding(4).AlignCenter().Text("Var/Yok").SemiBold();
+                                header.Cell().Border(1).Background("#e9ecef").Padding(4).AlignCenter().Text("Muaf").SemiBold();
+                                header.Cell().Border(1).Background("#e9ecef").Padding(4).AlignCenter().Text("Açıklama").SemiBold();
+                            });
+
+                            foreach (var evrak in kategori.OrderBy(e => e.SiraNo).ThenBy(e => e.EvrakAdi))
+                            {
+                                table.Cell().Border(1).Padding(4).MinHeight(20).Text(evrak.EvrakAdi);
+                                table.Cell().Border(1).Padding(4).MinHeight(20).Text(string.Empty);
+                                table.Cell().Border(1).Padding(4).MinHeight(20).Text(string.Empty);
+                                table.Cell().Border(1).Padding(4).MinHeight(20).Text(string.Empty);
+                            }
+                        });
+                    }
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span("Sayfa ");
+                    x.CurrentPageNumber();
+                    x.Span(" / ");
+                    x.TotalPages();
+                });
+            });
+        });
+
+        return document.GeneratePdf();
+    }
+
     #endregion
 
     #region Yardımcı Metodlar

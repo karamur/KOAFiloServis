@@ -3,6 +3,9 @@
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject ISoforService SoforService
+@inject IPersonelOzlukService OzlukService
+@inject IJSRuntime JS
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -19,6 +22,9 @@
                     <option value="@gorev">@GetGorevAdi(gorev)</option>
                 }
             </select>
+            <button class="btn btn-outline-secondary" @onclick="BosPersonelDosyasiIndir">
+                <i class="bi bi-file-earmark-text me-1"></i>Boş Personel Dosyası
+            </button>
             <button class="btn btn-primary" @onclick="YeniPersonel">
                 <i class="bi bi-plus-lg me-1"></i>Yeni Personel
             </button>
@@ -110,6 +116,9 @@
                                         }
                                     </td>
                                     <td>
+                                        <button class="btn btn-sm btn-outline-success me-1" @onclick="() => PersonelDosyasiIndir(personel.Id)" title="Dosya Hazırla">
+                                            <i class="bi bi-file-earmark-pdf"></i>
+                                        </button>
                                         <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(personel.Id)" title="Düzenle">
                                             <i class="bi bi-pencil"></i>
                                         </button>
@@ -237,6 +246,37 @@
         }
         showDeleteModal = false;
         silinecekPersonel = null;
+    }
+
+    private async Task PersonelDosyasiIndir(int personelId)
+    {
+        try
+        {
+            var bytes = await OzlukService.ExportPersonelDosyaPdfAsync(personelId);
+            var personel = personeller?.FirstOrDefault(p => p.Id == personelId);
+            var dosyaAdi = $"personel_dosyasi_{personel?.SoforKodu ?? personelId.ToString()}_{DateTime.Now:yyyyMMdd}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Personel dosyası indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task BosPersonelDosyasiIndir()
+    {
+        try
+        {
+            var bytes = await OzlukService.ExportBosPersonelDosyaPdfAsync();
+            var dosyaAdi = $"bos_personel_dosyasi_{DateTime.Now:yyyyMMdd}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Boş personel dosyası indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
     }
     
     private string GetGorevAdi(PersonelGorev gorev)

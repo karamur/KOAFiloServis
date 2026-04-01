@@ -24,6 +24,8 @@ public interface IPersonelOzlukService
     Task<List<PersonelOzlukEvrakDurum>> GetEksikEvrakliPersonellerAsync();
     Task<byte[]> ExportChecklistPdfAsync(int soforId);
     Task<byte[]> ExportTumChecklistExcelAsync();
+    Task<byte[]> ExportPersonelDosyaPdfAsync(int soforId);
+    Task<byte[]> ExportBosPersonelDosyaPdfAsync();
 }
 
 public class PersonelOzlukEvrakDurum

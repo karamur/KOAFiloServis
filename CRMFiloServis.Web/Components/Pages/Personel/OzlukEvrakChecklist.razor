@@ -134,6 +134,10 @@
                                                 title="Detay Görüntüle">
                                             <i class="bi bi-eye"></i>
                                         </button>
+                                        <button class="btn btn-sm btn-outline-dark me-1" @onclick="() => PersonelDosyasiIndir(durum.SoforId)"
+                                                title="Dosya Hazırla">
+                                            <i class="bi bi-file-earmark-text"></i>
+                                        </button>
                                         <button class="btn btn-sm btn-outline-success me-1" @onclick="() => PdfIndir(durum.SoforId)"
                                                 title="PDF İndir">
                                             <i class="bi bi-file-pdf"></i>
@@ -473,6 +477,22 @@
             seciliDurum = await OzlukService.GetPersonelEvrakDurumuAsync(soforId);
             await LoadData();
             ToastService.ShowSuccess(tamamlandi ? "Evrak tamamlandı olarak işaretlendi." : "Evrak işareti kaldırıldı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task PersonelDosyasiIndir(int soforId)
+    {
+        try
+        {
+            var bytes = await OzlukService.ExportPersonelDosyaPdfAsync(soforId);
+            var personel = durumlar?.FirstOrDefault(d => d.SoforId == soforId);
+            var dosyaAdi = $"personel_dosyasi_{personel?.PersonelKodu ?? soforId.ToString()}_{DateTime.Now:yyyyMMdd}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Personel dosyası indirildi.");
         }
         catch (Exception ex)
         {
