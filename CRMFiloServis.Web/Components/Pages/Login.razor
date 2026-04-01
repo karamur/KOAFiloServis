@@ -52,18 +52,19 @@
                 <label for="kullaniciAdi"><i class="bi bi-person me-2"></i>Kullanici Adi</label>
             </div>
 
-            <div class="form-floating mb-3">
+            <div class="form-floating mb-3 position-relative">
                 <input type="@(showPassword ? "text" : "password")" class="form-control" id="sifre" placeholder="Sifre"
                        @bind="sifre" @bind:event="oninput" @onkeypress="HandleKeyPress" autocomplete="current-password" />
                 <label for="sifre"><i class="bi bi-lock me-2"></i>Sifre</label>
-                <button type="button" class="password-toggle" @onclick="() => showPassword = !showPassword">
+                <button type="button" class="password-toggle" @onclick="TogglePassword" @onclick:preventDefault @onclick:stopPropagation>
                     <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
                 </button>
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="beniHatirla" @bind="beniHatirla" />
+                    <input class="form-check-input" type="checkbox" id="beniHatirla" 
+                           checked="@beniHatirla" @onchange="OnBeniHatirlaChanged" />
                     <label class="form-check-label" for="beniHatirla">Beni Hatirla</label>
                 </div>
                 <a href="#" class="forgot-password" @onclick="SifremiUnuttum" @onclick:preventDefault>Sifremi Unuttum</a>
@@ -256,10 +257,26 @@
         color: #6c757d;
         cursor: pointer;
         z-index: 10;
+        padding: 5px 10px;
+        font-size: 1.1rem;
     }
 
     .password-toggle:hover {
         color: #1e3c72;
+    }
+
+    .password-toggle:focus {
+        outline: none;
+    }
+
+    .form-check-input {
+        cursor: pointer;
+        width: 1.1em;
+        height: 1.1em;
+    }
+
+    .form-check-label {
+        cursor: pointer;
     }
 
     .form-check-input:checked {
@@ -357,8 +374,18 @@
     private string? errorMessage;
     private string? successMessage;
     private CRMFiloServis.Shared.Entities.Lisans? lisans;
-    
+
     private const string REMEMBER_KEY = "CRMFiloServis_RememberMe";
+
+    private void TogglePassword()
+    {
+        showPassword = !showPassword;
+    }
+
+    private void OnBeniHatirlaChanged(ChangeEventArgs e)
+    {
+        beniHatirla = (bool)(e.Value ?? false);
+    }
 
     protected override async Task OnInitializedAsync()
     {
