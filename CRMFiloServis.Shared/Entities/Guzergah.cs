@@ -1,7 +1,7 @@
-namespace CRMFiloServis.Shared.Entities;
+﻿namespace CRMFiloServis.Shared.Entities;
 
 /// <summary>
-/// G�zergah bilgileri (Firma bazl�)
+/// Güzergah bilgileri (Firma bazlı)
 /// </summary>
 public class Guzergah : BaseEntity
 {
@@ -15,11 +15,43 @@ public class Guzergah : BaseEntity
     public bool Aktif { get; set; } = true;
     public string? Notlar { get; set; }
 
-    // Foreign Key
+    // Sefer Tipi (Sabah, Akşam, Sabah-Akşam, Saatlik)
+    public SeferTipi SeferTipi { get; set; } = SeferTipi.SabahAksam;
+
+    // Personel Sayısı
+    public int PersonelSayisi { get; set; } = 0;
+
+    // Varsayılan Araç ve Şoför
+    public int? VarsayilanAracId { get; set; }
+    public virtual Arac? VarsayilanArac { get; set; }
+
+    public int? VarsayilanSoforId { get; set; }
+    public virtual Sofor? VarsayilanSofor { get; set; }
+
+    // Fatura Kalem İlişkisi (Hangi fatura kaleminden oluşturuldu)
+    public int? FaturaKalemId { get; set; }
+
+    // Firma İlişkisi
+    public int? FirmaId { get; set; }
+    public virtual Firma? Firma { get; set; }
+
+    // Foreign Key - Cari (eski uyumluluk için)
     public int CariId { get; set; }
 
     // Navigation Properties
     public virtual Cari Cari { get; set; } = null!;
     public virtual ICollection<ServisCalisma> ServisCalismalari { get; set; } = new List<ServisCalisma>();
     public virtual ICollection<AracMasraf> AracMasraflari { get; set; } = new List<AracMasraf>();
+    public virtual ICollection<FiloGuzergahEslestirme> AracEslestirmeleri { get; set; } = new List<FiloGuzergahEslestirme>();
+}
+
+/// <summary>
+/// Sefer tipi
+/// </summary>
+public enum SeferTipi
+{
+    Sabah = 1,
+    Aksam = 2,
+    SabahAksam = 3,
+    Saatlik = 4
 }

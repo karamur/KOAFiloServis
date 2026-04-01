@@ -93,14 +93,34 @@ public class OdemeYapRequest
     public DateTime OdemeTarihi { get; set; } = DateTime.Today;
     public decimal? KismiOdemeTutari { get; set; }
     public Guid? KrediTaksitGrupId { get; set; } // Kredi kartı için ilişkili kredi
+
+    // Cari Mahsup için
+    public int? CariId { get; set; }
+    public bool CaridenTahsilat { get; set; } = false; // true: cariden tahsilat, false: cariye ödeme
+
+    // Kesinti bilgileri
+    public decimal MasrafKesintisi { get; set; } = 0;
+    public decimal CezaKesintisi { get; set; } = 0;
+    public decimal DigerKesinti { get; set; } = 0;
+    public string? KesintiAciklamasi { get; set; }
+    public string? OdemeNotu { get; set; }
+
+    // Muhasebe Eşleştirme
+    public string? MuhasebeHesapKodu { get; set; }
+    public string? KostMerkeziKodu { get; set; }
+    public string? ProjeKodu { get; set; }
+
+    // Hesaplanan
+    public decimal ToplamKesinti => MasrafKesintisi + CezaKesintisi + DigerKesinti;
 }
 
 public enum OdemeTipi
 {
     Kasa = 1,
     Banka = 2,
-    Mahsup = 3,
-    KrediKarti = 4
+    Mahsup = 3,         // Hesaplar arası transfer
+    KrediKarti = 4,
+    CariMahsup = 5      // Cari hesap ile mahsup
 }
 
 public class BudgetOzet

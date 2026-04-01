@@ -1159,6 +1159,7 @@ public class FaturaService : IFaturaService
                 await CreateStokHareketleriFromFaturaAsync(fatura, yon);
 
                 result.ImportedItems.Add(fatura);
+                result.FaturaXmlMapping[fatura.Id] = file.FileName; // XML dosya adını kaydet
                 result.ImportedCount++;
             }
             catch (Exception ex)
@@ -1186,20 +1187,27 @@ public class FaturaService : IFaturaService
         var xmlContents = files.Select(f => new XmlFileContent { FileName = f.XmlFileName, Content = f.XmlContent }).ToList();
         var result = await ImportFromXmlAsync(xmlContents, yon, firmaId, eFaturaTipi);
 
+        // XML dosya adı -> XmlPdfFileContent eşleştirmesi (doğrudan PDF içeriğini içeriyor)
+        var xmlFileMap = files.ToDictionary(
+            f => f.XmlFileName.ToLowerInvariant(),
+            f => f
+        );
+
         // Başarıyla import edilen faturalara PDF'leri kaydet
         foreach (var fatura in result.ImportedItems)
         {
-            // Eşleşen PDF'i bul (ETTN veya fatura numarasına göre)
-            var matchingFile = files.FirstOrDefault(f => 
-                !string.IsNullOrEmpty(f.PdfFileName) && 
-                f.PdfContent != null &&
-                (f.XmlFileName.Replace(".xml", "", StringComparison.OrdinalIgnoreCase).Equals(f.PdfFileName.Replace(".pdf", "", StringComparison.OrdinalIgnoreCase), StringComparison.OrdinalIgnoreCase) ||
-                 (!string.IsNullOrEmpty(fatura.EttnNo) && f.PdfFileName.Contains(fatura.EttnNo, StringComparison.OrdinalIgnoreCase)) ||
-                 f.PdfFileName.Contains(fatura.FaturaNo, StringComparison.OrdinalIgnoreCase)));
-
-            if (matchingFile?.PdfContent != null)
+            // FaturaXmlMapping'den bu faturanın hangi XML'den geldiğini bul
+            if (result.FaturaXmlMapping.TryGetValue(fatura.Id, out var xmlFileName))
             {
-                await UploadFaturaPdfAsync(fatura.Id, matchingFile.PdfFileName!, matchingFile.PdfContent);
+                // Bu XML'e ait XmlPdfFileContent'i bul
+                if (xmlFileMap.TryGetValue(xmlFileName.ToLowerInvariant(), out var xmlPdfFile))
+                {
+                    // Bu XML'in kendi PDF'i var mı?
+                    if (!string.IsNullOrEmpty(xmlPdfFile.PdfFileName) && xmlPdfFile.PdfContent != null)
+                    {
+                        await UploadFaturaPdfAsync(fatura.Id, xmlPdfFile.PdfFileName, xmlPdfFile.PdfContent);
+                    }
+                }
             }
         }
 
@@ -1217,7 +1225,8 @@ public class FaturaService : IFaturaService
             var uploadsFolder = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", "faturalar", fatura.FaturaYonu.ToString().ToLower());
             Directory.CreateDirectory(uploadsFolder);
 
-            var safeFileName = $"{fatura.FaturaNo.Replace("/", "_")}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+            // Benzersiz dosya adı: FaturaNo_FaturaId_Timestamp.pdf
+            var safeFileName = $"{fatura.FaturaNo.Replace("/", "_").Replace("\\", "_")}_{fatura.Id}_{DateTime.Now:yyyyMMddHHmmssfff}.pdf";
             var filePath = Path.Combine(uploadsFolder, safeFileName);
 
             await File.WriteAllBytesAsync(filePath, pdfContent);

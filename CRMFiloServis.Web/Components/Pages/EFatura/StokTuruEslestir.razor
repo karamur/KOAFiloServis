@@ -3,6 +3,8 @@
 @using CRMFiloServis.Web.Services
 @inject IFaturaService FaturaService
 @inject IStokService StokService
+@inject IGuzergahService GuzergahService
+@inject IFirmaService FirmaService
 @inject IToastService ToastService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -146,6 +148,15 @@
                             <i class="bi bi-box-seam me-1"></i>Eşleştir + Stok Kartı
                         </button>
                     </div>
+                    @if (TasimaHizmetiSeciliMi())
+                    {
+                        <div class="col-auto">
+                            <button class="btn btn-info btn-sm" @onclick="GuzergahOnizlemeAc" 
+                                    disabled="@(!seciliKalemler.Any() || isKaydediliyor)">
+                                <i class="bi bi-signpost-2 me-1"></i>Güzergah Oluştur
+                            </button>
+                        </div>
+                    }
                     @if (seciliKalemler.Any())
                     {
                         <div class="col-auto">
@@ -289,16 +300,122 @@
     }
 </datalist>
 
+<!-- Güzergah Önizleme Modal -->
+@if (showGuzergahModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="bi bi-signpost-2 me-2"></i>Güzergah Listesi Önizleme</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showGuzergahModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Aşağıdaki fatura kalemlerinden güzergah oluşturulacak. Bilgileri kontrol edip düzenleyebilirsiniz.
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 400px;">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" class="form-check-input" 
+                                               checked="@guzergahListesi.All(g => g.Secili)"
+                                               @onchange="e => GuzergahTumunuSec((bool)e.Value!)" />
+                                    </th>
+                                    <th>Firma</th>
+                                    <th>Güzergah Adı</th>
+                                    <th style="width: 130px;">Sefer Tipi</th>
+                                    <th style="width: 100px;">Personel</th>
+                                    <th style="width: 100px;">Birim Fiyat</th>
+                                    <th style="width: 80px;">Miktar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var guzergah in guzergahListesi)
+                                {
+                                    <tr class="@(guzergah.Secili ? "" : "table-secondary")">
+                                        <td>
+                                            <input type="checkbox" class="form-check-input" @bind="guzergah.Secili" />
+                                        </td>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="guzergah.FirmaId">
+                                                <option value="0">-- Firma Seç --</option>
+                                                @foreach (var firma in firmalar)
+                                                {
+                                                    <option value="@firma.Id">@firma.FirmaAdi</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" @bind="guzergah.GuzergahAdi" />
+                                        </td>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="guzergah.SeferTipi">
+                                                <option value="@SeferTipi.SabahAksam">Sabah-Akşam</option>
+                                                <option value="@SeferTipi.Sabah">Sabah</option>
+                                                <option value="@SeferTipi.Aksam">Akşam</option>
+                                                <option value="@SeferTipi.Saatlik">Saatlik</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm" @bind="guzergah.PersonelSayisi" min="0" />
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm" @bind="guzergah.BirimFiyat" step="0.01" />
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-secondary">@guzergah.Miktar</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="alert alert-secondary py-2 mb-0">
+                                <strong>@guzergahListesi.Count(g => g.Secili)</strong> / @guzergahListesi.Count güzergah seçili
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showGuzergahModal = false">
+                        <i class="bi bi-x me-1"></i>İptal
+                    </button>
+                    <button type="button" class="btn btn-success" @onclick="GuzergahlariOlustur" 
+                            disabled="@(!guzergahListesi.Any(g => g.Secili) || isKaydediliyor)">
+                        @if (isKaydediliyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-check-lg me-1"></i>Güzergahları Oluştur
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<FaturaKalem> eslesmemisKalemler = new();
     private List<FaturaKalem> eslesmisKalemler = new();
     private List<FaturaKalem> filtrelenmisKalemler = new();
     private List<StokKarti> stokKartlari = new();
+    private List<Firma> firmalar = new();
     private HashSet<int> seciliKalemler = new();
     private HashSet<int> degistirilmisKalemler = new();
     private bool isLoading = true;
     private bool isKaydediliyor = false;
     private string aktifTab = "eslesmemis";
+
+    // Güzergah Modal
+    private bool showGuzergahModal = false;
+    private List<GuzergahOnizlemeItem> guzergahListesi = new();
 
     private DateTime? filtreBaslangic;
     private DateTime? filtreBitis;
@@ -317,6 +434,7 @@
         filtreBaslangic = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         filtreBitis = DateTime.Today;
         stokKartlari = await StokService.GetStokKartlariAsync();
+        firmalar = await FirmaService.GetAllAsync();
         await YenileAsync();
     }
 
@@ -640,4 +758,193 @@
     }
 
     private static string GetStokKoduOptionValue(StokKarti stok) => $"{stok.StokKodu} | {stok.StokAdi}";
+
+    // Güzergah İşlemleri
+    private bool TasimaHizmetiSeciliMi()
+    {
+        // Toplu tür olarak Hizmet ve Taşıma seçilmişse
+        if (!string.IsNullOrEmpty(topluKalemTipi) && int.TryParse(topluKalemTipi, out var tipInt))
+        {
+            if ((FaturaKalemTipi)tipInt == FaturaKalemTipi.Hizmet)
+            {
+                if (!string.IsNullOrEmpty(topluAltTipi) && int.TryParse(topluAltTipi, out var altTipInt))
+                {
+                    return (FaturaKalemAltTipi)altTipInt == FaturaKalemAltTipi.TasimaHizmeti;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void GuzergahOnizlemeAc()
+    {
+        if (!seciliKalemler.Any()) return;
+
+        var secilenKalemler = eslesmemisKalemler.Where(k => seciliKalemler.Contains(k.Id)).ToList();
+        guzergahListesi = secilenKalemler.Select(k => ParseGuzergahFromKalem(k)).ToList();
+        showGuzergahModal = true;
+    }
+
+    private GuzergahOnizlemeItem ParseGuzergahFromKalem(FaturaKalem kalem)
+    {
+        var aciklama = kalem.Aciklama ?? "";
+        var firmaAdi = kalem.Fatura?.Cari?.Unvan ?? "";
+
+        // Açıklamadan sefer tipini çıkar (SABAH-AKŞAM, SABAH, AKŞAM, SAATLİK)
+        var seferTipi = SeferTipi.SabahAksam;
+        var aciklamaLower = aciklama.ToLowerInvariant();
+
+        if (aciklamaLower.Contains("sabah-akşam") || aciklamaLower.Contains("sabah-aksam") || aciklamaLower.Contains("s-a"))
+            seferTipi = SeferTipi.SabahAksam;
+        else if (aciklamaLower.Contains("saatlik") || aciklamaLower.Contains("saat"))
+            seferTipi = SeferTipi.Saatlik;
+        else if (aciklamaLower.Contains("sabah"))
+            seferTipi = SeferTipi.Sabah;
+        else if (aciklamaLower.Contains("akşam") || aciklamaLower.Contains("aksam"))
+            seferTipi = SeferTipi.Aksam;
+
+        // Güzergah adını temizle (sefer tipi ifadelerini kaldır)
+        var guzergahAdi = aciklama
+            .Replace("SABAH-AKŞAM", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("SABAH-AKSAM", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("SAATLİK", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("SAATLIK", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("SABAH", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("AKŞAM", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("AKSAM", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("S-A", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("()", "")
+            .Replace("( )", "")
+            .Trim();
+
+        // Parantez içindekileri temizle
+        while (guzergahAdi.Contains("(") && guzergahAdi.Contains(")"))
+        {
+            var start = guzergahAdi.IndexOf("(");
+            var end = guzergahAdi.IndexOf(")");
+            if (end > start)
+                guzergahAdi = guzergahAdi.Remove(start, end - start + 1).Trim();
+            else
+                break;
+        }
+
+        // Firma eşleştir
+        var firmaId = 0;
+        if (kalem.Fatura?.Cari != null)
+        {
+            var eslesenFirma = firmalar.FirstOrDefault(f => 
+                f.FirmaAdi.Contains(kalem.Fatura.Cari.Unvan, StringComparison.OrdinalIgnoreCase) ||
+                kalem.Fatura.Cari.Unvan.Contains(f.FirmaAdi, StringComparison.OrdinalIgnoreCase));
+            if (eslesenFirma != null)
+                firmaId = eslesenFirma.Id;
+        }
+
+        return new GuzergahOnizlemeItem
+        {
+            FaturaKalemId = kalem.Id,
+            FirmaAdi = firmaAdi,
+            FirmaId = firmaId,
+            GuzergahAdi = guzergahAdi,
+            SeferTipi = seferTipi,
+            PersonelSayisi = (int)kalem.Miktar,
+            BirimFiyat = kalem.BirimFiyat,
+            Miktar = kalem.Miktar,
+            Secili = true
+        };
+    }
+
+    private void GuzergahTumunuSec(bool secili)
+    {
+        foreach (var g in guzergahListesi)
+            g.Secili = secili;
+    }
+
+    private async Task GuzergahlariOlustur()
+    {
+        var seciliGuzergahlar = guzergahListesi.Where(g => g.Secili && g.FirmaId > 0).ToList();
+        if (!seciliGuzergahlar.Any())
+        {
+            ToastService.ShowWarning("Lütfen firma seçili güzergahları işaretleyin.");
+            return;
+        }
+
+        isKaydediliyor = true;
+        StateHasChanged();
+
+        try
+        {
+            var olusturulanSayisi = 0;
+            var hataListesi = new List<string>();
+
+            foreach (var item in seciliGuzergahlar)
+            {
+                try
+                {
+                    var firma = firmalar.FirstOrDefault(f => f.Id == item.FirmaId);
+                    if (firma == null) continue;
+
+                    // Güzergah kodu oluştur
+                    var guzergahKodu = await GuzergahService.GenerateGuzergahKoduAsync(item.FirmaId);
+
+                    var guzergah = new Guzergah
+                    {
+                        GuzergahKodu = guzergahKodu,
+                        GuzergahAdi = item.GuzergahAdi,
+                        FirmaId = item.FirmaId,
+                        CariId = firma.Id, // Geriye uyumluluk için
+                        SeferTipi = item.SeferTipi,
+                        PersonelSayisi = item.PersonelSayisi,
+                        BirimFiyat = item.BirimFiyat,
+                        FaturaKalemId = item.FaturaKalemId,
+                        Aktif = true
+                    };
+
+                    await GuzergahService.AddAsync(guzergah);
+                    olusturulanSayisi++;
+                }
+                catch (Exception ex)
+                {
+                    hataListesi.Add($"{item.GuzergahAdi}: {ex.Message}");
+                }
+            }
+
+            if (olusturulanSayisi > 0)
+            {
+                ToastService.ShowSuccess($"{olusturulanSayisi} güzergah oluşturuldu.");
+            }
+
+            foreach (var hata in hataListesi.Take(3))
+            {
+                ToastService.ShowWarning(hata);
+            }
+
+            showGuzergahModal = false;
+            seciliKalemler.Clear();
+            topluKalemTipi = "";
+            topluAltTipi = "";
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isKaydediliyor = false;
+            StateHasChanged();
+        }
+    }
+
+    // Güzergah Önizleme DTO
+    private class GuzergahOnizlemeItem
+    {
+        public int FaturaKalemId { get; set; }
+        public string FirmaAdi { get; set; } = "";
+        public int FirmaId { get; set; }
+        public string GuzergahAdi { get; set; } = "";
+        public SeferTipi SeferTipi { get; set; }
+        public int PersonelSayisi { get; set; }
+        public decimal BirimFiyat { get; set; }
+        public decimal Miktar { get; set; }
+        public bool Secili { get; set; }
+    }
 }

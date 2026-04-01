@@ -73,6 +73,7 @@ public class EFaturaImportResult
     public int ErrorCount { get; set; }
     public List<string> Errors { get; set; } = new();
     public List<Fatura> ImportedItems { get; set; } = new();
+    public Dictionary<int, string> FaturaXmlMapping { get; set; } = new(); // FaturaId -> XmlFileName
 }
 
 public class XmlFileContent

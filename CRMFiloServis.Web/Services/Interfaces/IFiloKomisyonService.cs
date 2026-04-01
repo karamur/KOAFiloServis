@@ -31,6 +31,7 @@ public interface IFiloKomisyonService
     /// </summary>
     Task<List<FiloGunlukPuantaj>> GetPuantajlarByTarihAraligiAsync(int firmaId, DateTime baslangic, DateTime bitis, int? kurumId = null, int? aracId = null);
 
+    Task<FiloGunlukPuantaj> CreatePuantajAsync(FiloGunlukPuantaj puantaj);
     Task<FiloGunlukPuantaj> UpdateGunlukPuantajAsync(FiloGunlukPuantaj puantaj);
 
     /// <summary>

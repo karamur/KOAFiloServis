@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject IBudgetService BudgetService
 @inject IBankaHesapService BankaHesapService
+@inject ICariService CariService
 @inject IFirmaService FirmaService
 @inject IToastService ToastService
 @inject IJSRuntime JS
@@ -490,57 +491,182 @@
 @if (showOdemeYapModal && odemeYapilacak != null)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title"><i class="bi bi-cash-coin me-2"></i>Odeme Yap</h5>
+                    <h5 class="modal-title"><i class="bi bi-cash-coin me-2"></i>Ödeme Yap</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="ModalKapat"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info py-2">
-                        <strong>@odemeYapilacak.MasrafKalemi</strong><br />
-                        <small>@odemeYapilacak.Aciklama</small><br />
-                        <strong class="text-danger fs-5">@FormatPara(odemeYapilacak.Miktar)</strong>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Odeme Tipi *</label>
-                        <div class="btn-group w-100">
-                            <button type="button" class="btn @(odemeYapRequest.OdemeTipi == OdemeTipi.Kasa ? "btn-primary" : "btn-outline-primary")" 
-                                    @onclick="() => odemeYapRequest.OdemeTipi = OdemeTipi.Kasa">
-                                <i class="bi bi-cash-stack me-1"></i>Kasa
-                            </button>
-                            <button type="button" class="btn @(odemeYapRequest.OdemeTipi == OdemeTipi.Banka ? "btn-primary" : "btn-outline-primary")" 
-                                    @onclick="() => odemeYapRequest.OdemeTipi = OdemeTipi.Banka">
-                                <i class="bi bi-bank me-1"></i>Banka
-                            </button>
-                            <button type="button" class="btn @(odemeYapRequest.OdemeTipi == OdemeTipi.Mahsup ? "btn-primary" : "btn-outline-primary")" 
-                                    @onclick="() => odemeYapRequest.OdemeTipi = OdemeTipi.Mahsup">
-                                <i class="bi bi-arrow-left-right me-1"></i>Mahsup
-                            </button>
+                    <div class="alert alert-info py-2 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>@odemeYapilacak.MasrafKalemi</strong><br />
+                                <small>@odemeYapilacak.Aciklama</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted">Tutar:</small><br/>
+                                <strong class="text-danger fs-5">@FormatPara(odemeYapilacak.Miktar)</strong>
+                            </div>
                         </div>
                     </div>
-                    @if ((odemeYapRequest.OdemeTipi == OdemeTipi.Kasa || odemeYapRequest.OdemeTipi == OdemeTipi.Banka) && bankaHesaplari != null)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">@(odemeYapRequest.OdemeTipi == OdemeTipi.Kasa ? "Kasa Hesabi" : "Banka Hesabi") *</label>
-                            <select class="form-select" @bind="odemeYapRequest.BankaHesapId">
-                                <option value="">Secin...</option>
-                                @foreach (var hesap in bankaHesaplari.Where(h => odemeYapRequest.OdemeTipi == OdemeTipi.Kasa ? h.HesapTipi == HesapTipi.Kasa : h.HesapTipi != HesapTipi.Kasa))
+
+                    <div class="row g-3">
+                        <!-- Ödeme Tipi -->
+                        <div class="col-12">
+                            <label class="form-label">Ödeme Şekli *</label>
+                            <div class="btn-group w-100 flex-wrap">
+                                <button type="button" class="btn @(odemeYapRequest.OdemeTipi == OdemeTipi.Kasa ? "btn-success" : "btn-outline-success")" 
+                                        @onclick="() => OdemeTipiDegisti(OdemeTipi.Kasa)">
+                                    <i class="bi bi-cash-stack me-1"></i>Kasa
+                                </button>
+                                <button type="button" class="btn @(odemeYapRequest.OdemeTipi == OdemeTipi.Banka ? "btn-primary" : "btn-outline-primary")" 
+                                        @onclick="() => OdemeTipiDegisti(OdemeTipi.Banka)">
+                                    <i class="bi bi-bank me-1"></i>Banka
+                                </button>
+                                <button type="button" class="btn @(odemeYapRequest.OdemeTipi == OdemeTipi.KrediKarti ? "btn-danger" : "btn-outline-danger")" 
+                                        @onclick="() => OdemeTipiDegisti(OdemeTipi.KrediKarti)">
+                                    <i class="bi bi-credit-card me-1"></i>Kredi Kartı
+                                </button>
+                                <button type="button" class="btn @(odemeYapRequest.OdemeTipi == OdemeTipi.Mahsup ? "btn-secondary" : "btn-outline-secondary")" 
+                                        @onclick="() => OdemeTipiDegisti(OdemeTipi.Mahsup)">
+                                    <i class="bi bi-arrow-left-right me-1"></i>Hesap Mahsup
+                                </button>
+                                <button type="button" class="btn @(odemeYapRequest.OdemeTipi == OdemeTipi.CariMahsup ? "btn-warning" : "btn-outline-warning")" 
+                                        @onclick="() => OdemeTipiDegisti(OdemeTipi.CariMahsup)">
+                                    <i class="bi bi-person-lines-fill me-1"></i>Cari Mahsup
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Cari Seçimi (Cari Mahsup için) -->
+                        @if (odemeYapRequest.OdemeTipi == OdemeTipi.CariMahsup)
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label">Cari Hesap *</label>
+                                <select class="form-select" @bind="odemeYapRequest.CariId">
+                                    <option value="">Seçin...</option>
+                                    @if (cariler != null)
+                                    {
+                                        @foreach (var cari in cariler)
+                                        {
+                                            <option value="@cari.Id">@cari.CariKodu - @cari.Unvan</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Ödeme Tarihi *</label>
+                                <input type="date" class="form-control" @bind="odemeYapRequest.OdemeTarihi" />
+                            </div>
+                        }
+                        <!-- Hesap Seçimi -->
+                        else if (odemeYapRequest.OdemeTipi != OdemeTipi.Mahsup && bankaHesaplari != null)
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label">@GetHesapLabel() *</label>
+                                <select class="form-select" @bind="odemeYapRequest.BankaHesapId">
+                                    <option value="">Seçin...</option>
+                                    @foreach (var hesap in GetFiltrelenmisHesaplar())
+                                    {
+                                        var bakiye = hesapBakiyeleri.GetValueOrDefault(hesap.Id, 0);
+                                        <option value="@hesap.Id">@hesap.HesapAdi (@FormatPara(bakiye))</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Ödeme Tarihi *</label>
+                                <input type="date" class="form-control" @bind="odemeYapRequest.OdemeTarihi" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="col-12">
+                                <label class="form-label">Ödeme Tarihi *</label>
+                                <input type="date" class="form-control" @bind="odemeYapRequest.OdemeTarihi" />
+                            </div>
+                        }
+
+                        <!-- Kesintiler -->
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-header py-2">
+                                    <i class="bi bi-scissors me-1"></i>Kesintiler (Varsa)
+                                </div>
+                                <div class="card-body py-2">
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Masraf/Komisyon</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control" @bind="odemeYapRequest.MasrafKesintisi" step="0.01" min="0" />
+                                                <span class="input-group-text">₺</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Ceza/Faiz</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control" @bind="odemeYapRequest.CezaKesintisi" step="0.01" min="0" />
+                                                <span class="input-group-text">₺</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Diğer Kesinti</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control" @bind="odemeYapRequest.DigerKesinti" step="0.01" min="0" />
+                                                <span class="input-group-text">₺</span>
+                                            </div>
+                                        </div>
+                                        @if (ToplamKesinti > 0)
+                                        {
+                                            <div class="col-12">
+                                                <input type="text" class="form-control form-control-sm" 
+                                                       @bind="odemeYapRequest.KesintiAciklamasi" 
+                                                       placeholder="Kesinti açıklaması..." />
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ödeme Notu -->
+                        <div class="col-12">
+                            <label class="form-label">Not</label>
+                            <input type="text" class="form-control" @bind="odemeYapRequest.OdemeNotu" placeholder="Ödeme notu..." />
+                        </div>
+                    </div>
+
+                    <!-- Özet -->
+                    <div class="card mt-3 @(ToplamKesinti > 0 ? "border-warning" : "border-success")">
+                        <div class="card-body py-2">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Tutar:</small>
+                                    <div class="fs-5">@FormatPara(odemeYapilacak.Miktar)</div>
+                                </div>
+                                @if (ToplamKesinti > 0)
                                 {
-                                    <option value="@hesap.Id">@hesap.HesapAdi</option>
+                                    <div class="col-3 text-center">
+                                        <small class="text-muted">Kesinti:</small>
+                                        <div class="text-danger">-@FormatPara(ToplamKesinti)</div>
+                                    </div>
                                 }
-                            </select>
+                                <div class="col text-end">
+                                    <small class="text-muted">Net Ödeme:</small>
+                                    <div class="fs-4 fw-bold text-success">@FormatPara(NetOdemeTutari)</div>
+                                </div>
+                            </div>
                         </div>
-                    }
-                    <div class="mb-3">
-                        <label class="form-label">Odeme Tarihi</label>
-                        <input type="date" class="form-control" @bind="odemeYapRequest.OdemeTarihi" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Iptal</button>
-                    <button type="button" class="btn btn-success" @onclick="OdemeYap">
-                        <i class="bi bi-check-lg me-1"></i>Odemeyi Tamamla
+                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">İptal</button>
+                    <button type="button" class="btn btn-success" @onclick="OdemeYap" disabled="@isKaydediliyor">
+                        @if (isKaydediliyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-check-lg me-1"></i>Ödemeyi Tamamla (@FormatPara(NetOdemeTutari))
                     </button>
                 </div>
             </div>
@@ -1223,12 +1349,15 @@
     private string aktifListeRaporTuru = "bekleyen";
 
     private bool isLoading = true;
+    private bool isKaydediliyor = false;
     private BudgetOzet? ozet;
     private List<BudgetOdeme> odemeler = new();
     private List<BudgetGunlukOzet>? takvimData;
     private List<BudgetMasrafKalemi>? masrafKalemleri;
     private List<BankaHesap>? bankaHesaplari;
+    private Dictionary<int, decimal> hesapBakiyeleri = new();
     private List<Firma>? firmalar;
+    private List<Cari>? cariler;
     private List<KrediOzet>? aktifKrediler;
     private decimal krediTaksitToplam = 0;
     private int krediTaksitAdet = 0;
@@ -1273,6 +1402,8 @@
 
         masrafKalemleri = await BudgetService.GetMasrafKalemleriAsync();
         bankaHesaplari = await BankaHesapService.GetAllAsync();
+        hesapBakiyeleri = await BankaHesapService.GetTumHesapBakiyeleriAsync();
+        cariler = await CariService.GetAllAsync();
         tekrarlayanOdemeler = await BudgetService.GetTekrarlayanOdemelerAsync(secilenFirmaId > 0 ? secilenFirmaId : null);
         await YenileDataAsync();
     }
@@ -1416,7 +1547,10 @@
         odemeYapRequest = new OdemeYapRequest
         {
             OdemeTipi = OdemeTipi.Kasa,
-            OdemeTarihi = DateTime.Today
+            OdemeTarihi = DateTime.Today,
+            MasrafKesintisi = 0,
+            CezaKesintisi = 0,
+            DigerKesinti = 0
         };
         showOdemeYapModal = true;
     }
@@ -1425,18 +1559,38 @@
     {
         if (odemeYapilacak == null) return;
 
-        if ((odemeYapRequest.OdemeTipi == OdemeTipi.Kasa || odemeYapRequest.OdemeTipi == OdemeTipi.Banka) && !odemeYapRequest.BankaHesapId.HasValue)
+        // Validasyon
+        if (odemeYapRequest.OdemeTipi == OdemeTipi.CariMahsup)
         {
-            ToastService.ShowWarning("Hesap secin!");
+            if (!odemeYapRequest.CariId.HasValue || odemeYapRequest.CariId == 0)
+            {
+                ToastService.ShowWarning("Lütfen cari hesap seçin!");
+                return;
+            }
+        }
+        else if (odemeYapRequest.OdemeTipi != OdemeTipi.Mahsup && !odemeYapRequest.BankaHesapId.HasValue)
+        {
+            ToastService.ShowWarning("Lütfen hesap seçin!");
             return;
         }
+
+        isKaydediliyor = true;
+        StateHasChanged();
 
         try
         {
             await BudgetService.OdemeYapAsync(odemeYapilacak.Id, odemeYapRequest);
-            ToastService.ShowSuccess(odemeYapilacak.MasrafKalemi + " odendi!");
+
+            var mesaj = $"{odemeYapilacak.MasrafKalemi} ödendi! ({FormatPara(NetOdemeTutari)})";
+            if (odemeYapRequest.ToplamKesinti > 0)
+                mesaj += $" - Kesinti: {FormatPara(odemeYapRequest.ToplamKesinti)}";
+
+            ToastService.ShowSuccess(mesaj);
             ModalKapat();
-            
+
+            // Hesap bakiyelerini güncelle
+            hesapBakiyeleri = await BankaHesapService.GetTumHesapBakiyeleriAsync();
+
             // Tum veriyi yenile (gun secimi korunacak)
             await YenileDataAsync();
         }
@@ -1444,7 +1598,43 @@
         {
             ToastService.ShowError("Hata: " + ex.Message);
         }
+        finally
+        {
+            isKaydediliyor = false;
+            StateHasChanged();
+        }
     }
+
+    // Ödeme Modal Helper Metodları
+    private void OdemeTipiDegisti(OdemeTipi tip)
+    {
+        odemeYapRequest.OdemeTipi = tip;
+        odemeYapRequest.BankaHesapId = null; // Hesap seçimini sıfırla
+        odemeYapRequest.CariId = null; // Cari seçimini sıfırla
+    }
+
+    private string GetHesapLabel() => odemeYapRequest.OdemeTipi switch
+    {
+        OdemeTipi.Kasa => "Kasa Hesabı",
+        OdemeTipi.Banka => "Banka Hesabı",
+        OdemeTipi.KrediKarti => "Kredi Kartı",
+        _ => "Hesap"
+    };
+
+    private IEnumerable<BankaHesap> GetFiltrelenmisHesaplar()
+    {
+        if (bankaHesaplari == null) return Enumerable.Empty<BankaHesap>();
+
+        return odemeYapRequest.OdemeTipi switch
+        {
+            OdemeTipi.Kasa => bankaHesaplari.Where(h => h.HesapTipi == HesapTipi.Kasa),
+            OdemeTipi.KrediKarti => bankaHesaplari.Where(h => h.HesapTipi == HesapTipi.KrediKarti),
+            _ => bankaHesaplari.Where(h => h.HesapTipi != HesapTipi.Kasa && h.HesapTipi != HesapTipi.KrediKarti)
+        };
+    }
+
+    private decimal ToplamKesinti => odemeYapRequest.MasrafKesintisi + odemeYapRequest.CezaKesintisi + odemeYapRequest.DigerKesinti;
+    private decimal NetOdemeTutari => (odemeYapilacak?.Miktar ?? 0) - ToplamKesinti;
 
     private void YeniOdemeAc()
     {

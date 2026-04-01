@@ -181,34 +181,48 @@ public class BudgetService : IBudgetService
         var odemeTutari = request.KismiOdemeTutari ?? odeme.Miktar;
         var odemeTarihi = DateTime.SpecifyKind(request.OdemeTarihi, DateTimeKind.Utc);
 
+        // Kesinti bilgilerini kaydet
+        odeme.MasrafKesintisi = request.MasrafKesintisi;
+        odeme.CezaKesintisi = request.CezaKesintisi;
+        odeme.DigerKesinti = request.DigerKesinti;
+        odeme.KesintiAciklamasi = request.KesintiAciklamasi;
+
+        // Net ödeme tutarı (kesintiler düşülmüş)
+        var netOdemeTutari = odemeTutari - request.ToplamKesinti;
+
         // Odeme durumunu guncelle
         odeme.Durum = OdemeDurum.Odendi;
         odeme.GercekOdemeTarihi = odemeTarihi;
         odeme.OdenenTutar = odemeTutari;
         odeme.OdemeYapildigiHesapId = request.BankaHesapId;
-        odeme.OdemeNotu = request.Aciklama;
+        odeme.OdemeNotu = request.OdemeNotu ?? request.Aciklama;
         odeme.UpdatedAt = DateTime.UtcNow;
 
         // Kasa/Banka hareketi olustur (Mahsup disinda)
         // KASA = BORC (Cikis hareket), ODEME = ALACAK
         if (request.OdemeTipi != OdemeTipi.Mahsup && request.BankaHesapId.HasValue)
         {
+            var aciklamaBuilder = $"Bütçe Ödemesi: {odeme.MasrafKalemi}";
+            if (!string.IsNullOrEmpty(request.OdemeNotu))
+                aciklamaBuilder += $" - {request.OdemeNotu}";
+            if (request.ToplamKesinti > 0)
+                aciklamaBuilder += $" (Kesinti: {request.ToplamKesinti:N2} ₺)";
+
             var hareket = new BankaKasaHareket
             {
                 IslemNo = $"BORC-{odeme.Id}-{DateTime.Now:yyyyMMddHHmmss}",
                 IslemTarihi = odemeTarihi,
                 HareketTipi = HareketTipi.Cikis, // Kasa = Borc (para cikiyor)
                 BankaHesapId = request.BankaHesapId.Value,
-                Tutar = odemeTutari,
-                Aciklama = $"Butce Odemesi: {odeme.MasrafKalemi}" + 
-                          (string.IsNullOrEmpty(request.Aciklama) ? "" : $" - {request.Aciklama}"),
-                IslemKaynak = IslemKaynak.Manuel,
+                Tutar = netOdemeTutari, // Net tutar (kesintiler düşülmüş)
+                Aciklama = aciklamaBuilder,
+                IslemKaynak = IslemKaynak.Butce,
                 CreatedAt = DateTime.UtcNow
             };
 
             _context.BankaKasaHareketleri.Add(hareket);
             await _context.SaveChangesAsync();
-            
+
             // Hareket ID'sini kaydet
             odeme.BankaKasaHareketId = hareket.Id;
         }

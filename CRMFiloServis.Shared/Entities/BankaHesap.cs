@@ -17,9 +17,13 @@ public class BankaHesap : BaseEntity
     public decimal AcilisBakiye { get; set; } = 0;
     public bool Aktif { get; set; } = true;
     public string? Notlar { get; set; }
-    
+
     // Kredi Kartı için ek alanlar
     public Guid? KrediTaksitGrupId { get; set; } // İlişkili kredi/taksit grubu
+
+    // Muhasebe Eşleştirme - Varsayılan Kodlar
+    public string? VarsayilanMuhasebeKodu { get; set; } // Örn: Kasa=100, Banka=102
+    public string? VarsayilanKostMerkezi { get; set; }
 
     // Navigation Properties
     public virtual ICollection<BankaKasaHareket> Hareketler { get; set; } = new List<BankaKasaHareket>();

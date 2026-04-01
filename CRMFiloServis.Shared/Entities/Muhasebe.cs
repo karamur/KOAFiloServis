@@ -221,3 +221,53 @@ public class MuhasebeAyar : BaseEntity
     public bool XmlImportOtomatikCariOlustur { get; set; } = true;
     public bool XmlImportOtomatikHesapKoduOlustur { get; set; } = true;
 }
+
+/// <summary>
+/// Masraf/Kost Merkezi Tanımları
+/// </summary>
+public class KostMerkezi : BaseEntity
+{
+    [Required]
+    [StringLength(20)]
+    public string KostKodu { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(100)]
+    public string KostAdi { get; set; } = string.Empty;
+
+    public string? Aciklama { get; set; }
+    public bool Aktif { get; set; } = true;
+    public int? UstKostMerkeziId { get; set; }
+
+    // Navigation
+    public virtual KostMerkezi? UstKostMerkezi { get; set; }
+    public virtual ICollection<KostMerkezi> AltKostMerkezleri { get; set; } = new List<KostMerkezi>();
+}
+
+/// <summary>
+/// Proje Tanımları (Muhasebe takibi için)
+/// </summary>
+public class MuhasebeProje : BaseEntity
+{
+    [Required]
+    [StringLength(20)]
+    public string ProjeKodu { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(150)]
+    public string ProjeAdi { get; set; } = string.Empty;
+
+    public string? Aciklama { get; set; }
+    public DateTime? BaslangicTarihi { get; set; }
+    public DateTime? BitisTarihi { get; set; }
+    public bool Aktif { get; set; } = true;
+    public decimal? ButceTutar { get; set; }
+
+    // İlişkili Cari/Firma
+    public int? CariId { get; set; }
+    public int? FirmaId { get; set; }
+
+    // Navigation
+    public virtual Cari? Cari { get; set; }
+    public virtual Firma? Firma { get; set; }
+}

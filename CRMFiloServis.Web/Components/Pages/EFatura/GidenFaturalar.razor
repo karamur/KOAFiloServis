@@ -151,95 +151,162 @@
         </div>
     </div>
 
-    @if (isLoading)
-    {
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
+    <div class="row">
+        <!-- Fatura Listesi -->
+        <div class="@(pdfOnizlemeFatura != null ? "col-md-7" : "col-12")">
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            }
+            else
+            {
+                <div class="card">
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">
+                            <table class="table table-hover table-sm mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Fatura No</th>
+                                        <th>Tarih</th>
+                                        <th>Cari</th>
+                                        <th>Vade</th>
+                                        <th class="text-end">Tutar</th>
+                                        <th class="text-end">Kalan</th>
+                                        <th class="text-center">Durum</th>
+                                        <th class="text-center">Islem</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var fatura in filtreliFaturalar)
+                                    {
+                                        var vadeGecmis = fatura.VadeTarihi.HasValue && fatura.VadeTarihi.Value < DateTime.Today && fatura.KalanTutar > 0;
+                                        var isSelected = pdfOnizlemeFatura?.Id == fatura.Id;
+                                        <tr class="@(isSelected ? "table-primary" : vadeGecmis ? "table-warning" : "")" 
+                                            @onclick="() => FaturaSecildi(fatura)" style="cursor: pointer;">
+                                            <td>
+                                                <strong>@fatura.FaturaNo</strong>
+                                                @if (!string.IsNullOrEmpty(fatura.PdfDosyaYolu))
+                                                {
+                                                    <i class="bi bi-file-pdf text-danger ms-1" title="PDF Mevcut"></i>
+                                                }
+                                            </td>
+                                            <td>@fatura.FaturaTarihi.ToString("dd.MM.yyyy")</td>
+                                            <td>
+                                                @if (fatura.Cari != null)
+                                                {
+                                                    <span class="text-truncate d-inline-block" style="max-width: 120px;" title="@fatura.Cari.Unvan">
+                                                        @fatura.Cari.Unvan
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (fatura.VadeTarihi.HasValue)
+                                                {
+                                                    <span class="@(vadeGecmis ? "text-danger fw-bold" : "")">
+                                                        @fatura.VadeTarihi.Value.ToString("dd.MM.yy")
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td class="text-end">@FormatPara(fatura.GenelToplam)</td>
+                                            <td class="text-end text-danger"><strong>@FormatPara(fatura.KalanTutar)</strong></td>
+                                            <td class="text-center">
+                                                <span class="badge @GetDurumClass(fatura.Durum)">@GetDurumKisaAdi(fatura.Durum)</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="btn-group btn-group-sm">
+                                                    @if (fatura.KalanTutar > 0)
+                                                    {
+                                                        <button class="btn btn-success btn-sm" @onclick="() => TahsilatYapAc(fatura)" @onclick:stopPropagation title="Tahsilat Yap">
+                                                            <i class="bi bi-cash-coin"></i>
+                                                        </button>
+                                                    }
+                                                    <button class="btn btn-outline-primary btn-sm" @onclick="() => FaturaDetayAc(fatura)" @onclick:stopPropagation title="Detay">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => FaturaSilOnay(fatura)" @onclick:stopPropagation title="Sil">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
-    }
-    else
-    {
-        <div class="card">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover table-sm mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Fatura No</th>
-                                <th>Tarih</th>
-                                <th>Cari</th>
-                                <th>Vergi No</th>
-                                <th>Vade</th>
-                                <th class="text-end">Tutar</th>
-                                <th class="text-end">Tahsil</th>
-                                <th class="text-end">Kalan</th>
-                                <th class="text-center">Durum</th>
-                                <th class="text-center">Islem</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var fatura in filtreliFaturalar)
+
+        <!-- PDF Önizleme Paneli -->
+        @if (pdfOnizlemeFatura != null)
+        {
+            <div class="col-md-5">
+                <div class="card h-100">
+                    <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-file-pdf text-danger me-1"></i>
+                            <strong>@pdfOnizlemeFatura.FaturaNo</strong>
+                            <small class="text-muted ms-2">@pdfOnizlemeFatura.Cari?.Unvan</small>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" @onclick="() => FaturaDetayAc(pdfOnizlemeFatura)" title="Detay">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary" @onclick="() => FaturaDuzenle(pdfOnizlemeFatura)" title="Düzenle">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            @if (!string.IsNullOrEmpty(pdfOnizlemeFatura.PdfDosyaYolu))
                             {
-                                var vadeGecmis = fatura.VadeTarihi.HasValue && fatura.VadeTarihi.Value < DateTime.Today && fatura.KalanTutar > 0;
-                                <tr class="@(vadeGecmis ? "table-warning" : "")" @ondblclick="() => FaturaDuzenle(fatura)" style="cursor: pointer;">
-                                    <td>
-                                        <strong>@fatura.FaturaNo</strong>
-                                        <span class="badge @(fatura.EFaturaTipi == EFaturaTipi.EFatura ? "bg-primary" : "bg-secondary") ms-1">
-                                            @(fatura.EFaturaTipi == EFaturaTipi.EFatura ? "E-F" : "E-A")
-                                        </span>
-                                    </td>
-                                    <td>@fatura.FaturaTarihi.ToString("dd.MM.yyyy")</td>
-                                    <td>
-                                        @if (fatura.Cari != null)
-                                        {
-                                            <a href="javascript:void(0)" class="text-decoration-none" 
-                                               @onclick="() => CariKartAc(fatura.Cari)" @onclick:stopPropagation>
-                                                <i class="bi bi-person-circle me-1"></i>@fatura.Cari.Unvan
-                                            </a>
-                                        }
-                                    </td>
-                                    <td><small>@fatura.Cari?.VergiNo</small></td>
-                                    <td>
-                                        @if (fatura.VadeTarihi.HasValue)
-                                        {
-                                            <span class="@(vadeGecmis ? "text-danger fw-bold" : "")">
-                                                @fatura.VadeTarihi.Value.ToString("dd.MM.yyyy")
-                                            </span>
-                                        }
-                                    </td>
-                                    <td class="text-end">@FormatPara(fatura.GenelToplam)</td>
-                                    <td class="text-end text-success">@FormatPara(fatura.OdenenTutar)</td>
-                                    <td class="text-end text-danger"><strong>@FormatPara(fatura.KalanTutar)</strong></td>
-                                    <td class="text-center">
-                                        <span class="badge @GetDurumClass(fatura.Durum)">@GetDurumAdi(fatura.Durum)</span>
-                                    </td>
-                                    <td class="text-center">
-                                        <div class="btn-group btn-group-sm">
-                                            @if (fatura.KalanTutar > 0)
-                                            {
-                                                <button class="btn btn-success" @onclick="() => TahsilatYapAc(fatura)" title="Tahsilat Yap">
-                                                    <i class="bi bi-cash-coin"></i>
-                                                </button>
-                                            }
-                                            <button class="btn btn-outline-primary" @onclick="() => FaturaDetayAc(fatura)" title="Detay">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-                                            <button class="btn btn-outline-secondary" @onclick="() => FaturaDuzenle(fatura)" title="Duzenle">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button class="btn btn-outline-danger" @onclick="() => FaturaSilOnay(fatura)" title="Sil">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <a class="btn btn-outline-danger" href="@pdfOnizlemeFatura.PdfDosyaYolu" target="_blank" title="PDF İndir">
+                                    <i class="bi bi-download"></i>
+                                </a>
                             }
-                        </tbody>
-                    </table>
+                            <button class="btn btn-outline-dark" @onclick="PdfOnizlemeKapat" title="Kapat">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0" style="height: 60vh;">
+                        @if (!string.IsNullOrEmpty(pdfOnizlemeFatura.PdfDosyaYolu))
+                        {
+                            <iframe src="@pdfOnizlemeFatura.PdfDosyaYolu" style="width: 100%; height: 100%; border: none;"></iframe>
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+                                <i class="bi bi-file-earmark-x display-1 mb-3"></i>
+                                <h5>PDF Dosyası Yok</h5>
+                                <p class="text-center small">Bu fatura için henüz PDF yüklenmemiş.</p>
+                                <label class="btn btn-outline-primary">
+                                    <i class="bi bi-upload me-1"></i>PDF Yükle
+                                    <InputFile class="d-none" OnChange="e => PdfYukle(e, pdfOnizlemeFatura.Id)" accept=".pdf" />
+                                </label>
+                            </div>
+                        }
+                    </div>
+                    <div class="card-footer bg-light py-2">
+                        <div class="row text-center small">
+                            <div class="col-4">
+                                <div class="text-muted">Toplam</div>
+                                <strong>@FormatPara(pdfOnizlemeFatura.GenelToplam)</strong>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted">Tahsil</div>
+                                <strong class="text-success">@FormatPara(pdfOnizlemeFatura.OdenenTutar)</strong>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted">Kalan</div>
+                                <strong class="text-danger">@FormatPara(pdfOnizlemeFatura.KalanTutar)</strong>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    }
+        }
+    </div>
 </div>
 
 <!-- Yeni/Duzenle Fatura Modal -->
@@ -1005,6 +1072,9 @@
     private List<Firma> firmalar = new();
     private List<MuhasebeHesap> musteriHesaplari = new();
     private bool isLoading = false;
+
+    // PDF Önizleme
+    private Fatura? pdfOnizlemeFatura;
 
     // Filtreler
     private DateTime? filtreBaslangic;
@@ -1845,6 +1915,15 @@
         _ => d.ToString()
     };
 
+    private string GetDurumKisaAdi(FaturaDurum d) => d switch
+    {
+        FaturaDurum.Beklemede => "Bkl",
+        FaturaDurum.KismiOdendi => "Kısmi",
+        FaturaDurum.Odendi => "Tahsil",
+        FaturaDurum.IptalEdildi => "İptal",
+        _ => d.ToString()
+    };
+
     private string GetDurumClass(FaturaDurum d) => d switch
     {
         FaturaDurum.Beklemede => "bg-danger",
@@ -1855,6 +1934,43 @@
     };
 
     private string FormatPara(decimal t) => t.ToString("N2", new System.Globalization.CultureInfo("tr-TR")) + " TL";
+
+    private void FaturaSecildi(Fatura fatura)
+    {
+        pdfOnizlemeFatura = fatura;
+    }
+
+    private void PdfOnizlemeKapat()
+    {
+        pdfOnizlemeFatura = null;
+    }
+
+    private async Task PdfYukle(InputFileChangeEventArgs e, int faturaId)
+    {
+        try
+        {
+            using var stream = new MemoryStream();
+            await e.File.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
+            var pdfContent = stream.ToArray();
+
+            var result = await FaturaService.UploadFaturaPdfAsync(faturaId, e.File.Name, pdfContent);
+            if (result)
+            {
+                ToastService.ShowSuccess("PDF yüklendi.");
+                await YenileAsync();
+                // Seçili faturayı güncelle
+                pdfOnizlemeFatura = filtreliFaturalar.FirstOrDefault(f => f.Id == faturaId);
+            }
+            else
+            {
+                ToastService.ShowError("PDF yüklenemedi.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
 
     #region Detay Modal Islemleri
 

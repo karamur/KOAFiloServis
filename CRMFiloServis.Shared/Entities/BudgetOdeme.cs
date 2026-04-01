@@ -1,9 +1,9 @@
-using System.ComponentModel.DataAnnotations;
+ï»¿using System.ComponentModel.DataAnnotations;
 
 namespace CRMFiloServis.Shared.Entities;
 
 /// <summary>
-/// Bütçe Ödeme Kaydý
+/// BÃ¼tÃ§e Ã–deme KaydÄ±
 /// </summary>
 public class BudgetOdeme : BaseEntity
 {
@@ -32,7 +32,7 @@ public class BudgetOdeme : BaseEntity
     public bool TaksitliMi { get; set; } = false;
     public int ToplamTaksitSayisi { get; set; } = 1;
     public int KacinciTaksit { get; set; } = 1;
-    public Guid? TaksitGrupId { get; set; } // Ayný taksit grubundaki ödemeleri baðlar
+    public Guid? TaksitGrupId { get; set; } // AynÄ± taksit grubundaki Ã¶demeleri baÄŸlar
 
     public DateTime? TaksitBaslangicAy { get; set; }
     public DateTime? TaksitBitisAy { get; set; }
@@ -41,14 +41,20 @@ public class BudgetOdeme : BaseEntity
 
     public string? Notlar { get; set; }
 
-    // Ödeme bilgileri - Kasa/Banka hareketi
+    // Ã–deme bilgileri - Kasa/Banka hareketi
     public DateTime? GercekOdemeTarihi { get; set; }
     public int? OdemeYapildigiHesapId { get; set; } // BankaHesap ID
     public decimal? OdenenTutar { get; set; }
     public string? OdemeNotu { get; set; }
-    public int? BankaKasaHareketId { get; set; } // Ýliþkili hareket
+    public int? BankaKasaHareketId { get; set; } // Ä°liÅŸkili hareket
 
-    // Fatura ile eþleþtirme
+    // Kesinti bilgileri (masraf, ceza, komisyon vb.)
+    public decimal MasrafKesintisi { get; set; } = 0;
+    public decimal CezaKesintisi { get; set; } = 0;
+    public decimal DigerKesinti { get; set; } = 0;
+    public string? KesintiAciklamasi { get; set; }
+
+    // Fatura ile eÅŸleÅŸtirme
     public int? FaturaId { get; set; }
     public bool FaturaIleKapatildi { get; set; } = false;
 
@@ -60,6 +66,8 @@ public class BudgetOdeme : BaseEntity
     public int KalanTaksitSayisi => ToplamTaksitSayisi - KacinciTaksit;
     public decimal ToplamTaksitTutari => Miktar * ToplamTaksitSayisi;
     public bool OdenmisVeyaKapatilmis => Durum == OdemeDurum.Odendi || FaturaIleKapatildi;
+    public decimal ToplamKesinti => MasrafKesintisi + CezaKesintisi + DigerKesinti;
+    public decimal NetOdenenTutar => (OdenenTutar ?? Miktar) - ToplamKesinti;
 }
 
 public enum OdemeDurum
@@ -71,7 +79,7 @@ public enum OdemeDurum
 }
 
 /// <summary>
-/// Bütçe Masraf Kalemleri
+/// BÃ¼tÃ§e Masraf Kalemleri
 /// </summary>
 public class BudgetMasrafKalemi : BaseEntity
 {

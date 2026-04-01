@@ -168,6 +168,13 @@ public class FiloKomisyonService : IFiloKomisyonService
         return await query.OrderBy(p => p.Tarih).ThenBy(p => p.KurumFirma!.FirmaAdi).ToListAsync();
     }
 
+    public async Task<FiloGunlukPuantaj> CreatePuantajAsync(FiloGunlukPuantaj puantaj)
+    {
+        _context.FiloGunlukPuantajlar.Add(puantaj);
+        await _context.SaveChangesAsync();
+        return puantaj;
+    }
+
     public async Task<FiloGunlukPuantaj> UpdateGunlukPuantajAsync(FiloGunlukPuantaj puantaj)
     {
         var existing = await _context.FiloGunlukPuantajlar.FindAsync(puantaj.Id);

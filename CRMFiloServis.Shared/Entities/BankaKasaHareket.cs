@@ -1,4 +1,4 @@
-namespace CRMFiloServis.Shared.Entities;
+ï»¿namespace CRMFiloServis.Shared.Entities;
 
 /// <summary>
 /// Banka/Kasa hareketleri
@@ -13,9 +13,20 @@ public class BankaKasaHareket : BaseEntity
     public string? BelgeNo { get; set; } // Dekont, makbuz no vb.
     public IslemKaynak IslemKaynak { get; set; } = IslemKaynak.Manuel;
 
+    // Mahsup islemleri icin
+    public int? MahsupHareketId { get; set; } // Iliskili karsi hareket (transfer/mahsup)
+    public Guid? MahsupGrupId { get; set; } // Ayni mahsup isleminin iki hareketini gruplar
+
+    // Muhasebe Eslestirme Kodlari
+    public string? MuhasebeHesapKodu { get; set; } // Ana hesap kodu (orn: 100, 102, 320)
+    public string? MuhasebeAltHesapKodu { get; set; } // Alt hesap kodu
+    public string? KostMerkeziKodu { get; set; } // Masraf merkezi
+    public string? ProjeKodu { get; set; } // Proje kodu
+    public string? MuhasebeAciklama { get; set; } // Muhasebe icin ek aciklama
+
     // Foreign Keys
     public int BankaHesapId { get; set; }
-    public int? CariId { get; set; } // İlişkili cari varsa
+    public int? CariId { get; set; } // Iliskili cari varsa
 
     // Navigation Properties
     public virtual BankaHesap BankaHesap { get; set; } = null!;
@@ -26,7 +37,7 @@ public class BankaKasaHareket : BaseEntity
 public enum HareketTipi
 {
     Giris = 1,      // Tahsilat
-    Cikis = 2       // Ödeme
+    Cikis = 2       // Odeme
 }
 
 public enum IslemKaynak
@@ -38,5 +49,7 @@ public enum IslemKaynak
     Eft = 5,
     Nakit = 6,
     Butce = 7,
-    EFatura = 8
+    EFatura = 8,
+    Mahsup = 9,         // Hesaplar arasi transfer
+    CariMahsup = 10     // Cari hesap mahsubu
 }

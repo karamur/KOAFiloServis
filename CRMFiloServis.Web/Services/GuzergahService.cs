@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,7 +17,8 @@ public class GuzergahService : IGuzergahService
     {
         return await _context.Guzergahlar
             .Include(g => g.Cari)
-            .Where(g => g.Cari == null || !g.Cari.IsDeleted) // Silinmis cari kontrolu
+            .Include(g => g.Firma)
+            .Where(g => g.Cari == null || !g.Cari.IsDeleted)
             .OrderBy(g => g.GuzergahAdi)
             .ToListAsync();
     }
@@ -26,8 +27,9 @@ public class GuzergahService : IGuzergahService
     {
         return await _context.Guzergahlar
             .Include(g => g.Cari)
+            .Include(g => g.Firma)
             .Where(g => g.Aktif)
-            .Where(g => g.Cari == null || !g.Cari.IsDeleted) // Silinmis cari kontrolu
+            .Where(g => g.Cari == null || !g.Cari.IsDeleted)
             .OrderBy(g => g.GuzergahAdi)
             .ToListAsync();
     }
@@ -40,10 +42,23 @@ public class GuzergahService : IGuzergahService
             .ToListAsync();
     }
 
+    public async Task<List<Guzergah>> GetByFirmaIdAsync(int firmaId)
+    {
+        return await _context.Guzergahlar
+            .Include(g => g.VarsayilanArac)
+            .Include(g => g.VarsayilanSofor)
+            .Where(g => g.FirmaId == firmaId && g.Aktif)
+            .OrderBy(g => g.GuzergahAdi)
+            .ToListAsync();
+    }
+
     public async Task<Guzergah?> GetByIdAsync(int id)
     {
         return await _context.Guzergahlar
             .Include(g => g.Cari)
+            .Include(g => g.Firma)
+            .Include(g => g.VarsayilanArac)
+            .Include(g => g.VarsayilanSofor)
             .FirstOrDefaultAsync(g => g.Id == id);
     }
 
@@ -52,6 +67,11 @@ public class GuzergahService : IGuzergahService
         _context.Guzergahlar.Add(guzergah);
         await _context.SaveChangesAsync();
         return guzergah;
+    }
+
+    public async Task<Guzergah> AddAsync(Guzergah guzergah)
+    {
+        return await CreateAsync(guzergah);
     }
 
     public async Task<Guzergah> UpdateAsync(Guzergah guzergah)
@@ -80,5 +100,36 @@ public class GuzergahService : IGuzergahService
 
         var nextNumber = (lastGuzergah?.Id ?? 0) + 1;
         return $"GZR-{nextNumber:D4}";
+    }
+
+    public async Task<string> GenerateGuzergahKoduAsync(int firmaId)
+    {
+        var firma = await _context.Firmalar.FindAsync(firmaId);
+        var firmaKisaltma = firma?.FirmaAdi?.Length >= 3 
+            ? firma.FirmaAdi.Substring(0, 3).ToUpperInvariant() 
+            : "GZR";
+
+        var sonGuzergah = await _context.Guzergahlar
+            .IgnoreQueryFilters()
+            .Where(g => g.FirmaId == firmaId)
+            .OrderByDescending(g => g.Id)
+            .FirstOrDefaultAsync();
+
+        var sayi = 1;
+        if (sonGuzergah != null)
+        {
+            // Mevcut koddan sayıyı çıkar
+            var parts = sonGuzergah.GuzergahKodu.Split('-');
+            if (parts.Length >= 2 && int.TryParse(parts[^1], out var mevcutSayi))
+            {
+                sayi = mevcutSayi + 1;
+            }
+            else
+            {
+                sayi = await _context.Guzergahlar.CountAsync(g => g.FirmaId == firmaId) + 1;
+            }
+        }
+
+        return $"{firmaKisaltma}-{sayi:D3}";
     }
 }

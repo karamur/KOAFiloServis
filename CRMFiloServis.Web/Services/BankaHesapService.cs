@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -90,5 +90,25 @@ public class BankaHesapService : IBankaHesapService
             .SumAsync(h => h.Tutar);
 
         return hesap.AcilisBakiye + girisler - cikislar;
+    }
+
+    public async Task<Dictionary<int, decimal>> GetTumHesapBakiyeleriAsync()
+    {
+        var hesaplar = await _context.BankaHesaplari
+            .Where(h => !h.IsDeleted && h.Aktif)
+            .Select(h => new
+            {
+                h.Id,
+                h.AcilisBakiye,
+                Girisler = _context.BankaKasaHareketleri
+                    .Where(hr => hr.BankaHesapId == h.Id && !hr.IsDeleted && hr.HareketTipi == HareketTipi.Giris)
+                    .Sum(hr => (decimal?)hr.Tutar) ?? 0,
+                Cikislar = _context.BankaKasaHareketleri
+                    .Where(hr => hr.BankaHesapId == h.Id && !hr.IsDeleted && hr.HareketTipi == HareketTipi.Cikis)
+                    .Sum(hr => (decimal?)hr.Tutar) ?? 0
+            })
+            .ToListAsync();
+
+        return hesaplar.ToDictionary(h => h.Id, h => h.AcilisBakiye + h.Girisler - h.Cikislar);
     }
 }
