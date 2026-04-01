@@ -11,6 +11,7 @@ public interface IBackupService
     BackupSettings GetSettings();
     Task SaveSettingsAsync(BackupSettings settings);
     Task<bool> ApplyMigrationsAsync();
+    Task<bool> ConvertAndRestoreAsync(string backupFileName, string sourceProvider, string targetProvider);
 }
 
 public class BackupResult

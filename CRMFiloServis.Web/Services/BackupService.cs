@@ -998,4 +998,262 @@ public class BackupService : IBackupService
             throw;
         }
     }
+
+    public async Task<bool> ConvertAndRestoreAsync(string backupFileName, string sourceProvider, string targetProvider)
+    {
+        try
+        {
+            var settings = GetSettings();
+            var backupFolder = GetBackupFolderPath(settings);
+            var backupFilePath = Path.Combine(backupFolder, backupFileName);
+
+            if (!File.Exists(backupFilePath))
+            {
+                _logger.LogError("Yedek dosyasi bulunamadi: {FileName}", backupFileName);
+                return false;
+            }
+
+            _logger.LogInformation("Veritabani donusumu baslatiliyor: {Source} -> {Target}", sourceProvider, targetProvider);
+
+            // Kaynak veritabanından JSON olarak oku
+            var jsonData = await ReadBackupToJsonAsync(backupFilePath, sourceProvider);
+            if (jsonData == null)
+            {
+                _logger.LogError("Yedek dosyasi okunamadi");
+                return false;
+            }
+
+            // Hedef veritabanına yaz
+            var result = await WriteJsonToTargetDatabaseAsync(jsonData, targetProvider);
+
+            if (result)
+            {
+                _logger.LogInformation("Veritabani donusumu basarili: {Source} -> {Target}", sourceProvider, targetProvider);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Veritabani donusum hatasi");
+            return false;
+        }
+    }
+
+    private async Task<Dictionary<string, object>?> ReadBackupToJsonAsync(string backupFilePath, string sourceProvider)
+    {
+        try
+        {
+            // SQLite db dosyasından doğrudan oku
+            if (backupFilePath.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
+            {
+                return await ReadSqliteToJsonAsync(backupFilePath);
+            }
+
+            // JSON dosyası ise doğrudan oku
+            if (backupFilePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = await File.ReadAllTextAsync(backupFilePath);
+                return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+            }
+
+            // SQL dosyası için - mevcut DB context'ten oku
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var data = new Dictionary<string, object>
+            {
+                ["Cariler"] = await context.Cariler.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Araclar"] = await context.Araclar.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Soforler"] = await context.Soforler.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Guzergahlar"] = await context.Guzergahlar.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Faturalar"] = await context.Faturalar.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["FaturaKalemleri"] = await context.FaturaKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["BankaHesaplari"] = await context.BankaHesaplari.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["BankaKasaHareketleri"] = await context.BankaKasaHareketleri.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["MuhasebeHesaplari"] = await context.MuhasebeHesaplari.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["MuhasebeFisleri"] = await context.MuhasebeFisleri.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["MuhasebeFisKalemleri"] = await context.MuhasebeFisKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Kullanicilar"] = await context.Kullanicilar.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Roller"] = await context.Roller.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["StokKartlari"] = await context.StokKartlari.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["StokKategoriler"] = await context.StokKategoriler.IgnoreQueryFilters().AsNoTracking().ToListAsync()
+            };
+
+            return data;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Yedek okuma hatasi");
+            return null;
+        }
+    }
+
+    private async Task<Dictionary<string, object>?> ReadSqliteToJsonAsync(string sqliteFilePath)
+    {
+        try
+        {
+            var connString = $"Data Source={sqliteFilePath}";
+            var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
+            optionsBuilder.UseSqlite(connString);
+
+            using var tempContext = new ApplicationDbContext(optionsBuilder.Options);
+
+            var data = new Dictionary<string, object>
+            {
+                ["Cariler"] = await tempContext.Cariler.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Araclar"] = await tempContext.Araclar.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Soforler"] = await tempContext.Soforler.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Guzergahlar"] = await tempContext.Guzergahlar.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Faturalar"] = await tempContext.Faturalar.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["FaturaKalemleri"] = await tempContext.FaturaKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["BankaHesaplari"] = await tempContext.BankaHesaplari.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["BankaKasaHareketleri"] = await tempContext.BankaKasaHareketleri.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["MuhasebeHesaplari"] = await tempContext.MuhasebeHesaplari.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["MuhasebeFisleri"] = await tempContext.MuhasebeFisleri.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["MuhasebeFisKalemleri"] = await tempContext.MuhasebeFisKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Kullanicilar"] = await tempContext.Kullanicilar.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["Roller"] = await tempContext.Roller.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["StokKartlari"] = await tempContext.StokKartlari.IgnoreQueryFilters().AsNoTracking().ToListAsync(),
+                ["StokKategoriler"] = await tempContext.StokKategoriler.IgnoreQueryFilters().AsNoTracking().ToListAsync()
+            };
+
+            return data;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SQLite okuma hatasi");
+            return null;
+        }
+    }
+
+    private async Task<bool> WriteJsonToTargetDatabaseAsync(Dictionary<string, object> data, string targetProvider)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            // Önce mevcut tabloları temizle (dikkatli kullan!)
+            _logger.LogWarning("Hedef veritabani tablolari temizleniyor...");
+
+            // Transaction ile tüm işlemleri yap
+            using var transaction = await context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // Tablolari sırayla temizle (foreign key sırasına dikkat)
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"MuhasebeFisKalemleri\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"MuhasebeFisleri\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"BankaKasaHareketleri\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"FaturaKalemleri\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"Faturalar\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"StokKartlari\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"StokKategoriler\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"BankaHesaplari\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"Soforler\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"Guzergahlar\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"Araclar\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"Cariler\"");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM \"MuhasebeHesaplari\"");
+
+                _logger.LogInformation("Tablolar temizlendi, veriler aktariliyor...");
+
+                // Verileri ekle
+                if (data.TryGetValue("MuhasebeHesaplari", out var hesaplar) && hesaplar is System.Text.Json.JsonElement hesaplarJson)
+                {
+                    var list = hesaplarJson.Deserialize<List<MuhasebeHesap>>();
+                    if (list?.Any() == true) context.MuhasebeHesaplari.AddRange(list);
+                }
+
+                if (data.TryGetValue("Cariler", out var cariler) && cariler is System.Text.Json.JsonElement carilerJson)
+                {
+                    var list = carilerJson.Deserialize<List<Cari>>();
+                    if (list?.Any() == true) context.Cariler.AddRange(list);
+                }
+
+                if (data.TryGetValue("Guzergahlar", out var guzergahlar) && guzergahlar is System.Text.Json.JsonElement guzergahlarJson)
+                {
+                    var list = guzergahlarJson.Deserialize<List<Guzergah>>();
+                    if (list?.Any() == true) context.Guzergahlar.AddRange(list);
+                }
+
+                if (data.TryGetValue("Araclar", out var araclar) && araclar is System.Text.Json.JsonElement araclarJson)
+                {
+                    var list = araclarJson.Deserialize<List<Arac>>();
+                    if (list?.Any() == true) context.Araclar.AddRange(list);
+                }
+
+                if (data.TryGetValue("Soforler", out var soforler) && soforler is System.Text.Json.JsonElement soforlerJson)
+                {
+                    var list = soforlerJson.Deserialize<List<Sofor>>();
+                    if (list?.Any() == true) context.Soforler.AddRange(list);
+                }
+
+                if (data.TryGetValue("BankaHesaplari", out var bankaHesaplari) && bankaHesaplari is System.Text.Json.JsonElement bankaHesaplariJson)
+                {
+                    var list = bankaHesaplariJson.Deserialize<List<BankaHesap>>();
+                    if (list?.Any() == true) context.BankaHesaplari.AddRange(list);
+                }
+
+                if (data.TryGetValue("StokKategoriler", out var stokKategorileri) && stokKategorileri is System.Text.Json.JsonElement stokKategorileriJson)
+                {
+                    var list = stokKategorileriJson.Deserialize<List<StokKategori>>();
+                    if (list?.Any() == true) context.StokKategoriler.AddRange(list);
+                }
+
+                if (data.TryGetValue("StokKartlari", out var stokKartlari) && stokKartlari is System.Text.Json.JsonElement stokKartlariJson)
+                {
+                    var list = stokKartlariJson.Deserialize<List<StokKarti>>();
+                    if (list?.Any() == true) context.StokKartlari.AddRange(list);
+                }
+
+                if (data.TryGetValue("Faturalar", out var faturalar) && faturalar is System.Text.Json.JsonElement faturalarJson)
+                {
+                    var list = faturalarJson.Deserialize<List<Fatura>>();
+                    if (list?.Any() == true) context.Faturalar.AddRange(list);
+                }
+
+                if (data.TryGetValue("FaturaKalemleri", out var faturaKalemleri) && faturaKalemleri is System.Text.Json.JsonElement faturaKalemleriJson)
+                {
+                    var list = faturaKalemleriJson.Deserialize<List<FaturaKalem>>();
+                    if (list?.Any() == true) context.FaturaKalemleri.AddRange(list);
+                }
+
+                if (data.TryGetValue("BankaKasaHareketleri", out var bankaHareketleri) && bankaHareketleri is System.Text.Json.JsonElement bankaHareketleriJson)
+                {
+                    var list = bankaHareketleriJson.Deserialize<List<BankaKasaHareket>>();
+                    if (list?.Any() == true) context.BankaKasaHareketleri.AddRange(list);
+                }
+
+                if (data.TryGetValue("MuhasebeFisleri", out var muhasebeFisler) && muhasebeFisler is System.Text.Json.JsonElement muhasebeFislerJson)
+                {
+                    var list = muhasebeFislerJson.Deserialize<List<MuhasebeFis>>();
+                    if (list?.Any() == true) context.MuhasebeFisleri.AddRange(list);
+                }
+
+                if (data.TryGetValue("MuhasebeFisKalemleri", out var muhasebeFisKalemleri) && muhasebeFisKalemleri is System.Text.Json.JsonElement muhasebeFisKalemleriJson)
+                {
+                    var list = muhasebeFisKalemleriJson.Deserialize<List<MuhasebeFisKalem>>();
+                    if (list?.Any() == true) context.MuhasebeFisKalemleri.AddRange(list);
+                }
+
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Veri aktarimi tamamlandi");
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Hedef veritabanina yazma hatasi");
+            return false;
+        }
+    }
 }

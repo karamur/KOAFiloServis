@@ -188,6 +188,12 @@
                                                     <i class="bi bi-arrow-counterclockwise"></i>
                                                 </button>
                                             }
+                                            @if (CanConvert(backup.FileName))
+                                            {
+                                                <button class="btn btn-outline-info" @onclick="() => DonusumAc(backup)" title="Donustur ve Yukle">
+                                                    <i class="bi bi-arrow-left-right"></i>
+                                                </button>
+                                            }
                                             <button class="btn btn-outline-danger" @onclick="() => SilOnay(backup)" title="Sil">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -337,6 +343,58 @@
     </div>
 }
 
+<!-- Veritabani Donusum Modal -->
+@if (showDonusumModal && donusumYedek != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="bi bi-arrow-left-right me-2"></i>Veritabani Donusumu</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showDonusumModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Dikkat!</strong> Bu islem hedef veritabanindaki mevcut verileri silecek ve yedekteki verilerle degistirecektir!
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Kaynak Yedek:</strong></label>
+                        <div class="alert alert-secondary py-2">@donusumYedek.FileName</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Kaynak Veritabani Tipi:</strong></label>
+                        <select class="form-select" @bind="donusumKaynakTip">
+                            <option value="SQLite">SQLite (.db)</option>
+                            <option value="PostgreSQL">PostgreSQL (.sql)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Hedef Veritabani (Mevcut):</strong></label>
+                        <div class="alert alert-primary py-2">@dbProvider</div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="chkDonusumOnay" @bind="donusumOnay" />
+                        <label class="form-check-label" for="chkDonusumOnay">
+                            Mevcut verilerin silinecegini ve yedekteki verilerle degistirilecegini onayliyorum
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => { showDonusumModal = false; donusumOnay = false; }">Iptal</button>
+                    <button class="btn btn-info" @onclick="DonusumYap" disabled="@(!donusumOnay || isDonusuyor)">
+                        @if (isDonusuyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-arrow-left-right me-1"></i>Donustur ve Yukle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<BackupInfo> backups = new();
     private BackupSettings settings = new();
@@ -346,13 +404,18 @@
     private bool isRestoring = false;
     private bool isUploading = false;
     private bool isMigrating = false;
+    private bool isDonusuyor = false;
     private bool showSilModal = false;
     private bool showRestoreModal = false;
     private bool showYukleModal = false;
     private bool showMigrationModal = false;
+    private bool showDonusumModal = false;
     private bool migrationOnay = false;
+    private bool donusumOnay = false;
+    private string donusumKaynakTip = "SQLite";
     private BackupInfo? silinecekYedek;
     private BackupInfo? yuklenecekYedek;
+    private BackupInfo? donusumYedek;
     private IBrowserFile? yuklenecekDosya;
 
     protected override async Task OnInitializedAsync()
@@ -621,6 +684,55 @@
         }
     }
 
+    private void DonusumAc(BackupInfo backup)
+    {
+        donusumYedek = backup;
+        donusumOnay = false;
+
+        // Dosya uzantısına göre kaynak tipi belirle
+        if (backup.FileName.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
+            donusumKaynakTip = "SQLite";
+        else if (backup.FileName.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
+            donusumKaynakTip = "PostgreSQL";
+        else
+            donusumKaynakTip = "SQLite";
+
+        showDonusumModal = true;
+    }
+
+    private async Task DonusumYap()
+    {
+        if (!donusumOnay || donusumYedek == null) return;
+
+        isDonusuyor = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await BackupService.ConvertAndRestoreAsync(donusumYedek.FileName, donusumKaynakTip, dbProvider);
+            if (result)
+            {
+                ToastService.ShowSuccess($"Veritabani donusumu basarili! {donusumKaynakTip} -> {dbProvider}");
+            }
+            else
+            {
+                ToastService.ShowError("Veritabani donusumu basarisiz.");
+            }
+            showDonusumModal = false;
+            donusumOnay = false;
+            donusumYedek = null;
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Donusum hatasi: {ex.Message}");
+        }
+        finally
+        {
+            isDonusuyor = false;
+            StateHasChanged();
+        }
+    }
+
     private static bool CanRestore(string fileName)
     {
         // JSON dosyalari restore edilemez
@@ -632,5 +744,13 @@
                fileName.EndsWith(".db", StringComparison.OrdinalIgnoreCase) ||
                fileName.EndsWith(".bak", StringComparison.OrdinalIgnoreCase) ||
                fileName.EndsWith(".backup", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CanConvert(string fileName)
+    {
+        // SQLite ve PostgreSQL SQL dosyaları dönüştürülebilir
+        return fileName.EndsWith(".db", StringComparison.OrdinalIgnoreCase) ||
+               (fileName.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) && 
+                (fileName.Contains("PostgreSQL") || fileName.Contains("SQLite")));
     }
 }
