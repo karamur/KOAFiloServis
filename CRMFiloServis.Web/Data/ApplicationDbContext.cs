@@ -199,6 +199,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Soyad).HasMaxLength(100);
             entity.Property(e => e.TcKimlikNo).HasMaxLength(11);
             entity.Property(e => e.Telefon).HasMaxLength(20);
+            entity.Property(e => e.BrutMaas).HasPrecision(18, 2);
+            entity.Property(e => e.ResmiNetMaas).HasPrecision(18, 2);
+            entity.Property(e => e.DigerMaas).HasPrecision(18, 2);
+            entity.Property(e => e.NetMaas).HasPrecision(18, 2);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 

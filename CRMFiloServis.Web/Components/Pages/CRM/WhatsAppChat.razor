@@ -389,6 +389,42 @@
     </div>
 }
 
+<!-- Şablon Seçim Modal -->
+@if (showSablonYonetimModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title">Mesaj Şablonları</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="SablonModalKapat"></button>
+                </div>
+                <div class="modal-body p-0">
+                    @if (!sablonlar.Any())
+                    {
+                        <div class="p-4 text-center text-muted">Kayıtlı şablon bulunamadı.</div>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var sablon in sablonlar)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action text-start" @onclick="() => SablonSec(sablon)">
+                                    <div class="fw-semibold">@sablon.Baslik</div>
+                                    <small class="text-muted d-block mt-1">@sablon.Icerik</small>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="SablonModalKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <script>
     // Scroll chat to bottom
     window.scrollToBottom = (elementId) => {
@@ -596,6 +632,20 @@
             seciliGrup = await WhatsAppService.GetGrupByIdAsync(seciliGrup.Id);
             ToastService.ShowSuccess("Kişi gruptan çıkarıldı.");
         }
+    }
+
+    private void SablonSec(WhatsAppSablon sablon)
+    {
+        yazilanMesaj = string.IsNullOrWhiteSpace(yazilanMesaj)
+            ? sablon.Icerik
+            : $"{yazilanMesaj}{Environment.NewLine}{sablon.Icerik}";
+
+        showSablonYonetimModal = false;
+    }
+
+    private void SablonModalKapat()
+    {
+        showSablonYonetimModal = false;
     }
 
     private async Task CariAktar()

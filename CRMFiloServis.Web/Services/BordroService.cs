@@ -146,14 +146,21 @@ public class BordroService : IBordroService
         // Her personel için detay oluştur
         foreach (var personel in personeller)
         {
+            var resmiNetMaas = personel.ResmiNetMaas > 0 || personel.DigerMaas > 0
+                ? personel.ResmiNetMaas
+                : personel.NetMaas;
+            var digerMaas = personel.DigerMaas;
+
             var detay = new BordroDetay
             {
                 BordroId = bordro.Id,
                 PersonelId = personel.Id,
                 FirmaId = bordro.FirmaId, // Bordrodan al
                 BrutMaas = personel.BrutMaas,
-                TopluMaas = personel.TopluMaas > 0 ? personel.TopluMaas : personel.BrutMaas,
-                SgkMaasi = personel.SgkMaasi > 0 ? personel.SgkMaasi : personel.BrutMaas
+                NetMaas = resmiNetMaas,
+                TopluMaas = resmiNetMaas + digerMaas,
+                SgkMaasi = resmiNetMaas,
+                EkOdeme = digerMaas
             };
 
             // Kesintileri hesapla
@@ -166,11 +173,8 @@ public class BordroService : IBordroService
             // Damga vergisi
             detay.DamgaVergisi = detay.SgkMaasi * ayarlar.DamgaVergisiOrani / 100;
 
-            // Net maaş
-            detay.NetMaas = detay.SgkMaasi - detay.ToplamKesinti;
-
-            // Ek ödeme (Toplu maaş - SGK maaşı)
-            detay.EkOdeme = detay.TopluMaas - detay.SgkMaasi;
+            // Ek ödeme bordroda diğer maaş olarak taşınır
+            detay.TopluMaas = detay.NetMaas + detay.EkOdeme;
 
             context.BordroDetaylar.Add(detay);
         }
@@ -566,9 +570,9 @@ public class BordroService : IBordroService
 
         // Başlık
         worksheet.Cell("A1").Value = $"{bordro.DonemeAdi} {bordro.BordroTipi} Bordro - Ek Ödeme Listesi (Toplu Maaş Farkı)";
-        worksheet.Range("A1:G1").Merge().Style.Font.Bold = true;
-        worksheet.Range("A1:G1").Style.Font.FontSize = 14;
-        worksheet.Range("A1:G1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        worksheet.Range("A1:H1").Merge().Style.Font.Bold = true;
+        worksheet.Range("A1:H1").Style.Font.FontSize = 14;
+        worksheet.Range("A1:H1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
         // Sütun başlıkları
         var header = worksheet.Row(3);
@@ -721,19 +725,42 @@ public class BordroService : IBordroService
             .Select(g => new { PersonelId = g.Key, Tutar = g.Sum(x => x.Kalan) })
             .ToDictionaryAsync(x => x.PersonelId, x => x.Tutar);
 
+        var bordroOdemeleri = await context.BordroOdemeler
+            .Where(o => personelIds.Contains(o.BordroDetay.PersonelId) && o.BordroDetay.BordroId == bordroId)
+            .GroupBy(o => o.BordroDetayId)
+            .Select(g => new { BordroDetayId = g.Key, Tutar = g.Sum(x => x.OdemeTutari) })
+            .ToDictionaryAsync(x => x.BordroDetayId, x => x.Tutar);
+
         return bordro.BordroDetaylar
             .OrderBy(d => d.Personel.Ad)
             .ThenBy(d => d.Personel.Soyad)
-            .Select(detay => new BordroKalanOdemeSatir
+            .Select(detay =>
             {
-                PersonelId = detay.PersonelId,
-                PersonelKodu = detay.Personel.SoforKodu,
-                PersonelAdSoyad = detay.Personel.TamAd,
-                Iban = detay.Personel.IBAN,
-                KalanMaas = (detay.BankaOdemesiYapildi ? 0 : detay.NetMaas + detay.ToplamEkOdeme)
-                    + (detay.EkOdemeYapildi ? 0 : detay.EkOdeme),
-                PersonelHarcamalari = acikBorclar.GetValueOrDefault(detay.PersonelId),
-                PersonelAvansAlacaklari = acikAvanslar.GetValueOrDefault(detay.PersonelId)
+                var toplamNetMaas = detay.NetMaas + detay.EkOdeme;
+                var bordrodaEleGecen = Math.Min(toplamNetMaas, bordroOdemeleri.GetValueOrDefault(detay.Id));
+                var personelHarcamalari = acikBorclar.GetValueOrDefault(detay.PersonelId);
+                var personelAvansAlacaklari = acikAvanslar.GetValueOrDefault(detay.PersonelId);
+                var avansVeOdemeler = personelHarcamalari - personelAvansAlacaklari;
+                var kalanMaas = Math.Max(0, toplamNetMaas - bordrodaEleGecen);
+
+                return new BordroKalanOdemeSatir
+                {
+                    BordroId = bordroId,
+                    BordroDetayId = detay.Id,
+                    PersonelId = detay.PersonelId,
+                    PersonelKodu = detay.Personel.SoforKodu,
+                    PersonelAdSoyad = detay.Personel.TamAd,
+                    Iban = detay.Personel.IBAN,
+                    NetMaas = toplamNetMaas,
+                    BordrodaEleGecen = bordrodaEleGecen,
+                    KalanMaas = kalanMaas,
+                    PersonelHarcamalari = personelHarcamalari,
+                    PersonelAvansAlacaklari = personelAvansAlacaklari,
+                    AvansVeOdemeler = avansVeOdemeler,
+                    OdenecekMiktar = kalanMaas + avansVeOdemeler,
+                    BankaOdemesiYapildi = detay.BankaOdemesiYapildi,
+                    EkOdemeYapildi = detay.EkOdemeYapildi
+                };
             })
             .ToList();
     }
@@ -758,10 +785,11 @@ public class BordroService : IBordroService
         header.Cell(1).Value = "Personel Kodu";
         header.Cell(2).Value = "Ad Soyad";
         header.Cell(3).Value = "IBAN";
-        header.Cell(4).Value = "Kalan Maaş";
-        header.Cell(5).Value = "Personel Harcamaları";
-        header.Cell(6).Value = "Personel Avans Alacakları";
-        header.Cell(7).Value = "Kalan Ödeme";
+        header.Cell(4).Value = "Net Maaş";
+        header.Cell(5).Value = "Bordroda Ele Geçen";
+        header.Cell(6).Value = "Kalan Maaş";
+        header.Cell(7).Value = "Avans + Ödemeler";
+        header.Cell(8).Value = "Ödenecek Miktar";
         header.Style.Font.Bold = true;
         header.Style.Fill.BackgroundColor = XLColor.LightGray;
 
@@ -771,22 +799,24 @@ public class BordroService : IBordroService
             worksheet.Cell(row, 1).Value = satir.PersonelKodu;
             worksheet.Cell(row, 2).Value = satir.PersonelAdSoyad;
             worksheet.Cell(row, 3).Value = satir.Iban ?? string.Empty;
-            worksheet.Cell(row, 4).Value = satir.KalanMaas;
-            worksheet.Cell(row, 5).Value = satir.PersonelHarcamalari;
-            worksheet.Cell(row, 6).Value = satir.PersonelAvansAlacaklari;
-            worksheet.Cell(row, 7).Value = satir.KalanOdeme;
+            worksheet.Cell(row, 4).Value = satir.NetMaas;
+            worksheet.Cell(row, 5).Value = satir.BordrodaEleGecen;
+            worksheet.Cell(row, 6).Value = satir.KalanMaas;
+            worksheet.Cell(row, 7).Value = satir.AvansVeOdemeler;
+            worksheet.Cell(row, 8).Value = satir.OdenecekMiktar;
             row++;
         }
 
         worksheet.Cell(row, 3).Value = "TOPLAM:";
-        worksheet.Cell(row, 4).Value = satirlar.Sum(x => x.KalanMaas);
-        worksheet.Cell(row, 5).Value = satirlar.Sum(x => x.PersonelHarcamalari);
-        worksheet.Cell(row, 6).Value = satirlar.Sum(x => x.PersonelAvansAlacaklari);
-        worksheet.Cell(row, 7).Value = satirlar.Sum(x => x.KalanOdeme);
-        worksheet.Range(row, 3, row, 7).Style.Font.Bold = true;
-        worksheet.Range(row, 3, row, 7).Style.Fill.BackgroundColor = XLColor.LightYellow;
+        worksheet.Cell(row, 4).Value = satirlar.Sum(x => x.NetMaas);
+        worksheet.Cell(row, 5).Value = satirlar.Sum(x => x.BordrodaEleGecen);
+        worksheet.Cell(row, 6).Value = satirlar.Sum(x => x.KalanMaas);
+        worksheet.Cell(row, 7).Value = satirlar.Sum(x => x.AvansVeOdemeler);
+        worksheet.Cell(row, 8).Value = satirlar.Sum(x => x.OdenecekMiktar);
+        worksheet.Range(row, 3, row, 8).Style.Font.Bold = true;
+        worksheet.Range(row, 3, row, 8).Style.Fill.BackgroundColor = XLColor.LightYellow;
 
-        worksheet.Range(4, 4, row, 7).Style.NumberFormat.Format = "#,##0.00 ₺";
+        worksheet.Range(4, 4, row, 8).Style.NumberFormat.Format = "#,##0.00 ₺";
         worksheet.Columns().AdjustToContents();
 
         using var stream = new MemoryStream();

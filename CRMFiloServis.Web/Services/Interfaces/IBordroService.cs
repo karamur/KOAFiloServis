@@ -59,12 +59,20 @@ public class BordroOzet
 
 public class BordroKalanOdemeSatir
 {
+    public int BordroId { get; set; }
+    public int BordroDetayId { get; set; }
     public int PersonelId { get; set; }
     public string PersonelKodu { get; set; } = string.Empty;
     public string PersonelAdSoyad { get; set; } = string.Empty;
     public string? Iban { get; set; }
+    public decimal NetMaas { get; set; }
+    public decimal BordrodaEleGecen { get; set; }
     public decimal KalanMaas { get; set; }
     public decimal PersonelHarcamalari { get; set; }
     public decimal PersonelAvansAlacaklari { get; set; }
+    public decimal AvansVeOdemeler { get; set; }
+    public decimal OdenecekMiktar { get; set; }
+    public bool BankaOdemesiYapildi { get; set; }
+    public bool EkOdemeYapildi { get; set; }
     public decimal KalanOdeme => KalanMaas + PersonelHarcamalari + PersonelAvansAlacaklari;
 }

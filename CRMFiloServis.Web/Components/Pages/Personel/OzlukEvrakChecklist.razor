@@ -13,6 +13,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4><i class="bi bi-clipboard-check me-2"></i>Personel Özlük Evrak Checklist</h4>
         <div class="btn-group">
+            <button class="btn btn-outline-primary" @onclick="SeciliEksikListeAc" disabled="@(!seciliSoforIdler.Any())">
+                <i class="bi bi-list-check me-1"></i>Seçili Eksik Listesi
+            </button>
             <button class="btn btn-outline-success" @onclick="ExcelIndir">
                 <i class="bi bi-file-earmark-excel me-1"></i>Excel İndir
             </button>
@@ -100,6 +103,9 @@
                     <table class="table table-hover table-striped mb-0">
                         <thead class="table-dark">
                             <tr>
+                                <th class="text-center" style="width: 40px;">
+                                    <input class="form-check-input" type="checkbox" checked="@TumFiltrelenmislerSecili" @onchange="TumunuSec" />
+                                </th>
                                 <th>Personel</th>
                                 <th>Görev</th>
                                 <th class="text-center">Toplam</th>
@@ -113,6 +119,10 @@
                             @foreach (var durum in FiltrelenmisListe)
                             {
                                 <tr>
+                                    <td class="text-center align-middle">
+                                        <input class="form-check-input" type="checkbox" checked="@seciliSoforIdler.Contains(durum.SoforId)"
+                                               @onchange="e => PersonelSecimDegistir(durum.SoforId, (bool)e.Value!)" />
+                                    </td>
                                     <td>
                                         <strong>@durum.PersonelAdi</strong>
                                         <br /><small class="text-muted">@durum.PersonelKodu</small>
@@ -423,19 +433,96 @@
     </div>
 }
 
+<!-- Seçili Eksik Evrak Listesi Modal -->
+@if (showEksikListeModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Seçili Personeller Eksik Evrak Listesi
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="EksikListeKapat"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!seciliEksikDurumlar.Any())
+                    {
+                        <div class="alert alert-success mb-0">
+                            Seçili personellerde eksik evrak bulunmuyor.
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var durum in seciliEksikDurumlar)
+                        {
+                            var eksikEvraklar = durum.Evraklar.Where(e => !e.Tamamlandi).OrderBy(e => e.Kategori).ThenBy(e => e.EvrakAdi).ToList();
+
+                            <div class="card mb-3">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>@durum.PersonelAdi</strong>
+                                        <small class="text-muted ms-2">@durum.PersonelKodu</small>
+                                    </div>
+                                    <span class="badge bg-danger">@eksikEvraklar.Count eksik</span>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Kategori</th>
+                                                    <th>Evrak</th>
+                                                    <th>Durum</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var evrak in eksikEvraklar)
+                                                {
+                                                    <tr>
+                                                        <td>@GetKategoriAdi(evrak.Kategori)</td>
+                                                        <td>
+                                                            @evrak.EvrakAdi
+                                                            @if (evrak.Zorunlu)
+                                                            {
+                                                                <span class="badge bg-danger ms-1">Zorunlu</span>
+                                                            }
+                                                        </td>
+                                                        <td><span class="badge bg-secondary">Eksik</span></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="EksikListeKapat">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<PersonelOzlukEvrakDurum>? durumlar;
     private List<OzlukEvrakTanim>? evrakTanimlari;
+    private List<PersonelOzlukEvrakDurum> seciliEksikDurumlar = new();
     private PersonelOzlukEvrakDurum? seciliDurum;
     private OzlukEvrakTanim? duzenlenecekTanim;
 
     private bool showDetayModal;
     private bool showTanimModal;
     private bool showTanimDuzenleModal;
+    private bool showEksikListeModal;
 
     private string filtreGorev = "";
     private string filtreDurum = "";
     private string aramaMetni = "";
+    private HashSet<int> seciliSoforIdler = new();
 
     private IEnumerable<PersonelOzlukEvrakDurum> FiltrelenmisListe => durumlar?
         .Where(d => string.IsNullOrEmpty(filtreGorev) || ((int)d.Gorev).ToString() == filtreGorev)
@@ -447,6 +534,8 @@
                     d.PersonelKodu.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase))
         ?? Enumerable.Empty<PersonelOzlukEvrakDurum>();
 
+    private bool TumFiltrelenmislerSecili => FiltrelenmisListe.Any() && FiltrelenmisListe.All(d => seciliSoforIdler.Contains(d.SoforId));
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
@@ -455,6 +544,7 @@
     private async Task LoadData()
     {
         durumlar = await OzlukService.GetTumPersonelEvrakDurumlariAsync();
+        seciliSoforIdler.IntersectWith(durumlar.Select(d => d.SoforId));
     }
 
     private async Task DetayAc(int soforId)
@@ -482,6 +572,54 @@
         {
             ToastService.ShowError($"Hata: {ex.Message}");
         }
+    }
+
+    private void PersonelSecimDegistir(int soforId, bool secili)
+    {
+        if (secili)
+        {
+            seciliSoforIdler.Add(soforId);
+            return;
+        }
+
+        seciliSoforIdler.Remove(soforId);
+    }
+
+    private void TumunuSec(ChangeEventArgs args)
+    {
+        var secili = args.Value is bool value && value;
+
+        if (secili)
+        {
+            foreach (var durum in FiltrelenmisListe)
+            {
+                seciliSoforIdler.Add(durum.SoforId);
+            }
+
+            return;
+        }
+
+        foreach (var durum in FiltrelenmisListe.ToList())
+        {
+            seciliSoforIdler.Remove(durum.SoforId);
+        }
+    }
+
+    private void SeciliEksikListeAc()
+    {
+        seciliEksikDurumlar = durumlar?
+            .Where(d => seciliSoforIdler.Contains(d.SoforId) && d.EksikEvrak > 0)
+            .OrderByDescending(d => d.EksikEvrak)
+            .ThenBy(d => d.PersonelAdi)
+            .ToList() ?? new List<PersonelOzlukEvrakDurum>();
+
+        showEksikListeModal = true;
+    }
+
+    private void EksikListeKapat()
+    {
+        showEksikListeModal = false;
+        seciliEksikDurumlar = new();
     }
 
     private async Task PersonelDosyasiIndir(int soforId)

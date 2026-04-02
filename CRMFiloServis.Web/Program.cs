@@ -164,6 +164,9 @@ using (var scope = app.Services.CreateScope())
     // Şoför maaş/ARGE alanları migration
     await CRMFiloServis.Web.Data.Migrations.SoforMaasMigrationHelper.ApplySoforMaasAlanlariAsync(context);
 
+    // Bordro tabloları migration
+    await CRMFiloServis.Web.Data.Migrations.BordroMigrationHelper.ApplyBordroTablolariAsync(context);
+
     // Araç masraf personel/cari/muhasebe alanları migration
     await CRMFiloServis.Web.Data.Migrations.AracMasrafMuhasebeMigrationHelper.ApplyAracMasrafMuhasebeAlanlariAsync(context);
     

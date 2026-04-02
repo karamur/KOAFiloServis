@@ -36,6 +36,9 @@ public static class SoforMaasMigrationHelper
                 await EnsureSqliteColumnAsync(context, "ArgePersoneli", "INTEGER NOT NULL DEFAULT 0");
                 await EnsureSqliteColumnAsync(context, "TopluMaas", "TEXT NOT NULL DEFAULT '0'");
                 await EnsureSqliteColumnAsync(context, "SgkMaasi", "TEXT NOT NULL DEFAULT '0'");
+                await EnsureSqliteColumnAsync(context, "ResmiNetMaas", "TEXT NOT NULL DEFAULT '0'");
+                await EnsureSqliteColumnAsync(context, "DigerMaas", "TEXT NOT NULL DEFAULT '0'");
+                await context.Database.ExecuteSqlRawAsync(@"UPDATE ""Soforler"" SET ""ResmiNetMaas"" = ""NetMaas"" WHERE IFNULL(""ResmiNetMaas"", '0') = '0' AND IFNULL(""DigerMaas"", '0') = '0' AND IFNULL(""NetMaas"", '0') <> '0'");
             }
         }
         catch (Exception ex)

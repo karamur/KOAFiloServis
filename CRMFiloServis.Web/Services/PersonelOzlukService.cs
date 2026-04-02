@@ -72,12 +72,23 @@ public class PersonelOzlukService : IPersonelOzlukService
     public async Task DeleteEvrakTanimAsync(int id)
     {
         var tanim = await _context.OzlukEvrakTanimlari.FindAsync(id);
-        if (tanim != null)
+        if (tanim == null)
+            return;
+
+        var dahaOnceIslemGormus = await _context.PersonelOzlukEvraklar
+            .AnyAsync(e => e.EvrakTanimId == id);
+
+        if (dahaOnceIslemGormus)
         {
             tanim.IsDeleted = true;
+            tanim.Aktif = false;
             tanim.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+            return;
         }
+
+        _context.OzlukEvrakTanimlari.Remove(tanim);
+        await _context.SaveChangesAsync();
     }
 
     public async Task SeedDefaultEvrakTanimlariAsync()

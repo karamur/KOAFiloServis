@@ -15,21 +15,27 @@ public class SoforService : ISoforService
 
     public async Task<List<Sofor>> GetAllAsync()
     {
-        return await _context.Soforler
+        var personeller = await _context.Soforler
             .AsNoTracking()
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
             .ToListAsync();
+
+        personeller.ForEach(NormalizeMaasBilgileri);
+        return personeller;
     }
 
     public async Task<List<Sofor>> GetActiveAsync()
     {
-        return await _context.Soforler
+        var personeller = await _context.Soforler
             .AsNoTracking()
             .Where(s => s.Aktif)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
             .ToListAsync();
+
+        personeller.ForEach(NormalizeMaasBilgileri);
+        return personeller;
     }
 
     public async Task<int> GetActiveCountAsync()
@@ -41,13 +47,19 @@ public class SoforService : ISoforService
 
     public async Task<Sofor?> GetByIdAsync(int id)
     {
-        return await _context.Soforler
+        var sofor = await _context.Soforler
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (sofor != null)
+            NormalizeMaasBilgileri(sofor);
+
+        return sofor;
     }
 
     public async Task<Sofor> CreateAsync(Sofor sofor)
     {
+        sofor.NetMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
         _context.Soforler.Add(sofor);
         await _context.SaveChangesAsync();
         return sofor;
@@ -77,7 +89,9 @@ public class SoforService : ISoforService
         existing.IseBaslamaTarihi = sofor.IseBaslamaTarihi;
         existing.IstenAyrilmaTarihi = sofor.IstenAyrilmaTarihi;
         existing.BrutMaas = sofor.BrutMaas;
-        existing.NetMaas = sofor.NetMaas;
+        existing.ResmiNetMaas = sofor.ResmiNetMaas;
+        existing.DigerMaas = sofor.DigerMaas;
+        existing.NetMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
         existing.BankaAdi = sofor.BankaAdi;
         existing.IBAN = sofor.IBAN;
         existing.Notlar = sofor.Notlar;
@@ -113,31 +127,50 @@ public class SoforService : ISoforService
     // Görev bazlı filtreleme metodları
     public async Task<List<Sofor>> GetByGorevAsync(PersonelGorev gorev)
     {
-        return await _context.Soforler
+        var personeller = await _context.Soforler
             .AsNoTracking()
             .Where(s => s.Gorev == gorev)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
             .ToListAsync();
+
+        personeller.ForEach(NormalizeMaasBilgileri);
+        return personeller;
     }
 
     public async Task<List<Sofor>> GetActiveSoforlerAsync()
     {
-        return await _context.Soforler
+        var personeller = await _context.Soforler
             .AsNoTracking()
             .Where(s => s.Aktif && s.Gorev == PersonelGorev.Sofor)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
             .ToListAsync();
+
+        personeller.ForEach(NormalizeMaasBilgileri);
+        return personeller;
     }
 
     public async Task<List<Sofor>> GetActiveByGorevAsync(PersonelGorev gorev)
     {
-        return await _context.Soforler
+        var personeller = await _context.Soforler
             .AsNoTracking()
             .Where(s => s.Aktif && s.Gorev == gorev)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
             .ToListAsync();
+
+        personeller.ForEach(NormalizeMaasBilgileri);
+        return personeller;
+    }
+
+    private static void NormalizeMaasBilgileri(Sofor sofor)
+    {
+        if (sofor.ResmiNetMaas == 0 && sofor.DigerMaas == 0 && sofor.NetMaas > 0)
+        {
+            sofor.ResmiNetMaas = sofor.NetMaas;
+        }
+
+        sofor.NetMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
     }
 }

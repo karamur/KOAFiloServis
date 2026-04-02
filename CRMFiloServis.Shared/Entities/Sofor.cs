@@ -33,6 +33,8 @@ public class Sofor : BaseEntity
     
     // Maaş Bilgileri
     public decimal BrutMaas { get; set; }
+    public decimal ResmiNetMaas { get; set; }
+    public decimal DigerMaas { get; set; }
     public decimal NetMaas { get; set; }
 
     // ARGE ve Toplu Maaş Bilgileri
