@@ -1120,7 +1120,7 @@ public class FaturaService : IFaturaService
 
                     // Araç ilişkisi - açıklamada şase/plaka varsa
                     var aracBilgisi = ExtractAracBilgisi(aciklama);
-                    if (aracBilgisi.HasValue)
+                    if (aracBilgisi.HasValue && cari != null)
                     {
                         var arac = await FindOrCreateAracAsync(aracBilgisi.Value, yon, cari.Id);
                         if (arac != null)
@@ -1598,8 +1598,6 @@ public class FaturaService : IFaturaService
 
         // Muhasebe ayarlarını al
         var ayar = await _context.MuhasebeAyarlari.AsNoTracking().FirstOrDefaultAsync();
-        var giderHesapKodu = "770.99.999"; // Varsayılan gider hesabı
-
         // Mevcut stok kartlarını al
         var mevcutStoklar = await _context.StokKartlari
             .AsTracking()

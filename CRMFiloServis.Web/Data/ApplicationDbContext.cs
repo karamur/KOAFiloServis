@@ -1133,8 +1133,8 @@ public class ApplicationDbContext : DbContext
 
                 if (entry.State == EntityState.Modified)
                 {
-                    var originalValues = new System.Collections.Generic.Dictionary<string, object>();
-                    var currentValues = new System.Collections.Generic.Dictionary<string, object>();
+                    var originalValues = new System.Collections.Generic.Dictionary<string, object?>();
+                    var currentValues = new System.Collections.Generic.Dictionary<string, object?>();
 
                     foreach (var property in entry.Properties)
                     {

@@ -179,7 +179,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
                     {
                         ServisCalismaId = calisma.Id,
                         Tarih = calisma.CalismaTarihi,
-                        GuzergahAdi = calisma.Guzergah.GuzergahAdi,
+                        GuzergahAdi = calisma.Guzergah?.GuzergahAdi ?? string.Empty,
                         SeferFiyati = seferFiyat,
                         HesaplananTutar = kiraBedeli
                     });

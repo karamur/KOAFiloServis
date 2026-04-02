@@ -16,7 +16,7 @@ public interface ICurrentUserAccessor
 public class CurrentUserAccessor : ICurrentUserAccessor
 {
     // Her thread/circuit için ayrı kullanıcı bilgisi tutar
-    private static readonly AsyncLocal<UserContext> _currentUser = new();
+    private static readonly AsyncLocal<UserContext?> _currentUser = new();
 
     public string? GetCurrentUserName()
     {

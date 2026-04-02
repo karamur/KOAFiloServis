@@ -177,7 +177,7 @@
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label">Stok Kodu</label>
-                                <InputText class="form-control" @bind-Value="editingKart!.StokKodu" readonly="@(editingKart.Id > 0)" />
+                                <InputText class="form-control" @bind-Value="editingKart!.StokKodu" readonly="@(editingKart?.Id > 0)" />
                                 <small class="text-muted">Otomatik oluşturulur</small>
                             </div>
                             <div class="col-md-4">

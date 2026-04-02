@@ -1,4 +1,4 @@
-using OpenQA.Selenium;
+ï»¿using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using WebDriverManager;
 using WebDriverManager.DriverConfigs.Impl;
@@ -88,7 +88,7 @@ public class SeleniumScraperService : ISeleniumScraperService
         options.AddArgument("--disable-blink-features=AutomationControlled");
         options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         options.AddArgument("--disable-extensions");
-        options.AddArgument("--disable-images"); // Hýzlý yükleme için resimleri devre dýþý býrak
+        options.AddArgument("--disable-images"); // HÄ±zlÄ± yÃ¼kleme iÃ§in resimleri devre dÄ±ÅŸÄ± bÄ±rak
         options.AddExcludedArgument("enable-automation");
         options.AddAdditionalOption("useAutomationExtension", false);
 
@@ -242,10 +242,10 @@ public class SeleniumScraperService : ISeleniumScraperService
                         Model = request.Model
                     };
 
-                    // Ýlan ID
+                    // Ä°lan ID
                     ilan.IlanNo = el.GetAttribute("data-id") ?? "";
 
-                    // Link ve Baþlýk
+                    // Link ve BaÅŸlÄ±k
                     try
                     {
                         var linkEl = el.FindElement(By.CssSelector("td.searchResultsTitleValue a"));
@@ -263,7 +263,7 @@ public class SeleniumScraperService : ISeleniumScraperService
                     }
                     catch { }
 
-                    // Yýl, KM, Renk
+                    // YÄ±l, KM, Renk
                     try
                     {
                         var attrs = el.FindElements(By.CssSelector("td.searchResultsAttributeValue"));
@@ -319,13 +319,13 @@ public class SeleniumScraperService : ISeleniumScraperService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "Sahibinden ilan parse hatasý");
+                    _logger.LogDebug(ex, "Sahibinden ilan parse hatasÄ±");
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Sahibinden tarama hatasý");
+            _logger.LogWarning(ex, "Sahibinden tarama hatasÄ±");
         }
 
         return ilanlar;
@@ -441,7 +441,7 @@ public class SeleniumScraperService : ISeleniumScraperService
                     }
                     catch 
                     { 
-                        ilan.IlanBasligi = linkEl.Text.Trim();
+                        ilan.IlanBasligi = linkEl?.Text?.Trim() ?? $"{request.Marka} {request.Model}";
                         if (string.IsNullOrEmpty(ilan.IlanBasligi))
                             ilan.IlanBasligi = $"{request.Marka} {request.Model}"; 
                     }
@@ -530,7 +530,7 @@ public class SeleniumScraperService : ISeleniumScraperService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Otosor tarama hatasý");
+            _logger.LogWarning(ex, "Otosor tarama hatasÄ±");
         }
 
         return ilanlar;
@@ -565,7 +565,7 @@ public class SeleniumScraperService : ISeleniumScraperService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Otoplus tarama hatasý");
+            _logger.LogWarning(ex, "Otoplus tarama hatasÄ±");
         }
 
         return ilanlar;
@@ -600,7 +600,7 @@ public class SeleniumScraperService : ISeleniumScraperService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "VavaCars tarama hatasý");
+            _logger.LogWarning(ex, "VavaCars tarama hatasÄ±");
         }
 
         return ilanlar;
@@ -635,7 +635,7 @@ public class SeleniumScraperService : ISeleniumScraperService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Otocars tarama hatasý");
+            _logger.LogWarning(ex, "Otocars tarama hatasÄ±");
         }
 
         return ilanlar;
@@ -670,7 +670,7 @@ public class SeleniumScraperService : ISeleniumScraperService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "{Kaynak} genel tarama hatasý", kaynak.Ad);
+            _logger.LogWarning(ex, "{Kaynak} genel tarama hatasÄ±", kaynak.Ad);
         }
 
         return ilanlar;
@@ -704,7 +704,7 @@ public class SeleniumScraperService : ISeleniumScraperService
             }
             catch { return null; }
 
-            // Baþlýk
+            // BaÅŸlÄ±k
             try
             {
                 var titleEl = element.FindElement(By.CssSelector("h2, h3, h4, .title, [class*='title']"));
@@ -742,7 +742,7 @@ public class SeleniumScraperService : ISeleniumScraperService
 
     #endregion
 
-    #region Fotoðraf Çekme
+    #region FotoÄŸraf Ã‡ekme
 
     public async Task<List<string>> IlanFotograflariniCekAsync(string ilanUrl, string kaynak)
     {
@@ -753,7 +753,7 @@ public class SeleniumScraperService : ISeleniumScraperService
 
         try
         {
-            // Resim yükleme aktif driver oluþtur
+            // Resim yÃ¼kleme aktif driver oluÅŸtur
             var options = new ChromeOptions();
             options.AddArgument("--headless=new");
             options.AddArgument("--no-sandbox");
@@ -775,7 +775,7 @@ public class SeleniumScraperService : ISeleniumScraperService
             TryClick(driver, By.CssSelector("[class*='cookie'] button"));
             await Task.Delay(500);
 
-            // Sahibinden.com için özel selector'lar
+            // Sahibinden.com iÃ§in Ã¶zel selector'lar
             if (ilanUrl.Contains("sahibinden.com"))
             {
                 var selectors = new[]
@@ -797,7 +797,7 @@ public class SeleniumScraperService : ISeleniumScraperService
                             var src = img.GetAttribute("src") ?? img.GetAttribute("data-src") ?? img.GetAttribute("data-original") ?? "";
                             if (IsValidImageUrl(src))
                             {
-                                // Büyük versiyona çevir
+                                // BÃ¼yÃ¼k versiyona Ã§evir
                                 src = src.Replace("_thmb.", "_x5.").Replace("/thmb/", "/x5/").Replace("_s.", "_x5.");
                                 if (!src.StartsWith("http")) src = $"https:{src}";
                                 if (!fotograflar.Contains(src)) fotograflar.Add(src);
@@ -807,7 +807,7 @@ public class SeleniumScraperService : ISeleniumScraperService
                     catch { }
                 }
             }
-            // Arabam.com için
+            // Arabam.com iÃ§in
             else if (ilanUrl.Contains("arabam.com"))
             {
                 var selectors = new[]
@@ -836,7 +836,7 @@ public class SeleniumScraperService : ISeleniumScraperService
                     catch { }
                 }
             }
-            // Diðer siteler için genel
+            // DiÄŸer siteler iÃ§in genel
             else
             {
                 var selectors = new[]
@@ -870,7 +870,7 @@ public class SeleniumScraperService : ISeleniumScraperService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Fotoðraf çekme hatasý: {Url}", ilanUrl);
+            _logger.LogWarning(ex, "FotoÄŸraf Ã§ekme hatasÄ±: {Url}", ilanUrl);
         }
         finally
         {
@@ -900,7 +900,7 @@ public class SeleniumScraperService : ISeleniumScraperService
     {
         if (string.IsNullOrEmpty(text)) return 0;
 
-        // "1.850.000 TL" veya "1.850.000?" formatý
+        // "1.850.000 TL" veya "1.850.000?" formatÄ±
         var match = Regex.Match(text, @"([\d\.]+)\s*(?:TL|?|tl)", RegexOptions.IgnoreCase);
         if (match.Success)
         {
@@ -908,7 +908,7 @@ public class SeleniumScraperService : ISeleniumScraperService
             if (decimal.TryParse(fiyatStr, out var fiyat)) return fiyat;
         }
 
-        // Sadece rakam gruplarý
+        // Sadece rakam gruplarÄ±
         match = Regex.Match(text, @"(\d{1,3}(?:\.\d{3})+)");
         if (match.Success)
         {
@@ -944,13 +944,13 @@ public class SeleniumScraperService : ISeleniumScraperService
 
         var lowerText = text.ToLower().Trim();
 
-        if (lowerText.Contains("bugün") || lowerText.Contains("bugun"))
+        if (lowerText.Contains("bugÃ¼n") || lowerText.Contains("bugun"))
             return DateTime.Today;
 
-        if (lowerText.Contains("dün") || lowerText.Contains("dun"))
+        if (lowerText.Contains("dÃ¼n") || lowerText.Contains("dun"))
             return DateTime.Today.AddDays(-1);
 
-        var gunMatch = Regex.Match(lowerText, @"(\d+)\s*gün\s*önce");
+        var gunMatch = Regex.Match(lowerText, @"(\d+)\s*gÃ¼n\s*Ã¶nce");
         if (gunMatch.Success && int.TryParse(gunMatch.Groups[1].Value, out var gun))
             return DateTime.Today.AddDays(-gun);
 
@@ -1001,8 +1001,8 @@ public class SeleniumScraperService : ISeleniumScraperService
     {
         if (string.IsNullOrEmpty(text)) return "";
         return text.ToLower()
-            .Replace("ý", "i").Replace("ö", "o").Replace("ü", "u")
-            .Replace("þ", "s").Replace("ð", "g").Replace("ç", "c")
+            .Replace("Ä±", "i").Replace("Ã¶", "o").Replace("Ã¼", "u")
+            .Replace("ÅŸ", "s").Replace("ÄŸ", "g").Replace("Ã§", "c")
             .Replace(" ", "-").Replace(".", "").Replace(",", "")
             .Replace("--", "-").Trim('-');
     }

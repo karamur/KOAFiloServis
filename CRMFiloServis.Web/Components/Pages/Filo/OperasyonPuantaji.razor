@@ -363,10 +363,10 @@
             // Eşleştirme Şablon Id'sine göre veya Müşteri+Güzergah+Araç combinasyonuna göre grupla
             puantajGruplu = puantajHam
                 .Where(p => p.FiloGuzergahEslestirmeId.HasValue) // Şimdilik sadece şablondan gelenleri grupla
-                .GroupBy(p => p.FiloGuzergahEslestirmeId.Value)
+                .GroupBy(p => p.FiloGuzergahEslestirmeId ?? 0)
                 .ToDictionary(g => g.Key, g => g.ToList());
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             ToastService.ShowError("Veriler alınırken hata...");
         }

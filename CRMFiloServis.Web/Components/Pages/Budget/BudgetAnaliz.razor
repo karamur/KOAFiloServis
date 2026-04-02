@@ -1818,6 +1818,7 @@
         showAylikListeModal = false;
         showTekrarlayanModal = false;
         showTekrarlayanListeModal = false;
+        _ = showTekrarlayanListeModal;
     }
 
     private void AylikListeOnIzleme(string raporTuru = "bekleyen")
@@ -1995,7 +1996,6 @@
             HatirlatmaGunSayisi = 3,
             FirmaId = aktifFirma.TumFirmalar ? null : aktifFirma.FirmaId
         };
-        showTekrarlayanListeModal = false;
         showTekrarlayanModal = true;
     }
 

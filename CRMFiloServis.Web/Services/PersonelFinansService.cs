@@ -509,110 +509,19 @@ public class PersonelFinansService : IPersonelFinansService
 
     #region Muhasebe Entegrasyonu
 
-    // TODO: Muhasebe entegrasyonu - GetYeniFisNoAsync metodu eklendikten sonra aktif edilecek
-    /*
-    private async Task CreateAvansMuhasebeFisiAsync(PersonelAvans avans)
+    private Task CreateAvansMuhasebeFisiAsync(PersonelAvans avans)
     {
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
-    */
 
-    // TODO: Muhasebe entegrasyonu
-    /*
-    private async Task CreateBorcMuhasebeFisiAsync(PersonelBorc borc)
+    private Task CreateBorcMuhasebeFisiAsync(PersonelBorc borc)
     {
-        await Task.CompletedTask;
-    }
-    */
-        var fis = new MuhasebeFis
-        {
-            FisNo = fisNo,
-            FisTarihi = borc.BorcTarihi,
-            FisTipi = FisTipi.Mahsup,
-            Aciklama = $"{personel.TamAd} - Personele Borç: {borc.BorcNedeni}",
-            Durum = FisDurum.Onaylandi,
-            Kaynak = FisKaynak.Otomatik,
-            KaynakId = borc.Id,
-            KaynakTip = "PersonelBorc"
-        };
-
-        // Alacak: 335 Personele Borçlar
-        fis.Kalemler.Add(new MuhasebeFisKalem
-        {
-            HesapId = ayar.PersoneleBorclarHesapId.Value,
-            SiraNo = 1,
-            Borc = 0,
-            Alacak = borc.Tutar,
-            Tarih = borc.BorcTarihi,
-            Aciklama = $"{personel.TamAd} - {borc.BorcNedeni}"
-        });
-
-        fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
-        fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
-
-        await _muhasebeService.CreateFisAsync(fis);
-
-        // Fiş ID'yi borça kaydet
-        borc.MuhasebeFisId = fis.Id;
-        await _context.SaveChangesAsync();
+        return Task.CompletedTask;
     }
 
-    // TODO: Muhasebe entegrasyonu
-    /*
-    private async Task CreateBorcOdemeMuhasebeFisiAsync(PersonelBorcOdeme odeme, PersonelBorc borc)
+    private Task CreateBorcOdemeMuhasebeFisiAsync(PersonelBorcOdeme odeme, PersonelBorc borc)
     {
-        await Task.CompletedTask;
-    }
-    */
-        var fis = new MuhasebeFis
-        {
-            FisNo = fisNo,
-            FisTarihi = odeme.OdemeTarihi,
-            FisTipi = FisTipi.Tediye,
-            Aciklama = $"{personel.TamAd} - Borç Ödemesi: {borc.BorcNedeni}",
-            Durum = FisDurum.Onaylandi,
-            Kaynak = FisKaynak.Otomatik,
-            KaynakId = odeme.Id,
-            KaynakTip = "PersonelBorcOdeme"
-        };
-
-        // Borç: 335 Personele Borçlar
-        fis.Kalemler.Add(new MuhasebeFisKalem
-        {
-            HesapId = ayar.PersoneleBorclarHesapId.Value,
-            SiraNo = 1,
-            Borc = odeme.OdemeTutari,
-            Alacak = 0,
-            Tarih = odeme.OdemeTarihi,
-            Aciklama = $"{personel.TamAd} - Borç Ödeme"
-        });
-
-        // Alacak: 100 Kasa veya 102 Banka
-        var kasaBankaHesapId = odeme.OdemeSekli == BorcOdemeSekli.Nakit
-            ? ayar.KasaHesapId
-            : ayar.BankaHesapId;
-
-        if (kasaBankaHesapId.HasValue)
-        {
-            fis.Kalemler.Add(new MuhasebeFisKalem
-            {
-                HesapId = kasaBankaHesapId.Value,
-                SiraNo = 2,
-                Borc = 0,
-                Alacak = odeme.OdemeTutari,
-                Tarih = odeme.OdemeTarihi,
-                Aciklama = $"{personel.TamAd} - Borç Ödeme"
-            });
-        }
-
-        fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
-        fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
-
-        await _muhasebeService.CreateFisAsync(fis);
-
-        // Fiş ID'yi ödemeye kaydet
-        odeme.MuhasebeFisId = fis.Id;
-        await _context.SaveChangesAsync();
+        return Task.CompletedTask;
     }
 
     #endregion

@@ -211,7 +211,7 @@ public class MaliAnalizService : IMaliAnalizService
                     var seferSayisi = guzergahGrup.Count();
                     var birimFiyat = guzergah?.BirimFiyat ?? 0;
                     var seferGeliri = guzergahGrup.Sum(c => c.Fiyat ?? birimFiyat);
-                    var kiraBedeli = seferSayisi * (arac.SeferBasinaKiraBedeli ?? 0);
+                    var kiraBedeli = seferSayisi * (arac?.SeferBasinaKiraBedeli ?? 0);
 
                     aracDetay.GuzergahDetaylari.Add(new KiralikGuzergahDetay
                     {
@@ -219,7 +219,7 @@ public class MaliAnalizService : IMaliAnalizService
                         MusteriUnvan = guzergah?.Cari?.Unvan ?? string.Empty,
                         SeferSayisi = seferSayisi,
                         BirimFiyat = birimFiyat,
-                        KiraBedeli = arac.SeferBasinaKiraBedeli ?? 0,
+                        KiraBedeli = arac?.SeferBasinaKiraBedeli ?? 0,
                         MusteridenAlinacak = seferGeliri,
                         FirmayaOdenecek = kiraBedeli
                     });

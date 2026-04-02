@@ -124,7 +124,7 @@
             <!-- Takvim Görünümü -->
             <div class="card">
                 <div class="card-body">
-                    <TakvimGorunum Odemeler="@odemeler" OnOdemeClick="@OdemeDetayGoster" />
+                    <TakvimGorunum Odemeler="@takvimOdemeleri" OnOdemeClick="@TakvimOdemeDetayGoster" />
                 </div>
             </div>
         }
@@ -283,6 +283,18 @@
     private int bekleyenSayisi = 0;
     private int gecikmisSayisi = 0;
     private decimal toplamAylikGider = 0;
+    private IEnumerable<BudgetOdeme> takvimOdemeleri => odemeler.Select(odeme => new BudgetOdeme
+    {
+        Id = odeme.Id,
+        OdemeAy = odeme.Ay,
+        OdemeYil = odeme.Yil,
+        OdemeTarihi = odeme.OdemeTarihi ?? GetPlanlananOdemeTarihi(odeme),
+        MasrafKalemi = odeme.Plan?.OdemeAdi ?? "Ödeme",
+        Aciklama = odeme.Aciklama ?? odeme.Plan?.Aciklama,
+        Miktar = odeme.PlanlananTutar,
+        OdenenTutar = odeme.OdenenTutar,
+        Durum = odeme.Durum == OdemeDurumu.Odendi ? CRMFiloServis.Shared.Entities.OdemeDurum.Odendi : CRMFiloServis.Shared.Entities.OdemeDurum.Bekliyor
+    });
 
     protected override async Task OnInitializedAsync()
     {
@@ -371,10 +383,25 @@
         ToastService.ShowInfo($"{odeme.Plan?.OdemeAdi} detay gösterimi yakında eklenecek");
     }
 
+    private void TakvimOdemeDetayGoster(BudgetOdeme odeme)
+    {
+        var secilenOdeme = odemeler.FirstOrDefault(x => x.Id == odeme.Id);
+        if (secilenOdeme is not null)
+        {
+            OdemeDetayGoster(secilenOdeme);
+        }
+    }
+
     private async Task OdemeYap(AylikOdemeGerceklesen odeme)
     {
         // Ödeme modal açılacak
         ToastService.ShowInfo($"{odeme.Plan?.OdemeAdi} için ödeme özelliği yakında eklenecek");
+    }
+
+    private DateTime GetPlanlananOdemeTarihi(AylikOdemeGerceklesen odeme)
+    {
+        int gun = odeme.Plan?.OdemeGunu ?? 1;
+        return new DateTime(odeme.Yil, odeme.Ay, Math.Min(gun, DateTime.DaysInMonth(odeme.Yil, odeme.Ay)));
     }
 
     private string GetAyAdi(int ay) => ay switch
