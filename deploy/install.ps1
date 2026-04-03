@@ -65,14 +65,21 @@ Write-Host "  OK - Dosyalar kopyalandi" -ForegroundColor Green
 
 # Gerekli klasorleri olustur
 Write-Host "[4/6] Gerekli klasorler olusturuluyor..." -ForegroundColor Yellow
-$folders = @("Backups", "Logs", "Uploads", "Temp")
+$storageRoot = Join-Path $InstallPath "yedekleme"
+$folders = @(
+    $storageRoot,
+    (Join-Path $storageRoot "database"),
+    (Join-Path $storageRoot "uploads"),
+    (Join-Path $storageRoot "keys"),
+    (Join-Path $storageRoot "logs"),
+    (Join-Path $InstallPath "Temp")
+)
 foreach ($folder in $folders) {
-    $folderPath = Join-Path $InstallPath $folder
-    if (-not (Test-Path $folderPath)) {
-        New-Item -ItemType Directory -Path $folderPath -Force | Out-Null
+    if (-not (Test-Path $folder)) {
+        New-Item -ItemType Directory -Path $folder -Force | Out-Null
     }
 }
-Write-Host "  OK - Klasorler olusturuldu: $($folders -join ', ')" -ForegroundColor Green
+Write-Host "  OK - Yedekleme koku hazirlandi: $storageRoot" -ForegroundColor Green
 
 # Firewall kurali
 if ($OpenFirewall) {

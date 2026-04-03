@@ -5,12 +5,13 @@
 
 param(
     [string]$Version = "1.0.0",
-    [string]$OutputDir = ".\artifacts",
+    [string]$OutputDir = "D:\calisma\Claude-Code\CRMFiloServis\artifacts",
     [switch]$CreateZip = $true
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
+$CustomerArtifactsDir = Join-Path $OutputDir "customer"
 
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "   CRM Filo Servis - Build Script" -ForegroundColor Cyan
@@ -19,13 +20,21 @@ Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Çıktı klasörünü hazırla
-$publishDir = Join-Path $OutputDir "publish"
-$packageDir = Join-Path $OutputDir "CRMFiloServis-v$Version"
+$publishDir = Join-Path $CustomerArtifactsDir "publish"
+$packageDir = Join-Path $CustomerArtifactsDir "CRMFiloServis-v$Version"
+$zipPath = Join-Path $CustomerArtifactsDir "CRMFiloServis-v$Version.zip"
 
-if (Test-Path $OutputDir) {
-    Remove-Item -Path $OutputDir -Recurse -Force
-}
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+New-Item -ItemType Directory -Path $CustomerArtifactsDir -Force | Out-Null
+if (Test-Path $publishDir) {
+    Remove-Item -Path $publishDir -Recurse -Force
+}
+if (Test-Path $packageDir) {
+    Remove-Item -Path $packageDir -Recurse -Force
+}
+if (Test-Path $zipPath) {
+    Remove-Item -Path $zipPath -Force
+}
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
 
@@ -127,7 +136,7 @@ http://localhost:5190
 
 ## Yedekleme
 Uygulama içinden Ayarlar > Yedekleme menüsünden yedek alabilirsiniz.
-Yedekler ``Backups`` klasörüne kaydedilir.
+Yedekler ``yedekleme\database`` klasörüne kaydedilir.
 
 ## Destek
 GitHub: https://github.com/karamur/CRMFiloServis
@@ -135,7 +144,7 @@ GitHub: https://github.com/karamur/CRMFiloServis
 $readmeContent | Out-File -FilePath "$packageDir\BENIOKU.txt" -Encoding UTF8
 
 # Boş klasörleri oluştur
-@("Backups", "Logs", "Uploads") | ForEach-Object {
+@("yedekleme", "yedekleme\database", "yedekleme\uploads", "yedekleme\keys", "yedekleme\logs") | ForEach-Object {
     $folderPath = Join-Path $packageDir $_
     New-Item -ItemType Directory -Path $folderPath -Force | Out-Null
     # .gitkeep dosyası ekle (boş klasör GitHub'da görünsün)
@@ -147,8 +156,6 @@ Write-Host "  OK - Kurulum dosyaları eklendi" -ForegroundColor Green
 # 5. ZIP oluştur
 if ($CreateZip) {
     Write-Host "[5/5] ZIP paketi oluşturuluyor..." -ForegroundColor Yellow
-    $zipPath = Join-Path $OutputDir "CRMFiloServis-v$Version.zip"
-    
     Compress-Archive -Path "$packageDir\*" -DestinationPath $zipPath -Force
     Write-Host "  OK - ZIP oluşturuldu: $zipPath" -ForegroundColor Green
 }
@@ -164,14 +171,13 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host "   BUILD TAMAMLANDI!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Çıktı Klasörü: $OutputDir" -ForegroundColor White
+Write-Host "Çıktı Klasörü: $CustomerArtifactsDir" -ForegroundColor White
 Write-Host "Paket Klasörü: $packageDir" -ForegroundColor White
 if ($CreateZip) {
     $zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
     Write-Host "ZIP Dosyası:   $zipPath ($zipSize MB)" -ForegroundColor White
 }
 Write-Host ""
-Write-Host "GitHub'a yüklemek için:" -ForegroundColor Yellow
-Write-Host "  1. 'artifacts' klasörünü commit edin" -ForegroundColor Cyan
-Write-Host "  2. Veya Releases sayfasında ZIP'i yükleyin" -ForegroundColor Cyan
+Write-Host "Artefact Konumu:" -ForegroundColor Yellow
+Write-Host "  $CustomerArtifactsDir" -ForegroundColor Cyan
 Write-Host ""

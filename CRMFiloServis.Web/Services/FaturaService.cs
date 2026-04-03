@@ -1,5 +1,6 @@
 ﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Helpers;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 
@@ -7,16 +8,17 @@ namespace CRMFiloServis.Web.Services;
 
 public class FaturaService : IFaturaService
 {
-    private const string ExternalUploadsRoot = @"D:\calisma\Claude-Code\yedekleme\uploads";
     private readonly ApplicationDbContext _context;
     private readonly IMuhasebeService _muhasebeService;
     private readonly IWebHostEnvironment _env;
+    private readonly ISecureFileService _secureFileService;
 
-    public FaturaService(ApplicationDbContext context, IMuhasebeService muhasebeService, IWebHostEnvironment env)
+    public FaturaService(ApplicationDbContext context, IMuhasebeService muhasebeService, IWebHostEnvironment env, ISecureFileService secureFileService)
     {
         _context = context;
         _muhasebeService = muhasebeService;
         _env = env;
+        _secureFileService = secureFileService;
     }
 
     public async Task<List<Fatura>> GetAllAsync()
@@ -1157,6 +1159,8 @@ public class FaturaService : IFaturaService
                 _context.Faturalar.Add(fatura);
                 await _context.SaveChangesAsync();
 
+                await SaveInvoiceXmlAsync(fatura, file.FileName, file.Content);
+
                 // Otomatik muhasebe fişi oluştur
                 await TryCreateMuhasebeFisiAsync(fatura);
 
@@ -1226,18 +1230,15 @@ public class FaturaService : IFaturaService
 
         try
         {
-            // Dosya yolunu oluştur
-            var uploadsFolder = Path.Combine(ExternalUploadsRoot, "faturalar", fatura.FaturaYonu.ToString().ToLower());
-            Directory.CreateDirectory(uploadsFolder);
+            ValidateStoredFileExtension(fileName, ".pdf");
 
-            // Benzersiz dosya adı: FaturaNo_FaturaId_Timestamp.pdf
-            var safeFileName = $"{fatura.FaturaNo.Replace("/", "_").Replace("\\", "_")}_{fatura.Id}_{DateTime.Now:yyyyMMddHHmmssfff}.pdf";
-            var filePath = Path.Combine(uploadsFolder, safeFileName);
+            if (!string.IsNullOrWhiteSpace(fatura.PdfDosyaYolu) && !IsLegacyUploadPath(fatura.PdfDosyaYolu))
+                await _secureFileService.DeleteAsync(fatura.PdfDosyaYolu);
 
-            await File.WriteAllBytesAsync(filePath, pdfContent);
-
-            // Relatif yolu kaydet
-            fatura.PdfDosyaYolu = $"/uploads/faturalar/{fatura.FaturaYonu.ToString().ToLower()}/{safeFileName}";
+            fatura.PdfDosyaYolu = await _secureFileService.SaveEncryptedAsync(
+                Path.Combine("faturalar", fatura.FaturaYonu.ToString().ToLowerInvariant(), "pdf"),
+                fileName,
+                pdfContent);
             fatura.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
@@ -1247,6 +1248,38 @@ public class FaturaService : IFaturaService
         {
             return false;
         }
+    }
+
+    public async Task<FaturaStoredFile?> GetFaturaDosyaAsync(int faturaId, FaturaDosyaTuru dosyaTuru)
+    {
+        var fatura = await _context.Faturalar.FindAsync(faturaId);
+        if (fatura == null)
+            return null;
+
+        var storedPath = dosyaTuru == FaturaDosyaTuru.Pdf ? fatura.PdfDosyaYolu : fatura.XmlDosyaYolu;
+        if (string.IsNullOrWhiteSpace(storedPath))
+            return null;
+
+        byte[]? content;
+        if (IsLegacyUploadPath(storedPath))
+        {
+            content = await ReadLegacyUploadAsync(storedPath);
+        }
+        else
+        {
+            content = await _secureFileService.ReadDecryptedAsync(storedPath);
+        }
+
+        if (content == null)
+            return null;
+
+        var extension = dosyaTuru == FaturaDosyaTuru.Pdf ? ".pdf" : ".xml";
+        return new FaturaStoredFile
+        {
+            FileName = $"{NormalizeFaturaNo(fatura.FaturaNo)}{extension}",
+            ContentType = dosyaTuru == FaturaDosyaTuru.Pdf ? "application/pdf" : "application/xml",
+            Content = content
+        };
     }
 
     private async Task PrepareFaturaForSaveAsync(Fatura fatura)
@@ -1265,7 +1298,53 @@ public class FaturaService : IFaturaService
                 .FirstOrDefaultAsync();
         }
 
+        if (fatura.CreatedAt == default)
+            fatura.CreatedAt = DateTime.UtcNow;
+
         fatura.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private async Task SaveInvoiceXmlAsync(Fatura fatura, string fileName, byte[] xmlContent)
+    {
+        ValidateStoredFileExtension(fileName, ".xml");
+
+        if (!string.IsNullOrWhiteSpace(fatura.XmlDosyaYolu) && !IsLegacyUploadPath(fatura.XmlDosyaYolu))
+            await _secureFileService.DeleteAsync(fatura.XmlDosyaYolu);
+
+        fatura.XmlDosyaYolu = await _secureFileService.SaveEncryptedAsync(
+            Path.Combine("faturalar", fatura.FaturaYonu.ToString().ToLowerInvariant(), "xml"),
+            fileName,
+            xmlContent);
+
+        fatura.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+    }
+
+    private static void ValidateStoredFileExtension(string fileName, string expectedExtension)
+    {
+        var extension = Path.GetExtension(fileName);
+        if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Sadece {expectedExtension} uzantılı dosyalar kabul edilir.");
+    }
+
+    private static bool IsLegacyUploadPath(string path)
+        => path.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase) || path.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<byte[]?> ReadLegacyUploadAsync(string legacyPath)
+    {
+        var relativePath = legacyPath
+            .Replace("/uploads/", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("uploads/", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace('/', Path.DirectorySeparatorChar);
+
+        var uploadsRoot = AppStoragePaths.GetUploadsRoot(_env.ContentRootPath);
+        var fullPath = Path.GetFullPath(Path.Combine(uploadsRoot, relativePath));
+        var normalizedRoot = Path.GetFullPath(uploadsRoot);
+
+        if (!fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath))
+            return null;
+
+        return await File.ReadAllBytesAsync(fullPath);
     }
 
     private async Task<string> GetSonrakiHesapKoduAsync(string prefix)

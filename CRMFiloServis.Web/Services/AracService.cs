@@ -1,5 +1,6 @@
 ﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Helpers;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,7 +8,6 @@ namespace CRMFiloServis.Web.Services;
 
 public class AracService : IAracService
 {
-    private const string ExternalUploadsRoot = @"D:\calisma\Claude-Code\yedekleme\uploads";
     private readonly ApplicationDbContext _context;
     private readonly IWebHostEnvironment _env;
 
@@ -535,7 +535,7 @@ public class AracService : IAracService
                 if (relativePath.StartsWith($"uploads{Path.DirectorySeparatorChar}"))
                     relativePath = relativePath.Substring($"uploads{Path.DirectorySeparatorChar}".Length);
 
-                var dosyaYolu = Path.Combine(ExternalUploadsRoot, relativePath);
+                var dosyaYolu = Path.Combine(AppStoragePaths.GetUploadsRoot(_env.ContentRootPath), relativePath);
                 if (File.Exists(dosyaYolu))
                     File.Delete(dosyaYolu);
             }
@@ -551,7 +551,7 @@ public class AracService : IAracService
         if (evrak == null)
             throw new Exception("Evrak bulunamadi");
 
-        var klasorYolu = Path.Combine(ExternalUploadsRoot, "evraklar", evrakId.ToString());
+        var klasorYolu = Path.Combine(AppStoragePaths.GetUploadsRoot(_env.ContentRootPath), "evraklar", evrakId.ToString());
         if (!Directory.Exists(klasorYolu))
             Directory.CreateDirectory(klasorYolu);
 
@@ -582,7 +582,11 @@ public class AracService : IAracService
         if (dosya == null)
             throw new Exception("Dosya bulunamadi");
 
-        var dosyaYolu = Path.Combine(_env.ContentRootPath, "wwwroot", dosya.DosyaYolu);
+        var relativePath = dosya.DosyaYolu.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+        if (relativePath.StartsWith($"uploads{Path.DirectorySeparatorChar}"))
+            relativePath = relativePath.Substring($"uploads{Path.DirectorySeparatorChar}".Length);
+
+        var dosyaYolu = Path.Combine(AppStoragePaths.GetUploadsRoot(_env.ContentRootPath), relativePath);
         if (!File.Exists(dosyaYolu))
             throw new Exception("Dosya diskte bulunamadi");
 
@@ -594,7 +598,11 @@ public class AracService : IAracService
         var dosya = await _context.AracEvrakDosyalari.FindAsync(dosyaId);
         if (dosya != null)
         {
-            var dosyaYolu = Path.Combine(_env.ContentRootPath, "wwwroot", dosya.DosyaYolu);
+            var relativePath = dosya.DosyaYolu.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+            if (relativePath.StartsWith($"uploads{Path.DirectorySeparatorChar}"))
+                relativePath = relativePath.Substring($"uploads{Path.DirectorySeparatorChar}".Length);
+
+            var dosyaYolu = Path.Combine(AppStoragePaths.GetUploadsRoot(_env.ContentRootPath), relativePath);
             if (File.Exists(dosyaYolu))
                 File.Delete(dosyaYolu);
 

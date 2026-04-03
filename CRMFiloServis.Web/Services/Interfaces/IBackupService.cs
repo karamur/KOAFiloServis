@@ -44,6 +44,6 @@ public class BackupSettings
     public bool AutoBackupEnabled { get; set; } = true;
     public int AutoBackupIntervalHours { get; set; } = 24;
     public int KeepBackupCount { get; set; } = 10;
-    public string BackupFolder { get; set; } = @"D:\calisma\Claude-Code\yedekleme\database";
+    public string BackupFolder { get; set; } = "database";
     public DateTime? LastBackupTime { get; set; }
 }

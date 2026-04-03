@@ -221,11 +221,11 @@
                             <button class="btn btn-outline-secondary" @onclick="() => FaturaDuzenle(pdfOnizlemeFatura)" title="Düzenle">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            @if (!string.IsNullOrEmpty(pdfOnizlemeFatura.PdfDosyaYolu))
+                            @if (!string.IsNullOrEmpty(pdfOnizlemeBase64))
                             {
-                                <a class="btn btn-outline-danger" href="@pdfOnizlemeFatura.PdfDosyaYolu" target="_blank" title="PDF İndir">
+                                <button class="btn btn-outline-danger" @onclick="PdfIndirAsync" title="PDF İndir">
                                     <i class="bi bi-download"></i>
-                                </a>
+                                </button>
                             }
                             <button class="btn btn-outline-dark" @onclick="PdfOnizlemeKapat" title="Kapat">
                                 <i class="bi bi-x-lg"></i>
@@ -233,9 +233,16 @@
                         </div>
                     </div>
                     <div class="card-body p-0" style="height: 60vh;">
-                        @if (!string.IsNullOrEmpty(pdfOnizlemeFatura.PdfDosyaYolu))
+                        @if (pdfOnizlemeYukleniyor)
                         {
-                            <iframe src="@pdfOnizlemeFatura.PdfDosyaYolu" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+                                <div class="spinner-border text-danger mb-3" role="status"></div>
+                                <h5>PDF yükleniyor</h5>
+                            </div>
+                        }
+                        else if (!string.IsNullOrEmpty(pdfOnizlemeUrl))
+                        {
+                            <iframe src="@pdfOnizlemeUrl" style="width: 100%; height: 100%; border: none;"></iframe>
                         }
                         else
                         {
@@ -956,6 +963,10 @@
 
     // PDF Önizleme
     private Fatura? pdfOnizlemeFatura;
+    private string? pdfOnizlemeUrl;
+    private string? pdfOnizlemeBase64;
+    private string? pdfOnizlemeDosyaAdi;
+    private bool pdfOnizlemeYukleniyor;
 
     // Filtre
     private DateTime? filtreBaslangic;
@@ -1447,14 +1458,19 @@
 
     private string FormatPara(decimal t) => t.ToString("N2", new System.Globalization.CultureInfo("tr-TR")) + " TL";
 
-    private void FaturaSecildi(Fatura fatura)
+    private async Task FaturaSecildi(Fatura fatura)
     {
         pdfOnizlemeFatura = fatura;
+        await PdfOnizlemeYukleAsync(fatura);
     }
 
     private void PdfOnizlemeKapat()
     {
         pdfOnizlemeFatura = null;
+        pdfOnizlemeUrl = null;
+        pdfOnizlemeBase64 = null;
+        pdfOnizlemeDosyaAdi = null;
+        pdfOnizlemeYukleniyor = false;
     }
 
     private async Task PdfYukle(InputFileChangeEventArgs e, int faturaId)
@@ -1472,6 +1488,8 @@
                 await YenileAsync();
                 // Seçili faturayı güncelle
                 pdfOnizlemeFatura = filtreliFaturalar.FirstOrDefault(f => f.Id == faturaId);
+                if (pdfOnizlemeFatura != null)
+                    await PdfOnizlemeYukleAsync(pdfOnizlemeFatura);
             }
             else
             {
@@ -1482,6 +1500,47 @@
         {
             ToastService.ShowError($"Hata: {ex.Message}");
         }
+    }
+
+    private async Task PdfOnizlemeYukleAsync(Fatura fatura)
+    {
+        pdfOnizlemeUrl = null;
+        pdfOnizlemeBase64 = null;
+        pdfOnizlemeDosyaAdi = null;
+
+        if (string.IsNullOrWhiteSpace(fatura.PdfDosyaYolu))
+            return;
+
+        pdfOnizlemeYukleniyor = true;
+        StateHasChanged();
+
+        try
+        {
+            var dosya = await FaturaService.GetFaturaDosyaAsync(fatura.Id, FaturaDosyaTuru.Pdf);
+            if (dosya == null)
+                return;
+
+            pdfOnizlemeBase64 = Convert.ToBase64String(dosya.Content);
+            pdfOnizlemeDosyaAdi = dosya.FileName;
+            pdfOnizlemeUrl = $"data:{dosya.ContentType};base64,{pdfOnizlemeBase64}";
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"PDF açılamadı: {ex.Message}");
+        }
+        finally
+        {
+            pdfOnizlemeYukleniyor = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PdfIndirAsync()
+    {
+        if (string.IsNullOrWhiteSpace(pdfOnizlemeBase64))
+            return;
+
+        await JS.InvokeVoidAsync("downloadFile", pdfOnizlemeDosyaAdi ?? "fatura.pdf", pdfOnizlemeBase64, "application/pdf");
     }
 
     private void CariKartAc(Cari cari)

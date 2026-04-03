@@ -1,19 +1,52 @@
 ﻿using CRMFiloServis.Web.Components;
 using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Helpers;
 using CRMFiloServis.Web.Services;
 using CRMFiloServis.Web.Services.Interfaces;
+using CRMFiloServis.Shared.Entities;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.AspNetCore.DataProtection.Repositories;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
+using System.Text.Json;
 
 // EPPlus lisans ayari (NonCommercial kullanim icin)
 ExcelPackage.License.SetNonCommercialPersonal("CRMFiloServis");
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database Provider Secimi (appsettings.json'dan)
+// Database Provider Secimi (dbsettings.json varsa onu oncele)
 var dbProvider = builder.Configuration.GetValue<string>("DatabaseProvider") ?? "SQLite";
+var defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+var dbSettingsPath = Path.Combine(builder.Environment.ContentRootPath, "dbsettings.json");
+
+if (File.Exists(dbSettingsPath))
+{
+    try
+    {
+        var dbSettingsJson = await File.ReadAllTextAsync(dbSettingsPath);
+        var dbSettings = JsonSerializer.Deserialize<DatabaseSettings>(dbSettingsJson);
+        if (dbSettings != null)
+        {
+            dbProvider = dbSettings.Provider switch
+            {
+                DatabaseProvider.PostgreSQL => "PostgreSQL",
+                DatabaseProvider.MySQL => "MySQL",
+                DatabaseProvider.SQLServer => "SQLServer",
+                _ => "SQLite"
+            };
+            defaultConnectionString = dbSettings.GetConnectionString();
+        }
+    }
+    catch
+    {
+        // dbsettings.json okunamazsa appsettings ile devam et
+    }
+}
 
 // Diger PC'lerden erisim icin tum IP'lerden dinle
 // Eger HTTPS_PORT ortam degiskeni veya --urls parametresi verilmisse onu kullan
@@ -38,7 +71,7 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =
         // PostgreSQL timestamp ayari
         AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
         
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
+        options.UseNpgsql(defaultConnectionString, npgsqlOptions =>
         {
             npgsqlOptions.EnableRetryOnFailure(
                 maxRetryCount: 3,
@@ -49,7 +82,7 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =
     }
     else // SQLite
     {
-        options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
+        options.UseSqlite(defaultConnectionString);
     }
     
     options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
@@ -70,7 +103,17 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
     sp.GetRequiredService<AppAuthenticationStateProvider>());
 builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();
+var dataProtectionKeysRoot = new DirectoryInfo(AppStoragePaths.GetDataProtectionKeysRoot(builder.Environment.ContentRootPath));
+dataProtectionKeysRoot.Create();
+builder.Services.AddDataProtection()
+    .SetApplicationName("CRMFiloServis");
+builder.Services.AddSingleton<IConfigureOptions<KeyManagementOptions>>(sp =>
+    new ConfigureOptions<KeyManagementOptions>(options =>
+    {
+        options.XmlRepository = new FileSystemXmlRepository(dataProtectionKeysRoot, sp.GetRequiredService<ILoggerFactory>());
+    }));
 builder.Services.AddSingleton<IPortalProjectCatalogService, PortalProjectCatalogService>();
+builder.Services.AddSingleton<ISecureFileService, SecureFileService>();
 
 // Application Services
 builder.Services.AddSingleton<IFirmaService, FirmaService>(); // Singleton - aktif firma state tutmak icin
@@ -134,6 +177,9 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     await DbInitializer.InitializeAsync(context, configuration);
+
+    // Şoför maaş/çıkış alanları migration
+    await CRMFiloServis.Web.Data.Migrations.SoforMaasMigrationHelper.ApplySoforMaasAlanlariAsync(context);
     
     // Seed kritik verileri
     await DbSeeder.SeedAsync(context);
@@ -162,9 +208,6 @@ using (var scope = app.Services.CreateScope())
     
     // Cari alan genişletme migration (Il, Ilce, Fax vb.)
     await CRMFiloServis.Web.Data.Migrations.CariMigrationHelper.ApplyCariAlanGenisletmeAsync(context);
-
-    // Şoför maaş/ARGE alanları migration
-    await CRMFiloServis.Web.Data.Migrations.SoforMaasMigrationHelper.ApplySoforMaasAlanlariAsync(context);
 
     // Bordro tabloları migration
     await CRMFiloServis.Web.Data.Migrations.BordroMigrationHelper.ApplyBordroTablolariAsync(context);
@@ -201,7 +244,7 @@ if (httpsPort.HasValue)
 
 app.UseAntiforgery();
 
-var externalUploadsPath = @"D:\calisma\Claude-Code\yedekleme\uploads";
+var externalUploadsPath = AppStoragePaths.GetUploadsRoot(app.Environment.ContentRootPath);
 Directory.CreateDirectory(externalUploadsPath);
 
 app.UseStaticFiles(new StaticFileOptions

@@ -1,6 +1,8 @@
-﻿@page "/"
+﻿@page "/dashboard"
+@attribute [Authorize]
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
+@using Microsoft.AspNetCore.Authorization
 @using FaturaEntity = CRMFiloServis.Shared.Entities.Fatura
 @inject ICariService CariService
 @inject IAracService AracService

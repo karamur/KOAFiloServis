@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Helpers;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,7 +9,6 @@ namespace CRMFiloServis.Web.Services;
 
 public class BackupService : IBackupService
 {
-    private const string DefaultBackupRoot = @"D:\calisma\Claude-Code\yedekleme\database";
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
     private readonly IServiceProvider _serviceProvider;
@@ -962,10 +962,10 @@ public class BackupService : IBackupService
         var folder = settings.BackupFolder;
 
         if (string.IsNullOrWhiteSpace(folder))
-            folder = DefaultBackupRoot;
+            folder = "database";
 
         if (!Path.IsPathRooted(folder))
-            folder = Path.Combine(DefaultBackupRoot, folder);
+            folder = Path.Combine(AppStoragePaths.GetStorageRoot(_environment.ContentRootPath), folder);
 
         return folder;
     }

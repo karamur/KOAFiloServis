@@ -3,6 +3,7 @@
 )
 
 $ErrorActionPreference = 'Stop'
+$artifactsRoot = 'D:\calisma\Claude-Code\CRMFiloServis\artifacts'
 
 # Versiyon belirleme
 if ([string]::IsNullOrEmpty($Version)) {
@@ -22,19 +23,25 @@ Write-Host ""
 $startTime = Get-Date
 
 # 1. Web paketi
-Write-Host ">>> [1/3] Web Paketi olusturuluyor..." -ForegroundColor Yellow
+Write-Host ">>> [1/4] Web Paketi olusturuluyor..." -ForegroundColor Yellow
 Write-Host ""
 & (Join-Path $PSScriptRoot "Build-WebPackage.ps1") -Version $Version
 Write-Host ""
 
-# 2. Kurulum programi
-Write-Host ">>> [2/3] Kurulum Programi olusturuluyor..." -ForegroundColor Yellow
+# 2. Musteri paketi
+Write-Host ">>> [2/4] Musteri Paketi olusturuluyor..." -ForegroundColor Yellow
+Write-Host ""
+& (Join-Path $PSScriptRoot "Build-CustomerPackage.ps1") -Version $Version -OutputDir $artifactsRoot
+Write-Host ""
+
+# 3. Kurulum programi
+Write-Host ">>> [3/4] Kurulum Programi olusturuluyor..." -ForegroundColor Yellow
 Write-Host ""
 & (Join-Path $PSScriptRoot "Build-Installer.ps1")
 Write-Host ""
 
-# 3. Lisans olusturucu
-Write-Host ">>> [3/3] Lisans Olusturucu olusturuluyor..." -ForegroundColor Yellow
+# 4. Lisans olusturucu
+Write-Host ">>> [4/4] Lisans Olusturucu olusturuluyor..." -ForegroundColor Yellow
 Write-Host ""
 & (Join-Path $PSScriptRoot "Build-LisansDesktop.ps1")
 Write-Host ""
@@ -51,8 +58,10 @@ Write-Host ""
 Write-Host "Versiyon: $Version" -ForegroundColor Yellow
 Write-Host "Sure: $($duration.TotalSeconds.ToString('0.0')) saniye" -ForegroundColor Cyan
 Write-Host ""
+Write-Host "Artefact Koku: $artifactsRoot" -ForegroundColor White
 Write-Host "Ciktilar:" -ForegroundColor White
-Write-Host "  - artifacts\web\CRMFiloServis.Web-$Version.zip" -ForegroundColor Gray
-Write-Host "  - artifacts\installer\CRMFiloServisKurulum.exe" -ForegroundColor Gray
-Write-Host "  - artifacts\lisans\" -ForegroundColor Gray
+Write-Host "  - $artifactsRoot\web\CRMFiloServis.Web-$Version.zip" -ForegroundColor Gray
+Write-Host "  - $artifactsRoot\customer\CRMFiloServis-v$Version.zip" -ForegroundColor Gray
+Write-Host "  - $artifactsRoot\installer\CRMFiloServisKurulum.exe" -ForegroundColor Gray
+Write-Host "  - $artifactsRoot\lisans\" -ForegroundColor Gray
 Write-Host ""

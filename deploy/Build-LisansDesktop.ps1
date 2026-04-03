@@ -1,7 +1,8 @@
 ﻿$ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root "CRMFiloServis.LisansDesktop\CRMFiloServis.LisansDesktop.csproj"
-$outputDir = Join-Path $root "artifacts\lisans"
+$artifactsRoot = "D:\calisma\Claude-Code\CRMFiloServis\artifacts"
+$outputDir = Join-Path $artifactsRoot "lisans"
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Koa Filo Servis - Lisans Olusturucu" -ForegroundColor Cyan

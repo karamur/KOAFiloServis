@@ -36,6 +36,9 @@ public static class SoforMaasMigrationHelper
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Soforler' AND column_name = 'BordroTipiPersonel') THEN
                             ALTER TABLE ""Soforler"" ADD COLUMN ""BordroTipiPersonel"" integer NOT NULL DEFAULT 0;
                         END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Soforler' AND column_name = 'SgkCikisTarihi') THEN
+                            ALTER TABLE ""Soforler"" ADD COLUMN ""SgkCikisTarihi"" timestamp without time zone NULL;
+                        END IF;
                     END $$;
                 ";
 
@@ -53,6 +56,7 @@ public static class SoforMaasMigrationHelper
                 await EnsureSqliteColumnAsync(context, "SgkMaasi", "TEXT NOT NULL DEFAULT '0'");
                 await EnsureSqliteColumnAsync(context, "ResmiNetMaas", "TEXT NOT NULL DEFAULT '0'");
                 await EnsureSqliteColumnAsync(context, "DigerMaas", "TEXT NOT NULL DEFAULT '0'");
+                await EnsureSqliteColumnAsync(context, "SgkCikisTarihi", "TEXT NULL");
                 await context.Database.ExecuteSqlRawAsync(@"UPDATE ""Soforler"" SET ""ResmiNetMaas"" = ""NetMaas"" WHERE IFNULL(""ResmiNetMaas"", '0') = '0' AND IFNULL(""DigerMaas"", '0') = '0' AND IFNULL(""NetMaas"", '0') <> '0'");
             }
         }

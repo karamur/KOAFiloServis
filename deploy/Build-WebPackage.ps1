@@ -5,7 +5,8 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root "CRMFiloServis.Web\CRMFiloServis.Web.csproj"
-$outputDir = Join-Path $root "artifacts\web"
+$artifactsRoot = "D:\calisma\Claude-Code\CRMFiloServis\artifacts"
+$outputDir = Join-Path $artifactsRoot "web"
 $publishDir = Join-Path $outputDir "publish"
 
 # Versiyon belirleme

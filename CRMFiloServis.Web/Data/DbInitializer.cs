@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -8,7 +8,11 @@ public static class DbInitializer
 {
     public static async Task InitializeAsync(ApplicationDbContext context, IConfiguration configuration)
     {
-        var dbProvider = configuration.GetValue<string>("DatabaseProvider") ?? "SQLite";
+        var dbProvider = context.Database.IsNpgsql()
+            ? "PostgreSQL"
+            : context.Database.IsSqlite()
+                ? "SQLite"
+                : configuration.GetValue<string>("DatabaseProvider") ?? "SQLite";
         
         try
         {
@@ -43,10 +47,10 @@ public static class DbInitializer
             }
         }
 
-        // PiyasaKaynaklar tablosunu oluþtur
+        // PiyasaKaynaklar tablosunu oluÅŸtur
         await EnsurePiyasaKaynaklarTableAsync(context, dbProvider, configuration);
 
-        // TekrarlayanOdemeler tablosunu oluþtur
+        // TekrarlayanOdemeler tablosunu oluÅŸtur
         await EnsureTekrarlayanOdemelerTableAsync(context, dbProvider, configuration);
 
         // Roller tablosuna Renk kolonu ekle (yoksa)
@@ -56,18 +60,24 @@ public static class DbInitializer
         await SeedBudgetMasrafKalemleriAsync(context);
     }
 
+    private static string GetDefaultConnectionString(ApplicationDbContext context, IConfiguration configuration)
+    {
+        return context.Database.GetConnectionString()
+            ?? configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("DefaultConnection bulunamadi.");
+    }
+
     private static async Task EnsurePiyasaKaynaklarTableAsync(ApplicationDbContext context, string dbProvider, IConfiguration configuration)
     {
         try
         {
             if (dbProvider == "PostgreSQL")
             {
-                // PostgreSQL için doðrudan connection kullan
-                var connectionString = configuration.GetConnectionString("PostgreSQL");
+                var connectionString = GetDefaultConnectionString(context, configuration);
                 using var conn = new NpgsqlConnection(connectionString);
                 await conn.OpenAsync();
                 
-                // Tablo var mý kontrol et
+                // Tablo var mÄ± kontrol et
                 using var checkCmd = new NpgsqlCommand(
                     "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PiyasaKaynaklar')", conn);
                 var exists = (bool)(await checkCmd.ExecuteScalarAsync() ?? false);
@@ -92,7 +102,7 @@ public static class DbInitializer
                             ""IsDeleted"" BOOLEAN DEFAULT FALSE
                         )", conn);
                     await createCmd.ExecuteNonQueryAsync();
-                    Console.WriteLine("PiyasaKaynaklar tablosu PostgreSQL'de oluþturuldu.");
+                    Console.WriteLine("PiyasaKaynaklar tablosu PostgreSQL'de oluÅŸturuldu.");
                 }
                 else
                 {
@@ -101,7 +111,7 @@ public static class DbInitializer
             }
             else
             {
-                // SQLite için
+                // SQLite iÃ§in
                 await context.Database.ExecuteSqlRawAsync(@"
                     CREATE TABLE IF NOT EXISTS ""PiyasaKaynaklar"" (
                         ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,7 +134,7 @@ public static class DbInitializer
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"PiyasaKaynaklar tablo oluþturma hatasý: {ex.Message}");
+            Console.WriteLine($"PiyasaKaynaklar tablo oluÅŸturma hatasÄ±: {ex.Message}");
         }
     }
 
@@ -134,7 +144,7 @@ public static class DbInitializer
         {
             if (dbProvider == "PostgreSQL")
             {
-                var connectionString = configuration.GetConnectionString("PostgreSQL");
+                var connectionString = GetDefaultConnectionString(context, configuration);
                 using var conn = new NpgsqlConnection(connectionString);
                 await conn.OpenAsync();
 
@@ -169,7 +179,7 @@ public static class DbInitializer
                         CREATE INDEX ""IX_TekrarlayanOdemeler_MasrafKalemi"" ON ""TekrarlayanOdemeler"" (""MasrafKalemi"");
                     ", conn);
                     await createCmd.ExecuteNonQueryAsync();
-                    Console.WriteLine("TekrarlayanOdemeler tablosu PostgreSQL'de oluþturuldu.");
+                    Console.WriteLine("TekrarlayanOdemeler tablosu PostgreSQL'de oluÅŸturuldu.");
                 }
                 else
                 {
@@ -205,7 +215,7 @@ public static class DbInitializer
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"TekrarlayanOdemeler tablo oluþturma hatasý: {ex.Message}");
+            Console.WriteLine($"TekrarlayanOdemeler tablo oluÅŸturma hatasÄ±: {ex.Message}");
         }
     }
 
@@ -215,11 +225,11 @@ public static class DbInitializer
         {
             if (dbProvider == "PostgreSQL")
             {
-                var connectionString = configuration.GetConnectionString("PostgreSQL");
+                var connectionString = GetDefaultConnectionString(context, configuration);
                 using var conn = new NpgsqlConnection(connectionString);
                 await conn.OpenAsync();
 
-                // Kolon var mý kontrol et
+                // Kolon var mÄ± kontrol et
                 using var checkCmd = new NpgsqlCommand(
                     "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Roller' AND column_name = 'Renk')", conn);
                 var exists = (bool)(await checkCmd.ExecuteScalarAsync() ?? false);
@@ -238,16 +248,37 @@ public static class DbInitializer
             }
             else
             {
-                // SQLite için
-                await context.Database.ExecuteSqlRawAsync(@"
-                    ALTER TABLE ""Roller"" ADD COLUMN ""Renk"" TEXT DEFAULT '#dc3545'
-                ");
-                Console.WriteLine("Roller tablosuna Renk kolonu eklendi.");
+                // SQLite iÃ§in
+                await using var connection = context.Database.GetDbConnection();
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync();
+                }
+
+                await using var checkCommand = connection.CreateCommand();
+                checkCommand.CommandText = "SELECT 1 FROM pragma_table_info('Roller') WHERE name = $columnName LIMIT 1";
+                var parameter = checkCommand.CreateParameter();
+                parameter.ParameterName = "$columnName";
+                parameter.Value = "Renk";
+                checkCommand.Parameters.Add(parameter);
+
+                var exists = await checkCommand.ExecuteScalarAsync() is not null;
+                if (!exists)
+                {
+                    await using var alterCommand = connection.CreateCommand();
+                    alterCommand.CommandText = "ALTER TABLE \"Roller\" ADD COLUMN \"Renk\" TEXT DEFAULT '#dc3545'";
+                    await alterCommand.ExecuteNonQueryAsync();
+                    Console.WriteLine("Roller tablosuna Renk kolonu eklendi.");
+                }
+                else
+                {
+                    Console.WriteLine("Roller tablosunda Renk kolonu zaten mevcut.");
+                }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Roller Renk kolonu ekleme hatasý: {ex.Message}");
+            Console.WriteLine($"Roller Renk kolonu ekleme hatasÄ±: {ex.Message}");
         }
     }
 
@@ -279,7 +310,7 @@ public static class DbInitializer
         try
         {
             // Kritik masraf kalemleri - Her zaman kontrol et
-            var gerekliKalemler = new[] { "Yakýt", "Araç Bakým/Onarým", "Þoför Maaþlarý", "Sigorta" };
+            var gerekliKalemler = new[] { "YakÄ±t", "AraÃ§ BakÄ±m/OnarÄ±m", "ÅžofÃ¶r MaaÅŸlarÄ±", "Sigorta" };
 
             foreach (var kalemAdi in gerekliKalemler)
             {

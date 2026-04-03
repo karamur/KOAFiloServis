@@ -1,7 +1,8 @@
 ﻿$ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root "CRMFiloServis.Installer\CRMFiloServis.Installer.csproj"
-$outputDir = Join-Path $root "artifacts\installer"
+$artifactsRoot = "D:\calisma\Claude-Code\CRMFiloServis\artifacts"
+$outputDir = Join-Path $artifactsRoot "installer"
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Koa Filo Servis - Kurulum Programi" -ForegroundColor Cyan

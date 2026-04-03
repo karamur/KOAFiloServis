@@ -177,16 +177,7 @@ public class PiyasaKaynakService : IPiyasaKaynakService
     {
         try
         {
-            // Tablo var mi kontrol et
-            var tableExists = await _context.Database.ExecuteSqlRawAsync(
-                "SELECT 1 FROM information_schema.tables WHERE table_name = 'PiyasaKaynaklar' LIMIT 1");
-            
-            // SQLite icin farkli kontrol
-            if (_context.Database.IsSqlite())
-            {
-                var result = await _context.Database.ExecuteSqlRawAsync(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='PiyasaKaynaklar'");
-            }
+            await _context.PiyasaKaynaklar.AsNoTracking().AnyAsync();
         }
         catch
         {

@@ -27,7 +27,11 @@ Bu klasör Koa Filo Servis yayın paketlerini oluşturur.
 ## Çıktılar
 
 ```
-artifacts/
+D:\calisma\Claude-Code\CRMFiloServis\artifacts\
+├── customer/
+│   ├── CRMFiloServis-v2025.04.01.zip        # Müşteri paketi
+│   ├── CRMFiloServis-v2025.04.01/           # Kuruluma hazır klasör
+│   └── publish/                             # Publish klasörü
 ├── web/
 │   ├── CRMFiloServis.Web-2025.04.01.zip    # Web paketi
 │   └── publish/                             # Publish klasörü
@@ -49,8 +53,8 @@ Varsayılan format: `YYYY.MM.DD` (örn: 2025.04.01)
 
 ## Kurulum PC'ye Kopyalanacaklar
 
-1. `CRMFiloServisKurulum.exe` - Kurulum programı
-2. `CRMFiloServis.Web-X.X.X.zip` - Web paketi
+1. `customer\CRMFiloServis-vX.X.X.zip` - Müşteri kurulum paketi
+2. `web\CRMFiloServis.Web-X.X.X.zip` - Web güncelleme paketi
 
 ## Güncelleme
 

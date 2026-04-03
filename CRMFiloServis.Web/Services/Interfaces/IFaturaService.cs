@@ -30,6 +30,7 @@ public interface IFaturaService
     Task<EFaturaImportResult> ImportFromXmlAsync(List<XmlFileContent> xmlFiles, FaturaYonu yon, int? firmaId = null, EFaturaTipi? eFaturaTipi = null);
     Task<EFaturaImportResult> ImportFromXmlWithPdfAsync(List<XmlPdfFileContent> files, FaturaYonu yon, int? firmaId = null, EFaturaTipi? eFaturaTipi = null);
     Task<bool> UploadFaturaPdfAsync(int faturaId, string fileName, byte[] pdfContent);
+    Task<FaturaStoredFile?> GetFaturaDosyaAsync(int faturaId, FaturaDosyaTuru dosyaTuru);
 
     // Excel Sablon ve Export - Yeni format (ornek dosya ile uyumlu)
     Task<byte[]> GetExcelSablonAsync(FaturaYonu yon);
@@ -88,4 +89,17 @@ public class XmlPdfFileContent
     public byte[] XmlContent { get; set; } = Array.Empty<byte>();
     public string? PdfFileName { get; set; }
     public byte[]? PdfContent { get; set; }
+}
+
+public enum FaturaDosyaTuru
+{
+    Pdf = 1,
+    Xml = 2
+}
+
+public class FaturaStoredFile
+{
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = "application/octet-stream";
+    public byte[] Content { get; set; } = Array.Empty<byte>();
 }
