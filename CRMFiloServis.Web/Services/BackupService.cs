@@ -147,7 +147,31 @@ public class BackupService : IBackupService
                 return result;
             }
 
-            File.Copy(sourcePath, backupFilePath, overwrite: true);
+            var backupDirectory = Path.GetDirectoryName(backupFilePath);
+            if (!string.IsNullOrWhiteSpace(backupDirectory) && !Directory.Exists(backupDirectory))
+            {
+                Directory.CreateDirectory(backupDirectory);
+            }
+
+            if (File.Exists(backupFilePath))
+            {
+                File.Delete(backupFilePath);
+            }
+
+            await using (var sourceConnection = new SqliteConnection($"Data Source={sourcePath}"))
+            await using (var destinationConnection = new SqliteConnection($"Data Source={backupFilePath}"))
+            {
+                await sourceConnection.OpenAsync();
+                await destinationConnection.OpenAsync();
+
+                await using (var checkpointCommand = sourceConnection.CreateCommand())
+                {
+                    checkpointCommand.CommandText = "PRAGMA wal_checkpoint(FULL);";
+                    await checkpointCommand.ExecuteNonQueryAsync();
+                }
+
+                sourceConnection.BackupDatabase(destinationConnection);
+            }
 
             var fileInfo = new FileInfo(backupFilePath);
             result.Success = true;
@@ -667,7 +691,32 @@ public class BackupService : IBackupService
             if (!Path.IsPathRooted(targetPath))
                 targetPath = Path.Combine(_environment.ContentRootPath, targetPath);
 
-            File.Copy(backupFilePath, targetPath, overwrite: true);
+            var targetDirectory = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrWhiteSpace(targetDirectory) && !Directory.Exists(targetDirectory))
+            {
+                Directory.CreateDirectory(targetDirectory);
+            }
+
+            if (File.Exists(targetPath))
+            {
+                File.Delete(targetPath);
+            }
+
+            var walPath = targetPath + "-wal";
+            var shmPath = targetPath + "-shm";
+            if (File.Exists(walPath))
+                File.Delete(walPath);
+            if (File.Exists(shmPath))
+                File.Delete(shmPath);
+
+            await using (var sourceConnection = new SqliteConnection($"Data Source={backupFilePath}"))
+            await using (var destinationConnection = new SqliteConnection($"Data Source={targetPath}"))
+            {
+                await sourceConnection.OpenAsync();
+                await destinationConnection.OpenAsync();
+                sourceConnection.BackupDatabase(destinationConnection);
+            }
+
             _logger.LogInformation("SQLite restore basarili: {Path}", targetPath);
             return true;
         }
