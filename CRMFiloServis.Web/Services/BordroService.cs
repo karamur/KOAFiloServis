@@ -121,13 +121,14 @@ public class BordroService : IBordroService
 
         // Ayarları al
         var ayarlar = await GetBordroAyarAsync(bordro.FirmaId);
+        var donemBaslangic = new DateTime(bordro.Yil, bordro.Ay, 1);
+        var donemBitis = new DateTime(bordro.Yil, bordro.Ay, DateTime.DaysInMonth(bordro.Yil, bordro.Ay));
 
         // Mevcut detayları temizle
         context.BordroDetaylar.RemoveRange(bordro.BordroDetaylar);
         await context.SaveChangesAsync();
 
-        // Aktif personelleri getir
-        var personelQuery = context.Soforler.Where(s => s.Aktif);
+        var personelQuery = context.Soforler.AsQueryable();
 
         // Not: Sofor entity'sinde FirmaId yok, tüm aktif personeller alınır
         // Firma bilgisi bordro detayında tutulur
@@ -140,7 +141,9 @@ public class BordroService : IBordroService
         else if (bordro.BordroTipi == BordroTipi.Normal)
             personelQuery = personelQuery.Where(s => s.BordroTipiPersonel == PersonelBordroTipi.Normal);
 
-        var personeller = await personelQuery.ToListAsync();
+        var personeller = (await personelQuery.ToListAsync())
+            .Where(p => PersonelBordroyaDahilEdilsinMi(p, donemBaslangic, donemBitis))
+            .ToList();
 
         if (!personeller.Any())
             throw new InvalidOperationException("Hesaplanacak personel bulunamadı!");
@@ -148,17 +151,21 @@ public class BordroService : IBordroService
         // Her personel için detay oluştur
         foreach (var personel in personeller)
         {
-            var resmiNetMaas = personel.ResmiNetMaas > 0 || personel.DigerMaas > 0
+            var sgkMaasOrani = GetDonemMaasOrani(personel.SgkCikisTarihi, donemBaslangic, donemBitis);
+            var gercekMaasOrani = GetDonemMaasOrani(personel.IstenAyrilmaTarihi, donemBaslangic, donemBitis);
+            var resmiNetMaasTam = personel.ResmiNetMaas > 0 || personel.DigerMaas > 0
                 ? personel.ResmiNetMaas
                 : personel.NetMaas;
-            var digerMaas = personel.DigerMaas;
+            var resmiNetMaas = YuvarlaTutar(resmiNetMaasTam * sgkMaasOrani);
+            var digerMaas = YuvarlaTutar(personel.DigerMaas * gercekMaasOrani);
+            var brutMaas = YuvarlaTutar(personel.BrutMaas * sgkMaasOrani);
 
             var detay = new BordroDetay
             {
                 BordroId = bordro.Id,
                 PersonelId = personel.Id,
                 FirmaId = bordro.FirmaId, // Bordrodan al
-                BrutMaas = personel.BrutMaas,
+                BrutMaas = brutMaas,
                 NetMaas = resmiNetMaas,
                 TopluMaas = resmiNetMaas + digerMaas,
                 SgkMaasi = resmiNetMaas,
@@ -187,6 +194,41 @@ public class BordroService : IBordroService
         await UpdateBordroOzetAsync(bordro.Id);
 
         return true;
+    }
+
+    private static bool PersonelBordroyaDahilEdilsinMi(Sofor personel, DateTime donemBaslangic, DateTime donemBitis)
+    {
+        if (personel.Aktif)
+            return true;
+
+        return TarihDonemIcinde(personel.IstenAyrilmaTarihi, donemBaslangic, donemBitis)
+            || TarihDonemIcinde(personel.SgkCikisTarihi, donemBaslangic, donemBitis);
+    }
+
+    private static decimal GetDonemMaasOrani(DateTime? cikisTarihi, DateTime donemBaslangic, DateTime donemBitis)
+    {
+        if (!cikisTarihi.HasValue)
+            return 1m;
+
+        var tarih = cikisTarihi.Value.Date;
+        if (tarih < donemBaslangic.Date)
+            return 0m;
+
+        if (tarih > donemBitis.Date)
+            return 1m;
+
+        var donemGunSayisi = DateTime.DaysInMonth(donemBaslangic.Year, donemBaslangic.Month);
+        return tarih.Day / (decimal)donemGunSayisi;
+    }
+
+    private static bool TarihDonemIcinde(DateTime? tarih, DateTime donemBaslangic, DateTime donemBitis)
+    {
+        return tarih.HasValue && tarih.Value.Date >= donemBaslangic.Date && tarih.Value.Date <= donemBitis.Date;
+    }
+
+    private static decimal YuvarlaTutar(decimal tutar)
+    {
+        return Math.Round(tutar, 2, MidpointRounding.AwayFromZero);
     }
 
     private async Task UpdateBordroOzetAsync(int bordroId)

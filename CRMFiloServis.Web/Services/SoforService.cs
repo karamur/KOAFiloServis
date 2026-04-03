@@ -89,6 +89,7 @@ public class SoforService : ISoforService
         existing.SaglikRaporuGecerlilikTarihi = sofor.SaglikRaporuGecerlilikTarihi;
         existing.IseBaslamaTarihi = sofor.IseBaslamaTarihi;
         existing.IstenAyrilmaTarihi = sofor.IstenAyrilmaTarihi;
+        existing.SgkCikisTarihi = sofor.SgkCikisTarihi;
         existing.BrutMaas = sofor.BrutMaas;
         existing.ResmiNetMaas = sofor.ResmiNetMaas;
         existing.DigerMaas = sofor.DigerMaas;

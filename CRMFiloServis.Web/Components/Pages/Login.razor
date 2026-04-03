@@ -3,14 +3,16 @@
 @attribute [AllowAnonymous]
 @using CRMFiloServis.Web.Services
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject IKullaniciService KullaniciService
 @inject ILisansService LisansService
+@inject IPortalProjectCatalogService PortalProjectCatalogService
 @inject NavigationManager Navigation
 @inject AppAuthenticationStateProvider AuthProvider
 @inject ProtectedLocalStorage LocalStorage
 
-<PageTitle>Giris - Koa Filo Servis</PageTitle>
+<PageTitle>Giris - @(selectedProject?.Name ?? "Koa Filo Servis")</PageTitle>
 
 <div class="login-container">
     <div class="login-background">
@@ -24,8 +26,15 @@
             <div class="logo-container">
                 <i class="bi bi-truck"></i>
             </div>
-            <h1><span class="brand-koa">Koa</span> Filo Servis</h1>
-            <p>Filo Yonetim ve Muhasebe Platformu</p>
+            @if (selectedProject is not null)
+            {
+                <div class="selected-project-badge">@selectedProject.Category</div>
+            }
+            <h1>@GetProjectDisplayName()</h1>
+            <p>@(selectedProject?.Subtitle ?? "Filo Yonetim ve Muhasebe Platformu")</p>
+            <a href="/" class="project-switch-link">
+                <i class="bi bi-grid me-1"></i>Projeleri Gor
+            </a>
         </div>
 
         @if (!string.IsNullOrEmpty(errorMessage))
@@ -353,6 +362,9 @@
 </style>
 
 @code {
+    [SupplyParameterFromQuery(Name = "project")]
+    public string? Project { get; set; }
+
     private string kullaniciAdi = "";
     private string sifre = "";
     private bool beniHatirla = false;
@@ -361,12 +373,15 @@
     private string? errorMessage;
     private string? successMessage;
     private CRMFiloServis.Shared.Entities.Lisans? lisans;
+    private PortalProjectDefinition? selectedProject;
     
     private const string REMEMBER_KEY = "CRMFiloServis_RememberMe";
 
     protected override async Task OnInitializedAsync()
     {
         lisans = await LisansService.GetAktifLisansAsync();
+        selectedProject = PortalProjectCatalogService.GetProjectBySlug(Project)
+            ?? PortalProjectCatalogService.GetDefaultProject();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -435,9 +450,9 @@
                 successMessage = "Giris basarili! Yonlendiriliyorsunuz...";
                 StateHasChanged();
 
-                // Ana sayfaya yonlendir
+                // Dashboard'a yonlendir
                 await Task.Delay(300);
-                Navigation.NavigateTo("/", false);
+                Navigation.NavigateTo("/dashboard", false);
             }
             else
             {
@@ -468,4 +483,47 @@
         errorMessage = null;
         successMessage = "Sifre sifirlama icin sistem yoneticisi ile iletisime gecin.";
     }
+
+    private string GetProjectDisplayName()
+    {
+        if (selectedProject is null)
+        {
+            return "Koa Filo Servis";
+        }
+
+        return selectedProject.BrandHighlight is { Length: > 0 }
+            ? selectedProject.BrandHighlight
+            : selectedProject.Name;
+    }
 }
+
+<style>
+    .selected-project-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .45rem .9rem;
+        margin-bottom: 1rem;
+        border-radius: 999px;
+        background: rgba(30, 60, 114, 0.08);
+        color: #1e3c72;
+        font-size: .8rem;
+        font-weight: 700;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .project-switch-link {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        margin-top: .75rem;
+        color: #1e3c72;
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .project-switch-link:hover {
+        text-decoration: underline;
+    }
+</style>

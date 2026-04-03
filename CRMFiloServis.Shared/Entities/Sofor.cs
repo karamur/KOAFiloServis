@@ -28,6 +28,7 @@ public class Sofor : BaseEntity
     // Genel Bilgiler
     public DateTime? IseBaslamaTarihi { get; set; }
     public DateTime? IstenAyrilmaTarihi { get; set; }
+    public DateTime? SgkCikisTarihi { get; set; }
     public bool Aktif { get; set; } = true;
     public string? Notlar { get; set; }
     

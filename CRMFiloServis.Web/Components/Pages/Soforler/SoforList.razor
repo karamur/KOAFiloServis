@@ -58,6 +58,8 @@
                                 <th>Görev</th>
                                 <th>Telefon</th>
                                 <th>İşe Başlama</th>
+                                <th>İşten Çıkış</th>
+                                <th>SGK Çıkış</th>
                                 <th class="text-end">Maaş</th>
                                 <th class="text-center">Belgeler</th>
                                 <th class="text-center">Durum</th>
@@ -77,6 +79,8 @@
                                     </td>
                                     <td>@personel.Telefon</td>
                                     <td>@personel.IseBaslamaTarihi?.ToString("dd.MM.yyyy")</td>
+                                     <td>@personel.IstenAyrilmaTarihi?.ToString("dd.MM.yyyy")</td>
+                                     <td>@personel.SgkCikisTarihi?.ToString("dd.MM.yyyy")</td>
                                     <td class="text-end">@personel.NetMaas.ToString("N0") ?</td>
                                     <td class="text-center">
                                         @if (personel.IsSofor)

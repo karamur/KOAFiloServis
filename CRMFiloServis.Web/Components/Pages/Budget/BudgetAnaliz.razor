@@ -1659,6 +1659,17 @@
             Miktar = odeme.Miktar,
             Durum = odeme.Durum,
             FirmaId = odeme.FirmaId,
+            MasrafKesintisi = odeme.MasrafKesintisi,
+            CezaKesintisi = odeme.CezaKesintisi,
+            DigerKesinti = odeme.DigerKesinti,
+            KesintiAciklamasi = odeme.KesintiAciklamasi,
+            GercekOdemeTarihi = odeme.GercekOdemeTarihi,
+            OdemeYapildigiHesapId = odeme.OdemeYapildigiHesapId,
+            OdenenTutar = odeme.OdenenTutar,
+            OdemeNotu = odeme.OdemeNotu,
+            BankaKasaHareketId = odeme.BankaKasaHareketId,
+            FaturaId = odeme.FaturaId,
+            FaturaIleKapatildi = odeme.FaturaIleKapatildi,
             // Taksit bilgilerini de kopyala
             TaksitliMi = odeme.TaksitliMi,
             TaksitGrupId = odeme.TaksitGrupId,
@@ -1670,13 +1681,11 @@
 
     private async Task OdemeKaydet()
     {
-        if (string.IsNullOrWhiteSpace(editOdeme.MasrafKalemi))
+        if (string.IsNullOrWhiteSpace(editOdeme.MasrafKalemi) || editOdeme.Miktar <= 0)
         {
-            ToastService.ShowWarning("Masraf kalemi zorunlu!");
+            ToastService.ShowWarning("Masraf kalemi ve tutar zorunlu!");
             return;
         }
-
-        // Miktar 0 veya negatif olabilir - kontrol kaldırıldı
 
         try
         {

@@ -83,22 +83,34 @@
                             <InputDate @bind-Value="sofor.IseBaslamaTarihi" class="form-control" />
                         </div>
                     </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">İşten Çıkış Tarihi</label>
+                            <InputDate @bind-Value="sofor.IstenAyrilmaTarihi" class="form-control" />
+                        </div>
+                    </div>
                 </div>
 
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">SGK Çıkış Tarihi</label>
+                            <InputDate @bind-Value="sofor.SgkCikisTarihi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label class="form-label">Telefon</label>
                             <InputText @bind-Value="sofor.Telefon" class="form-control" />
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label class="form-label">Email</label>
                             <InputText @bind-Value="sofor.Email" class="form-control" type="email" />
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label class="form-label">Adres</label>
                             <InputText @bind-Value="sofor.Adres" class="form-control" />

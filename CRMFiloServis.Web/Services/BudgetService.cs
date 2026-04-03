@@ -89,6 +89,7 @@ public class BudgetService : IBudgetService
     {
         // DateTime'i UTC olarak ayarla
         odeme.OdemeTarihi = DateTime.SpecifyKind(odeme.OdemeTarihi, DateTimeKind.Utc);
+        odeme.Miktar = Math.Abs(odeme.Miktar);
         
         // Varsayilan degerler
         odeme.OdemeAy = odeme.OdemeTarihi.Month;
@@ -111,6 +112,7 @@ public class BudgetService : IBudgetService
     {
         // DateTime'i UTC olarak ayarla
         var odemeTarihi = DateTime.SpecifyKind(odeme.OdemeTarihi, DateTimeKind.Utc);
+        var miktar = Math.Abs(odeme.Miktar);
         var updatedAt = DateTime.UtcNow;
         
         // Doğrudan veritabanında güncelle (tracking sorunu olmaz)
@@ -122,9 +124,20 @@ public class BudgetService : IBudgetService
                 .SetProperty(o => o.OdemeYil, odemeTarihi.Year)
                 .SetProperty(o => o.MasrafKalemi, odeme.MasrafKalemi)
                 .SetProperty(o => o.Aciklama, odeme.Aciklama)
-                .SetProperty(o => o.Miktar, odeme.Miktar)
+                .SetProperty(o => o.Miktar, miktar)
                 .SetProperty(o => o.Durum, odeme.Durum)
                 .SetProperty(o => o.FirmaId, odeme.FirmaId)
+                .SetProperty(o => o.MasrafKesintisi, odeme.MasrafKesintisi)
+                .SetProperty(o => o.CezaKesintisi, odeme.CezaKesintisi)
+                .SetProperty(o => o.DigerKesinti, odeme.DigerKesinti)
+                .SetProperty(o => o.KesintiAciklamasi, odeme.KesintiAciklamasi)
+                .SetProperty(o => o.GercekOdemeTarihi, odeme.GercekOdemeTarihi)
+                .SetProperty(o => o.OdemeYapildigiHesapId, odeme.OdemeYapildigiHesapId)
+                .SetProperty(o => o.OdenenTutar, odeme.OdenenTutar)
+                .SetProperty(o => o.OdemeNotu, odeme.OdemeNotu)
+                .SetProperty(o => o.BankaKasaHareketId, odeme.BankaKasaHareketId)
+                .SetProperty(o => o.FaturaId, odeme.FaturaId)
+                .SetProperty(o => o.FaturaIleKapatildi, odeme.FaturaIleKapatildi)
                 .SetProperty(o => o.Notlar, odeme.Notlar)
                 .SetProperty(o => o.UpdatedAt, updatedAt));
         
@@ -132,6 +145,7 @@ public class BudgetService : IBudgetService
         odeme.OdemeTarihi = odemeTarihi;
         odeme.OdemeAy = odemeTarihi.Month;
         odeme.OdemeYil = odemeTarihi.Year;
+        odeme.Miktar = miktar;
         odeme.UpdatedAt = updatedAt;
         
         return odeme;
@@ -178,7 +192,7 @@ public class BudgetService : IBudgetService
         if (odeme == null)
             throw new Exception("Odeme bulunamadi");
 
-        var odemeTutari = request.KismiOdemeTutari ?? odeme.Miktar;
+        var odemeTutari = Math.Abs(request.KismiOdemeTutari ?? odeme.Miktar);
         var odemeTarihi = DateTime.SpecifyKind(request.OdemeTarihi, DateTimeKind.Utc);
 
         // Kesinti bilgilerini kaydet

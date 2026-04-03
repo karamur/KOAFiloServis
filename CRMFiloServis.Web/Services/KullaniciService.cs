@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
@@ -79,6 +79,20 @@ public class KullaniciService : IKullaniciService
         existing.Aktif = kullanici.Aktif;
         existing.Tema = kullanici.Tema;
         existing.KompaktMod = kullanici.KompaktMod;
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        context.Kullanicilar.Update(existing);
+        await context.SaveChangesAsync();
+        return existing;
+    }
+
+    public async Task<Kullanici> ToggleAktifAsync(int id)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.Kullanicilar.FindAsync(id);
+        if (existing == null) throw new Exception("Kullanici bulunamadi");
+
+        existing.Aktif = !existing.Aktif;
         existing.UpdatedAt = DateTime.UtcNow;
 
         context.Kullanicilar.Update(existing);
@@ -246,7 +260,7 @@ public class KullaniciService : IKullaniciService
             if (kullanici == null)
                 return new HashSet<string>();
                 
-            // Admin ise t�m yetkiler
+            // Admin ise tüm yetkiler
             if (kullanici.Rol?.RolAdi == "Admin")
                 return new HashSet<string> { "*" };
                 

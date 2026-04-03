@@ -6,7 +6,7 @@
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <a class="navbar-brand" href="">
+        <a class="navbar-brand" href="dashboard">
             <i class="bi bi-truck me-2"></i>Koa Filo Servis
         </a>
     </div>
@@ -21,9 +21,9 @@
 
 <div class="nav-scrollable">
     <nav class="nav flex-column">
-        <!-- Ana Sayfa - Herkes gorebilir -->
+        <!-- Ana Sayfa -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.Prefix">
                 <i class="bi bi-house-door-fill me-2"></i> Ana Sayfa
             </NavLink>
         </div>
@@ -148,17 +148,17 @@
         @if (HasMenuYetki("menu.filoservis"))
         {
             <div class="nav-section">
-                <div class="nav-section-header" @onclick="() => ToggleSection(1)" style="cursor: pointer;">
+                <div id="nav-section-filo-toggle" class="nav-section-header" @onclick="() => ToggleSection(1)" style="cursor: pointer;">
                     <span><i class="bi bi-truck me-2"></i>FILO SERVIS</span>
                     <i class="bi @(expandedSections[1] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
                 @if (expandedSections[1])
                 {
                     <div class="nav-section-content">
-                        @if (HasYetki("araclar.oka"))
+                        @if (HasYetki("araclar.oku"))
                         {
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="araclar">
+                                <NavLink id="nav-link-araclar" class="nav-link" href="araclar">
                                     <i class="bi bi-car-front-fill me-2"></i> Araclar
                                 </NavLink>
                             </div>
@@ -331,6 +331,9 @@
                                     <i class="bi bi-clipboard-check me-2"></i> Özlük Evrak Checklist
                                 </NavLink>
                             </div>
+                        }
+                        @if (HasYetki("personel.oku") || HasYetki("maas.oku"))
+                        {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="personel/bordro/normal">
                                     <i class="bi bi-receipt-cutoff me-2 text-primary"></i> Normal Bordro

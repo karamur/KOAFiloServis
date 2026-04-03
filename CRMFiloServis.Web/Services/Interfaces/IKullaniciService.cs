@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+﻿using CRMFiloServis.Shared.Entities;
 
 namespace CRMFiloServis.Web.Services;
 
@@ -10,6 +10,7 @@ public interface IKullaniciService
     Task<Kullanici?> GetByKullaniciAdiAsync(string kullaniciAdi);
     Task<Kullanici> CreateAsync(Kullanici kullanici, string sifre);
     Task<Kullanici> UpdateAsync(Kullanici kullanici);
+    Task<Kullanici> ToggleAktifAsync(int id);
     Task DeleteAsync(int id);
     
     // Giris/Cikis

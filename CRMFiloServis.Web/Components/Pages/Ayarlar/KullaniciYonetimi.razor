@@ -1,4 +1,4 @@
-@page "/ayarlar/kullanicilar"
+﻿@page "/ayarlar/kullanicilar"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @using YetkilerClass = CRMFiloServis.Shared.Entities.Yetkiler
@@ -101,6 +101,9 @@
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-outline-primary" @onclick="() => DuzenleAc(kullanici)" title="Duzenle">
                                                 <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn @(kullanici.Aktif ? "btn-outline-warning" : "btn-outline-success")" @onclick="() => AktiflikDegistirAsync(kullanici)" title="@(kullanici.Aktif ? "Pasife Al" : "Aktife Al")">
+                                                <i class="bi @(kullanici.Aktif ? "bi-pause-circle" : "bi-play-circle")"></i>
                                             </button>
                                             @if (kullanici.Kilitli)
                                             {
@@ -535,6 +538,27 @@
         {
             await KullaniciService.SifreSifirlaAsync(kullanici.Id, "123456");
             ToastService.ShowSuccess("Kilit kaldirildi, yeni sifre: 123456");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
+    }
+
+    private async Task AktiflikDegistirAsync(Kullanici kullanici)
+    {
+        var aktifKullanici = await KullaniciService.GetAktifKullaniciAsync();
+        if (aktifKullanici?.Id == kullanici.Id && kullanici.Aktif)
+        {
+            ToastService.ShowWarning("Aktif oturumdaki kullanıcı pasife alınamaz.");
+            return;
+        }
+
+        try
+        {
+            var guncel = await KullaniciService.ToggleAktifAsync(kullanici.Id);
+            ToastService.ShowSuccess($"{guncel.AdSoyad} için durum {(guncel.Aktif ? "aktif" : "pasif")} yapıldı.");
             await LoadDataAsync();
         }
         catch (Exception ex)

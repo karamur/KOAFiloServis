@@ -69,6 +69,7 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
     sp.GetRequiredService<AppAuthenticationStateProvider>());
 builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddSingleton<IPortalProjectCatalogService, PortalProjectCatalogService>();
 
 // Application Services
 builder.Services.AddSingleton<IFirmaService, FirmaService>(); // Singleton - aktif firma state tutmak icin

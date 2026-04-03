@@ -4622,6 +4622,9 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<DateTime?>("IstenAyrilmaTarihi")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("SgkCikisTarihi")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<decimal>("NetMaas")
                         .HasColumnType("numeric");
 

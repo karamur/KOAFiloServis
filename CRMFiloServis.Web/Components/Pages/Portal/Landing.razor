@@ -1,0 +1,798 @@
+﻿@page "/"
+@layout EmptyLayout
+@attribute [AllowAnonymous]
+@using CRMFiloServis.Web.Services
+@using Microsoft.AspNetCore.Authorization
+@inject IPortalProjectCatalogService PortalProjectCatalogService
+@inject NavigationManager Navigation
+
+<PageTitle>Portal - Koa Teknoloji</PageTitle>
+
+<div class="portal-page">
+    <section class="topbar-section">
+        <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3 py-2">
+            <div class="topbar-items">
+                <span><i class="bi bi-envelope me-2"></i>info@koateknoloji.com</span>
+                <span><i class="bi bi-telephone me-2"></i>0850 000 00 00</span>
+            </div>
+            <div class="topbar-items text-lg-end">
+                <span><i class="bi bi-clock-history me-2"></i>Kurumsal danışmanlık, bordro ve dijital dönüşüm</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="hero-section">
+        <div class="hero-overlay"></div>
+        <div class="container position-relative">
+            <div class="hero-nav d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5">
+                <div class="d-flex align-items-center gap-3 text-white">
+                    <div class="brand-mark"><i class="bi bi-buildings"></i></div>
+                    <div>
+                        <div class="fw-bold fs-5">Koa Teknoloji</div>
+                        <small class="text-white-50">Kurumsal çözüm portalı</small>
+                    </div>
+                </div>
+                <div class="hero-nav-links">
+                    <a href="#about">Hakkımızda</a>
+                    <a href="#services">Hizmetler</a>
+                    <a href="#projects">Dijital Çözümler</a>
+                    <a href="#contact">İletişim</a>
+                </div>
+            </div>
+            <div class="row align-items-center g-5">
+                <div class="col-lg-6 text-white">
+                    <span class="hero-badge">Kurumsal Çözüm Portalı</span>
+                    <h1>@catalog.HeroTitle</h1>
+                    <p class="hero-subtitle">Muhasebe, bordro, finans, raporlama ve operasyon süreçlerinizi tek merkezden yönetin. Kurumunuza özel çözümler için tanıtım sayfası ve ürün geçiş ekranı aynı yapıda çalışsın.</p>
+                    <div class="hero-actions">
+                        <button class="btn btn-light btn-lg" @onclick="OpenDefaultProject">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Programa Geç
+                        </button>
+                        <a class="btn btn-outline-light btn-lg" href="#contact">
+                            <i class="bi bi-chat-dots me-2"></i>Teklif Al
+                        </a>
+                    </div>
+                    <div class="hero-list">
+                        @foreach (var item in heroHighlights)
+                        {
+                            <div class="hero-list-item">
+                                <i class="bi bi-check2-circle"></i>
+                                <span>@item</span>
+                            </div>
+                        }
+                    </div>
+                    <div class="hero-stats">
+                        @foreach (var stat in heroStats)
+                        {
+                            <div class="hero-stat">
+                                <strong>@stat.Value</strong>
+                                <span>@stat.Label</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="hero-panel card border-0 shadow-lg">
+                        <div class="card-body p-4 p-xl-5">
+                            <div class="d-flex align-items-center justify-content-between mb-4">
+                                <div>
+                                    <div class="small text-uppercase text-muted fw-semibold">Portal Akışı</div>
+                                    <h3 class="mb-0">3 adımda giriş</h3>
+                                </div>
+                                <i class="bi bi-diagram-3-fill fs-1 text-primary"></i>
+                            </div>
+                            <div class="flow-step">
+                                <span>01</span>
+                                <div>
+                                    <h5>Kurumsal çözümü seçin</h5>
+                                    <p>Aktif projeler arasından ihtiyacınıza uygun ürünü seçin.</p>
+                                </div>
+                            </div>
+                            <div class="flow-step">
+                                <span>02</span>
+                                <div>
+                                    <h5>Giriş ekranına ilerleyin</h5>
+                                    <p>Seçtiğiniz ürün için markalanmış giriş sayfasına geçin.</p>
+                                </div>
+                            </div>
+                            <div class="flow-step mb-0">
+                                <span>03</span>
+                                <div>
+                                    <h5>Sisteme devam edin</h5>
+                                    <p>Kullanıcı hesabınızla oturum açıp operasyon ekranlarına geçin.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="about-section section-shell">
+        <div class="container">
+            <div class="row align-items-center g-4 g-xl-5">
+                <div class="col-lg-6">
+                    <span class="section-tag">Hakkımızda</span>
+                    <h2 class="section-title">Mali süreçleri, bordroyu ve kurumsal operasyonu tek çatı altında topluyoruz</h2>
+                    <p class="section-text">Koa Teknoloji; mali danışmanlık, personel süreçleri, bordro operasyonları ve yönetim raporlarını dijitalleştiren çözümler üretir. Public tanıtım sayfası ile kurumsal uygulama girişini aynı yapıda birleştirerek marka bütünlüğü sağlar.</p>
+                    <div class="about-grid">
+                        @foreach (var item in aboutCards)
+                        {
+                            <div class="about-card">
+                                <div class="about-icon"><i class="@item.Icon"></i></div>
+                                <div>
+                                    <h5>@item.Title</h5>
+                                    <p>@item.Description</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="about-panel card border-0 shadow-sm">
+                        <div class="card-body p-4 p-xl-5">
+                            <div class="mini-caption">Neler sağlıyoruz?</div>
+                            <div class="feature-stack">
+                                @foreach (var feature in aboutFeatures)
+                                {
+                                    <div class="feature-item">
+                                        <div class="feature-badge"><i class="bi bi-check-lg"></i></div>
+                                        <div>
+                                            <h5>@feature.Title</h5>
+                                            <p>@feature.Description</p>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="services" class="services-section section-shell">
+        <div class="container">
+            <div class="section-header text-center">
+                <span class="section-tag">Hizmetler</span>
+                <h2>Kurumsal ihtiyaçlara göre şekillenen çözüm başlıkları</h2>
+                <p>Muhasebe ve bordrodan yazılım altyapısına kadar uçtan uca destek verin, aynı zamanda kullanıcıları tek bir giriş akışında toplayın.</p>
+            </div>
+
+            <div class="row g-4">
+                @foreach (var service in serviceCards)
+                {
+                    <div class="col-md-6 col-xl-4">
+                        <div class="service-card card h-100 border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <div class="service-icon"><i class="@service.Icon"></i></div>
+                                <h4>@service.Title</h4>
+                                <p>@service.Description</p>
+                                <ul>
+                                    @foreach (var bullet in service.Bullets)
+                                    {
+                                        <li>@bullet</li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section id="projects" class="projects-section">
+        <div class="container">
+            <div class="section-header text-center">
+                <span class="section-tag">Projeler</span>
+                <h2>Kurumsal uygulamalarınızı tek kapıda toplayın</h2>
+                <p>Bu alana yeni projeler ekleyebilir, aktif olanları doğrudan login ekranına bağlayabilirsiniz.</p>
+            </div>
+
+            <div class="row g-4">
+                @foreach (var project in projects)
+                {
+                    <div class="col-lg-6">
+                        <div class="project-card card h-100 border-0 shadow-sm">
+                            <div class="card-body p-4 p-xl-5">
+                                <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
+                                    <div class="project-icon" style="background:@project.ThemeColor;">
+                                        <i class="@project.Icon"></i>
+                                    </div>
+                                    <span class="project-status @(project.LoginEnabled ? "active" : "passive")">
+                                        @(project.LoginEnabled ? "Girişe Hazır" : "Yakında")
+                                    </span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="text-uppercase small fw-semibold text-muted mb-2">@project.Category</div>
+                                    <h3 class="mb-2">@project.Name</h3>
+                                    <p class="text-muted mb-0">@project.Subtitle</p>
+                                </div>
+
+                                <p class="project-description">@project.Description</p>
+
+                                <ul class="project-highlights">
+                                    @foreach (var highlight in project.Highlights)
+                                    {
+                                        <li><i class="bi bi-check2-circle"></i>@highlight</li>
+                                    }
+                                </ul>
+
+                                <div class="mt-4">
+                                    @if (project.LoginEnabled)
+                                    {
+                                        <button class="btn btn-primary w-100" @onclick="() => OpenProject(project)">
+                                            <i class="bi bi-arrow-right-circle me-2"></i>Projeyi Seç ve Girişe Git
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-secondary w-100" disabled>
+                                            <i class="bi bi-hourglass-split me-2"></i>Yakında Aktif Olacak
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="team-section section-shell">
+        <div class="container">
+            <div class="section-header text-center">
+                <span class="section-tag">Ekip</span>
+                <h2>Alan uzmanlığı ile teknolojiyi aynı masada buluşturan ekip</h2>
+                <p>Yazılım, bordro, mali süreçler ve operasyon yönetimini birlikte ele alan disiplinler arası yapı.</p>
+            </div>
+
+            <div class="row g-4">
+                @foreach (var member in teamMembers)
+                {
+                    <div class="col-md-6 col-xl-3">
+                        <div class="team-card card border-0 shadow-sm h-100">
+                            <div class="card-body p-4 text-center">
+                                <div class="team-avatar">@member.Initials</div>
+                                <h5 class="mb-1">@member.Name</h5>
+                                <div class="text-primary fw-semibold mb-3">@member.Role</div>
+                                <p class="text-muted mb-0">@member.Description</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section id="contact" class="contact-section section-shell">
+        <div class="container">
+            <div class="contact-panel card border-0 shadow-lg overflow-hidden">
+                <div class="row g-0">
+                    <div class="col-lg-5 contact-side text-white p-4 p-xl-5">
+                        <span class="section-tag section-tag-light">İletişim</span>
+                        <h2>Kurumsal tanıtım sayfanızı ve yönetim panelinizi birlikte kuralım</h2>
+                        <p>İster sadece public tanıtım ekranı, ister login bağlantılı tam kurumsal portal kurgusu isteyin; aynı proje içinde yönetilebilir bir yapı sunuyoruz.</p>
+                        <div class="contact-items">
+                            <div><i class="bi bi-telephone"></i><span>0850 000 00 00</span></div>
+                            <div><i class="bi bi-envelope"></i><span>info@koateknoloji.com</span></div>
+                            <div><i class="bi bi-geo-alt"></i><span>İstanbul / Türkiye</span></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-7 p-4 p-xl-5 bg-white">
+                        <div class="row g-3">
+                            @foreach (var cta in contactCards)
+                            {
+                                <div class="col-md-6">
+                                    <div class="contact-card h-100">
+                                        <div class="contact-card-icon"><i class="@cta.Icon"></i></div>
+                                        <h5>@cta.Title</h5>
+                                        <p>@cta.Description</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        <div class="mt-4 d-flex flex-wrap gap-3">
+                            <button class="btn btn-primary btn-lg" @onclick="OpenDefaultProject">
+                                <i class="bi bi-box-arrow-in-right me-2"></i>Login Akışını Aç
+                            </button>
+                            <a class="btn btn-outline-primary btn-lg" href="mailto:info@koateknoloji.com">
+                                <i class="bi bi-send me-2"></i>E-posta Gönder
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private PortalProjectCatalogOptions catalog = new();
+    private IReadOnlyList<PortalProjectDefinition> projects = Array.Empty<PortalProjectDefinition>();
+    private readonly List<string> heroHighlights =
+    [
+        "Public web sayfası ve yönetim paneli aynı çözüm içinde kurgulanabilir",
+        "Yetki kontrollü giriş, personel ve bordro yönetimi tek portalda toplanır",
+        "Kurumsal tasarım, ürün seçimi ve login akışı marka bütünlüğüyle sunulur"
+    ];
+    private readonly List<StatItem> heroStats =
+    [
+        new("12+", "Kurumsal modül yaklaşımı"),
+        new("7/24", "Portal erişimi"),
+        new("%100", "Yönetilebilir içerik kurgusu")
+    ];
+    private readonly List<InfoCard> aboutCards =
+    [
+        new("bi bi-briefcase", "Operasyon ve finans birlikte", "Muhasebe, bordro ve şirket süreçlerini ayrı ekranlar yerine tek kurgu üzerinden yönetin."),
+        new("bi bi-shield-check", "Yetki bazlı yönetim", "Aktif/pasif kullanıcı kontrolü, menü görünürlüğü ve rol bazlı erişim merkezi olarak yönetilir."),
+        new("bi bi-globe2", "Public + uygulama entegrasyonu", "Tanıtım sitesi ile kurumsal uygulama geçişi tek kök domain veya ayrı çalışan yapı ile sunulabilir.")
+    ];
+    private readonly List<InfoCard> aboutFeatures =
+    [
+        new("", "Kurumsal içerik yönetimi", "Hizmetler, ekip, referanslar ve çağrı alanları markaya uygun olarak düzenlenir."),
+        new("", "Bordro ve personel odağı", "Personel listesi, bordro türleri ve finansal süreçler uygulama tarafına entegre edilir."),
+        new("", "Test edilebilir akış", "Kullanıcı senaryoları Playwright ile doğrulanarak yayın öncesi güvence sağlanır.")
+    ];
+    private readonly List<ServiceCard> serviceCards =
+    [
+        new("bi bi-calculator", "Mali danışmanlık ve raporlama", "Kurumsal müşteriler için finansal görünürlük oluşturan modüler ekranlar.", ["Aylık finans özetleri", "Yönetim raporları", "Bütçe ve ödeme akışı"]),
+        new("bi bi-people", "Personel ve bordro süreçleri", "İşe girişten çıkışa kadar personel hareketlerini ve bordro hesaplamalarını tek panelden yönetin.", ["Normal ve AR-GE bordro", "İzin ve maaş yönetimi", "Çıkış tarihine göre hesaplama"]),
+        new("bi bi-window-stack", "Kurumsal portal ve giriş deneyimi", "Public sayfa, proje seçimi ve kullanıcı login akışı markalı deneyimle sunulur.", ["Anonim tanıtım sayfası", "Projeye özel login yönlendirme", "Aktif/pasif proje yayını"])
+    ];
+    private readonly List<TeamMember> teamMembers =
+    [
+        new("KT", "Koa Teknoloji Ekibi", "Ürün Yönetimi", "Kurumsal ihtiyaçları yazılım mimarisi ve kullanım senaryolarına dönüştürür."),
+        new("MY", "Mali Operasyon", "Mali Süreçler", "Muhasebe, bordro ve raporlama ihtiyaçlarının uygulama tarafına doğru yansımasını sağlar."),
+        new("PY", "Portal Yönetimi", "Kullanıcı Deneyimi", "Public sayfa, giriş ekranı ve yönetim paneli arasındaki akışı sadeleştirir."),
+        new("QA", "Test Ekibi", "Kalite Güvencesi", "Playwright senaryoları ile kritik kullanıcı yolculuklarını otomatik doğrular.")
+    ];
+    private readonly List<InfoCard> contactCards =
+    [
+        new("bi bi-layout-text-window", "Public web yayını", "Markanıza uygun ana sayfa, hizmet kartları ve iletişim alanlarıyla yayın alın."),
+        new("bi bi-toggles", "Yönetim ekranı", "Kullanıcı, proje veya modül bazlı aktif/pasif kontrol mekanizmaları ekleyin."),
+        new("bi bi-robot", "Test otomasyonu", "Selenium yerine Playwright temelli kullanıcı testleriyle yayın kalitesini yükseltin."),
+        new("bi bi-git", "Yayın ve versiyonlama", "Kod gözden geçirme sonrası GitHub akışı ile değişiklikleri kontrollü yönetin.")
+    ];
+
+    protected override void OnInitialized()
+    {
+        catalog = PortalProjectCatalogService.GetCatalog();
+        projects = PortalProjectCatalogService.GetProjects();
+    }
+
+    private void OpenDefaultProject()
+    {
+        OpenProject(PortalProjectCatalogService.GetDefaultProject());
+    }
+
+    private void OpenProject(PortalProjectDefinition project)
+    {
+        Navigation.NavigateTo($"/login?project={Uri.EscapeDataString(project.Slug)}");
+    }
+
+    private sealed record StatItem(string Value, string Label);
+    private sealed record InfoCard(string Icon, string Title, string Description);
+    private sealed record ServiceCard(string Icon, string Title, string Description, List<string> Bullets);
+    private sealed record TeamMember(string Initials, string Name, string Role, string Description);
+}
+
+<style>
+    .portal-page {
+        min-height: 100vh;
+        background: #f5f8fc;
+        color: #11213b;
+    }
+
+    .topbar-section {
+        background: #07162d;
+        color: rgba(255,255,255,.86);
+        font-size: .92rem;
+    }
+
+    .topbar-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.25rem;
+    }
+
+    .topbar-items span {
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .hero-section {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #091a35 0%, #173564 45%, #2a5298 100%);
+        padding: 5rem 0 4rem;
+    }
+
+    .hero-nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.25rem;
+    }
+
+    .hero-nav-links a {
+        color: rgba(255,255,255,.82);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .hero-nav-links a:hover {
+        color: #fff;
+    }
+
+    .brand-mark {
+        width: 3.1rem;
+        height: 3.1rem;
+        border-radius: 1rem;
+        background: rgba(255,255,255,.16);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+    }
+
+    .hero-overlay {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at top right, rgba(255,255,255,.18), transparent 30%), radial-gradient(circle at bottom left, rgba(255,255,255,.12), transparent 25%);
+    }
+
+    .hero-badge, .section-tag {
+        display: inline-flex;
+        padding: .45rem .9rem;
+        border-radius: 999px;
+        font-size: .8rem;
+        font-weight: 700;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .hero-badge {
+        margin-bottom: 1rem;
+        background: rgba(255,255,255,.14);
+        border: 1px solid rgba(255,255,255,.18);
+    }
+
+    .hero-section h1 {
+        font-size: clamp(2.4rem, 4vw, 4.5rem);
+        font-weight: 800;
+        line-height: 1.05;
+        margin-bottom: 1rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1.1rem;
+        max-width: 40rem;
+        color: rgba(255,255,255,.85);
+        margin-bottom: 2rem;
+    }
+
+    .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .hero-list {
+        display: grid;
+        gap: .85rem;
+        margin-bottom: 2rem;
+    }
+
+    .hero-list-item {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        color: rgba(255,255,255,.9);
+    }
+
+    .hero-list-item i {
+        color: #8ad3b0;
+    }
+
+    .hero-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .hero-stat {
+        min-width: 130px;
+        padding: 1rem 1.2rem;
+        border-radius: 1rem;
+        background: rgba(255,255,255,.1);
+        border: 1px solid rgba(255,255,255,.14);
+        backdrop-filter: blur(12px);
+    }
+
+    .hero-stat strong {
+        display: block;
+        font-size: 1.4rem;
+    }
+
+    .hero-stat span {
+        color: rgba(255,255,255,.75);
+        font-size: .95rem;
+    }
+
+    .hero-panel {
+        border-radius: 1.5rem;
+    }
+
+    .flow-step {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid rgba(17,33,59,.08);
+    }
+
+    .flow-step span {
+        width: 3rem;
+        height: 3rem;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(42,82,152,.12);
+        color: #2a5298;
+        font-weight: 800;
+    }
+
+    .flow-step h5 {
+        margin-bottom: .35rem;
+        font-weight: 700;
+    }
+
+    .flow-step p {
+        margin-bottom: 0;
+        color: #5f6f86;
+    }
+
+    .projects-section {
+        padding: 4.5rem 0 5rem;
+    }
+
+    .section-shell {
+        padding: 5rem 0;
+    }
+
+    .section-title {
+        font-size: clamp(2rem, 3vw, 3rem);
+        font-weight: 800;
+        margin-bottom: 1rem;
+    }
+
+    .section-text {
+        color: #52657e;
+        font-size: 1.05rem;
+        margin-bottom: 1.75rem;
+    }
+
+    .mini-caption {
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-size: .8rem;
+        font-weight: 700;
+        color: #2a5298;
+        margin-bottom: 1rem;
+    }
+
+    .about-grid,
+    .feature-stack,
+    .contact-items {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .about-card,
+    .feature-item,
+    .contact-card {
+        background: #fff;
+        border-radius: 1.25rem;
+        padding: 1.15rem 1.2rem;
+        box-shadow: 0 18px 45px rgba(17,33,59,.08);
+    }
+
+    .about-card,
+    .feature-item {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .about-card h5,
+    .feature-item h5,
+    .service-card h4,
+    .contact-card h5 {
+        font-weight: 700;
+        margin-bottom: .45rem;
+    }
+
+    .about-card p,
+    .feature-item p,
+    .service-card p,
+    .contact-card p {
+        color: #566982;
+        margin-bottom: 0;
+    }
+
+    .about-icon,
+    .feature-badge,
+    .service-icon,
+    .contact-card-icon,
+    .team-avatar {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .about-icon,
+    .service-icon,
+    .contact-card-icon {
+        background: rgba(42,82,152,.12);
+        color: #2a5298;
+        font-size: 1.2rem;
+    }
+
+    .feature-badge {
+        background: rgba(25,135,84,.12);
+        color: #198754;
+    }
+
+    .about-panel,
+    .contact-panel,
+    .team-card,
+    .service-card {
+        border-radius: 1.5rem;
+    }
+
+    .service-card ul {
+        margin: 1rem 0 0;
+        padding-left: 1rem;
+        color: #11213b;
+    }
+
+    .service-card li + li {
+        margin-top: .45rem;
+    }
+
+    .team-avatar {
+        margin: 0 auto 1rem;
+        width: 4.25rem;
+        height: 4.25rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #173564, #2a5298);
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 800;
+    }
+
+    .contact-side {
+        background: linear-gradient(160deg, #11213b 0%, #21457d 100%);
+    }
+
+    .section-tag-light {
+        background: rgba(255,255,255,.14);
+        color: #fff;
+        margin-bottom: 1rem;
+    }
+
+    .contact-items div {
+        display: flex;
+        gap: .8rem;
+        align-items: center;
+    }
+
+    .contact-items i {
+        font-size: 1.1rem;
+    }
+
+    .section-header {
+        max-width: 52rem;
+        margin: 0 auto 2.5rem;
+    }
+
+    .section-tag {
+        margin-bottom: 1rem;
+        background: rgba(42,82,152,.1);
+        color: #2a5298;
+    }
+
+    .section-header h2 {
+        font-size: clamp(2rem, 3vw, 3rem);
+        font-weight: 800;
+        margin-bottom: .75rem;
+    }
+
+    .section-header p {
+        color: #5f6f86;
+        font-size: 1.05rem;
+    }
+
+    .project-card {
+        border-radius: 1.5rem;
+    }
+
+    .project-icon {
+        width: 4rem;
+        height: 4rem;
+        border-radius: 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 1.5rem;
+        box-shadow: 0 18px 36px rgba(17,33,59,.14);
+    }
+
+    .project-status {
+        padding: .4rem .8rem;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .project-status.active {
+        background: rgba(25,135,84,.12);
+        color: #198754;
+    }
+
+    .project-status.passive {
+        background: rgba(108,117,125,.14);
+        color: #5c636a;
+    }
+
+    .project-description {
+        color: #4f617a;
+        margin-bottom: 1.2rem;
+    }
+
+    .project-highlights {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: .75rem;
+    }
+
+    .project-highlights li {
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        color: #11213b;
+        font-weight: 500;
+    }
+
+    .project-highlights i {
+        color: #198754;
+    }
+
+    @@media (max-width: 991.98px) {
+        .hero-section {
+            padding-top: 4rem;
+        }
+
+        .hero-nav-links {
+            width: 100%;
+            justify-content: flex-start;
+        }
+    }
+</style>
