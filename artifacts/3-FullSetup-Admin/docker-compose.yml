@@ -1,0 +1,165 @@
+﻿version: '3.8'
+
+services:
+  # Ana Uygulama
+  app:
+    image: crmfiloservis:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crmfiloservis-app
+    ports:
+      - "5190:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=db;Database=crmfilo;Username=postgres;Password=${DB_PASSWORD:-CrmFilo2026!}
+      - DatabaseProvider=PostgreSQL
+      - Redis__ConnectionString=redis:6379
+      - AdminPanel__Enabled=true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+      - ./license.key:/app/license.key:ro
+      - ./appsettings.Production.json:/app/appsettings.Production.json:ro
+    restart: unless-stopped
+    networks:
+      - crmfilo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PostgreSQL Veritabanı
+  db:
+    image: postgres:15-alpine
+    container_name: crmfiloservis-db
+    environment:
+      - POSTGRES_DB=crmfilo
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-CrmFilo2026!}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - crmfilo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crmfilo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: crmfiloservis-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - crmfilo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: crmfiloservis-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./web-landing/dist:/var/www/landing:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - crmfilo-network
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: crmfiloservis-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - crmfilo-network
+    profiles:
+      - monitoring
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: crmfiloservis-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-Admin2026!}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - crmfilo-network
+    profiles:
+      - monitoring
+
+  # Backup Service
+  backup:
+    image: postgres:15-alpine
+    container_name: crmfiloservis-backup
+    environment:
+      - PGHOST=db
+      - PGDATABASE=crmfilo
+      - PGUSER=postgres
+      - PGPASSWORD=${DB_PASSWORD:-CrmFilo2026!}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "-c", "while true; do /backup.sh; sleep 86400; done"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - crmfilo-network
+    profiles:
+      - backup
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  app_data:
+  app_logs:
+
+networks:
+  crmfilo-network:
+    driver: bridge

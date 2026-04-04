@@ -1,0 +1,65 @@
+﻿# CRM Filo Servis - Prometheus Konfigürasyonu
+# Versiyon: 1.0.0
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'crmfiloservis-monitor'
+
+# Alertmanager Konfigürasyonu
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Kural Dosyaları
+rule_files:
+  # - "alert_rules.yml"
+
+# Scrape Konfigürasyonları
+scrape_configs:
+  # Prometheus kendi metriklerini izle
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+
+  # CRM Filo Servis Ana Uygulama
+  - job_name: 'crmfiloservis-app'
+    static_configs:
+      - targets: ['app:5000']
+    metrics_path: /metrics
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # PostgreSQL Veritabanı (postgres_exporter ile)
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    metrics_path: /metrics
+
+  # Redis Cache (redis_exporter ile)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    metrics_path: /metrics
+
+  # Nginx Reverse Proxy
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    metrics_path: /metrics
+
+  # Node Exporter - Sunucu Metrikleri
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    metrics_path: /metrics
+
+  # Docker Container Metrikleri (cAdvisor)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metrics_path: /metrics

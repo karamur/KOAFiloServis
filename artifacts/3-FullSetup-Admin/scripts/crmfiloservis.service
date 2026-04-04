@@ -1,0 +1,56 @@
+﻿# CRM Filo Servis - Systemd Service Dosyası
+# /etc/systemd/system/crmfiloservis.service
+#
+# Kurulum:
+#   sudo cp crmfiloservis.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable crmfiloservis
+#   sudo systemctl start crmfiloservis
+
+[Unit]
+Description=CRM Filo Servis - Filo Yönetim ve CRM Uygulaması
+Documentation=https://github.com/karamur/CRMFiloServis
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
+
+[Service]
+Type=notify
+User=crmfiloservis
+Group=crmfiloservis
+
+# Çalışma dizini
+WorkingDirectory=/opt/crmfiloservis
+
+# Uygulama başlatma
+ExecStart=/opt/crmfiloservis/CRMFiloServis.Web
+ExecStop=/bin/kill -SIGTERM $MAINPID
+
+# Ortam değişkenleri
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://localhost:5000
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+# Kaynak limitleri
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Yeniden başlatma politikası
+Restart=always
+RestartSec=10
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+# Güvenlik ayarları
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/crmfiloservis/data /opt/crmfiloservis/logs /var/log/crmfiloservis
+
+# Loglama
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=crmfiloservis
+
+[Install]
+WantedBy=multi-user.target
