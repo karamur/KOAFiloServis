@@ -1,0 +1,9 @@
+- personel listesinde-personel düzenle-bilgilerde yapılan düzenleme databasede düzenleme yapmıyor. normal bordro ve arge bordrosu personellin ismine ve her personel için düzenlenmeli, bordro hesap pusulası her personel için alınabilmelidir. maaş yönetime yol parası alanıda ekle. maaş yönetim de ödeme yap butonu pasif durumdadır. maaş yönetimde haraket listesi olması , ödeme yap basıldığından bankadan toplu liste ile yada liste açılıp listeden ödeme girilebilmelidir. maaş yönetimi tüm aylar ve tüm yıllar denildiğinde filitreleme yapabilmesi harreket listesi/yazdır(ön izleme)/excel aktar yapılmalıdır.
+
+---
+
+chat de benle türkçe yazarmısın? .bütçe analiz cezalı ödeme yaptım fakat ödeme cezalı olduğunda (-) işareti konuyor. ceza ödemesi yaptım databse yazmadı.
+
+---
+
+web sayfası ve kontrol sayfası ekle bunuda tek başına çalış yap. bütçe analiz ödene yapılıyor. ceza miktarı arttırması gerekiyor fakat programda (-) olarak yazıldığında miktar artıyor fakat ödeme database kayıt yapmıyor. düzelt. perseonel eklerken brüt maaş hesaplama (saatlik=> saat*saatlik ücret, Aylık=> gün*günlük ücret), yuvarlama yapılsın kuruş farkı eklemeyapılsın(-) kullanılsın.

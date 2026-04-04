@@ -165,8 +165,37 @@
                 <div class="row">
                     <div class="col-md-3">
                         <div class="mb-3">
+                            <label class="form-label">Brüt Maaş Tipi</label>
+                            <InputSelect @bind-Value="sofor.BrutMaasHesaplamaTipi" class="form-select" @bind-Value:after="BrutMaasHesaplaAsync">
+                                <option value="@BrutMaasHesaplamaTipi.Manuel">Manuel</option>
+                                <option value="@BrutMaasHesaplamaTipi.Saatlik">Saatlik</option>
+                                <option value="@BrutMaasHesaplamaTipi.Aylik">Aylık (Günlük Ücret)</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                    @if (sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)
+                    {
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">@(sofor.BrutMaasHesaplamaTipi == BrutMaasHesaplamaTipi.Saatlik ? "Saat" : "Gün")</label>
+                                <InputNumber @bind-Value="sofor.CalismaMiktari" class="form-control" @bind-Value:after="BrutMaasHesaplaAsync" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">@(sofor.BrutMaasHesaplamaTipi == BrutMaasHesaplamaTipi.Saatlik ? "Saatlik Ücret (₺)" : "Günlük Ücret (₺)")</label>
+                                <InputNumber @bind-Value="sofor.BirimUcret" class="form-control" @bind-Value:after="BrutMaasHesaplaAsync" />
+                            </div>
+                        </div>
+                    }
+                    <div class="col-md-3">
+                        <div class="mb-3">
                             <label class="form-label">Brüt Maaş (₺)</label>
-                            <InputNumber @bind-Value="sofor.BrutMaas" class="form-control" />
+                            <InputNumber @bind-Value="sofor.BrutMaas" class="form-control" readonly="@(sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)" @bind-Value:after="BrutMaasHesaplaAsync" />
+                            @if (sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)
+                            {
+                                <small class="text-muted">Hesaplanan: @sofor.CalismaMiktari x @sofor.BirimUcret = @sofor.BrutMaas.ToString("N2")</small>
+                            }
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -179,6 +208,7 @@
                         <div class="mb-3">
                             <label class="form-label">Diğer Maaş (₺)</label>
                             <InputNumber @bind-Value="sofor.DigerMaas" class="form-control" />
+                            <small class="text-muted">Kuruş farkı veya ekleme için negatif değer kullanılabilir.</small>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -310,8 +340,8 @@
             sofor.BordroTipiPersonel = PersonelBordroTipi.Yok;
         }
 
-        // NetMaas hesapla
-        sofor.NetMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
+        await BrutMaasHesaplaAsync();
+        sofor.NetMaas = YuvarlaPara(sofor.ResmiNetMaas + sofor.DigerMaas);
 
         try
         {
@@ -345,6 +375,30 @@
             sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
         }
     }
+
+    private Task BrutMaasHesaplaAsync()
+    {
+        sofor.CalismaMiktari = YuvarlaPara(sofor.CalismaMiktari);
+        sofor.BirimUcret = YuvarlaPara(sofor.BirimUcret);
+
+        if (sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)
+        {
+            sofor.BrutMaas = YuvarlaPara(sofor.CalismaMiktari * sofor.BirimUcret);
+        }
+        else
+        {
+            sofor.BrutMaas = YuvarlaPara(sofor.BrutMaas);
+        }
+
+        sofor.ResmiNetMaas = YuvarlaPara(sofor.ResmiNetMaas);
+        sofor.DigerMaas = YuvarlaPara(sofor.DigerMaas);
+        sofor.NetMaas = YuvarlaPara(sofor.ResmiNetMaas + sofor.DigerMaas);
+
+        return Task.CompletedTask;
+    }
+
+    private static decimal YuvarlaPara(decimal value)
+        => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
     private string GetGorevAdi(PersonelGorev gorev)
     {

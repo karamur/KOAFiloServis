@@ -10,6 +10,7 @@ public interface IBudgetService
     Task<List<BudgetOdeme>> GetDevirBekleyenOdemelerAsync(DateTime donemBaslangic, int? firmaId = null);
     Task<List<BudgetOdeme>> GetOdemelerByDateRangeAsync(DateTime baslangic, DateTime bitis);
     Task<BudgetOdeme?> GetOdemeByIdAsync(int id);
+    Task<BudgetOdeme?> GetOdemeByHareketIdAsync(int bankaKasaHareketId);
     Task<BudgetOdeme> CreateOdemeAsync(BudgetOdeme odeme);
     Task<BudgetOdeme> UpdateOdemeAsync(BudgetOdeme odeme);
     Task DeleteOdemeAsync(int id); // Soft delete

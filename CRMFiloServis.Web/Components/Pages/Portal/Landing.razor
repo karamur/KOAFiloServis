@@ -6,17 +6,17 @@
 @inject IPortalProjectCatalogService PortalProjectCatalogService
 @inject NavigationManager Navigation
 
-<PageTitle>Portal - Koa Teknoloji</PageTitle>
+<PageTitle>@catalog.Content.BrowserTitle</PageTitle>
 
 <div class="portal-page">
     <section class="topbar-section">
         <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3 py-2">
             <div class="topbar-items">
-                <span><i class="bi bi-envelope me-2"></i>info@koateknoloji.com</span>
-                <span><i class="bi bi-telephone me-2"></i>0850 000 00 00</span>
+                <span><i class="bi bi-envelope me-2"></i>@catalog.SupportEmail</span>
+                <span><i class="bi bi-telephone me-2"></i>@catalog.SupportPhone</span>
             </div>
             <div class="topbar-items text-lg-end">
-                <span><i class="bi bi-clock-history me-2"></i>Kurumsal danışmanlık, bordro ve dijital dönüşüm</span>
+                <span><i class="bi bi-clock-history me-2"></i>@catalog.TopbarMessage</span>
             </div>
         </div>
     </section>
@@ -28,32 +28,32 @@
                 <div class="d-flex align-items-center gap-3 text-white">
                     <div class="brand-mark"><i class="bi bi-buildings"></i></div>
                     <div>
-                        <div class="fw-bold fs-5">Koa Teknoloji</div>
-                        <small class="text-white-50">Kurumsal çözüm portalı</small>
+                        <div class="fw-bold fs-5">@catalog.CompanyName</div>
+                        <small class="text-white-50">@catalog.Content.BrandTagline</small>
                     </div>
                 </div>
                 <div class="hero-nav-links">
-                    <a href="#about">Hakkımızda</a>
-                    <a href="#services">Hizmetler</a>
-                    <a href="#projects">Dijital Çözümler</a>
-                    <a href="#contact">İletişim</a>
+                    <a href="#about">@catalog.Content.Navigation.AboutText</a>
+                    <a href="#services">@catalog.Content.Navigation.ServicesText</a>
+                    <a href="#projects">@catalog.Content.Navigation.ProjectsText</a>
+                    <a href="#contact">@catalog.Content.Navigation.ContactText</a>
                 </div>
             </div>
             <div class="row align-items-center g-5">
                 <div class="col-lg-6 text-white">
-                    <span class="hero-badge">Kurumsal Çözüm Portalı</span>
-                    <h1>@catalog.HeroTitle</h1>
-                    <p class="hero-subtitle">Muhasebe, bordro, finans, raporlama ve operasyon süreçlerinizi tek merkezden yönetin. Kurumunuza özel çözümler için tanıtım sayfası ve ürün geçiş ekranı aynı yapıda çalışsın.</p>
+                    <span class="hero-badge">@catalog.Content.Hero.BadgeText</span>
+                    <h1>@catalog.Content.Hero.Title</h1>
+                    <p class="hero-subtitle">@catalog.Content.Hero.Subtitle</p>
                     <div class="hero-actions">
                         <button class="btn btn-light btn-lg" @onclick="OpenDefaultProject">
-                            <i class="bi bi-box-arrow-in-right me-2"></i>Programa Geç
+                            <i class="bi bi-box-arrow-in-right me-2"></i>@catalog.Content.Hero.PrimaryButtonText
                         </button>
                         <a class="btn btn-outline-light btn-lg" href="#contact">
-                            <i class="bi bi-chat-dots me-2"></i>Teklif Al
+                            <i class="bi bi-chat-dots me-2"></i>@catalog.Content.Hero.SecondaryButtonText
                         </a>
                     </div>
                     <div class="hero-list">
-                        @foreach (var item in heroHighlights)
+                        @foreach (var item in catalog.Content.Hero.Highlights)
                         {
                             <div class="hero-list-item">
                                 <i class="bi bi-check2-circle"></i>
@@ -62,7 +62,7 @@
                         }
                     </div>
                     <div class="hero-stats">
-                        @foreach (var stat in heroStats)
+                        @foreach (var stat in catalog.Content.Hero.Stats)
                         {
                             <div class="hero-stat">
                                 <strong>@stat.Value</strong>
@@ -76,32 +76,22 @@
                         <div class="card-body p-4 p-xl-5">
                             <div class="d-flex align-items-center justify-content-between mb-4">
                                 <div>
-                                    <div class="small text-uppercase text-muted fw-semibold">Portal Akışı</div>
-                                    <h3 class="mb-0">3 adımda giriş</h3>
+                                    <div class="small text-uppercase text-muted fw-semibold">@catalog.Content.Hero.FlowEyebrow</div>
+                                    <h3 class="mb-0">@catalog.Content.Hero.FlowTitle</h3>
                                 </div>
                                 <i class="bi bi-diagram-3-fill fs-1 text-primary"></i>
                             </div>
-                            <div class="flow-step">
-                                <span>01</span>
-                                <div>
-                                    <h5>Kurumsal çözümü seçin</h5>
-                                    <p>Aktif projeler arasından ihtiyacınıza uygun ürünü seçin.</p>
+                            @for (var i = 0; i < catalog.Content.Hero.FlowSteps.Count; i++)
+                            {
+                                var step = catalog.Content.Hero.FlowSteps[i];
+                                <div class="flow-step @(i == catalog.Content.Hero.FlowSteps.Count - 1 ? "mb-0" : string.Empty)">
+                                    <span>@step.Number</span>
+                                    <div>
+                                        <h5>@step.Title</h5>
+                                        <p>@step.Description</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="flow-step">
-                                <span>02</span>
-                                <div>
-                                    <h5>Giriş ekranına ilerleyin</h5>
-                                    <p>Seçtiğiniz ürün için markalanmış giriş sayfasına geçin.</p>
-                                </div>
-                            </div>
-                            <div class="flow-step mb-0">
-                                <span>03</span>
-                                <div>
-                                    <h5>Sisteme devam edin</h5>
-                                    <p>Kullanıcı hesabınızla oturum açıp operasyon ekranlarına geçin.</p>
-                                </div>
-                            </div>
+                            }
                         </div>
                     </div>
                 </div>
@@ -113,11 +103,11 @@
         <div class="container">
             <div class="row align-items-center g-4 g-xl-5">
                 <div class="col-lg-6">
-                    <span class="section-tag">Hakkımızda</span>
-                    <h2 class="section-title">Mali süreçleri, bordroyu ve kurumsal operasyonu tek çatı altında topluyoruz</h2>
-                    <p class="section-text">Koa Teknoloji; mali danışmanlık, personel süreçleri, bordro operasyonları ve yönetim raporlarını dijitalleştiren çözümler üretir. Public tanıtım sayfası ile kurumsal uygulama girişini aynı yapıda birleştirerek marka bütünlüğü sağlar.</p>
+                    <span class="section-tag">@catalog.Content.About.Tag</span>
+                    <h2 class="section-title">@catalog.Content.About.Title</h2>
+                    <p class="section-text">@catalog.Content.About.Description</p>
                     <div class="about-grid">
-                        @foreach (var item in aboutCards)
+                        @foreach (var item in catalog.Content.About.Cards)
                         {
                             <div class="about-card">
                                 <div class="about-icon"><i class="@item.Icon"></i></div>
@@ -132,9 +122,9 @@
                 <div class="col-lg-6">
                     <div class="about-panel card border-0 shadow-sm">
                         <div class="card-body p-4 p-xl-5">
-                            <div class="mini-caption">Neler sağlıyoruz?</div>
+                            <div class="mini-caption">@catalog.Content.About.PanelTitle</div>
                             <div class="feature-stack">
-                                @foreach (var feature in aboutFeatures)
+                                @foreach (var feature in catalog.Content.About.Features)
                                 {
                                     <div class="feature-item">
                                         <div class="feature-badge"><i class="bi bi-check-lg"></i></div>
@@ -155,13 +145,13 @@
     <section id="services" class="services-section section-shell">
         <div class="container">
             <div class="section-header text-center">
-                <span class="section-tag">Hizmetler</span>
-                <h2>Kurumsal ihtiyaçlara göre şekillenen çözüm başlıkları</h2>
-                <p>Muhasebe ve bordrodan yazılım altyapısına kadar uçtan uca destek verin, aynı zamanda kullanıcıları tek bir giriş akışında toplayın.</p>
+                <span class="section-tag">@catalog.Content.Services.Tag</span>
+                <h2>@catalog.Content.Services.Title</h2>
+                <p>@catalog.Content.Services.Description</p>
             </div>
 
             <div class="row g-4">
-                @foreach (var service in serviceCards)
+                @foreach (var service in catalog.Content.Services.Cards)
                 {
                     <div class="col-md-6 col-xl-4">
                         <div class="service-card card h-100 border-0 shadow-sm">
@@ -186,9 +176,9 @@
     <section id="projects" class="projects-section">
         <div class="container">
             <div class="section-header text-center">
-                <span class="section-tag">Projeler</span>
-                <h2>Kurumsal uygulamalarınızı tek kapıda toplayın</h2>
-                <p>Bu alana yeni projeler ekleyebilir, aktif olanları doğrudan login ekranına bağlayabilirsiniz.</p>
+                <span class="section-tag">@catalog.Content.Projects.Tag</span>
+                <h2>@catalog.Content.Projects.Title</h2>
+                <p>@catalog.Content.Projects.Description</p>
             </div>
 
             <div class="row g-4">
@@ -202,7 +192,7 @@
                                         <i class="@project.Icon"></i>
                                     </div>
                                     <span class="project-status @(project.LoginEnabled ? "active" : "passive")">
-                                        @(project.LoginEnabled ? "Girişe Hazır" : "Yakında")
+                                        @(project.LoginEnabled ? catalog.Content.Projects.ReadyBadgeText : catalog.Content.Projects.SoonBadgeText)
                                     </span>
                                 </div>
 
@@ -225,13 +215,13 @@
                                     @if (project.LoginEnabled)
                                     {
                                         <button class="btn btn-primary w-100" @onclick="() => OpenProject(project)">
-                                            <i class="bi bi-arrow-right-circle me-2"></i>Projeyi Seç ve Girişe Git
+                                            <i class="bi bi-arrow-right-circle me-2"></i>@catalog.Content.Projects.OpenButtonText
                                         </button>
                                     }
                                     else
                                     {
                                         <button class="btn btn-outline-secondary w-100" disabled>
-                                            <i class="bi bi-hourglass-split me-2"></i>Yakında Aktif Olacak
+                                            <i class="bi bi-hourglass-split me-2"></i>@catalog.Content.Projects.SoonButtonText
                                         </button>
                                     }
                                 </div>
@@ -246,13 +236,13 @@
     <section class="team-section section-shell">
         <div class="container">
             <div class="section-header text-center">
-                <span class="section-tag">Ekip</span>
-                <h2>Alan uzmanlığı ile teknolojiyi aynı masada buluşturan ekip</h2>
-                <p>Yazılım, bordro, mali süreçler ve operasyon yönetimini birlikte ele alan disiplinler arası yapı.</p>
+                <span class="section-tag">@catalog.Content.Team.Tag</span>
+                <h2>@catalog.Content.Team.Title</h2>
+                <p>@catalog.Content.Team.Description</p>
             </div>
 
             <div class="row g-4">
-                @foreach (var member in teamMembers)
+                @foreach (var member in catalog.Content.Team.Members)
                 {
                     <div class="col-md-6 col-xl-3">
                         <div class="team-card card border-0 shadow-sm h-100">
@@ -274,18 +264,18 @@
             <div class="contact-panel card border-0 shadow-lg overflow-hidden">
                 <div class="row g-0">
                     <div class="col-lg-5 contact-side text-white p-4 p-xl-5">
-                        <span class="section-tag section-tag-light">İletişim</span>
-                        <h2>Kurumsal tanıtım sayfanızı ve yönetim panelinizi birlikte kuralım</h2>
-                        <p>İster sadece public tanıtım ekranı, ister login bağlantılı tam kurumsal portal kurgusu isteyin; aynı proje içinde yönetilebilir bir yapı sunuyoruz.</p>
+                        <span class="section-tag section-tag-light">@catalog.Content.Contact.Tag</span>
+                        <h2>@catalog.Content.Contact.Title</h2>
+                        <p>@catalog.Content.Contact.Description</p>
                         <div class="contact-items">
-                            <div><i class="bi bi-telephone"></i><span>0850 000 00 00</span></div>
-                            <div><i class="bi bi-envelope"></i><span>info@koateknoloji.com</span></div>
-                            <div><i class="bi bi-geo-alt"></i><span>İstanbul / Türkiye</span></div>
+                            <div><i class="bi bi-telephone"></i><span>@catalog.SupportPhone</span></div>
+                            <div><i class="bi bi-envelope"></i><span>@catalog.SupportEmail</span></div>
+                            <div><i class="bi bi-geo-alt"></i><span>@catalog.SupportLocation</span></div>
                         </div>
                     </div>
                     <div class="col-lg-7 p-4 p-xl-5 bg-white">
                         <div class="row g-3">
-                            @foreach (var cta in contactCards)
+                            @foreach (var cta in catalog.Content.Contact.Cards)
                             {
                                 <div class="col-md-6">
                                     <div class="contact-card h-100">
@@ -298,10 +288,10 @@
                         </div>
                         <div class="mt-4 d-flex flex-wrap gap-3">
                             <button class="btn btn-primary btn-lg" @onclick="OpenDefaultProject">
-                                <i class="bi bi-box-arrow-in-right me-2"></i>Login Akışını Aç
+                                <i class="bi bi-box-arrow-in-right me-2"></i>@catalog.Content.Contact.PrimaryButtonText
                             </button>
-                            <a class="btn btn-outline-primary btn-lg" href="mailto:info@koateknoloji.com">
-                                <i class="bi bi-send me-2"></i>E-posta Gönder
+                            <a class="btn btn-outline-primary btn-lg" href="@catalog.Content.Contact.SecondaryButtonUrl">
+                                <i class="bi bi-send me-2"></i>@catalog.Content.Contact.SecondaryButtonText
                             </a>
                         </div>
                     </div>
@@ -314,54 +304,17 @@
 @code {
     private PortalProjectCatalogOptions catalog = new();
     private IReadOnlyList<PortalProjectDefinition> projects = Array.Empty<PortalProjectDefinition>();
-    private readonly List<string> heroHighlights =
-    [
-        "Public web sayfası ve yönetim paneli aynı çözüm içinde kurgulanabilir",
-        "Yetki kontrollü giriş, personel ve bordro yönetimi tek portalda toplanır",
-        "Kurumsal tasarım, ürün seçimi ve login akışı marka bütünlüğüyle sunulur"
-    ];
-    private readonly List<StatItem> heroStats =
-    [
-        new("12+", "Kurumsal modül yaklaşımı"),
-        new("7/24", "Portal erişimi"),
-        new("%100", "Yönetilebilir içerik kurgusu")
-    ];
-    private readonly List<InfoCard> aboutCards =
-    [
-        new("bi bi-briefcase", "Operasyon ve finans birlikte", "Muhasebe, bordro ve şirket süreçlerini ayrı ekranlar yerine tek kurgu üzerinden yönetin."),
-        new("bi bi-shield-check", "Yetki bazlı yönetim", "Aktif/pasif kullanıcı kontrolü, menü görünürlüğü ve rol bazlı erişim merkezi olarak yönetilir."),
-        new("bi bi-globe2", "Public + uygulama entegrasyonu", "Tanıtım sitesi ile kurumsal uygulama geçişi tek kök domain veya ayrı çalışan yapı ile sunulabilir.")
-    ];
-    private readonly List<InfoCard> aboutFeatures =
-    [
-        new("", "Kurumsal içerik yönetimi", "Hizmetler, ekip, referanslar ve çağrı alanları markaya uygun olarak düzenlenir."),
-        new("", "Bordro ve personel odağı", "Personel listesi, bordro türleri ve finansal süreçler uygulama tarafına entegre edilir."),
-        new("", "Test edilebilir akış", "Kullanıcı senaryoları Playwright ile doğrulanarak yayın öncesi güvence sağlanır.")
-    ];
-    private readonly List<ServiceCard> serviceCards =
-    [
-        new("bi bi-calculator", "Mali danışmanlık ve raporlama", "Kurumsal müşteriler için finansal görünürlük oluşturan modüler ekranlar.", ["Aylık finans özetleri", "Yönetim raporları", "Bütçe ve ödeme akışı"]),
-        new("bi bi-people", "Personel ve bordro süreçleri", "İşe girişten çıkışa kadar personel hareketlerini ve bordro hesaplamalarını tek panelden yönetin.", ["Normal ve AR-GE bordro", "İzin ve maaş yönetimi", "Çıkış tarihine göre hesaplama"]),
-        new("bi bi-window-stack", "Kurumsal portal ve giriş deneyimi", "Public sayfa, proje seçimi ve kullanıcı login akışı markalı deneyimle sunulur.", ["Anonim tanıtım sayfası", "Projeye özel login yönlendirme", "Aktif/pasif proje yayını"])
-    ];
-    private readonly List<TeamMember> teamMembers =
-    [
-        new("KT", "Koa Teknoloji Ekibi", "Ürün Yönetimi", "Kurumsal ihtiyaçları yazılım mimarisi ve kullanım senaryolarına dönüştürür."),
-        new("MY", "Mali Operasyon", "Mali Süreçler", "Muhasebe, bordro ve raporlama ihtiyaçlarının uygulama tarafına doğru yansımasını sağlar."),
-        new("PY", "Portal Yönetimi", "Kullanıcı Deneyimi", "Public sayfa, giriş ekranı ve yönetim paneli arasındaki akışı sadeleştirir."),
-        new("QA", "Test Ekibi", "Kalite Güvencesi", "Playwright senaryoları ile kritik kullanıcı yolculuklarını otomatik doğrular.")
-    ];
-    private readonly List<InfoCard> contactCards =
-    [
-        new("bi bi-layout-text-window", "Public web yayını", "Markanıza uygun ana sayfa, hizmet kartları ve iletişim alanlarıyla yayın alın."),
-        new("bi bi-toggles", "Yönetim ekranı", "Kullanıcı, proje veya modül bazlı aktif/pasif kontrol mekanizmaları ekleyin."),
-        new("bi bi-robot", "Test otomasyonu", "Selenium yerine Playwright temelli kullanıcı testleriyle yayın kalitesini yükseltin."),
-        new("bi bi-git", "Yayın ve versiyonlama", "Kod gözden geçirme sonrası GitHub akışı ile değişiklikleri kontrollü yönetin.")
-    ];
 
     protected override void OnInitialized()
     {
         catalog = PortalProjectCatalogService.GetCatalog();
+
+        if (!catalog.LandingPageEnabled)
+        {
+            OpenDefaultProject();
+            return;
+        }
+
         projects = PortalProjectCatalogService.GetProjects();
     }
 
@@ -374,11 +327,6 @@
     {
         Navigation.NavigateTo($"/login?project={Uri.EscapeDataString(project.Slug)}");
     }
-
-    private sealed record StatItem(string Value, string Label);
-    private sealed record InfoCard(string Icon, string Title, string Description);
-    private sealed record ServiceCard(string Icon, string Title, string Description, List<string> Bullets);
-    private sealed record TeamMember(string Initials, string Name, string Role, string Description);
 }
 
 <style>

@@ -33,6 +33,9 @@ public class Sofor : BaseEntity
     public string? Notlar { get; set; }
     
     // Maaş Bilgileri
+    public BrutMaasHesaplamaTipi BrutMaasHesaplamaTipi { get; set; } = BrutMaasHesaplamaTipi.Manuel;
+    public decimal CalismaMiktari { get; set; }
+    public decimal BirimUcret { get; set; }
     public decimal BrutMaas { get; set; }
     public decimal ResmiNetMaas { get; set; }
     public decimal DigerMaas { get; set; }
@@ -85,4 +88,11 @@ public enum PersonelBordroTipi
     Yok = 0,
     Normal = 1,
     Arge = 2
+}
+
+public enum BrutMaasHesaplamaTipi
+{
+    Manuel = 0,
+    Saatlik = 1,
+    Aylik = 2
 }

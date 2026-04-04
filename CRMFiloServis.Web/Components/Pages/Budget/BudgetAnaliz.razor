@@ -598,14 +598,14 @@
                                         <div class="col-md-4">
                                             <label class="form-label small">Masraf/Komisyon</label>
                                             <div class="input-group input-group-sm">
-                                                <input type="number" class="form-control" @bind="odemeYapRequest.MasrafKesintisi" step="0.01" min="0" />
+                                                <input type="number" class="form-control" @bind="odemeYapRequest.MasrafKesintisi" step="0.01" />
                                                 <span class="input-group-text">₺</span>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label small">Ceza/Faiz</label>
                                             <div class="input-group input-group-sm">
-                                                <input type="number" class="form-control" @bind="odemeYapRequest.CezaKesintisi" step="0.01" min="0" />
+                                                <input type="number" class="form-control" @bind="odemeYapRequest.CezaKesintisi" step="0.01" />
                                                 <span class="input-group-text">₺</span>
                                             </div>
                                         </div>
@@ -637,18 +637,18 @@
                     </div>
 
                     <!-- Özet -->
-                    <div class="card mt-3 @(ToplamKesinti > 0 ? "border-warning" : "border-success")">
+                    <div class="card mt-3 @(ToplamKesinti != 0 ? "border-warning" : "border-success")">
                         <div class="card-body py-2">
                             <div class="row">
                                 <div class="col-6">
                                     <small class="text-muted">Tutar:</small>
                                     <div class="fs-5">@FormatPara(odemeYapilacak.Miktar)</div>
                                 </div>
-                                @if (ToplamKesinti > 0)
+                                @if (ToplamKesinti != 0)
                                 {
                                     <div class="col-3 text-center">
-                                        <small class="text-muted">Kesinti:</small>
-                                        <div class="text-danger">-@FormatPara(ToplamKesinti)</div>
+                                        <small class="text-muted">@(ToplamKesinti > 0 ? "Kesinti" : "Ekleme"):</small>
+                                        <div class="@(ToplamKesinti > 0 ? "text-danger" : "text-primary")">@((ToplamKesinti > 0 ? "-" : "+") + FormatPara(Math.Abs(ToplamKesinti)))</div>
                                     </div>
                                 }
                                 <div class="col text-end">

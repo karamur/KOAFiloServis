@@ -1306,14 +1306,16 @@ public class FaturaService : IFaturaService
 
     private async Task SaveInvoiceXmlAsync(Fatura fatura, string fileName, byte[] xmlContent)
     {
-        ValidateStoredFileExtension(fileName, ".xml");
+        ValidateStoredXmlFileExtension(fileName);
+
+        var normalizedFileName = NormalizeXmlFileName(fileName);
 
         if (!string.IsNullOrWhiteSpace(fatura.XmlDosyaYolu) && !IsLegacyUploadPath(fatura.XmlDosyaYolu))
             await _secureFileService.DeleteAsync(fatura.XmlDosyaYolu);
 
         fatura.XmlDosyaYolu = await _secureFileService.SaveEncryptedAsync(
             Path.Combine("faturalar", fatura.FaturaYonu.ToString().ToLowerInvariant(), "xml"),
-            fileName,
+            normalizedFileName,
             xmlContent);
 
         fatura.UpdatedAt = DateTime.UtcNow;
@@ -1325,6 +1327,24 @@ public class FaturaService : IFaturaService
         var extension = Path.GetExtension(fileName);
         if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"Sadece {expectedExtension} uzantılı dosyalar kabul edilir.");
+    }
+
+    private static void ValidateStoredXmlFileExtension(string fileName)
+    {
+        var extension = Path.GetExtension(fileName);
+        if (!string.Equals(extension, ".xml", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(extension, ".xlm", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Sadece .xml veya .xlm uzantılı dosyalar kabul edilir.");
+        }
+    }
+
+    private static string NormalizeXmlFileName(string fileName)
+    {
+        var extension = Path.GetExtension(fileName);
+        return string.Equals(extension, ".xlm", StringComparison.OrdinalIgnoreCase)
+            ? Path.ChangeExtension(fileName, ".xml")
+            : fileName;
     }
 
     private static bool IsLegacyUploadPath(string path)

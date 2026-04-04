@@ -6,4 +6,6 @@ public interface IPortalProjectCatalogService
     IReadOnlyList<PortalProjectDefinition> GetProjects();
     PortalProjectDefinition? GetProjectBySlug(string? slug);
     PortalProjectDefinition GetDefaultProject();
+    PortalProjectCatalogOptions CreateEditableCopy();
+    Task SaveAsync(PortalProjectCatalogOptions settings);
 }

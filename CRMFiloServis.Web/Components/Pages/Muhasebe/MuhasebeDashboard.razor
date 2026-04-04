@@ -1,7 +1,10 @@
 ﻿@page "/muhasebe"
 @using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Data
 @using CRMFiloServis.Web.Services
+@using Microsoft.EntityFrameworkCore
 @inject IMuhasebeService MuhasebeService
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
@@ -204,19 +207,26 @@
 
         try
         {
-            var hesaplar = await MuhasebeService.GetHesapPlaniAsync();
-            hesapSayisi = hesaplar.Count;
+            await using var context = await DbContextFactory.CreateDbContextAsync();
+
+            hesapSayisi = await context.MuhasebeHesaplari.CountAsync();
             hesapPlaniVar = hesapSayisi > 0;
 
             var buAy = DateTime.Today.Month;
             var buYil = DateTime.Today.Year;
-            var fisler = await MuhasebeService.GetFislerAsync(buYil, buAy);
+            var baslangic = new DateTime(buYil, buAy, 1);
+            var bitis = baslangic.AddMonths(1);
+            var fisler = await context.MuhasebeFisleri
+                .Where(f => f.FisTarihi >= baslangic && f.FisTarihi < bitis)
+                .OrderByDescending(f => f.FisTarihi)
+                .ThenByDescending(f => f.Id)
+                .ToListAsync();
             fisSayisi = fisler.Count;
             sonFisler = fisler.Take(10).ToList();
 
             try
             {
-                gelirGiderRapor = await MuhasebeService.GetGelirGiderRaporuAsync(buYil, buAy);
+                gelirGiderRapor = await BuildGelirGiderRaporAsync(context, buYil, buAy);
             }
             catch { }
         }
@@ -226,6 +236,72 @@
             isLoadInProgress = false;
             StateHasChanged();
         }
+    }
+
+    private static async Task<GelirGiderRapor> BuildGelirGiderRaporAsync(ApplicationDbContext context, int yil, int ay)
+    {
+        var gelirHesaplar = await context.MuhasebeHesaplari
+            .Where(h => h.HesapGrubu == HesapGrubu.GelirTablosu && h.HesapTuru == HesapTuru.Gelir)
+            .Select(h => new { h.Id, h.HesapKodu, h.HesapAdi })
+            .ToListAsync();
+
+        var giderHesaplar = await context.MuhasebeHesaplari
+            .Where(h => (h.HesapGrubu == HesapGrubu.GelirTablosu || h.HesapGrubu == HesapGrubu.MaliyetHesaplari) &&
+                        (h.HesapTuru == HesapTuru.Gider || h.HesapTuru == HesapTuru.Maliyet))
+            .Select(h => new { h.Id, h.HesapKodu, h.HesapAdi })
+            .ToListAsync();
+
+        var kalemler = await context.MuhasebeFisKalemleri
+            .Where(k => k.Fis.FisTarihi.Year == yil && k.Fis.FisTarihi.Month == ay && k.Fis.Durum == FisDurum.Onaylandi)
+            .Select(k => new
+            {
+                k.HesapId,
+                k.Borc,
+                k.Alacak,
+                k.Hesap.HesapKodu,
+                k.Hesap.HesapAdi
+            })
+            .ToListAsync();
+
+        var gelirIds = gelirHesaplar.Select(h => h.Id).ToHashSet();
+        var giderIds = giderHesaplar.Select(h => h.Id).ToHashSet();
+
+        var rapor = new GelirGiderRapor { Yil = yil, Ay = ay };
+
+        var gelirKalemler = kalemler.Where(k => gelirIds.Contains(k.HesapId)).ToList();
+        rapor.ToplamGelir = gelirKalemler.Sum(k => k.Alacak - k.Borc);
+        rapor.Gelirler = gelirKalemler
+            .GroupBy(k => new { k.HesapKodu, k.HesapAdi })
+            .Select(g => new GelirGiderKalem
+            {
+                HesapKodu = g.Key.HesapKodu,
+                HesapAdi = g.Key.HesapAdi,
+                Tutar = g.Sum(k => k.Alacak - k.Borc)
+            })
+            .OrderByDescending(g => g.Tutar)
+            .ToList();
+
+        var giderKalemler = kalemler.Where(k => giderIds.Contains(k.HesapId)).ToList();
+        rapor.ToplamGider = giderKalemler.Sum(k => k.Borc - k.Alacak);
+        rapor.Giderler = giderKalemler
+            .GroupBy(k => new { k.HesapKodu, k.HesapAdi })
+            .Select(g => new GelirGiderKalem
+            {
+                HesapKodu = g.Key.HesapKodu,
+                HesapAdi = g.Key.HesapAdi,
+                Tutar = g.Sum(k => k.Borc - k.Alacak)
+            })
+            .OrderByDescending(g => g.Tutar)
+            .ToList();
+
+        rapor.NetKar = rapor.ToplamGelir - rapor.ToplamGider;
+
+        foreach (var gelir in rapor.Gelirler)
+            gelir.Yuzde = rapor.ToplamGelir > 0 ? Math.Round(gelir.Tutar / rapor.ToplamGelir * 100, 1) : 0;
+        foreach (var gider in rapor.Giderler)
+            gider.Yuzde = rapor.ToplamGider > 0 ? Math.Round(gider.Tutar / rapor.ToplamGider * 100, 1) : 0;
+
+        return rapor;
     }
 
     private async Task HesapPlaniOlustur()

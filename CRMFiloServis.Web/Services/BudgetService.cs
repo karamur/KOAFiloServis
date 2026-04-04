@@ -85,6 +85,13 @@ public class BudgetService : IBudgetService
         return await _context.BudgetOdemeler.FindAsync(id);
     }
 
+    public async Task<BudgetOdeme?> GetOdemeByHareketIdAsync(int bankaKasaHareketId)
+    {
+        return await _context.BudgetOdemeler
+            .AsNoTracking()
+            .FirstOrDefaultAsync(o => o.BankaKasaHareketId == bankaKasaHareketId);
+    }
+
     public async Task<BudgetOdeme> CreateOdemeAsync(BudgetOdeme odeme)
     {
         // DateTime'i UTC olarak ayarla
@@ -192,17 +199,23 @@ public class BudgetService : IBudgetService
         if (odeme == null)
             throw new Exception("Odeme bulunamadi");
 
-        var odemeTutari = Math.Abs(request.KismiOdemeTutari ?? odeme.Miktar);
+        var odemeTutari = RoundCurrency(Math.Abs(request.KismiOdemeTutari ?? odeme.Miktar));
         var odemeTarihi = DateTime.SpecifyKind(request.OdemeTarihi, DateTimeKind.Utc);
+        var masrafKesintisi = RoundCurrency(request.MasrafKesintisi);
+        var cezaKesintisi = RoundCurrency(request.CezaKesintisi);
+        var digerKesinti = RoundCurrency(request.DigerKesinti);
 
         // Kesinti bilgilerini kaydet
-        odeme.MasrafKesintisi = request.MasrafKesintisi;
-        odeme.CezaKesintisi = request.CezaKesintisi;
-        odeme.DigerKesinti = request.DigerKesinti;
+        odeme.MasrafKesintisi = masrafKesintisi;
+        odeme.CezaKesintisi = cezaKesintisi;
+        odeme.DigerKesinti = digerKesinti;
         odeme.KesintiAciklamasi = request.KesintiAciklamasi;
 
         // Net ödeme tutarı (kesintiler düşülmüş)
-        var netOdemeTutari = odemeTutari - request.ToplamKesinti;
+        var toplamKesinti = masrafKesintisi + cezaKesintisi + digerKesinti;
+        var netOdemeTutari = RoundCurrency(odemeTutari - toplamKesinti);
+        if (netOdemeTutari <= 0)
+            throw new Exception("Net ödeme tutarı sıfırdan büyük olmalıdır.");
 
         // Odeme durumunu guncelle
         odeme.Durum = OdemeDurum.Odendi;
@@ -219,8 +232,10 @@ public class BudgetService : IBudgetService
             var aciklamaBuilder = $"Bütçe Ödemesi: {odeme.MasrafKalemi}";
             if (!string.IsNullOrEmpty(request.OdemeNotu))
                 aciklamaBuilder += $" - {request.OdemeNotu}";
-            if (request.ToplamKesinti > 0)
-                aciklamaBuilder += $" (Kesinti: {request.ToplamKesinti:N2} ₺)";
+            if (toplamKesinti != 0)
+                aciklamaBuilder += toplamKesinti > 0
+                    ? $" (Kesinti: {toplamKesinti:N2} ₺)"
+                    : $" (Ekleme: {Math.Abs(toplamKesinti):N2} ₺)";
 
             var hareket = new BankaKasaHareket
             {
@@ -629,7 +644,7 @@ public class BudgetService : IBudgetService
             Yil = yil,
             Ay = ay,
             ToplamOdeme = odemeler.Sum(o => o.Miktar),
-            OdenenToplam = odemeler.Where(o => o.Durum == OdemeDurum.Odendi).Sum(o => o.Miktar),
+            OdenenToplam = odemeler.Where(o => o.Durum == OdemeDurum.Odendi).Sum(o => o.NetOdenenTutar),
             BekleyenToplam = odemeler.Where(o => o.Durum == OdemeDurum.Bekliyor).Sum(o => o.Miktar),
             ToplamKayit = odemeler.Count,
             OdenenKayit = odemeler.Count(o => o.Durum == OdemeDurum.Odendi),
@@ -680,7 +695,7 @@ public class BudgetService : IBudgetService
                 Ay = ay,
                 AyAdi = AyAdlari[ay],
                 Toplam = aylikOdemeler.Sum(o => o.Miktar),
-                Odenen = aylikOdemeler.Where(o => o.Durum == OdemeDurum.Odendi).Sum(o => o.Miktar),
+                Odenen = aylikOdemeler.Where(o => o.Durum == OdemeDurum.Odendi).Sum(o => o.NetOdenenTutar),
                 Bekleyen = aylikOdemeler.Where(o => o.Durum == OdemeDurum.Bekliyor).Sum(o => o.Miktar)
             });
         }
@@ -699,6 +714,9 @@ public class BudgetService : IBudgetService
 
         return ozet;
     }
+
+    private static decimal RoundCurrency(decimal value)
+        => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
     public async Task<List<BudgetGunlukOzet>> GetTakvimDataAsync(int yil, int ay, int? firmaId = null)
     {

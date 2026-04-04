@@ -59,7 +59,7 @@ public class SoforService : ISoforService
 
     public async Task<Sofor> CreateAsync(Sofor sofor)
     {
-        sofor.NetMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
+        ApplyMaasHesaplama(sofor);
         SyncBordroFlags(sofor);
         _context.Soforler.Add(sofor);
         await _context.SaveChangesAsync();
@@ -90,10 +90,13 @@ public class SoforService : ISoforService
         existing.IseBaslamaTarihi = sofor.IseBaslamaTarihi;
         existing.IstenAyrilmaTarihi = sofor.IstenAyrilmaTarihi;
         existing.SgkCikisTarihi = sofor.SgkCikisTarihi;
+        existing.BrutMaasHesaplamaTipi = sofor.BrutMaasHesaplamaTipi;
+        existing.CalismaMiktari = sofor.CalismaMiktari;
+        existing.BirimUcret = sofor.BirimUcret;
         existing.BrutMaas = sofor.BrutMaas;
         existing.ResmiNetMaas = sofor.ResmiNetMaas;
         existing.DigerMaas = sofor.DigerMaas;
-        existing.NetMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
+        ApplyMaasHesaplama(existing);
         existing.SGKBordroDahilMi = sofor.SGKBordroDahilMi;
         existing.BordroTipiPersonel = sofor.BordroTipiPersonel;
         SyncBordroFlags(existing);
@@ -196,13 +199,37 @@ public class SoforService : ISoforService
 
     private static void NormalizeMaasBilgileri(Sofor sofor)
     {
+        ApplyMaasHesaplama(sofor);
+
         if (sofor.ResmiNetMaas == 0 && sofor.DigerMaas == 0 && sofor.NetMaas > 0)
         {
             sofor.ResmiNetMaas = sofor.NetMaas;
         }
 
-        sofor.NetMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
+        sofor.NetMaas = RoundCurrency(sofor.ResmiNetMaas + sofor.DigerMaas);
     }
+
+    private static void ApplyMaasHesaplama(Sofor sofor)
+    {
+        sofor.CalismaMiktari = RoundCurrency(sofor.CalismaMiktari);
+        sofor.BirimUcret = RoundCurrency(sofor.BirimUcret);
+
+        if (sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)
+        {
+            sofor.BrutMaas = RoundCurrency(sofor.CalismaMiktari * sofor.BirimUcret);
+        }
+        else
+        {
+            sofor.BrutMaas = RoundCurrency(sofor.BrutMaas);
+        }
+
+        sofor.ResmiNetMaas = RoundCurrency(sofor.ResmiNetMaas);
+        sofor.DigerMaas = RoundCurrency(sofor.DigerMaas);
+        sofor.NetMaas = RoundCurrency(sofor.ResmiNetMaas + sofor.DigerMaas);
+    }
+
+    private static decimal RoundCurrency(decimal value)
+        => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
     private static void SyncBordroFlags(Sofor sofor)
     {

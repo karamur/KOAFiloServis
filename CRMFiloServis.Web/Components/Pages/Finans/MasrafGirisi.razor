@@ -8,6 +8,7 @@
 @inject IBudgetService BudgetService
 @inject IToastService ToastService
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 @rendermode InteractiveServer
 
 <PageTitle>Masraf Girisi</PageTitle>
@@ -241,6 +242,7 @@
                                         <th>Hesap</th>
                                         <th>Aciklama</th>
                                         <th class="text-end">Tutar</th>
+                                        <th class="text-center">Kaynak</th>
                                         <th class="text-center" style="width: 80px;">Islem</th>
                                     </tr>
                                 </thead>
@@ -259,12 +261,26 @@
                                                 </span>
                                             </td>
                                             <td class="text-center">
-                                                <button class="btn btn-sm btn-outline-primary py-0 me-1" @onclick="() => DuzenleAsync(h)" title="Düzenle">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger py-0" @onclick="() => SilAsync(h)" title="Sil">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
+                                                <span class="badge @GetKaynakBadgeClass(h.IslemKaynak)" title="@GetKaynakAciklama(h.IslemKaynak)">
+                                                    @GetKaynakKisaAd(h.IslemKaynak)
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                @if (h.IslemKaynak == IslemKaynak.Manuel)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary py-0 me-1" @onclick="() => DuzenleAsync(h)" title="Düzenle">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger py-0" @onclick="() => SilAsync(h)" title="Sil">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-outline-secondary py-0 me-1" @onclick="() => DuzenleAsync(h)" title="Kaynağa Git">
+                                                        <i class="bi bi-box-arrow-up-right"></i>
+                                                    </button>
+                                                }
                                             </td>
                                         </tr>
                                     }
@@ -478,6 +494,29 @@
             return;
         }
 
+        // Eğer hareket farklı bir kaynaktan geldiyse, ilgili modüle yönlendir
+        if (mevcutHareket.IslemKaynak == IslemKaynak.Butce)
+        {
+            // Budget modülünden gelen hareket - ilgili ödemeyi bul ve yönlendir
+            var odeme = await BudgetService.GetOdemeByHareketIdAsync(mevcutHareket.Id);
+            if (odeme != null)
+            {
+                ToastService.ShowInfo("Bu hareket bütçe modülünden girilmiş. Ödeme yönetimi sayfasına yönlendiriliyorsunuz.");
+                Navigation.NavigateTo($"/butce/odemeler?odemeId={odeme.Id}");
+                return;
+            }
+        }
+        else if (mevcutHareket.IslemKaynak == IslemKaynak.FaturaOdeme || mevcutHareket.IslemKaynak == IslemKaynak.FaturaTahsilat)
+        {
+            ToastService.ShowWarning("Bu hareket fatura ödemesi/tahsilatıdır. Fatura modülünden düzenleyebilirsiniz.");
+            return;
+        }
+        else if (mevcutHareket.IslemKaynak == IslemKaynak.Mahsup || mevcutHareket.IslemKaynak == IslemKaynak.CariMahsup)
+        {
+            ToastService.ShowWarning("Mahsup hareketleri düzenlenemez.");
+            return;
+        }
+
         isDuzenleme = true;
         duzenlenecekId = h.Id;
 
@@ -522,7 +561,37 @@
 
     private async Task SilAsync(BankaKasaHareket h)
     {
-        var result = await JS.InvokeAsync<bool>("confirm", $"'{h.IslemNo}' numarali hareketi silmek istediginizden emin misiniz?");
+        // Hareket kaynağını kontrol et
+        var mevcutHareket = await HareketService.GetByIdAsync(h.Id);
+        if (mevcutHareket == null)
+        {
+            ToastService.ShowError("Hareket bulunamadı.");
+            return;
+        }
+
+        // Farklı kaynaktan gelen hareketler için uyarı ver
+        if (mevcutHareket.IslemKaynak == IslemKaynak.Butce)
+        {
+            var odeme = await BudgetService.GetOdemeByHareketIdAsync(mevcutHareket.Id);
+            if (odeme != null)
+            {
+                ToastService.ShowWarning("Bu hareket bütçe modülünden girilmiş. Silmek için ödeme yönetimi sayfasını kullanın.");
+                Navigation.NavigateTo($"/butce/odemeler?odemeId={odeme.Id}");
+                return;
+            }
+        }
+        else if (mevcutHareket.IslemKaynak == IslemKaynak.FaturaOdeme || mevcutHareket.IslemKaynak == IslemKaynak.FaturaTahsilat)
+        {
+            ToastService.ShowWarning("Fatura ödemesi/tahsilatı buradan silinemez. Fatura modülünü kullanın.");
+            return;
+        }
+        else if (mevcutHareket.IslemKaynak == IslemKaynak.Mahsup || mevcutHareket.IslemKaynak == IslemKaynak.CariMahsup)
+        {
+            ToastService.ShowWarning("Mahsup hareketleri silinemez.");
+            return;
+        }
+
+        var result = await JS.InvokeAsync<bool>("confirm", $"'{h.IslemNo}' numaralı hareketi silmek istediğinizden emin misiniz?");
         if (!result) return;
 
         try
@@ -538,4 +607,43 @@
     }
 
     private string FormatPara(decimal tutar) => tutar.ToString("N2", new System.Globalization.CultureInfo("tr-TR")) + " TL";
+
+    private string GetKaynakKisaAd(IslemKaynak kaynak) => kaynak switch
+    {
+        IslemKaynak.Manuel => "M",
+        IslemKaynak.FaturaOdeme => "FÖ",
+        IslemKaynak.FaturaTahsilat => "FT",
+        IslemKaynak.Havale => "H",
+        IslemKaynak.Eft => "E",
+        IslemKaynak.Nakit => "N",
+        IslemKaynak.Butce => "B",
+        IslemKaynak.EFatura => "EF",
+        IslemKaynak.Mahsup => "MH",
+        IslemKaynak.CariMahsup => "CM",
+        _ => "?"
+    };
+
+    private string GetKaynakBadgeClass(IslemKaynak kaynak) => kaynak switch
+    {
+        IslemKaynak.Manuel => "bg-primary",
+        IslemKaynak.Butce => "bg-info",
+        IslemKaynak.FaturaOdeme or IslemKaynak.FaturaTahsilat => "bg-success",
+        IslemKaynak.Mahsup or IslemKaynak.CariMahsup => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private string GetKaynakAciklama(IslemKaynak kaynak) => kaynak switch
+    {
+        IslemKaynak.Manuel => "Manuel giriş - düzenlenebilir",
+        IslemKaynak.FaturaOdeme => "Fatura ödemesi",
+        IslemKaynak.FaturaTahsilat => "Fatura tahsilatı",
+        IslemKaynak.Havale => "Havale",
+        IslemKaynak.Eft => "EFT",
+        IslemKaynak.Nakit => "Nakit",
+        IslemKaynak.Butce => "Bütçe/Ödeme modülünden",
+        IslemKaynak.EFatura => "E-Fatura",
+        IslemKaynak.Mahsup => "Mahsup işlemi",
+        IslemKaynak.CariMahsup => "Cari mahsup",
+        _ => "Bilinmiyor"
+    };
 }

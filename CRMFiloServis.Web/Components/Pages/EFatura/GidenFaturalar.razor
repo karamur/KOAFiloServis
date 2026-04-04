@@ -775,11 +775,11 @@
                             }
                             else if (importTipi == "xml")
                             {
-                                <InputFile class="form-control" OnChange="XmlDosyalariSecildi" accept=".xml" multiple />
+                                <InputFile class="form-control" OnChange="XmlDosyalariSecildi" accept=".xml,.xlm" multiple />
                             }
                             else
                             {
-                                <InputFile class="form-control" OnChange="XmlPdfDosyalariSecildi" accept=".xml,.pdf" multiple />
+                                <InputFile class="form-control" OnChange="XmlPdfDosyalariSecildi" accept=".xml,.xlm,.pdf" multiple />
                             }
                         </div>
                     </div>
@@ -1590,8 +1590,14 @@
             else if(importTipi == "xmlpdf")
             {
                 // XML ve PDF dosyalarını grupla
-                var xmlFiles = importXmlPdfFiles!.Where(f => f.Name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)).ToList();
+                var xmlFiles = importXmlPdfFiles!.Where(f => IsXmlFileName(f.Name)).ToList();
                 var pdfFiles = importXmlPdfFiles!.Where(f => f.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)).ToList();
+
+                if (!xmlFiles.Any())
+                {
+                    ToastService.ShowWarning("Aktarim icin en az bir XML/XLM dosyasi secin!");
+                    return;
+                }
 
                 var xmlPdfContents = new List<CRMFiloServis.Web.Services.XmlPdfFileContent>();
                 foreach (var xmlFile in xmlFiles)
@@ -1645,6 +1651,10 @@
             StateHasChanged();
         }
     }
+
+    private static bool IsXmlFileName(string fileName)
+        => fileName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+           || fileName.EndsWith(".xlm", StringComparison.OrdinalIgnoreCase);
 
     private async Task SablonIndir()
     {
