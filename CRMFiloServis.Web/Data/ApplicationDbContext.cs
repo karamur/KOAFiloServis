@@ -201,6 +201,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TcKimlikNo).HasMaxLength(11);
             entity.Property(e => e.Telefon).HasMaxLength(20);
             entity.Property(e => e.BrutMaas).HasPrecision(18, 2);
+            entity.Property(e => e.CalismaMiktari).HasPrecision(18, 2);
+            entity.Property(e => e.BirimUcret).HasPrecision(18, 2);
             entity.Property(e => e.ResmiNetMaas).HasPrecision(18, 2);
             entity.Property(e => e.DigerMaas).HasPrecision(18, 2);
             entity.Property(e => e.NetMaas).HasPrecision(18, 2);
@@ -1107,6 +1109,45 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
+
+        modelBuilder.Entity<AylikOdemePlani>()
+            .HasQueryFilter(e => !e.IsDeleted && (e.Firma == null || !e.Firma.IsDeleted));
+
+        modelBuilder.Entity<AylikOdemeGerceklesen>()
+            .HasQueryFilter(e => !e.IsDeleted && (e.Firma == null || !e.Firma.IsDeleted));
+
+        modelBuilder.Entity<BordroDetay>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Personel.IsDeleted);
+
+        modelBuilder.Entity<DashboardWidget>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Kullanici.IsDeleted);
+
+        modelBuilder.Entity<FiloGuzergahEslestirme>()
+            .HasQueryFilter(e => !e.IsDeleted && (e.Arac == null || !e.Arac.IsDeleted));
+
+        modelBuilder.Entity<FiloGunlukPuantaj>()
+            .HasQueryFilter(e => !e.IsDeleted && (e.Arac == null || !e.Arac.IsDeleted));
+
+        modelBuilder.Entity<KiralamaArac>()
+            .HasQueryFilter(e => !e.IsDeleted && (e.Firma == null || !e.Firma.IsDeleted));
+
+        modelBuilder.Entity<KullaniciCari>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Cari.IsDeleted);
+
+        modelBuilder.Entity<PersonelAvans>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Personel.IsDeleted);
+
+        modelBuilder.Entity<PersonelBorc>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Personel.IsDeleted);
+
+        modelBuilder.Entity<PersonelOzlukEvrak>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Sofor.IsDeleted);
+
+        modelBuilder.Entity<PersonelPuantaj>()
+            .HasQueryFilter(e => !e.IsDeleted && (e.Firma == null || !e.Firma.IsDeleted));
+
+        modelBuilder.Entity<ServisCalismaKiralama>()
+            .HasQueryFilter(e => !e.IsDeleted && (e.Firma == null || !e.Firma.IsDeleted));
     }
 
     public override int SaveChanges()
