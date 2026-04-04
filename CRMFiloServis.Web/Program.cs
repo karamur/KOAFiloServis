@@ -67,6 +67,9 @@ builder.Services.AddSingleton<ICurrentUserAccessor, CurrentUserAccessor>();
 // Database - Pooled DbContextFactory kullan (thread-safe)
 builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =>
 {
+    var enableSensitiveDataLogging = builder.Environment.IsDevelopment() &&
+        builder.Configuration.GetValue<bool>("EntityFramework:EnableSensitiveDataLogging");
+
     if (dbProvider == "PostgreSQL")
     {
         // PostgreSQL timestamp ayari
@@ -87,7 +90,11 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =
     }
     
     options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
-    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+    if (enableSensitiveDataLogging)
+    {
+        options.EnableSensitiveDataLogging();
+    }
+
     // Pending migration uyarisini devre disi birak
     options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     options.AddInterceptors(sp.GetRequiredService<AktiviteLogInterceptor>());

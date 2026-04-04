@@ -1148,6 +1148,18 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<ServisCalismaKiralama>()
             .HasQueryFilter(e => !e.IsDeleted && (e.Firma == null || !e.Firma.IsDeleted));
+
+        modelBuilder.Entity<BordroOdeme>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.BordroDetay.IsDeleted);
+
+        modelBuilder.Entity<GunlukPuantaj>()
+            .HasQueryFilter(e => !e.IsDeleted && (e.PersonelPuantaj == null || !e.PersonelPuantaj.IsDeleted));
+
+        modelBuilder.Entity<PersonelAvansMahsup>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Avans.IsDeleted);
+
+        modelBuilder.Entity<PersonelBorcOdeme>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Borc.IsDeleted);
     }
 
     public override int SaveChanges()
