@@ -10,9 +10,9 @@ class Program
 {
     private static string _host = "localhost";
     private static int _port = 5432;
-    private static string _database = "koafiloservis";
+    private static string _database = "DestekCRMServisBlazorDb";
     private static string _username = "postgres";
-    private static string _password = "";
+    private static string _password = "Fast123";
     private static string _backupFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KOA_Backups");
 
     private static readonly string ConfigFile = Path.Combine(
