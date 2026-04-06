@@ -53,6 +53,7 @@
                     <table class="table table-striped table-hover mb-0">
                         <thead class="table-dark">
                             <tr>
+                                <th style="width: 70px;">Sıra No</th>
                                 <th>Personel Kodu</th>
                                 <th>Ad Soyad</th>
                                 <th>Görev</th>
@@ -67,9 +68,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var personel in personeller)
+                            @foreach (var personel in personeller.OrderBy(p => p.SiralamaNo == 0 ? int.MaxValue : p.SiralamaNo).ThenBy(p => p.Ad))
                             {
                                 <tr>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" style="width: 60px;" 
+                                               value="@personel.SiralamaNo" 
+                                               @onchange="(e) => SiralamaNoGuncelle(personel, e)" />
+                                    </td>
                                     <td><strong>@personel.SoforKodu</strong></td>
                                     <td>@personel.TamAd</td>
                                     <td>
@@ -308,5 +314,15 @@
             PersonelGorev.Teknik => "bg-secondary",
             _ => "bg-dark"
         };
+    }
+
+    private async Task SiralamaNoGuncelle(Sofor personel, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var yeniSiraNo))
+        {
+            personel.SiralamaNo = yeniSiraNo;
+            await SoforService.UpdateAsync(personel);
+            ToastService.ShowSuccess($"{personel.TamAd} sıralama no: {yeniSiraNo}");
+        }
     }
 }

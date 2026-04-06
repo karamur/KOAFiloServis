@@ -27,7 +27,14 @@
                 <!-- Temel Bilgiler -->
                 <h5 class="text-primary mb-3"><i class="bi bi-person me-2"></i>Temel Bilgiler</h5>
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label class="form-label">Sıralama No</label>
+                            <InputNumber @bind-Value="sofor.SiralamaNo" class="form-control" />
+                            <small class="text-muted">Bordro sıralama için</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
                         <div class="mb-3">
                             <label class="form-label">Personel Kodu *</label>
                             <InputText @bind-Value="sofor.SoforKodu" class="form-control" readonly="@IsEdit" />
@@ -45,7 +52,7 @@
                             <InputText @bind-Value="sofor.Soyad" class="form-control" />
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="mb-3">
                             <label class="form-label">TC Kimlik No</label>
                             <InputText @bind-Value="sofor.TcKimlikNo" class="form-control" maxlength="11" />
@@ -165,11 +172,12 @@
                 <div class="row">
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Brüt Maaş Tipi</label>
+                            <label class="form-label">Brüt Maaş Hesaplama Tipi</label>
                             <InputSelect @bind-Value="sofor.BrutMaasHesaplamaTipi" class="form-select" @bind-Value:after="BrutMaasHesaplaAsync">
-                                <option value="@BrutMaasHesaplamaTipi.Manuel">Manuel</option>
-                                <option value="@BrutMaasHesaplamaTipi.Saatlik">Saatlik</option>
-                                <option value="@BrutMaasHesaplamaTipi.Aylik">Aylık (Günlük Ücret)</option>
+                                <option value="@BrutMaasHesaplamaTipi.Manuel">Manuel Giriş</option>
+                                <option value="@BrutMaasHesaplamaTipi.Saatlik">Saatlik Ücret</option>
+                                <option value="@BrutMaasHesaplamaTipi.Gunluk">Günlük Ücret</option>
+                                <option value="@BrutMaasHesaplamaTipi.Aylik">Aylık Ücret</option>
                             </InputSelect>
                         </div>
                     </div>
@@ -177,13 +185,13 @@
                     {
                         <div class="col-md-3">
                             <div class="mb-3">
-                                <label class="form-label">@(sofor.BrutMaasHesaplamaTipi == BrutMaasHesaplamaTipi.Saatlik ? "Saat" : "Gün")</label>
+                                <label class="form-label">@GetCalismaMiktariLabel()</label>
                                 <InputNumber @bind-Value="sofor.CalismaMiktari" class="form-control" @bind-Value:after="BrutMaasHesaplaAsync" />
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="mb-3">
-                                <label class="form-label">@(sofor.BrutMaasHesaplamaTipi == BrutMaasHesaplamaTipi.Saatlik ? "Saatlik Ücret (₺)" : "Günlük Ücret (₺)")</label>
+                                <label class="form-label">@GetBirimUcretLabel()</label>
                                 <InputNumber @bind-Value="sofor.BirimUcret" class="form-control" @bind-Value:after="BrutMaasHesaplaAsync" />
                             </div>
                         </div>
@@ -247,7 +255,7 @@
                         <div class="col-md-3">
                             <div class="mb-3">
                                 <label class="form-label">Bordro Tipi *</label>
-                                <InputSelect @bind-Value="sofor.BordroTipiPersonel" class="form-select">
+                                <InputSelect @bind-Value="sofor.BordroTipiPersonel" class="form-select" @bind-Value:after="BordroTipiDegisti">
                                     <option value="@PersonelBordroTipi.Normal">Normal</option>
                                     <option value="@PersonelBordroTipi.Arge">ARGE</option>
                                 </InputSelect>
@@ -255,6 +263,28 @@
                         </div>
                     }
                 </div>
+
+                @* ARGE Personeli Uyarıları *@
+                @if (sofor.SGKBordroDahilMi && sofor.BordroTipiPersonel == PersonelBordroTipi.Arge)
+                {
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-lightbulb me-2"></i>ARGE Personeli - Yasal Mevzuat Uyarıları</h6>
+                        <ul class="mb-0 small">
+                            <li>ARGE personeli 5746 sayılı Ar-Ge Faaliyetlerinin Desteklenmesi Hakkında Kanun kapsamında değerlendirilmektedir.</li>
+                            <li>ARGE personeli için SGK işveren payı desteği (%100'e kadar) uygulanabilir.</li>
+                            <li>Gelir vergisi stopaj teşviki uygulanabilir (Ar-Ge merkezleri için %100, diğerleri için %80).</li>
+                            <li>Personelin ARGE faaliyetlerinde çalıştığını belgeleyen kayıtlar düzenli tutulmalıdır.</li>
+                            <li>ARGE projelerinde çalışma süreleri ve saatleri ayrı takip edilmelidir.</li>
+                        </ul>
+                        @if (string.IsNullOrWhiteSpace(sofor.TcKimlikNo))
+                        {
+                            <div class="mt-2 text-danger">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                <strong>Uyarı:</strong> ARGE personeli için TC Kimlik No zorunludur!
+                            </div>
+                        }
+                    </div>
+                }
 
                 <!-- Durum ve Notlar -->
                 <hr />
@@ -328,6 +358,22 @@
             return;
         }
 
+        // ARGE personeli için TC Kimlik No zorunlu
+        if (sofor.SGKBordroDahilMi && sofor.BordroTipiPersonel == PersonelBordroTipi.Arge)
+        {
+            if (string.IsNullOrWhiteSpace(sofor.TcKimlikNo))
+            {
+                ToastService.ShowError("ARGE personeli için TC Kimlik No zorunludur! Yasal mevzuat gereği ARGE çalışanlarının kimlik bilgileri eksiksiz olmalıdır.");
+                return;
+            }
+
+            if (sofor.TcKimlikNo.Length != 11 || !sofor.TcKimlikNo.All(char.IsDigit))
+            {
+                ToastService.ShowError("TC Kimlik No 11 haneli olmalıdır!");
+                return;
+            }
+        }
+
         // SGK bordro dahilse ama tipi Yok seçiliyse uyar
         if (sofor.SGKBordroDahilMi && sofor.BordroTipiPersonel == PersonelBordroTipi.Yok)
         {
@@ -367,12 +413,30 @@
     {
         Navigation.NavigateTo("/personel");
     }
-    
+
     private async Task GorevDegisti()
     {
         if (!IsEdit)
         {
             sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
+        }
+    }
+
+    private void BordroTipiDegisti()
+    {
+        // ARGE seçildiğinde uyarı göster
+        if (sofor.BordroTipiPersonel == PersonelBordroTipi.Arge)
+        {
+            if (string.IsNullOrWhiteSpace(sofor.TcKimlikNo))
+            {
+                ToastService.ShowWarning("ARGE personeli için TC Kimlik No zorunludur! Lütfen doldurun.");
+            }
+            // Eski ArgePersoneli alanını da güncelle (geriye dönük uyumluluk)
+            sofor.ArgePersoneli = true;
+        }
+        else
+        {
+            sofor.ArgePersoneli = false;
         }
     }
 
@@ -411,6 +475,28 @@
             PersonelGorev.Teknik => "Teknik",
             PersonelGorev.Diger => "Diğer",
             _ => gorev.ToString()
+        };
+    }
+
+    private string GetCalismaMiktariLabel()
+    {
+        return sofor.BrutMaasHesaplamaTipi switch
+        {
+            BrutMaasHesaplamaTipi.Saatlik => "Çalışılan Saat",
+            BrutMaasHesaplamaTipi.Gunluk => "Çalışılan Gün",
+            BrutMaasHesaplamaTipi.Aylik => "Çalışılan Ay",
+            _ => "Miktar"
+        };
+    }
+
+    private string GetBirimUcretLabel()
+    {
+        return sofor.BrutMaasHesaplamaTipi switch
+        {
+            BrutMaasHesaplamaTipi.Saatlik => "Saatlik Ücret (₺)",
+            BrutMaasHesaplamaTipi.Gunluk => "Günlük Ücret (₺)",
+            BrutMaasHesaplamaTipi.Aylik => "Aylık Ücret (₺)",
+            _ => "Birim Ücret (₺)"
         };
     }
 }

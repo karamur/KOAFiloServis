@@ -348,13 +348,14 @@ public class BordroService : IBordroService
     public async Task<List<BordroDetay>> GetBordroDetaylarAsync(int bordroId)
     {
         using var context = await _contextFactory.CreateDbContextAsync();
-        
+
         return await context.BordroDetaylar
             .Include(d => d.Personel)
             .Include(d => d.Firma)
             .Include(d => d.Bordro)
             .Where(d => d.BordroId == bordroId)
-            .OrderBy(d => d.Personel.Ad)
+            .OrderBy(d => d.Personel.SiralamaNo == 0 ? int.MaxValue : d.Personel.SiralamaNo)
+            .ThenBy(d => d.Personel.Ad)
             .ToListAsync();
     }
 
@@ -552,14 +553,15 @@ public class BordroService : IBordroService
 
         // Sütun başlıkları
         var header = worksheet.Row(3);
-        header.Cell(1).Value = "Personel Kodu";
-        header.Cell(2).Value = "Ad Soyad";
-        header.Cell(3).Value = "TC Kimlik No";
-        header.Cell(4).Value = "IBAN";
-        header.Cell(5).Value = "SGK Maaşı (Net)";
-        header.Cell(6).Value = "Ek Ödemeler";
-        header.Cell(7).Value = "Toplam";
-        header.Cell(8).Value = "Durum";
+        header.Cell(1).Value = "Sıra";
+        header.Cell(2).Value = "Personel Kodu";
+        header.Cell(3).Value = "Ad Soyad";
+        header.Cell(4).Value = "TC Kimlik No";
+        header.Cell(5).Value = "IBAN";
+        header.Cell(6).Value = "SGK Maaşı (Net)";
+        header.Cell(7).Value = "Ek Ödemeler";
+        header.Cell(8).Value = "Toplam";
+        header.Cell(9).Value = "Durum";
         header.Style.Font.Bold = true;
         header.Style.Fill.BackgroundColor = XLColor.LightGray;
 
@@ -567,16 +569,17 @@ public class BordroService : IBordroService
         int row = 4;
         decimal toplamSgk = 0, toplamEk = 0, toplamGenel = 0;
 
-        foreach (var detay in bordro.BordroDetaylar.OrderBy(d => d.Personel.Ad))
+        foreach (var detay in bordro.BordroDetaylar.OrderBy(d => d.Personel.SiralamaNo == 0 ? int.MaxValue : d.Personel.SiralamaNo).ThenBy(d => d.Personel.Ad))
         {
-            worksheet.Cell(row, 1).Value = detay.Personel.SoforKodu;
-            worksheet.Cell(row, 2).Value = detay.Personel.TamAd;
-            worksheet.Cell(row, 3).Value = detay.Personel.TcKimlikNo ?? "";
-            worksheet.Cell(row, 4).Value = detay.Personel.IBAN ?? "";
-            worksheet.Cell(row, 5).Value = detay.NetMaas;
-            worksheet.Cell(row, 6).Value = detay.ToplamEkOdeme;
-            worksheet.Cell(row, 7).Value = detay.NetMaas + detay.ToplamEkOdeme;
-            worksheet.Cell(row, 8).Value = detay.BankaOdemesiYapildi ? "Ödendi" : "Bekliyor";
+            worksheet.Cell(row, 1).Value = detay.Personel.SiralamaNo > 0 ? detay.Personel.SiralamaNo : row - 3;
+            worksheet.Cell(row, 2).Value = detay.Personel.SoforKodu;
+            worksheet.Cell(row, 3).Value = detay.Personel.TamAd;
+            worksheet.Cell(row, 4).Value = detay.Personel.TcKimlikNo ?? "";
+            worksheet.Cell(row, 5).Value = detay.Personel.IBAN ?? "";
+            worksheet.Cell(row, 6).Value = detay.NetMaas;
+            worksheet.Cell(row, 7).Value = detay.ToplamEkOdeme;
+            worksheet.Cell(row, 8).Value = detay.NetMaas + detay.ToplamEkOdeme;
+            worksheet.Cell(row, 9).Value = detay.BankaOdemesiYapildi ? "Ödendi" : "Bekliyor";
 
             toplamSgk += detay.NetMaas;
             toplamEk += detay.ToplamEkOdeme;
@@ -586,15 +589,15 @@ public class BordroService : IBordroService
         }
 
         // Toplam
-        worksheet.Cell(row, 4).Value = "TOPLAM:";
-        worksheet.Cell(row, 5).Value = toplamSgk;
-        worksheet.Cell(row, 6).Value = toplamEk;
-        worksheet.Cell(row, 7).Value = toplamGenel;
-        worksheet.Range(row, 4, row, 7).Style.Font.Bold = true;
-        worksheet.Range(row, 4, row, 7).Style.Fill.BackgroundColor = XLColor.LightYellow;
+        worksheet.Cell(row, 5).Value = "TOPLAM:";
+        worksheet.Cell(row, 6).Value = toplamSgk;
+        worksheet.Cell(row, 7).Value = toplamEk;
+        worksheet.Cell(row, 8).Value = toplamGenel;
+        worksheet.Range(row, 5, row, 8).Style.Font.Bold = true;
+        worksheet.Range(row, 5, row, 8).Style.Fill.BackgroundColor = XLColor.LightYellow;
 
         // Para formatı
-        worksheet.Range(4, 5, row, 7).Style.NumberFormat.Format = "#,##0.00 ₺";
+        worksheet.Range(4, 6, row, 8).Style.NumberFormat.Format = "#,##0.00 ₺";
 
         worksheet.Columns().AdjustToContents();
 
@@ -634,7 +637,9 @@ public class BordroService : IBordroService
         int row = 4;
         decimal toplamTopluMaas = 0, toplamSgkMaas = 0, toplamEkOdeme = 0;
 
-        var detaylarWithEkOdeme = bordro.BordroDetaylar.Where(d => d.EkOdeme > 0).OrderBy(d => d.Personel.Ad);
+        var detaylarWithEkOdeme = bordro.BordroDetaylar.Where(d => d.EkOdeme > 0)
+                    .OrderBy(d => d.Personel.SiralamaNo == 0 ? int.MaxValue : d.Personel.SiralamaNo)
+                    .ThenBy(d => d.Personel.Ad);
 
         foreach (var detay in detaylarWithEkOdeme)
         {
@@ -688,48 +693,50 @@ public class BordroService : IBordroService
 
         // Sütun başlıkları
         var header = worksheet.Row(3);
-        header.Cell(1).Value = "Personel";
-        header.Cell(2).Value = "Brüt Maaş";
-        header.Cell(3).Value = "SGK Maaşı";
-        header.Cell(4).Value = "SGK Kesinti";
-        header.Cell(5).Value = "Gelir Vergisi";
-        header.Cell(6).Value = "Damga Vergisi";
-        header.Cell(7).Value = "Net Maaş";
-        header.Cell(8).Value = "Yemek Yardımı";
-        header.Cell(9).Value = "Yol Yardımı";
-        header.Cell(10).Value = "Prim";
-        header.Cell(11).Value = "Diğer Ek";
-        header.Cell(12).Value = "Toplu Maaş";
-        header.Cell(13).Value = "Ek Ödeme";
-        header.Cell(14).Value = "Toplam Ödenecek";
-        header.Cell(15).Value = "IBAN";
+        header.Cell(1).Value = "Sıra";
+        header.Cell(2).Value = "Personel";
+        header.Cell(3).Value = "Brüt Maaş";
+        header.Cell(4).Value = "SGK Maaşı";
+        header.Cell(5).Value = "SGK Kesinti";
+        header.Cell(6).Value = "Gelir Vergisi";
+        header.Cell(7).Value = "Damga Vergisi";
+        header.Cell(8).Value = "Net Maaş";
+        header.Cell(9).Value = "Yemek Yardımı";
+        header.Cell(10).Value = "Yol Yardımı";
+        header.Cell(11).Value = "Prim";
+        header.Cell(12).Value = "Diğer Ek";
+        header.Cell(13).Value = "Toplu Maaş";
+        header.Cell(14).Value = "Ek Ödeme";
+        header.Cell(15).Value = "Toplam Ödenecek";
+        header.Cell(16).Value = "IBAN";
         header.Style.Font.Bold = true;
         header.Style.Fill.BackgroundColor = XLColor.LightGray;
 
         // Veriler
         int row = 4;
-        foreach (var detay in bordro.BordroDetaylar.OrderBy(d => d.Personel.Ad))
+        foreach (var detay in bordro.BordroDetaylar.OrderBy(d => d.Personel.SiralamaNo == 0 ? int.MaxValue : d.Personel.SiralamaNo).ThenBy(d => d.Personel.Ad))
         {
-            worksheet.Cell(row, 1).Value = detay.Personel.TamAd;
-            worksheet.Cell(row, 2).Value = detay.BrutMaas;
-            worksheet.Cell(row, 3).Value = detay.SgkMaasi;
-            worksheet.Cell(row, 4).Value = detay.SgkIssizlikKesinti;
-            worksheet.Cell(row, 5).Value = detay.GelirVergisi;
-            worksheet.Cell(row, 6).Value = detay.DamgaVergisi;
-            worksheet.Cell(row, 7).Value = detay.NetMaas;
-            worksheet.Cell(row, 8).Value = detay.YemekYardimi;
-            worksheet.Cell(row, 9).Value = detay.YolYardimi;
-            worksheet.Cell(row, 10).Value = detay.PrimTutar;
-            worksheet.Cell(row, 11).Value = detay.DigerEkOdeme;
-            worksheet.Cell(row, 12).Value = detay.TopluMaas;
-            worksheet.Cell(row, 13).Value = detay.EkOdeme;
-            worksheet.Cell(row, 14).Value = detay.ToplamOdenecek;
-            worksheet.Cell(row, 15).Value = detay.Personel.IBAN ?? "";
+            worksheet.Cell(row, 1).Value = detay.Personel.SiralamaNo > 0 ? detay.Personel.SiralamaNo : row - 3;
+            worksheet.Cell(row, 2).Value = detay.Personel.TamAd;
+            worksheet.Cell(row, 3).Value = detay.BrutMaas;
+            worksheet.Cell(row, 4).Value = detay.SgkMaasi;
+            worksheet.Cell(row, 5).Value = detay.SgkIssizlikKesinti;
+            worksheet.Cell(row, 6).Value = detay.GelirVergisi;
+            worksheet.Cell(row, 7).Value = detay.DamgaVergisi;
+            worksheet.Cell(row, 8).Value = detay.NetMaas;
+            worksheet.Cell(row, 9).Value = detay.YemekYardimi;
+            worksheet.Cell(row, 10).Value = detay.YolYardimi;
+            worksheet.Cell(row, 11).Value = detay.PrimTutar;
+            worksheet.Cell(row, 12).Value = detay.DigerEkOdeme;
+            worksheet.Cell(row, 13).Value = detay.TopluMaas;
+            worksheet.Cell(row, 14).Value = detay.EkOdeme;
+            worksheet.Cell(row, 15).Value = detay.ToplamOdenecek;
+            worksheet.Cell(row, 16).Value = detay.Personel.IBAN ?? "";
             row++;
         }
 
         // Para formatı
-        worksheet.Range(4, 2, row - 1, 14).Style.NumberFormat.Format = "#,##0.00 ₺";
+        worksheet.Range(4, 3, row - 1, 15).Style.NumberFormat.Format = "#,##0.00 ₺";
 
         worksheet.Columns().AdjustToContents();
 

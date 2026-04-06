@@ -12,8 +12,9 @@ public class Sofor : BaseEntity
     public string? Telefon { get; set; }
     public string? Email { get; set; }
     public string? Adres { get; set; }
-    
-    // Görev Bilgisi
+
+    // Sıralama ve Görev Bilgisi
+    public int SiralamaNo { get; set; } = 0;
     public PersonelGorev Gorev { get; set; } = PersonelGorev.Sofor;
     public string? Departman { get; set; }
     public string? Pozisyon { get; set; }
@@ -94,5 +95,6 @@ public enum BrutMaasHesaplamaTipi
 {
     Manuel = 0,
     Saatlik = 1,
-    Aylik = 2
+    Aylik = 2,
+    Gunluk = 3
 }

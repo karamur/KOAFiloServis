@@ -207,6 +207,7 @@
                                     <table class="table table-sm table-bordered">
                                         <thead class="table-light">
                                             <tr>
+                                                <th style="width: 40px;">Sıra</th>
                                                 <th>Personel</th>
                                                 <th class="text-end">Brüt</th>
                                                 <th class="text-end">SGK Maaşı</th>
@@ -223,6 +224,7 @@
                                             @foreach (var detay in bordroDetaylar)
                                             {
                                                 <tr>
+                                                    <td class="text-center text-muted">@(detay.Personel.SiralamaNo > 0 ? detay.Personel.SiralamaNo.ToString() : "-")</td>
                                                     <td>
                                                         <strong>@detay.Personel.TamAd</strong><br />
                                                         <small class="text-muted">@detay.Personel.SoforKodu</small>
@@ -258,6 +260,7 @@
                                         </tbody>
                                         <tfoot class="table-light">
                                             <tr>
+                                                <td></td>
                                                 <td><strong>TOPLAM</strong></td>
                                                 <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.BrutMaas))</strong></td>
                                                 <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.SgkMaasi))</strong></td>
