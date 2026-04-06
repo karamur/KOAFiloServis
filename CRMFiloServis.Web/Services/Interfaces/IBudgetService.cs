@@ -100,7 +100,7 @@ public class OdemeYapRequest
     public int? CariId { get; set; }
     public bool CaridenTahsilat { get; set; } = false; // true: cariden tahsilat, false: cariye ödeme
 
-    // Kesinti bilgileri
+    // Ek masraf bilgileri (masraf, ceza, komisyon - tutara eklenir)
     public decimal MasrafKesintisi { get; set; } = 0;
     public decimal CezaKesintisi { get; set; } = 0;
     public decimal DigerKesinti { get; set; } = 0;
@@ -112,8 +112,8 @@ public class OdemeYapRequest
     public string? KostMerkeziKodu { get; set; }
     public string? ProjeKodu { get; set; }
 
-    // Hesaplanan
-    public decimal ToplamKesinti => MasrafKesintisi + CezaKesintisi + DigerKesinti;
+    // Hesaplanan (Ek masraflar tutara eklenir)
+    public decimal ToplamEkMasraf => MasrafKesintisi + CezaKesintisi + DigerKesinti;
 }
 
 public enum OdemeTipi

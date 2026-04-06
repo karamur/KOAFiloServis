@@ -66,8 +66,8 @@ public class BudgetOdeme : BaseEntity
     public int KalanTaksitSayisi => ToplamTaksitSayisi - KacinciTaksit;
     public decimal ToplamTaksitTutari => Miktar * ToplamTaksitSayisi;
     public bool OdenmisVeyaKapatilmis => Durum == OdemeDurum.Odendi || FaturaIleKapatildi;
-    public decimal ToplamKesinti => MasrafKesintisi + CezaKesintisi + DigerKesinti;
-    public decimal NetOdenenTutar => (OdenenTutar ?? Miktar) - ToplamKesinti;
+    public decimal ToplamEkMasraf => MasrafKesintisi + CezaKesintisi + DigerKesinti;
+    public decimal NetOdenenTutar => (OdenenTutar ?? Miktar) + ToplamEkMasraf;
 }
 
 public enum OdemeDurum

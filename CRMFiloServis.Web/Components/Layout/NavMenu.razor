@@ -259,6 +259,21 @@
                             </div>
                         }
 
+                        <!-- HAKEDİS/PUANTAJ SİSTEMİ -->
+                        @if (HasYetki("raporlar.oku"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top">
+                                <NavLink class="nav-link" href="hakedis-tablosu">
+                                    <i class="bi bi-table me-2 text-primary"></i> <strong>Hakedis Tablosu</strong>
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="hakedis-excel-import">
+                                    <i class="bi bi-file-earmark-excel me-2 text-success"></i> Excel Import
+                                </NavLink>
+                            </div>
+                        }
+
                         <!-- YENİ EKLENEN PUANTAJ LİSTESİ -->
                         @if (HasYetki("raporlar.oku"))
                         {

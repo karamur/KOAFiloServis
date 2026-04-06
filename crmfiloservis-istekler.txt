@@ -7,3 +7,15 @@ chat de benle türkçe yazarmısın? .bütçe analiz cezalı ödeme yaptım faka
 ---
 
 web sayfası ve kontrol sayfası ekle bunuda tek başına çalış yap. bütçe analiz ödene yapılıyor. ceza miktarı arttırması gerekiyor fakat programda (-) olarak yazıldığında miktar artıyor fakat ödeme database kayıt yapmıyor. düzelt. perseonel eklerken brüt maaş hesaplama (saatlik=> saat*saatlik ücret, Aylık=> gün*günlük ücret), yuvarlama yapılsın kuruş farkı eklemeyapılsın(-) kullanılsın.
+
+----
+
+
+kurum,güzergah, gelir, gider,yön(sabah/akşam, sabah, akşam, diğer), plaka, şoför, telefon, fatura kesen cari (firma/cari), telefon(fatura telefonu), gün(çarpan), toplam gider, gider kdv/20, gider kdv/10, gider kesinti, ödenecek-*-* toplam gelir, gelir kdv/20, gelir kdv/10, gelir kesinti, alınacak -*- fark listesi şekilde
+
+-*-*-
+
+kurum,güzergah, gelir, gider,yön(sabah/akşam, sabah, akşam, diğer), plaka, şoför, telefon, fatura kesen cari (firma/cari), telefon(fatura telefonu), gün(çarpan), toplam gider, gider kdv/20, gider kdv/10, gider kesinti, ödenecek tablosundan excelden al denildiğinde firma ve güzergah ekleme yapılabilmesi/ plaka ve şoför eşleştirmesi/ şoför eklenmesi kiralık ve komisyoncu şoförler ödeme firmadan yapılacak./puantaj eklenebilmeli tablo ve 2 taraflı düzenlenebilmeli faturaları kontrol edilebilmeli aynı şekilde faturalı faturasız ödemeler takip edilmesi.
+*-*-
+
+bütçe analiz ödeme yaparken 791 tl ceza masraf kesintilerde 3,90 yazdığımda net rakam 794,90 tl olması gerekirken (-) olmadan net rakam gelmiyor. bu şekilde (-) işareti olmadan düzenlemek gerekiyor. kredi kartı listesinde nete rakama ilave edeceğine eksiltiyor. düzenle geliştir.

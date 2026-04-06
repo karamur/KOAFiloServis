@@ -587,11 +587,11 @@
                             </div>
                         }
 
-                        <!-- Kesintiler -->
+                        <!-- Ek Masraflar (Tutara eklenir) -->
                         <div class="col-12">
                             <div class="card bg-light">
                                 <div class="card-header py-2">
-                                    <i class="bi bi-scissors me-1"></i>Kesintiler (Varsa)
+                                    <i class="bi bi-plus-circle me-1"></i>Ek Masraflar (Tutara Eklenir)
                                 </div>
                                 <div class="card-body py-2">
                                     <div class="row g-2">
@@ -610,18 +610,18 @@
                                             </div>
                                         </div>
                                         <div class="col-md-4">
-                                            <label class="form-label small">Diğer Kesinti</label>
+                                            <label class="form-label small">Diğer Ek Masraf</label>
                                             <div class="input-group input-group-sm">
-                                                <input type="number" class="form-control" @bind="odemeYapRequest.DigerKesinti" step="0.01" min="0" />
+                                                <input type="number" class="form-control" @bind="odemeYapRequest.DigerKesinti" step="0.01" />
                                                 <span class="input-group-text">₺</span>
                                             </div>
                                         </div>
-                                        @if (ToplamKesinti > 0)
+                                        @if (ToplamEkMasraf != 0)
                                         {
                                             <div class="col-12">
                                                 <input type="text" class="form-control form-control-sm" 
                                                        @bind="odemeYapRequest.KesintiAciklamasi" 
-                                                       placeholder="Kesinti açıklaması..." />
+                                                       placeholder="Ek masraf açıklaması..." />
                                             </div>
                                         }
                                     </div>
@@ -637,18 +637,18 @@
                     </div>
 
                     <!-- Özet -->
-                    <div class="card mt-3 @(ToplamKesinti != 0 ? "border-warning" : "border-success")">
+                    <div class="card mt-3 @(ToplamEkMasraf != 0 ? "border-warning" : "border-success")">
                         <div class="card-body py-2">
                             <div class="row">
                                 <div class="col-6">
                                     <small class="text-muted">Tutar:</small>
                                     <div class="fs-5">@FormatPara(odemeYapilacak.Miktar)</div>
                                 </div>
-                                @if (ToplamKesinti != 0)
+                                @if (ToplamEkMasraf != 0)
                                 {
                                     <div class="col-3 text-center">
-                                        <small class="text-muted">@(ToplamKesinti > 0 ? "Kesinti" : "Ekleme"):</small>
-                                        <div class="@(ToplamKesinti > 0 ? "text-danger" : "text-primary")">@((ToplamKesinti > 0 ? "-" : "+") + FormatPara(Math.Abs(ToplamKesinti)))</div>
+                                        <small class="text-muted">Ek Masraf:</small>
+                                        <div class="text-primary">+@FormatPara(ToplamEkMasraf)</div>
                                     </div>
                                 }
                                 <div class="col text-end">
@@ -1579,20 +1579,31 @@
 
         try
         {
-            await BudgetService.OdemeYapAsync(odemeYapilacak.Id, odemeYapRequest);
+            var odenenId = odemeYapilacak.Id;
+            await BudgetService.OdemeYapAsync(odenenId, odemeYapRequest);
 
             var mesaj = $"{odemeYapilacak.MasrafKalemi} ödendi! ({FormatPara(NetOdemeTutari)})";
-            if (odemeYapRequest.ToplamKesinti > 0)
-                mesaj += $" - Kesinti: {FormatPara(odemeYapRequest.ToplamKesinti)}";
+            if (odemeYapRequest.ToplamEkMasraf > 0)
+                mesaj += $" - Ek Masraf: {FormatPara(odemeYapRequest.ToplamEkMasraf)}";
 
             ToastService.ShowSuccess(mesaj);
             ModalKapat();
+
+            // Ödenen kaydı seçili gün listesinden kaldır
+            secilenGunOdemeleri.RemoveAll(o => o.Id == odenenId);
 
             // Hesap bakiyelerini güncelle
             hesapBakiyeleri = await BankaHesapService.GetTumHesapBakiyeleriAsync();
 
             // Tum veriyi yenile (gun secimi korunacak)
             await YenileDataAsync();
+
+            // Seçili günü de güncelle (eğer gün seçiliyse)
+            if (secilenGun.HasValue)
+            {
+                var gunData = takvimData?.FirstOrDefault(t => t.Gun == secilenGun.Value);
+                secilenGunOdemeleri = gunData?.Odemeler?.Where(o => o.Durum == OdemeDurum.Bekliyor).ToList() ?? new List<BudgetOdeme>();
+            }
         }
         catch (Exception ex)
         {
@@ -1633,8 +1644,8 @@
         };
     }
 
-    private decimal ToplamKesinti => odemeYapRequest.MasrafKesintisi + odemeYapRequest.CezaKesintisi + odemeYapRequest.DigerKesinti;
-    private decimal NetOdemeTutari => (odemeYapilacak?.Miktar ?? 0) - ToplamKesinti;
+    private decimal ToplamEkMasraf => odemeYapRequest.MasrafKesintisi + odemeYapRequest.CezaKesintisi + odemeYapRequest.DigerKesinti;
+    private decimal NetOdemeTutari => (odemeYapilacak?.Miktar ?? 0) + ToplamEkMasraf;
 
     private void YeniOdemeAc()
     {

@@ -206,27 +206,16 @@ public class BudgetService : IBudgetService
         var cezaKesintisi = RoundCurrency(request.CezaKesintisi);
         var digerKesinti = RoundCurrency(request.DigerKesinti);
 
-        // Kesinti bilgilerini kaydet
+        // Ek masraf bilgilerini kaydet
         odeme.MasrafKesintisi = masrafKesintisi;
         odeme.CezaKesintisi = cezaKesintisi;
         odeme.DigerKesinti = digerKesinti;
         odeme.KesintiAciklamasi = request.KesintiAciklamasi;
 
-        var toplamKesinti = masrafKesintisi + cezaKesintisi + digerKesinti;
-        decimal netOdemeTutari;
+        var toplamEkMasraf = masrafKesintisi + cezaKesintisi + digerKesinti;
 
-        // Kredi kartı ödemesinde kesintiler EKLENIR (faiz, komisyon = ekstra borç)
-        // Diğer ödemelerde kesintiler DÜŞÜLÜR
-        if (request.OdemeTipi == OdemeTipi.KrediKarti)
-        {
-            // Kredi kartı: Kesintiler (faiz/komisyon) borca eklenir
-            netOdemeTutari = RoundCurrency(odemeTutari + toplamKesinti);
-        }
-        else
-        {
-            // Kasa/Banka: Kesintiler düşülür
-            netOdemeTutari = RoundCurrency(odemeTutari - toplamKesinti);
-        }
+        // Ek masraflar (ceza, faiz, komisyon) her zaman tutara EKLENIR
+        decimal netOdemeTutari = RoundCurrency(odemeTutari + toplamEkMasraf);
 
         if (netOdemeTutari <= 0)
             throw new Exception("Net ödeme tutarı sıfırdan büyük olmalıdır.");
@@ -246,14 +235,9 @@ public class BudgetService : IBudgetService
             var aciklamaBuilder = $"Bütçe Ödemesi: {odeme.MasrafKalemi}";
             if (!string.IsNullOrEmpty(request.OdemeNotu))
                 aciklamaBuilder += $" - {request.OdemeNotu}";
-            if (toplamKesinti != 0)
+            if (toplamEkMasraf != 0)
             {
-                if (request.OdemeTipi == OdemeTipi.KrediKarti)
-                    aciklamaBuilder += $" (Ek Masraf: {toplamKesinti:N2} ₺)";
-                else
-                    aciklamaBuilder += toplamKesinti > 0
-                        ? $" (Kesinti: {toplamKesinti:N2} ₺)"
-                        : $" (Ekleme: {Math.Abs(toplamKesinti):N2} ₺)";
+                aciklamaBuilder += $" (Ek Masraf: {toplamEkMasraf:N2} ₺)";
             }
 
             var hareket = new BankaKasaHareket

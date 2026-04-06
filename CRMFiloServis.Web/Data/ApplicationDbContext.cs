@@ -156,6 +156,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<KullaniciTercihi> KullaniciTercihleri { get; set; }
     public DbSet<KullaniciSonIslem> KullaniciSonIslemler { get; set; }
 
+    // Puantaj/Hakedis Modülü (Excel Import destekli)
+    public DbSet<PuantajKayit> PuantajKayitlar { get; set; }
+    public DbSet<PuantajExcelImport> PuantajExcelImportlar { get; set; }
+    public DbSet<PuantajEslestirmeOneri> PuantajEslestirmeOnerileri { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -996,6 +1001,91 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.Kullanici)
                 .WithMany()
                 .HasForeignKey(e => e.KullaniciId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ===== PUANTAJ/HAKEDİS MODÜLÜ KONFIGURASYONLARI =====
+
+        // PuantajKayit - Excel import ve manuel giriş
+        modelBuilder.Entity<PuantajKayit>(entity =>
+        {
+            entity.HasIndex(e => new { e.Yil, e.Ay, e.GuzergahId, e.AracId });
+            entity.HasIndex(e => new { e.Yil, e.Ay, e.KurumCariId });
+            entity.Property(e => e.KurumAdi).HasMaxLength(200);
+            entity.Property(e => e.GuzergahAdi).HasMaxLength(200);
+            entity.Property(e => e.Plaka).HasMaxLength(20);
+            entity.Property(e => e.SoforAdi).HasMaxLength(100);
+            entity.Property(e => e.SoforTelefon).HasMaxLength(20);
+            entity.Property(e => e.FaturaKesiciAdi).HasMaxLength(200);
+            entity.Property(e => e.FaturaKesiciTelefon).HasMaxLength(20);
+            entity.Property(e => e.GelirFaturaNo).HasMaxLength(50);
+            entity.Property(e => e.GiderFaturaNo).HasMaxLength(50);
+            entity.Property(e => e.OnaylayanKullanici).HasMaxLength(100);
+            entity.Property(e => e.Notlar).HasMaxLength(1000);
+
+            // Decimal precision
+            entity.Property(e => e.Gun).HasPrecision(10, 2);
+            entity.Property(e => e.BirimGelir).HasPrecision(18, 2);
+            entity.Property(e => e.ToplamGelir).HasPrecision(18, 2);
+            entity.Property(e => e.GelirKdvTutari).HasPrecision(18, 2);
+            entity.Property(e => e.GelirToplam).HasPrecision(18, 2);
+            entity.Property(e => e.BirimGider).HasPrecision(18, 2);
+            entity.Property(e => e.ToplamGider).HasPrecision(18, 2);
+            entity.Property(e => e.GiderKdv20Tutari).HasPrecision(18, 2);
+            entity.Property(e => e.GiderKdv10Tutari).HasPrecision(18, 2);
+            entity.Property(e => e.GiderKesinti).HasPrecision(18, 2);
+            entity.Property(e => e.Odenecek).HasPrecision(18, 2);
+            entity.Property(e => e.GelirOdenenTutar).HasPrecision(18, 2);
+            entity.Property(e => e.GiderOdenenTutar).HasPrecision(18, 2);
+
+            // İlişkiler
+            entity.HasOne(e => e.KurumCari)
+                .WithMany()
+                .HasForeignKey(e => e.KurumCariId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Guzergah)
+                .WithMany()
+                .HasForeignKey(e => e.GuzergahId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Arac)
+                .WithMany()
+                .HasForeignKey(e => e.AracId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Sofor)
+                .WithMany()
+                .HasForeignKey(e => e.SoforId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.OdemeYapilacakCari)
+                .WithMany()
+                .HasForeignKey(e => e.OdemeYapilacakCariId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.FaturaKesiciCari)
+                .WithMany()
+                .HasForeignKey(e => e.FaturaKesiciCariId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // PuantajExcelImport - import batch kaydı
+        modelBuilder.Entity<PuantajExcelImport>(entity =>
+        {
+            entity.HasIndex(e => new { e.Yil, e.Ay });
+            entity.Property(e => e.DosyaAdi).HasMaxLength(200);
+            entity.Property(e => e.ImportEdenKullanici).HasMaxLength(100);
+            entity.Property(e => e.HataMesaji).HasMaxLength(2000);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // PuantajEslestirmeOneri - import eşleştirme önerileri
+        modelBuilder.Entity<PuantajEslestirmeOneri>(entity =>
+        {
+            entity.HasIndex(e => new { e.ExcelImportId, e.Tip, e.ExcelDeger });
+            entity.Property(e => e.ExcelDeger).HasMaxLength(200);
+            entity.Property(e => e.OnerilenAd).HasMaxLength(200);
+            entity.HasOne(e => e.ExcelImport)
+                .WithMany()
+                .HasForeignKey(e => e.ExcelImportId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
