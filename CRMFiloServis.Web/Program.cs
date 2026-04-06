@@ -74,7 +74,7 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =
     {
         // PostgreSQL timestamp ayari
         AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-        
+
         options.UseNpgsql(defaultConnectionString, npgsqlOptions =>
         {
             npgsqlOptions.EnableRetryOnFailure(
@@ -82,6 +82,7 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =
                 maxRetryDelay: TimeSpan.FromSeconds(5),
                 errorCodesToAdd: null);
             npgsqlOptions.CommandTimeout(30);
+            npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "public");
         });
     }
     else // SQLite
