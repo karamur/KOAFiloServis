@@ -1203,4 +1203,284 @@ public class MuhasebeService : IMuhasebeService
     }
 
     #endregion
+
+    #region KDV Beyanname Raporu
+
+    /// <summary>
+    /// KDV Beyanname raporu oluşturur
+    /// </summary>
+    public async Task<KdvBeyanRapor> GetKdvBeyanRaporuAsync(int yil, int ay)
+    {
+        var baslangic = new DateTime(yil, ay, 1, 0, 0, 0, DateTimeKind.Utc);
+        var bitis = baslangic.AddMonths(1).AddTicks(-1);
+
+        var rapor = new KdvBeyanRapor
+        {
+            Yil = yil,
+            Ay = ay,
+            AyAdi = AyAdlari[ay]
+        };
+
+        // Faturalardan KDV bilgileri
+        var faturalar = await _context.Faturalar
+            .Where(f => f.FaturaTarihi >= baslangic && f.FaturaTarihi <= bitis && !f.IsDeleted)
+            .ToListAsync();
+
+        // HESAPLANAN KDV (Satış faturaları)
+        var satisFaturalar = faturalar.Where(f => f.FaturaYonu == FaturaYonu.Giden).ToList();
+        rapor.HesaplananKdv = satisFaturalar.Sum(f => f.KdvTutar);
+        rapor.SatisTutari = satisFaturalar.Sum(f => f.AraToplam);
+
+        // KDV oranlarına göre grupla
+        rapor.HesaplananKdvDetay = satisFaturalar
+            .GroupBy(f => f.KdvOrani)
+            .Select(g => new KdvOranDetay
+            {
+                KdvOrani = g.Key,
+                Matrah = g.Sum(f => f.AraToplam),
+                KdvTutar = g.Sum(f => f.KdvTutar)
+            })
+            .OrderBy(k => k.KdvOrani)
+            .ToList();
+
+        // İNDİRİLECEK KDV (Alış faturaları)
+        var alisFaturalar = faturalar.Where(f => f.FaturaYonu == FaturaYonu.Gelen).ToList();
+        rapor.IndirilecekKdv = alisFaturalar.Sum(f => f.KdvTutar);
+        rapor.AlisTutari = alisFaturalar.Sum(f => f.AraToplam);
+
+        rapor.IndirilecekKdvDetay = alisFaturalar
+            .GroupBy(f => f.KdvOrani)
+            .Select(g => new KdvOranDetay
+            {
+                KdvOrani = g.Key,
+                Matrah = g.Sum(f => f.AraToplam),
+                KdvTutar = g.Sum(f => f.KdvTutar)
+            })
+            .OrderBy(k => k.KdvOrani)
+            .ToList();
+
+        // TEVKİFAT KDV
+        var tevkifatliSatis = satisFaturalar.Where(f => f.TevkifatliMi).ToList();
+        var tevkifatliAlis = alisFaturalar.Where(f => f.TevkifatliMi).ToList();
+
+        rapor.TevkifatKdv = tevkifatliAlis.Sum(f => f.TevkifatTutar);
+        rapor.TevkifatliSatisKdv = tevkifatliSatis.Sum(f => f.TevkifatTutar);
+
+        // DEVREDİLEN KDV (önceki aydan)
+        var oncekiAyBitis = baslangic.AddTicks(-1);
+        var oncekiKdv = await GetKdvBakiyeAsync(oncekiAyBitis);
+        rapor.DevredenKdv = oncekiKdv > 0 ? oncekiKdv : 0;
+
+        // ÖDENECEK/DEVREDEN HESAPLAMA
+        rapor.ToplamIndirimler = rapor.IndirilecekKdv + rapor.DevredenKdv + rapor.TevkifatKdv;
+        rapor.FarkKdv = rapor.HesaplananKdv - rapor.ToplamIndirimler;
+
+        if (rapor.FarkKdv > 0)
+        {
+            rapor.OdenecekKdv = rapor.FarkKdv;
+            rapor.SonrakiAyaDevredenKdv = 0;
+        }
+        else
+        {
+            rapor.OdenecekKdv = 0;
+            rapor.SonrakiAyaDevredenKdv = Math.Abs(rapor.FarkKdv);
+        }
+
+        return rapor;
+    }
+
+    /// <summary>
+    /// Belirli bir tarihe kadar olan KDV bakiyesini hesaplar
+    /// </summary>
+    private async Task<decimal> GetKdvBakiyeAsync(DateTime tarih)
+    {
+        var tarihUtc = DateTime.SpecifyKind(tarih, DateTimeKind.Utc);
+
+        // 191 - İndirilecek KDV bakiyesi
+        var indirilecekKdvHesap = await GetHesapByKodAsync("191");
+        // 391 - Hesaplanan KDV bakiyesi
+        var hesaplananKdvHesap = await GetHesapByKodAsync("391");
+        // 190 - Devreden KDV
+        var devredenKdvHesap = await GetHesapByKodAsync("190");
+
+        decimal indirilecek = 0, hesaplanan = 0, devreden = 0;
+
+        if (indirilecekKdvHesap != null)
+        {
+            var kalemler = await _context.MuhasebeFisKalemleri
+                .Include(k => k.Fis)
+                .Where(k => k.HesapId == indirilecekKdvHesap.Id && 
+                           k.Fis.FisTarihi <= tarihUtc && 
+                           k.Fis.Durum == FisDurum.Onaylandi)
+                .ToListAsync();
+            indirilecek = kalemler.Sum(k => k.Borc) - kalemler.Sum(k => k.Alacak);
+        }
+
+        if (hesaplananKdvHesap != null)
+        {
+            var kalemler = await _context.MuhasebeFisKalemleri
+                .Include(k => k.Fis)
+                .Where(k => k.HesapId == hesaplananKdvHesap.Id && 
+                           k.Fis.FisTarihi <= tarihUtc && 
+                           k.Fis.Durum == FisDurum.Onaylandi)
+                .ToListAsync();
+            hesaplanan = kalemler.Sum(k => k.Alacak) - kalemler.Sum(k => k.Borc);
+        }
+
+        if (devredenKdvHesap != null)
+        {
+            var kalemler = await _context.MuhasebeFisKalemleri
+                .Include(k => k.Fis)
+                .Where(k => k.HesapId == devredenKdvHesap.Id && 
+                           k.Fis.FisTarihi <= tarihUtc && 
+                           k.Fis.Durum == FisDurum.Onaylandi)
+                .ToListAsync();
+            devreden = kalemler.Sum(k => k.Borc) - kalemler.Sum(k => k.Alacak);
+        }
+
+        // Devreden KDV = İndirilecek - Hesaplanan (pozitif ise devreden var)
+        return indirilecek + devreden - hesaplanan;
+    }
+
+    /// <summary>
+    /// Yıllık KDV özet raporu
+    /// </summary>
+    public async Task<List<KdvAylikOzet>> GetYillikKdvOzetiAsync(int yil)
+    {
+        var ozet = new List<KdvAylikOzet>();
+
+        for (int ay = 1; ay <= 12; ay++)
+        {
+            var rapor = await GetKdvBeyanRaporuAsync(yil, ay);
+            ozet.Add(new KdvAylikOzet
+            {
+                Ay = ay,
+                AyAdi = AyAdlari[ay],
+                HesaplananKdv = rapor.HesaplananKdv,
+                IndirilecekKdv = rapor.IndirilecekKdv,
+                TevkifatKdv = rapor.TevkifatKdv,
+                DevredenKdv = rapor.DevredenKdv,
+                OdenecekKdv = rapor.OdenecekKdv,
+                SonrakiAyaDevreden = rapor.SonrakiAyaDevredenKdv
+            });
+        }
+
+        return ozet;
+    }
+
+    #endregion
+
+    #region Nakit Akış Raporu
+
+    /// <summary>
+    /// Nakit akış raporu oluşturur
+    /// </summary>
+    public async Task<NakitAkisRapor> GetNakitAkisRaporuAsync(int yil, int? ay = null)
+    {
+        var rapor = new NakitAkisRapor { Yil = yil, Ay = ay };
+
+        // Kasa ve Banka hesapları
+        var kasaHesaplar = await _context.MuhasebeHesaplari
+            .Where(h => h.HesapKodu.StartsWith("100"))
+            .Select(h => h.Id)
+            .ToListAsync();
+
+        var bankaHesaplar = await _context.MuhasebeHesaplari
+            .Where(h => h.HesapKodu.StartsWith("102"))
+            .Select(h => h.Id)
+            .ToListAsync();
+
+        var nakitHesaplar = kasaHesaplar.Concat(bankaHesaplar).ToList();
+
+        // Dönem başı bakiye
+        var donemBasiTarih = ay.HasValue 
+            ? new DateTime(yil, ay.Value, 1, 0, 0, 0, DateTimeKind.Utc)
+            : new DateTime(yil, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var oncekiKalemler = await _context.MuhasebeFisKalemleri
+            .Include(k => k.Fis)
+            .Where(k => nakitHesaplar.Contains(k.HesapId) && 
+                       k.Fis.FisTarihi < donemBasiTarih &&
+                       k.Fis.Durum == FisDurum.Onaylandi)
+            .ToListAsync();
+
+        rapor.DonemBasiBakiye = oncekiKalemler.Sum(k => k.Borc) - oncekiKalemler.Sum(k => k.Alacak);
+
+        // Dönem içi hareketler
+        var donemBitisTarih = ay.HasValue
+            ? donemBasiTarih.AddMonths(1).AddTicks(-1)
+            : new DateTime(yil, 12, 31, 23, 59, 59, DateTimeKind.Utc);
+
+        var donemKalemler = await _context.MuhasebeFisKalemleri
+            .Include(k => k.Fis)
+            .Include(k => k.Hesap)
+            .Where(k => nakitHesaplar.Contains(k.HesapId) && 
+                       k.Fis.FisTarihi >= donemBasiTarih &&
+                       k.Fis.FisTarihi <= donemBitisTarih &&
+                       k.Fis.Durum == FisDurum.Onaylandi)
+            .ToListAsync();
+
+        rapor.ToplamGiris = donemKalemler.Sum(k => k.Borc);
+        rapor.ToplamCikis = donemKalemler.Sum(k => k.Alacak);
+        rapor.DonemSonuBakiye = rapor.DonemBasiBakiye + rapor.ToplamGiris - rapor.ToplamCikis;
+
+        // Hareket detayları - Fiş tiplerine göre grupla
+        var fisTipleriGiris = donemKalemler
+            .Where(k => k.Borc > 0)
+            .GroupBy(k => k.Fis.FisTipi)
+            .Select(g => new NakitHareketDetay
+            {
+                Tur = g.Key.ToString(),
+                Tutar = g.Sum(k => k.Borc)
+            })
+            .ToList();
+
+        var fisTipleriCikis = donemKalemler
+            .Where(k => k.Alacak > 0)
+            .GroupBy(k => k.Fis.FisTipi)
+            .Select(g => new NakitHareketDetay
+            {
+                Tur = g.Key.ToString(),
+                Tutar = g.Sum(k => k.Alacak)
+            })
+            .ToList();
+
+        rapor.GirisDetay = fisTipleriGiris;
+        rapor.CikisDetay = fisTipleriCikis;
+
+        // Aylık detay (yıllık raporda)
+        if (!ay.HasValue)
+        {
+            decimal baslangicBakiye = rapor.DonemBasiBakiye;
+            for (int m = 1; m <= 12; m++)
+            {
+                var ayBaslangic = new DateTime(yil, m, 1, 0, 0, 0, DateTimeKind.Utc);
+                var ayBitis = ayBaslangic.AddMonths(1).AddTicks(-1);
+
+                var ayKalemler = donemKalemler
+                    .Where(k => k.Fis.FisTarihi >= ayBaslangic && k.Fis.FisTarihi <= ayBitis)
+                    .ToList();
+
+                var giris = ayKalemler.Sum(k => k.Borc);
+                var cikis = ayKalemler.Sum(k => k.Alacak);
+                var sonBakiye = baslangicBakiye + giris - cikis;
+
+                rapor.AylikDetay.Add(new NakitAylikOzet
+                {
+                    Ay = m,
+                    AyAdi = AyAdlari[m],
+                    BaslangicBakiye = baslangicBakiye,
+                    Giris = giris,
+                    Cikis = cikis,
+                    SonBakiye = sonBakiye
+                });
+
+                baslangicBakiye = sonBakiye;
+            }
+        }
+
+        return rapor;
+    }
+
+    #endregion
 }

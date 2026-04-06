@@ -44,6 +44,13 @@ public interface IMuhasebeService
     Task<BilancoRapor> GetBilancoRaporuAsync(DateTime tarih);
     Task<MizanRapor> GetMizanRaporuAsync(DateTime baslangic, DateTime bitis);
 
+    // KDV Beyanname Raporları
+    Task<KdvBeyanRapor> GetKdvBeyanRaporuAsync(int yil, int ay);
+    Task<List<KdvAylikOzet>> GetYillikKdvOzetiAsync(int yil);
+
+    // Nakit Akış Raporu
+    Task<NakitAkisRapor> GetNakitAkisRaporuAsync(int yil, int? ay = null);
+
     // Hesap Bakiyeleri
     Task<decimal> GetHesapBakiyeAsync(string hesapKodu, DateTime? tarih = null);
     Task<List<HesapBakiye>> GetHesapBakiyeleriAsync(HesapGrubu grup, DateTime? tarih = null);
@@ -188,6 +195,86 @@ public class HesapBakiye
     public decimal Borc { get; set; }
     public decimal Alacak { get; set; }
     public decimal Bakiye { get; set; }
+}
+
+// KDV Beyanname Rapor Modelleri
+public class KdvBeyanRapor
+{
+    public int Yil { get; set; }
+    public int Ay { get; set; }
+    public string AyAdi { get; set; } = "";
+
+    // Satış (Hesaplanan KDV)
+    public decimal SatisTutari { get; set; }
+    public decimal HesaplananKdv { get; set; }
+    public List<KdvOranDetay> HesaplananKdvDetay { get; set; } = new();
+
+    // Alış (İndirilecek KDV)
+    public decimal AlisTutari { get; set; }
+    public decimal IndirilecekKdv { get; set; }
+    public List<KdvOranDetay> IndirilecekKdvDetay { get; set; } = new();
+
+    // Tevkifat
+    public decimal TevkifatKdv { get; set; }
+    public decimal TevkifatliSatisKdv { get; set; }
+
+    // Devreden KDV
+    public decimal DevredenKdv { get; set; }
+
+    // Hesaplama
+    public decimal ToplamIndirimler { get; set; }
+    public decimal FarkKdv { get; set; }
+    public decimal OdenecekKdv { get; set; }
+    public decimal SonrakiAyaDevredenKdv { get; set; }
+}
+
+public class KdvOranDetay
+{
+    public decimal KdvOrani { get; set; }
+    public decimal Matrah { get; set; }
+    public decimal KdvTutar { get; set; }
+}
+
+public class KdvAylikOzet
+{
+    public int Ay { get; set; }
+    public string AyAdi { get; set; } = "";
+    public decimal HesaplananKdv { get; set; }
+    public decimal IndirilecekKdv { get; set; }
+    public decimal TevkifatKdv { get; set; }
+    public decimal DevredenKdv { get; set; }
+    public decimal OdenecekKdv { get; set; }
+    public decimal SonrakiAyaDevreden { get; set; }
+}
+
+// Nakit Akış Rapor Modelleri
+public class NakitAkisRapor
+{
+    public int Yil { get; set; }
+    public int? Ay { get; set; }
+    public decimal DonemBasiBakiye { get; set; }
+    public decimal ToplamGiris { get; set; }
+    public decimal ToplamCikis { get; set; }
+    public decimal DonemSonuBakiye { get; set; }
+    public List<NakitHareketDetay> GirisDetay { get; set; } = new();
+    public List<NakitHareketDetay> CikisDetay { get; set; } = new();
+    public List<NakitAylikOzet> AylikDetay { get; set; } = new();
+}
+
+public class NakitHareketDetay
+{
+    public string Tur { get; set; } = "";
+    public decimal Tutar { get; set; }
+}
+
+public class NakitAylikOzet
+{
+    public int Ay { get; set; }
+    public string AyAdi { get; set; } = "";
+    public decimal BaslangicBakiye { get; set; }
+    public decimal Giris { get; set; }
+    public decimal Cikis { get; set; }
+    public decimal SonBakiye { get; set; }
 }
 
 #endregion

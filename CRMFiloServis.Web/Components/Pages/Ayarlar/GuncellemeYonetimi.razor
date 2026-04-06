@@ -106,15 +106,15 @@
                         <small class="text-muted">Sadece .zip dosyaları kabul edilir</small>
                     </div>
                     <div class="col-md-6">
-                        @if (_selectedFile != null)
+                        @if (_selectedFileName != null)
                         {
                             <div class="d-flex align-items-center gap-3">
                                 <div>
                                     <i class="bi bi-file-earmark-zip fs-4 text-warning"></i>
                                 </div>
                                 <div>
-                                    <strong>@_selectedFile.Name</strong>
-                                    <br /><small class="text-muted">@FormatFileSize(_selectedFile.Size)</small>
+                                    <strong>@_selectedFileName</strong>
+                                    <br /><small class="text-muted">@FormatFileSize(_selectedFileSize)</small>
                                 </div>
                                 <button class="btn btn-success" @onclick="UploadPackage" disabled="@_uploading">
                                     @if (_uploading)
@@ -204,12 +204,16 @@
     private bool _uploading = false;
     private bool _applying = false;
     private string _applyingPackage = "";
-    
+
     private UpdateInfo? _updateInfo;
     private UpdateManifest? _manifest;
     private List<string> _packages = new();
-    private IBrowserFile? _selectedFile;
-    
+
+    // Dosya bilgilerini ayrı tutuyoruz - stream referansı kaybolmasın diye
+    private string? _selectedFileName;
+    private long _selectedFileSize;
+    private MemoryStream? _selectedFileStream;
+
     private string _artifactsPath = "";
     private string _publishPath = "";
 
@@ -242,28 +246,55 @@
         }
     }
 
-    private void OnFileSelected(InputFileChangeEventArgs e)
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
-        _selectedFile = e.File;
-        StateHasChanged();
+        var file = e.File;
+        if (file == null) return;
+
+        try
+        {
+            // Dosya bilgilerini hemen kaydet
+            _selectedFileName = file.Name;
+            _selectedFileSize = file.Size;
+
+            // Stream'i hemen MemoryStream'e kopyala - referans kaybolmadan önce
+            _selectedFileStream?.Dispose();
+            _selectedFileStream = new MemoryStream();
+            using var inputStream = file.OpenReadStream(maxAllowedSize: 500 * 1024 * 1024); // 500 MB
+            await inputStream.CopyToAsync(_selectedFileStream);
+            _selectedFileStream.Position = 0;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Dosya okuma hatası: {ex.Message}");
+            _selectedFileName = null;
+            _selectedFileSize = 0;
+            _selectedFileStream?.Dispose();
+            _selectedFileStream = null;
+        }
     }
 
     private async Task UploadPackage()
     {
-        if (_selectedFile == null) return;
+        if (_selectedFileStream == null || string.IsNullOrEmpty(_selectedFileName)) return;
 
         _uploading = true;
         StateHasChanged();
 
         try
         {
-            using var stream = _selectedFile.OpenReadStream(maxAllowedSize: 500 * 1024 * 1024); // 500 MB
-            var result = await UpdateService.UploadUpdatePackageAsync(stream, _selectedFile.Name);
+            _selectedFileStream.Position = 0; // Stream'i başa sar
+            var result = await UpdateService.UploadUpdatePackageAsync(_selectedFileStream, _selectedFileName);
 
             if (result.Success)
             {
                 ToastService.ShowSuccess(result.Message);
-                _selectedFile = null;
+                _selectedFileName = null;
+                _selectedFileSize = 0;
+                _selectedFileStream?.Dispose();
+                _selectedFileStream = null;
                 await LoadUpdateInfo();
             }
             else

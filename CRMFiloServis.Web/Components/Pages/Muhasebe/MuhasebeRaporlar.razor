@@ -1,4 +1,4 @@
-@page "/muhasebe/raporlar"
+﻿@page "/muhasebe/raporlar"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject IMuhasebeService MuhasebeService
@@ -156,6 +156,50 @@
                 <div class="card-footer">
                     <button class="btn btn-danger w-100" @onclick="BilancoRaporuOlustur">
                         <i class="bi bi-layout-split me-1"></i>Rapor Olustur
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- KDV Beyanname -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-ruled me-2"></i>KDV Beyanname</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Aylık KDV beyanname hesaplaması ve özeti.</p>
+                    <ul class="list-unstyled small">
+                        <li><i class="bi bi-check text-success me-1"></i>Hesaplanan KDV</li>
+                        <li><i class="bi bi-check text-success me-1"></i>İndirilecek KDV</li>
+                        <li><i class="bi bi-check text-success me-1"></i>Tevkifat hesaplama</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-secondary w-100" @onclick='() => Navigation.NavigateTo("/muhasebe/raporlar/kdv-beyan")'>
+                        <i class="bi bi-file-earmark-ruled me-1"></i>KDV Raporu
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nakit Akış -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Nakit Akışı</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Kasa ve banka hareketlerinin analizi.</p>
+                    <ul class="list-unstyled small">
+                        <li><i class="bi bi-check text-success me-1"></i>Dönem başı/sonu bakiye</li>
+                        <li><i class="bi bi-check text-success me-1"></i>Giriş/çıkış analizi</li>
+                        <li><i class="bi bi-check text-success me-1"></i>Aylık trend</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-dark w-100" @onclick='() => Navigation.NavigateTo("/muhasebe/raporlar/nakit-akis")'>
+                        <i class="bi bi-cash-stack me-1"></i>Nakit Akış Raporu
                     </button>
                 </div>
             </div>
