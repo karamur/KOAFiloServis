@@ -135,19 +135,51 @@ class Program
                 var task = ctx.AddTask("[green]Yedekleniyor[/]");
                 using var conn = new NpgsqlConnection(GetConnectionString());
                 await conn.OpenAsync();
-                task.Increment(10);
-                
-                var sb = new StringBuilder();
-                sb.AppendLine("-- KOA Backup " + DateTime.Now);
-                sb.AppendLine("SET client_encoding = 'UTF8';");
+                task.Increment(5);
 
+                var sb = new StringBuilder();
+                sb.AppendLine("-- KOA Filo Servis PostgreSQL Backup");
+                sb.AppendLine("-- Database: " + _database);
+                sb.AppendLine("-- Date: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                sb.AppendLine("-- Tool: KOABackupTool v1.0");
+                sb.AppendLine();
+                sb.AppendLine("SET client_encoding = 'UTF8';");
+                sb.AppendLine();
+
+                // Önce __EFMigrationsHistory tablosunu oluştur ve yedekle
+                sb.AppendLine("-- EF Core Migrations History");
+                sb.AppendLine(@"CREATE TABLE IF NOT EXISTS ""__EFMigrationsHistory"" (
+    ""MigrationId"" character varying(150) NOT NULL,
+    ""ProductVersion"" character varying(32) NOT NULL,
+    CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY (""MigrationId"")
+);");
+                sb.AppendLine();
+
+                // Migration verilerini yedekle
+                using (var cmd = new NpgsqlCommand("SELECT \"MigrationId\", \"ProductVersion\" FROM \"__EFMigrationsHistory\" ORDER BY \"MigrationId\"", conn))
+                {
+                    try
+                    {
+                        using var r = await cmd.ExecuteReaderAsync();
+                        while (await r.ReadAsync())
+                        {
+                            sb.AppendLine($"INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('{r.GetString(0)}', '{r.GetString(1)}') ON CONFLICT DO NOTHING;");
+                        }
+                    }
+                    catch { /* Tablo yoksa devam et */ }
+                }
+                sb.AppendLine();
+                task.Increment(5);
+
+                // Diğer tabloları listele (__EFMigrationsHistory hariç)
                 var tables = new List<string>();
-                using (var cmd = new NpgsqlCommand("SELECT tablename FROM pg_tables WHERE schemaname='public'", conn))
+                using (var cmd = new NpgsqlCommand("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename != '__EFMigrationsHistory' ORDER BY tablename", conn))
                 using (var r = await cmd.ExecuteReaderAsync()) while (await r.ReadAsync()) tables.Add(r.GetString(0));
                 task.Increment(10);
 
                 foreach (var table in tables)
                 {
+                    sb.AppendLine($"-- Table: {table}");
                     sb.AppendLine($"DROP TABLE IF EXISTS \"{table}\" CASCADE;");
                     using (var cmd = new NpgsqlCommand($"SELECT 'CREATE TABLE \"{table}\" (' || string_agg('\"' || a.attname || '\" ' || pg_catalog.format_type(a.atttypid, a.atttypmod), ', ' ORDER BY a.attnum) || ')' FROM pg_attribute a WHERE a.attrelid = '{table}'::regclass AND a.attnum > 0 AND NOT a.attisdropped", conn))
                     {
@@ -164,6 +196,7 @@ class Program
                             sb.AppendLine($"INSERT INTO \"{table}\" ({string.Join(",", cols)}) VALUES ({string.Join(",", vals)});");
                         }
                     }
+                    sb.AppendLine();
                     task.Increment(70.0 / tables.Count);
                 }
 
