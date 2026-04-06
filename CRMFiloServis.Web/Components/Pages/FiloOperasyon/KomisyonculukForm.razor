@@ -1,0 +1,375 @@
+﻿@page "/filo-operasyon/komisyonculuk/yeni"
+@page "/filo-operasyon/komisyonculuk/{Id:int}/duzenle"
+@using CRMFiloServis.Shared.Entities
+@using CRMFiloServis.Web.Services
+@inject IFiloOperasyonService FiloOperasyonService
+@inject ICariService CariService
+@inject IAracService AracService
+@inject ISoforService SoforService
+@inject NavigationManager NavigationManager
+@inject IToastService ToastService
+
+<PageTitle>@(_isEdit ? "İş Düzenle" : "Yeni Komisyonculuk İşi") | KOA Filo Servis</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="/filo-operasyon">Filo Operasyon</a></li>
+                    <li class="breadcrumb-item"><a href="/filo-operasyon/komisyonculuk">Komisyonculuk</a></li>
+                    <li class="breadcrumb-item active">@(_isEdit ? "Düzenle" : "Yeni İş")</li>
+                </ol>
+            </nav>
+            <h3 class="mb-0">
+                <i class="bi bi-briefcase me-2"></i>@(_isEdit ? $"İş Düzenle: {_model.IsKodu}" : "Yeni Komisyonculuk İşi")
+            </h3>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="_model" OnValidSubmit="Kaydet">
+            <DataAnnotationsValidator />
+
+            <div class="row">
+                <!-- Sol Kolon - İş Bilgileri -->
+                <div class="col-md-8">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>İş Bilgileri</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">İş Kodu</label>
+                                    <input type="text" class="form-control" @bind="_model.IsKodu" readonly />
+                                    <small class="text-muted">Otomatik oluşturulur</small>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Müşteri <span class="text-danger">*</span></label>
+                                    <select class="form-select" @bind="_model.MusteriCariId">
+                                        <option value="0">-- Müşteri Seçin --</option>
+                                        @foreach (var cari in _cariler.Where(c => c.CariTipi == CariTipi.Musteri || c.CariTipi == CariTipi.MusteriTedarikci))
+                                        {
+                                            <option value="@cari.Id">@cari.Unvan</option>
+                                        }
+                                    </select>
+                                    <ValidationMessage For="() => _model.MusteriCariId" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">İş Açıklaması <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" @bind="_model.IsAciklamasi" 
+                                           placeholder="Ör: XYZ Firması personel servisi" />
+                                    <ValidationMessage For="() => _model.IsAciklamasi" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">İş Tipi</label>
+                                    <select class="form-select" @bind="_model.IsTipi">
+                                        <option value="@KomisyonculukIsTipi.SoforluArac">Şoförlü Araç</option>
+                                        <option value="@KomisyonculukIsTipi.SoforsuzArac">Şoförsüz Araç</option>
+                                        <option value="@KomisyonculukIsTipi.SadeceArac">Sadece Araç</option>
+                                        <option value="@KomisyonculukIsTipi.PersonelServisi">Personel Servisi</option>
+                                        <option value="@KomisyonculukIsTipi.Transfer">Transfer</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Başlangıç Tarihi</label>
+                                    <input type="date" class="form-control" @bind="_model.BaslangicTarihi" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Bitiş Tarihi</label>
+                                    <input type="date" class="form-control" @bind="_model.BitisTarihi" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fiyatlandırma -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-currency-exchange me-2"></i>Fiyatlandırma (Alınan İş Bedeli)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Fiyatlama Tipi</label>
+                                    <select class="form-select" @bind="_model.FiyatlamaTipi" @bind:after="HesaplaToplam">
+                                        <option value="@KomisyonculukFiyatlamaTipi.Gunluk">Günlük</option>
+                                        <option value="@KomisyonculukFiyatlamaTipi.Aylik">Aylık</option>
+                                        <option value="@KomisyonculukFiyatlamaTipi.SeferBasina">Sefer Başına</option>
+                                        <option value="@KomisyonculukFiyatlamaTipi.SaatBasina">Saat Başına</option>
+                                        <option value="@KomisyonculukFiyatlamaTipi.TopluPaket">Toplu Paket</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Birim Fiyat (₺)</label>
+                                    <input type="number" step="0.01" class="form-control" @bind="_model.BirimFiyat" 
+                                           @bind:after="HesaplaToplam" />
+                                </div>
+                                @if (_model.FiyatlamaTipi == KomisyonculukFiyatlamaTipi.Gunluk || 
+                                     _model.FiyatlamaTipi == KomisyonculukFiyatlamaTipi.SaatBasina)
+                                {
+                                    <div class="col-md-3">
+                                        <label class="form-label">Toplam @(_model.FiyatlamaTipi == KomisyonculukFiyatlamaTipi.Gunluk ? "Gün" : "Saat")</label>
+                                        <input type="number" class="form-control" @bind="_model.ToplamGun" 
+                                               @bind:after="HesaplaToplam" />
+                                    </div>
+                                }
+                                @if (_model.FiyatlamaTipi == KomisyonculukFiyatlamaTipi.SeferBasina)
+                                {
+                                    <div class="col-md-3">
+                                        <label class="form-label">Toplam Sefer</label>
+                                        <input type="number" class="form-control" @bind="_model.ToplamSefer" 
+                                               @bind:after="HesaplaToplam" />
+                                    </div>
+                                }
+                                <div class="col-md-3">
+                                    <label class="form-label">Toplam Tutar (₺)</label>
+                                    <input type="number" step="0.01" class="form-control fw-bold" @bind="_model.ToplamTutar" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notlar -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>Notlar</h5>
+                        </div>
+                        <div class="card-body">
+                            <textarea class="form-control" rows="3" @bind="_model.Notlar" 
+                                      placeholder="İş ile ilgili ek notlar..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sağ Kolon - Durum ve Fatura -->
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Durum</h5>
+                        </div>
+                        <div class="card-body">
+                            <label class="form-label">İş Durumu</label>
+                            <select class="form-select" @bind="_model.Durum">
+                                <option value="@KomisyonculukIsDurum.Aktif">Aktif</option>
+                                <option value="@KomisyonculukIsDurum.Beklemede">Beklemede</option>
+                                <option value="@KomisyonculukIsDurum.Tamamlandi">Tamamlandı</option>
+                                <option value="@KomisyonculukIsDurum.IptalEdildi">İptal Edildi</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Fatura Bilgileri</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="faturaKesildi" 
+                                       @bind="_model.FaturaKesildi" />
+                                <label class="form-check-label" for="faturaKesildi">
+                                    Müşteriye fatura kesildi
+                                </label>
+                            </div>
+                            @if (_model.FaturaKesildi)
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label">Fatura Kesim Tarihi</label>
+                                    <input type="date" class="form-control" @bind="_model.FaturaKesimTarihi" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Özet Kart -->
+                    @if (_isEdit)
+                    {
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Kar/Zarar Özeti</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Alınan İş Bedeli:</span>
+                                    <span class="text-success fw-bold">@_model.ToplamTutar.ToString("N2") ₺</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Toplam Maliyet:</span>
+                                    <span class="text-danger fw-bold">@_toplamMaliyet.ToString("N2") ₺</span>
+                                </div>
+                                <hr />
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-bold">Net Kar:</span>
+                                    @{
+                                        var netKar = _model.ToplamTutar - _toplamMaliyet;
+                                    }
+                                    <span class="fw-bold @(netKar >= 0 ? "text-success" : "text-danger")">
+                                        @netKar.ToString("N2") ₺
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Kaydet Butonları -->
+            <div class="card">
+                <div class="card-body d-flex justify-content-between">
+                    <a href="/filo-operasyon/komisyonculuk" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Geri
+                    </a>
+                    <div>
+                        <button type="submit" class="btn btn-primary" disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-check-lg me-1"></i> 
+                            @(_isEdit ? "Güncelle" : "Kaydet")
+                        </button>
+                        @if (!_isEdit)
+                        {
+                            <button type="button" class="btn btn-success ms-2" @onclick="KaydetVeAtama" disabled="@_saving">
+                                <i class="bi bi-plus-lg me-1"></i> Kaydet ve Atama Yap
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private bool _isEdit => Id.HasValue;
+    private bool _loading = true;
+    private bool _saving = false;
+    private KomisyonculukIs _model = new();
+    private List<Cari> _cariler = new();
+    private decimal _toplamMaliyet = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _cariler = await CariService.GetAllAsync();
+
+            if (_isEdit)
+            {
+                var existing = await FiloOperasyonService.GetKomisyonculukIsAsync(Id!.Value);
+                if (existing == null)
+                {
+                    ToastService.ShowError("İş bulunamadı.");
+                    NavigationManager.NavigateTo("/filo-operasyon/komisyonculuk");
+                    return;
+                }
+                _model = existing;
+                _toplamMaliyet = existing.Atamalar.Sum(a => a.ToplamMaliyet);
+            }
+            else
+            {
+                _model.IsKodu = await FiloOperasyonService.GenerateIsKoduAsync();
+                _model.BaslangicTarihi = DateTime.Today;
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Veri yüklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void HesaplaToplam()
+    {
+        _model.ToplamTutar = _model.FiyatlamaTipi switch
+        {
+            KomisyonculukFiyatlamaTipi.Gunluk => _model.BirimFiyat * _model.ToplamGun,
+            KomisyonculukFiyatlamaTipi.SaatBasina => _model.BirimFiyat * _model.ToplamGun,
+            KomisyonculukFiyatlamaTipi.SeferBasina => _model.BirimFiyat * _model.ToplamSefer,
+            KomisyonculukFiyatlamaTipi.Aylik => _model.BirimFiyat,
+            KomisyonculukFiyatlamaTipi.TopluPaket => _model.BirimFiyat,
+            _ => _model.BirimFiyat
+        };
+    }
+
+    private async Task Kaydet()
+    {
+        if (_model.MusteriCariId == 0)
+        {
+            ToastService.ShowError("Lütfen müşteri seçin.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.IsAciklamasi))
+        {
+            ToastService.ShowError("Lütfen iş açıklaması girin.");
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            if (_isEdit)
+            {
+                await FiloOperasyonService.UpdateKomisyonculukIsAsync(_model);
+                ToastService.ShowSuccess("İş başarıyla güncellendi.");
+            }
+            else
+            {
+                var created = await FiloOperasyonService.CreateKomisyonculukIsAsync(_model);
+                ToastService.ShowSuccess("İş başarıyla oluşturuldu.");
+            }
+            NavigationManager.NavigateTo("/filo-operasyon/komisyonculuk");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Kayıt hatası: {ex.Message}");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task KaydetVeAtama()
+    {
+        if (_model.MusteriCariId == 0)
+        {
+            ToastService.ShowError("Lütfen müşteri seçin.");
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var created = await FiloOperasyonService.CreateKomisyonculukIsAsync(_model);
+            ToastService.ShowSuccess("İş oluşturuldu, şimdi atama yapabilirsiniz.");
+            NavigationManager.NavigateTo($"/filo-operasyon/komisyonculuk/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Kayıt hatası: {ex.Message}");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

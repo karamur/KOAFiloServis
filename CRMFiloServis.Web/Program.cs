@@ -170,6 +170,7 @@ builder.Services.AddScoped<IStokService, StokService>(); // Stok/Envanter Servis
 builder.Services.AddScoped<IPersonelOzlukService, PersonelOzlukService>(); // Personel Özlük Evrak Servisi
 builder.Services.AddScoped<IPersonelFinansService, PersonelFinansService>(); // Personel Finans (Avans/Borç) Servisi
 builder.Services.AddScoped<IBordroService, BordroService>(); // Bordro Servisi
+builder.Services.AddScoped<IFiloOperasyonService, FiloOperasyonService>(); // Filo Operasyon (Komisyonculuk, Alım/Satım, Plaka Dönüşüm)
 builder.Services.AddHttpClient("OpenAI"); // OpenAI icin HttpClient
 builder.Services.AddHttpClient("Scraper"); // Scraper icin HttpClient
 builder.Services.AddHostedService<AutoBackupService>();
