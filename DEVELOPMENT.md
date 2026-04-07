@@ -41,6 +41,37 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 046 - Yevmiye Kayıtları Yazdır ve Excel Export
+**Talep:** Tarih bazlı yevmiye kayıtlarını yazdırma ve Excel'e export etme özelliği.
+
+**Yapılanlar:**
+- `YevmiyeRaporu.razor` oluşturuldu (~320 satır):
+  - **Route**: `/muhasebe/raporlar/yevmiye`
+  - **URL Parametreleri**: `baslangic`, `bitis`, `yazdir` (otomatik yazdırma için)
+  - **Özet Kartları**: Kayıt sayısı, toplam borç, toplam alacak, bakiye farkı
+  - **İki Görünüm Modu**:
+    - Fiş Bazlı: Her fiş ayrı kart, kalemler tablo
+    - Satır Bazlı: Tüm kayıtlar tek tabloda
+  - **Yazdır Butonu**: `window.print()` ile browser yazdırma
+  - **Excel Export**: `ExportYevmiyeToExcelAsync` metodu kullanılıyor
+  - **Zirve Export**: Zirve Muhasebe Programı formatında export
+  - **Print CSS**: `@media print` ile yazdırma optimizasyonu
+- `MuhasebeFisler.razor` güncellendi:
+  - Header'a Yazdır ve Excel butonları eklendi
+  - `YevmiyeYazdir()` metodu eklendi - seçili yıl/aya göre yazdırma sayfasına yönlendirme
+  - `YevmiyeExcelExport()` metodu eklendi - seçili yıl/aya göre Excel export
+- **Mevcut Servis Metodları** (zaten implemente):
+  - `GetYevmiyeRaporuAsync(baslangic, bitis)` - Yevmiye raporu oluşturma
+  - `ExportYevmiyeToExcelAsync(baslangic, bitis)` - Excel export
+  - `ExportZirveFormatAsync(baslangic, bitis)` - Zirve formatı export
+  - `GetYevmiyeYazdirDataAsync(baslangic, bitis)` - JSON yazdırma verisi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Muhasebe/YevmiyeRaporu.razor` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Muhasebe/MuhasebeFisler.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
 ### Kayıt 045 - Personel Düzenleme BUG Fix
 **Talep:** Personel düzenleme işlemi veritabanına kaydedilmiyor hatası.
 

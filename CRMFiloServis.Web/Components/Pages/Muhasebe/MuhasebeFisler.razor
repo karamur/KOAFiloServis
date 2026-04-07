@@ -30,6 +30,14 @@
                     <option value="@m">@GetAyAdi(m)</option>
                 }
             </select>
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="YevmiyeYazdir" title="Yevmiye Yazdır" disabled="@(!fisler.Any())">
+                    <i class="bi bi-printer"></i>
+                </button>
+                <button class="btn btn-outline-success btn-sm" @onclick="YevmiyeExcelExport" title="Excel Export" disabled="@(!fisler.Any())">
+                    <i class="bi bi-file-earmark-excel"></i>
+                </button>
+            </div>
             <button class="btn btn-primary btn-sm" @onclick="YeniFisAc">
                 <i class="bi bi-plus-lg me-1"></i>Yeni Fiş
             </button>
@@ -470,6 +478,44 @@
     private void BakiyeHesapla()
     {
         // Tetikleyici tetiklendiğinde StateHasChanged çalışır ve toplam bakiye yenilenir.
+    }
+
+    private void YevmiyeYazdir()
+    {
+        // Seçilen yıl ve aya göre tarih aralığı oluştur
+        var baslangic = secilenAy > 0 
+            ? new DateTime(secilenYil, secilenAy, 1) 
+            : new DateTime(secilenYil, 1, 1);
+        var bitis = secilenAy > 0 
+            ? baslangic.AddMonths(1).AddDays(-1) 
+            : new DateTime(secilenYil, 12, 31);
+
+        Navigation.NavigateTo($"/muhasebe/raporlar/yevmiye?baslangic={baslangic:yyyy-MM-dd}&bitis={bitis:yyyy-MM-dd}&yazdir=true");
+    }
+
+    private async Task YevmiyeExcelExport()
+    {
+        try
+        {
+            var baslangic = secilenAy > 0 
+                ? new DateTime(secilenYil, secilenAy, 1) 
+                : new DateTime(secilenYil, 1, 1);
+            var bitis = secilenAy > 0 
+                ? baslangic.AddMonths(1).AddDays(-1) 
+                : new DateTime(secilenYil, 12, 31);
+
+            var excelBytes = await MuhasebeService.ExportYevmiyeToExcelAsync(baslangic, bitis);
+            var fileName = secilenAy > 0 
+                ? $"Yevmiye_{secilenYil}_{secilenAy:D2}.xlsx" 
+                : $"Yevmiye_{secilenYil}.xlsx";
+
+            await JS.InvokeVoidAsync("downloadFileFromBytes", fileName, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excelBytes);
+            ToastService.ShowSuccess("Yevmiye Excel dosyası indirildi!");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Excel export hatası: " + ex.Message);
+        }
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)

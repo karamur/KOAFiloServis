@@ -142,8 +142,8 @@
 ### 5.5 Muhasebe & Raporlama Geliştirmeleri (YENİ - ÖNCELİKLİ)
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Tarih bazlı Yevmiye Kayıtları Yazdır | 🔴 Yüksek | 2 gün | ❌ |
-| Yevmiye Kayıtları Excel Export | 🔴 Yüksek | 1 gün | ❌ |
+| Tarih bazlı Yevmiye Kayıtları Yazdır | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Yevmiye Kayıtları Excel Export | 🔴 Yüksek | 1 gün | ✅ Tamamlandı |
 | Fatura Toplu Muhasebeleştirme | 🔴 Yüksek | 2 gün | ✅ |
 | Masraf Muhasebeleştirme | 🔴 Yüksek | 2 gün | ✅ |
 | Muhasebe Kontrol Listesi | 🟡 Orta | 1 gün | ✅ |
