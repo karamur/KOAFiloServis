@@ -494,6 +494,27 @@
             </div>
         }
 
+        <!-- İHALE HAZIRLIK -->
+        @if (HasMenuYetki("menu.fatura"))
+        {
+            <div class="nav-section">
+                <div class="nav-section-header" @onclick="() => ToggleSection(11)" style="cursor: pointer;">
+                    <span><i class="bi bi-briefcase me-2"></i>İHALE HAZIRLIK</span>
+                    <i class="bi @(expandedSections.Length > 11 && expandedSections[11] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </div>
+                @if (expandedSections.Length > 11 && expandedSections[11])
+                {
+                    <div class="nav-section-content">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="ihale-hazirlik">
+                                <i class="bi bi-briefcase-fill me-2 text-warning"></i> İhale Projeleri
+                            </NavLink>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
         <!-- BANKA / KASA -->
         @if (HasMenuYetki("menu.bankakasa"))
         {

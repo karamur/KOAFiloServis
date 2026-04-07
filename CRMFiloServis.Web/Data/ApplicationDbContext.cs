@@ -166,6 +166,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<ProformaFatura> ProformaFaturalar { get; set; }
     public DbSet<ProformaFaturaKalem> ProformaFaturaKalemler { get; set; }
 
+    // İhale Hazırlık Modülü
+    public DbSet<IhaleProje> IhaleProjeleri { get; set; }
+    public DbSet<IhaleGuzergahKalem> IhaleGuzergahKalemleri { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

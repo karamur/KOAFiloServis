@@ -19,6 +19,7 @@
 | Raporlar | ? Tamamlandı | Servis, Fatura, Araç Masraf, Cari Ekstre |
 | Dashboard | ? Tamamlandı | Özet kartlar, optimize sorgular |
 | UI/UX | ? Tamamlandı | Açılır menü, okunabilir renkler |
+| İhale Hazırlık | ✅ Tamamlandı | Proje bazlı maliyet analizi, AI tahmin, enflasyonlu projeksiyon |
 
 ---
 
@@ -232,6 +233,49 @@
 
 ---
 
+## 📊 FAZ 8 - İhale Hazırlık & Teklif Yönetimi
+
+### 8.1 İhale Proje Yönetimi
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| Proje CRUD (sınırsız proje) | 🔴 Yüksek | 2 gün | ✅ |
+| Proje kopyalama | 🔴 Yüksek | 1 gün | ✅ |
+| Güzergah/hat kalem yönetimi | 🔴 Yüksek | 2 gün | ✅ |
+| Özmal/Kiralık/Komisyon araç durumları | 🔴 Yüksek | 1 gün | ✅ |
+| Sözleşme süresi bazlı hesaplama | 🔴 Yüksek | 1 gün | ✅ |
+| Proje durum takibi (Taslak→Kazanıldı) | 🟡 Orta | 1 gün | ✅ |
+
+### 8.2 Maliyet Hesaplama
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| Yakıt maliyet hesaplama (mesafe×sefer×tüketim) | 🔴 Yüksek | 1 gün | ✅ |
+| Araç masraf 7 kategori (bakım/lastik/sigorta/kasko/muayene/yedek parça/diğer) | 🔴 Yüksek | 1 gün | ✅ |
+| Şoför maaş hesaplama (brüt+SGK %22.5) | 🔴 Yüksek | 1 gün | ✅ |
+| Kira/komisyon maliyet | 🔴 Yüksek | 1 gün | ✅ |
+| Amortisman hesaplama | 🟡 Orta | 1 gün | ✅ |
+| Birim fiyatlar (aylık/sefer/saat/km) | 🔴 Yüksek | 1 gün | ✅ |
+| Kâr marjı ve teklif fiyat hesaplama | 🔴 Yüksek | 1 gün | ✅ |
+
+### 8.3 AI Destekli Tahminler
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| AI araç masraf tahmini (Ollama) | 🔴 Yüksek | 1 gün | ✅ |
+| AI şoför maaş tahmini (enflasyon dahil) | 🔴 Yüksek | 1 gün | ✅ |
+| AI proje stratejik analizi | 🟡 Orta | 1 gün | ✅ |
+| Gerçek masraf verilerinden tahmin | 🟡 Orta | 1 gün | ✅ |
+| Kullanıcının AI tahminini değiştirmesi | 🔴 Yüksek | 1 gün | ✅ |
+
+### 8.4 Enflasyonlu Projeksiyon & Raporlama
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| Aylık enflasyonlu maliyet projeksiyonu | 🔴 Yüksek | 1 gün | ✅ |
+| Yakıt ayrı zam oranı hesaplama | 🔴 Yüksek | 1 gün | ✅ |
+| Kâr/zarar/masraf tablosu | 🔴 Yüksek | 1 gün | ✅ |
+| Kümülatif maliyet/kâr raporu | 🟡 Orta | 1 gün | ✅ |
+| Proje özet kartları | 🟡 Orta | 1 gün | ✅ |
+
+---
+
 ## 📅 Önerilen Uygulama Takvimi
 
 ```
@@ -268,6 +312,11 @@ FAZ 7 (5-6 Hafta)
 ├── Hafta 3: Personel Dosyaları
 ├── Hafta 4-5: AI Entegrasyonu (Local LLM + OCR)
 └── Hafta 6: Örnek Veri & Test
+
+FAZ 8 (2-3 Hafta) - ✅ TAMAMLANDI
+├── Hafta 1: İhale Proje CRUD + Maliyet Hesaplama
+├── Hafta 2: AI Tahmin + Enflasyonlu Projeksiyon
+└── Hafta 3: Kâr/Zarar Rapor + Proje Kopyalama
 ```
 
 ---
@@ -320,6 +369,13 @@ FAZ 7 (5-6 Hafta)
 23. **EBYS sistemi** - AI destekli belge yönetimi
 24. **Resmi raporlar** - SGK, Muhtasar vb.
 
+### 📊 İhale Hazırlık (Öncelik 8) - YENİ
+30. ~~**İhale Proje Yönetimi**~~ - ✅ Proje bazlı maliyet analizi, sınırsız proje oluşturma
+31. ~~**AI Araç Masraf Tahmini**~~ - ✅ Ollama ile masraf tahmini, kullanıcı düzenleyebilir
+32. ~~**AI Şoför Maaş Tahmini**~~ - ✅ Enflasyon dahil maaş projeksiyonu
+33. ~~**Enflasyonlu Projeksiyon**~~ - ✅ Aylık bileşik enflasyon + yakıt zam oranı
+34. ~~**Kâr/Zarar/Masraf Tablosu**~~ - ✅ Proje rapor, kümülatif hesap, birim fiyatlar
+
 ### 🤖 Yapay Zeka Destekli Raporlama (Öncelik 7) - YENİ
 25. ~~**Local LLM Entegrasyonu (Ollama)**~~ - ✅ Ollama servisi entegre edildi, internetsiz çalışıyor
 26. ~~**AI ile Muhasebe Analizi**~~ - ✅ Bütçe trend/anomali/kategori analizi Ollama ile tamamlandı
@@ -338,6 +394,7 @@ FAZ 7 (5-6 Hafta)
 - EBYS için Ollama/LLaMA kullanılarak internetsiz çalışabilirlik sağlanacak
 - Personel/Maaş/Bordro modülleri SGK mevzuatına uygun olmalı
 - Local AI (Ollama) ile raporlama özellikleri offline çalışabilecek
+- İhale Hazırlık modülü Ollama AI ile entegre (masraf tahmini, maaş tahmini, proje analizi)
 
 ---
 

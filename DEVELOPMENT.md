@@ -41,6 +41,52 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 043 - İhale Hazırlık Modülü (AI Destekli Maliyet Analizi)
+**Talep:** Personel servisi firmasının süresine göre, güzergah/mesafe, özmal/kiralık/komisyon durumlarında, araç model ve yakıt ortalamasına göre araç masrafları AI tahmini (kullanıcı değiştirebilsin), şoför maaş AI tahmini (geriye dönük ve enflasyon), aylık/saatlik/sefer başı birim fiyatlar, kâr/zarar/masraf tablosu. Sınırsız proje oluşturma.
+
+**Yapılanlar:**
+- `IhaleHazirlik.cs` entity oluşturuldu:
+  - `IhaleProje`: ProjeKodu (IHL-YYYY-NNNN), ProjeAdi, CariId, FirmaId, BaslangicTarihi, BitisTarihi, SozlesmeSuresiAy, EnflasyonOrani, YakitZamOrani, AylikCalismGunu, GunlukCalismaSaati, Durum, AIAnaliz
+  - `IhaleGuzergahKalem`: Hat bilgileri (ad/başlangıç/bitiş/mesafe/süre/sefer), araç bilgileri (sahiplik/model/koltuk/yakıt), 7 masraf kategorisi, kira/komisyon, şoför (brüt/net/SGK %22.5), amortisman, maliyet/kâr/teklif hesaplamaları, birim fiyatlar (aylık/sefer/saat/km)
+  - `AylikProjeksiyon`: Enflasyonlu aylık maliyet projeksiyon detayları
+  - `IhaleProjeDurum` enum: Taslak/Hazirlaniyor/TeklifVerildi/Kazanildi/Kaybedildi/IptalEdildi
+  - `AracSahiplikKalem` enum: Ozmal/Kiralik/Komisyon
+- `IhaleHazirlikModels.cs` oluşturuldu - DTO'lar:
+  - `IhaleMaliyetTahminIstek/Sonuc`: AI masraf tahmin request/response
+  - `IhaleSoforMaasTahmin`: Brüt/net/SGK/toplam/enflasyonlu maaş tahmini
+  - `IhaleProjeOzet`: Proje toplamları + kalem özetleri + aylık projeksiyon
+- `IIhaleHazirlikService.cs` interface oluşturuldu - 17 metot
+- `IhaleHazirlikService.cs` implementasyon oluşturuldu (~470 satır):
+  - **Proje CRUD**: Auto ProjeKodu (IHL-2025-0001), deep copy kopyalama
+  - **Kalem CRUD**: Güzergah/araç/şoför bilgi otomatik aktarımı
+  - **Maliyet Hesaplama**: Yakıt (mesafe×sefer×tüketim×fiyat), komisyon, SGK %22.5, amortisman, toplam, kâr, teklif, birim fiyatlar
+  - **Enflasyonlu Projeksiyon**: Bileşik faiz formülü, yakıt ayrı zam oranı, amortisman sabit
+  - **AI Araç Masraf Tahmini**: Gerçek masraf DB ortalaması + Ollama JSON prompt → 7 masraf kalemi
+  - **AI Şoför Maaş Tahmini**: Mevcut şoför ortalaması + asgari ücret + Ollama → brüt/net/SGK/enflasyonlu
+  - **AI Proje Analizi**: Proje özet → Ollama stratejik analiz (kâr marjı, risk, rekabet, öneri)
+- `IhaleHazirlik.razor` oluşturuldu (~700 satır):
+  - **Proje Listesi**: Kart grid, durum badge'leri (renk kodlu), düzenle/kopyala/sil
+  - **Proje Detay**: Bilgi kartları, hat tablosu, birim fiyat kartları
+  - **Proje Modal**: Tüm proje bilgileri CRUD formu
+  - **Kalem Modal**: Güzergah + araç + masraflar + şoför + kâr marjı, AI Tahmin butonları
+  - **Rapor**: Enflasyonlu projeksiyon tablosu, kümülatif hesap, toplam kartları
+- `ApplicationDbContext.cs` güncellendi - IhaleProjeleri, IhaleGuzergahKalemleri DbSet eklendi
+- `Program.cs` güncellendi - IIhaleHazirlikService DI kaydı eklendi
+- `NavMenu.razor` güncellendi - İhale Hazırlık menü bölümü eklendi
+- EF Core migration oluşturuldu (IhaleHazirlikModulu)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/IhaleHazirlik.cs` (yeni)
+- `CRMFiloServis.Web/Models/IhaleHazirlikModels.cs` (yeni)
+- `CRMFiloServis.Web/Services/Interfaces/IIhaleHazirlikService.cs` (yeni)
+- `CRMFiloServis.Web/Services/IhaleHazirlikService.cs` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Ihale/IhaleHazirlik.razor` (yeni)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (güncellendi)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
 ### Kayıt 042 - AI Destekli Fatura Import ve Cari Geliştirme
 **Talep:** Cari modülden kesilen/gelen faturaları XML yüklerken yapay zeka ile cari kart kontrolü, güzergah eşleştirme, stok kartı kontrolü, kalem sınıflandırma ve puantaj entegrasyonu.
 
