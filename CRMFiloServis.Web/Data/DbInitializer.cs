@@ -40,6 +40,28 @@ public static class DbInitializer
         }
         catch (Exception ex)
         {
+            if (context.Database.IsSqlite())
+            {
+                try
+                {
+                    var pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToList();
+                    if (pendingMigrations.Any())
+                    {
+                        await EnsureSqliteMigrationHistoryAsync(context, pendingMigrations);
+                        pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToList();
+                        if (!pendingMigrations.Any())
+                        {
+                            Console.WriteLine("SQLite migration gecmisi mevcut tablo yapisina gore duzeltildi.");
+                            return;
+                        }
+                    }
+                }
+                catch (Exception sqliteFixEx)
+                {
+                    Console.WriteLine($"SQLite migration duzeltme hatasi: {sqliteFixEx.Message}");
+                }
+            }
+
             // Migration hatasi durumunda EnsureCreated dene
             Console.WriteLine($"Migration hatasi: {ex.Message}. EnsureCreated deneniyor...");
             
@@ -329,17 +351,21 @@ public static class DbInitializer
                 );";
             await historyCreate.ExecuteNonQueryAsync();
 
-            await using var historyCount = connection.CreateCommand();
-            historyCount.CommandText = "SELECT COUNT(1) FROM \"__EFMigrationsHistory\"";
-            var hasHistory = Convert.ToInt32(await historyCount.ExecuteScalarAsync() ?? 0) > 0;
-            if (hasHistory)
+            var existingMigrationIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await using (var historyReader = connection.CreateCommand())
             {
-                return;
+                historyReader.CommandText = "SELECT \"MigrationId\" FROM \"__EFMigrationsHistory\"";
+                await using var reader = await historyReader.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    existingMigrationIds.Add(reader.GetString(0));
+                }
             }
 
             var allMigrations = context.Database.GetMigrations().ToList();
             var migrationsToBaseline = allMigrations
                 .Where(pendingMigrations.Contains)
+                .Where(migrationId => !existingMigrationIds.Contains(migrationId))
                 .ToList();
 
             if (migrationsToBaseline.Count == 0)
