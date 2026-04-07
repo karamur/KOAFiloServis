@@ -186,6 +186,7 @@ builder.Services.AddHttpClient("Ollama"); // Ollama Local LLM icin HttpClient
 builder.Services.AddScoped<IOllamaService, OllamaService>(); // Ollama AI Rapor Yorumlama
 builder.Services.AddScoped<IFaturaAIImportService, FaturaAIImportService>(); // AI Fatura Import Servisi
 builder.Services.AddScoped<IIhaleHazirlikService, IhaleHazirlikService>(); // İhale Hazırlık Servisi
+builder.Services.AddScoped<ICariRiskService, CariRiskService>(); // Cari Risk Analizi Servisi
 builder.Services.AddHostedService<AutoBackupService>();
 builder.Services.AddHttpContextAccessor();
 

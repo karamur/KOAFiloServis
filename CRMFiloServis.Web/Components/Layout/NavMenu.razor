@@ -152,6 +152,14 @@
                                                 </NavLink>
                                             </div>
                                         }
+                                        @if (HasYetki("cariler.oku"))
+                                        {
+                                            <div class="nav-item px-3">
+                                                <NavLink class="nav-link" href="cari/risk-analizi">
+                                                    <i class="bi bi-shield-exclamation me-2 text-danger"></i> Risk Analizi
+                                                </NavLink>
+                                            </div>
+                                        }
                                     </div>
                                 }
             </div>

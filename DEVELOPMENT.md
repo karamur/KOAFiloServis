@@ -41,6 +41,69 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 044 - Cari Risk Analizi Modülü (AI Destekli Tahsilat Risk Takibi)
+**Talep:** Cari hesap bazlı risk analizi: vadesi geçmiş alacak takibi, yaşlandırma analizi (0-30, 31-60, 61-90, 90+ gün), risk skorlaması, AI destekli tahsilat stratejisi önerileri.
+
+**Yapılanlar:**
+- `CariRiskModels.cs` oluşturuldu - Risk analizi DTO'ları:
+  - `CariRiskOzet`: Toplam cari sayısı, vadesi geçmiş cari/toplam, riskli cari sayısı, ortalama tahsilat süresi, açık alacak/borç
+  - `CariRiskKarti`: Cari risk kartı (skor, seviye, borc/alacak, yaşlandırma 4 dönem, son 1 yıl ciro, tahsilat süresi, vade uyum oranı, son işlem tarihleri, risk faktörleri listesi)
+  - `RiskSeviyesi` enum: DusukRisk(0-25), OrtaRisk(26-50), YuksekRisk(51-75), KritikRisk(76+)
+  - `VadesiGecmisFatura`: Vadesi geçmiş fatura detayları (gecikme gün sayısı dahil)
+  - `RiskTrendItem`: Aylık risk trend verisi
+  - `CariRiskFilterParams`: Filtreleme parametreleri (cari tipi, risk seviyesi, min gecikme, min tutar, sıralama)
+- `ICariRiskService.cs` interface oluşturuldu - 10 metot:
+  - `GetRiskOzetAsync`: Genel risk özeti
+  - `GetRiskKartlariAsync`: Filtrelenebilir risk kartları listesi
+  - `GetCariRiskKartiAsync`: Tek cari risk kartı
+  - `GetVadesiGecmisFaturalarAsync`: Vadesi geçmiş fatura listesi
+  - `GetToplamVadesiGecmisBorcAsync`: Toplam vadesi geçmiş borç
+  - `GetRiskTrendAsync`: Aylık trend verisi
+  - `HesaplaRiskSkoruAsync`: Tek cari risk skoru
+  - `RecalculateAllRiskScoresAsync`: Toplu yeniden hesaplama
+  - `GetAIRiskAnaliziAsync`: Tek cari AI analizi
+  - `GetTopluAIRiskAnaliziAsync`: Firma geneli AI analizi
+- `CariRiskService.cs` implementasyon oluşturuldu (~460 satır):
+  - **Risk Skoru Algoritması** (0-100):
+    - Vadesi geçmiş borç etkisi (0-40 puan): >100K=40, >50K=30, >20K=20, >5K=10, <5K=5
+    - Gecikme süresi etkisi (0-30 puan): >90 gün=30, >60=20, >30=10, >0=5
+    - Ortalama tahsilat süresi (0-15 puan): >60 gün=15, >45=10, >30=5
+    - Vade uyum oranı (0-15 puan): <%30=15, <%50=10, <%70=5
+    - Düşük ciro bonusu: <10K ciro + vadesi geçmiş = +5 puan
+  - **Yaşlandırma Analizi**: FaturaYonu.Giden + VadeTarihi nullable kontrol
+  - **Risk Seviyesi**: <=25 Düşük, <=50 Orta, <=75 Yüksek, >75 Kritik
+  - **AI Risk Analizi**: Ollama ile bireysel/toplu risk değerlendirmesi ve strateji önerileri
+  - **Trend Analizi**: Son 12 ay vadesi geçmiş borç ve riskli cari trend
+- `CariRiskAnalizi.razor` oluşturuldu (~500 satır):
+  - **Özet Kartları**: Toplam cari, vadesi geçmiş, riskli cari, toplam vadesi geçmiş borç (renkli kartlar)
+  - **Risk Dağılımı**: 4 seviye yüzde bar grafiği
+  - **Yaşlandırma Özeti**: 4 dönem (0-30, 31-60, 61-90, 90+) tutarları
+  - **AI Genel Analiz**: Toplu risk analizi butonu
+  - **Risk Listesi**: Filtrelenebilir/sıralanabilir cari tablosu (seviye badge, yaşlandırma bar)
+  - **Cari Detay Modal**: Risk kartı, yaşlandırma dağılımı, risk faktörleri, AI analiz
+- `Program.cs` güncellendi - ICariRiskService DI kaydı eklendi
+- `NavMenu.razor` güncellendi - Cari modülüne "Risk Analizi" linki eklendi
+- **Build Hataları Düzeltildi**:
+  - FaturaYonu.Gelir → FaturaYonu.Giden (Giden=Kesilen=Gelir faturası)
+  - Cari.ToplamBorc/ToplamAlacak → Cari.Borc/Alacak
+  - Cari.Bakiye → hesaplanmış (Borc - Alacak)
+  - BankaHareketleri → OdemeEslestirmeleri (doğru tablo)
+  - CariIletisimNotlari → CariIletisimNotlar (doğru isim)
+  - Fatura.ToplamTutar → Fatura.GenelToplam
+  - OdemeEslestirme.Tarih → EslestirmeTarihi
+  - VadeTarihi nullable (DateTime?) → .Value kontrolü
+  - AnalizYapAsync(prompt) → AnalizYapAsync(prompt, sistemPrompt)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Models/CariRiskModels.cs` (yeni)
+- `CRMFiloServis.Web/Services/Interfaces/ICariRiskService.cs` (yeni)
+- `CRMFiloServis.Web/Services/CariRiskService.cs` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Cariler/CariRiskAnalizi.razor` (yeni)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
 ### Kayıt 043 - İhale Hazırlık Modülü (AI Destekli Maliyet Analizi)
 **Talep:** Personel servisi firmasının süresine göre, güzergah/mesafe, özmal/kiralık/komisyon durumlarında, araç model ve yakıt ortalamasına göre araç masrafları AI tahmini (kullanıcı değiştirebilsin), şoför maaş AI tahmini (geriye dönük ve enflasyon), aylık/saatlik/sefer başı birim fiyatlar, kâr/zarar/masraf tablosu. Sınırsız proje oluşturma.
 

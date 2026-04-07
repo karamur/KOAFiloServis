@@ -116,21 +116,21 @@
 ### 5.2 Maaş Yönetimi İyileştirmeleri
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Yol parası alanı ekleme | 🔴 Yüksek | 1 gün | ❌ |
-| Hareket listesi (ödeme geçmişi) | 🔴 Yüksek | 2 gün | ❌ |
-| Toplu ödeme listesi (banka formatı) | 🔴 Yüksek | 2 gün | ❌ |
-| Tekli ödeme girişi (liste üzerinden) | 🟡 Orta | 1 gün | ❌ |
-| Tüm aylar/yıllar filtreleme | 🟡 Orta | 1 gün | ❌ |
-| Hareket listesi yazdır (ön izleme) | 🟡 Orta | 1 gün | ❌ |
-| Hareket listesi Excel export | 🟡 Orta | 1 gün | ❌ |
+| Yol parası alanı ekleme | 🔴 Yüksek | 1 gün | ✅ Tamamlandı |
+| Hareket listesi (ödeme geçmişi) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Toplu ödeme listesi (banka formatı) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Tekli ödeme girişi (liste üzerinden) | 🟡 Orta | 1 gün | ✅ Tamamlandı |
+| Tüm aylar/yıllar filtreleme | 🟡 Orta | 1 gün | ✅ Tamamlandı |
+| Hareket listesi yazdır (ön izleme) | 🟡 Orta | 1 gün | ✅ Tamamlandı |
+| Hareket listesi Excel export | 🟡 Orta | 1 gün | ✅ Tamamlandı |
 
 ### 5.3 Bordro Yönetimi
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Normal bordro (personel bazlı düzenleme) | 🔴 Yüksek | 3 gün | ❌ |
-| AR-GE bordro (personel bazlı düzenleme) | 🔴 Yüksek | 3 gün | ❌ |
-| Bordro hesap pusulası (personel bazlı) | 🔴 Yüksek | 2 gün | ❌ |
-| SGK personel normal/AR-GE ayırma | 🟡 Orta | 1 gün | ❌ |
+| Normal bordro (personel bazlı düzenleme) | 🔴 Yüksek | 3 gün | ✅ Tamamlandı |
+| AR-GE bordro (personel bazlı düzenleme) | 🔴 Yüksek | 3 gün | ✅ Tamamlandı |
+| Bordro hesap pusulası (personel bazlı) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| SGK personel normal/AR-GE ayırma | 🟡 Orta | 1 gün | ✅ Tamamlandı |
 
 ### 5.4 Personel Excel Import
 | Özellik | Öncelik | Süre | Durum |
@@ -151,11 +151,12 @@
 ### 5.6 Modül Geliştirmeleri (YENİ - ÖNCELİKLİ)
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Bütçe Analiz - Kategori bazlı analiz | 🔴 Yüksek | 2 gün | ❌ |
-| Bütçe Analiz - Trend grafikleri | 🔴 Yüksek | 1 gün | ❌ |
+| Bütçe Analiz - Kategori bazlı analiz | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Bütçe Analiz - Trend grafikleri | 🔴 Yüksek | 1 gün | ✅ Tamamlandı |
+| Bütçe Analiz - AI Analiz (Ollama) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | Bütçe Analiz - Hedef/Gerçekleşen karşılaştırma | 🟡 Orta | 2 gün | ❌ |
 | Cari - Risk analizi kartları | 🔴 Yüksek | 2 gün | ❌ |
-| Cari - İletişim geçmişi | 🟡 Orta | 1 gün | ❌ |
+| Cari - İletişim geçmişi | 🟡 Orta | 1 gün | ✅ Tamamlandı |
 | Cari - Otomatik hatırlatmalar | 🟡 Orta | 2 gün | ❌ |
 | Fatura - Toplu fatura oluşturma | 🔴 Yüksek | 2 gün | ❌ |
 | Fatura - Fatura şablonları | 🟡 Orta | 2 gün | ❌ |
@@ -168,26 +169,26 @@
 ### 6.1 Puantaj Sistemi
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Puantaj listesi (aylık görünüm) | 🔴 Yüksek | 3 gün | ❌ |
-| Son puantaj tablosu hazırlama | 🔴 Yüksek | 2 gün | ❌ |
-| Puantaj → Bordro otomatik aktarım | 🟡 Orta | 2 gün | ❌ |
+| Puantaj listesi (aylık görünüm) | 🔴 Yüksek | 3 gün | ✅ Tamamlandı |
+| Son puantaj tablosu hazırlama | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Puantaj → Bordro otomatik aktarım | 🟡 Orta | 2 gün | ✅ Tamamlandı |
 | Puantaj onay sistemi | 🟢 Düşük | 2 gün | ❌ |
 
 ### 6.2 Gelecek Fatura Yönetimi
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Kesilecek fatura listesi | 🔴 Yüksek | 2 gün | ❌ |
-| Gelecek fatura listesi | 🔴 Yüksek | 2 gün | ❌ |
-| Proforma fatura oluşturma | 🔴 Yüksek | 2 gün | ❌ |
-| Proforma → Gerçek fatura dönüştürme | 🟡 Orta | 1 gün | ❌ |
-| Kesilen/gelen fatura eşleştirme | 🟡 Orta | 2 gün | ❌ |
+| Kesilecek fatura listesi | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Gelecek fatura listesi | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Proforma fatura oluşturma | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Proforma → Gerçek fatura dönüştürme | 🟡 Orta | 1 gün | ✅ Tamamlandı |
+| Kesilen/gelen fatura eşleştirme | 🟡 Orta | 2 gün | ✅ Tamamlandı |
 
 ### 6.3 Resmi Raporlar
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| SGK bildirge raporu | 🔴 Yüksek | 2 gün | ❌ |
-| Muhtasar beyanname raporu | 🔴 Yüksek | 2 gün | ❌ |
-| Ücret bordro icmal raporu | 🟡 Orta | 2 gün | ❌ |
+| SGK bildirge raporu | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Muhtasar beyanname raporu | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Ücret bordro icmal raporu | 🟡 Orta | 2 gün | ✅ Tamamlandı |
 | İşe giriş/çıkış bildirge | 🟡 Orta | 1 gün | ❌ |
 | Yıllık izin takip raporu | 🟢 Düşük | 1 gün | ❌ |
 
