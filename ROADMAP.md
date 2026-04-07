@@ -155,7 +155,7 @@
 | Bütçe Analiz - Trend grafikleri | 🔴 Yüksek | 1 gün | ✅ Tamamlandı |
 | Bütçe Analiz - AI Analiz (Ollama) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | Bütçe Analiz - Hedef/Gerçekleşen karşılaştırma | 🟡 Orta | 2 gün | ❌ |
-| Cari - Risk analizi kartları | 🔴 Yüksek | 2 gün | ❌ |
+| Cari - Risk analizi kartları | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | Cari - İletişim geçmişi | 🟡 Orta | 1 gün | ✅ Tamamlandı |
 | Cari - Otomatik hatırlatmalar | 🟡 Orta | 2 gün | ❌ |
 | Fatura - Toplu fatura oluşturma | 🔴 Yüksek | 2 gün | ❌ |
