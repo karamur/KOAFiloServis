@@ -41,6 +41,225 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 021 - Çalışma zamanı klasör disiplininin genişletilmesi
+**Talep:** Sadece `uploads` değil, diğer çalışma zamanı klasörlerinin de git takibinden ayrılması.
+
+**Yapılanlar:**
+- `.gitignore`: `CRMFiloServis.Web/Backups/**` ignore kuralı eklendi
+- `.gitignore`: `deploy/Backups/**`, `deploy/Logs/**`, `deploy/Uploads/**` ignore kapsamına alındı
+- runtime klasörlerini repo içinde korumak için `.gitkeep` istisnaları tanımlandı
+- `010` kaydı ile açık iş özeti tutarlı hale getirildi
+
+**Etkilenen Dosyalar:**
+- `.gitignore`
+- `DEVELOPMENT.md`
+- `CRMFiloServis.Web/Backups/.gitkeep`
+- `CRMFiloServis.Web/wwwroot/uploads/.gitkeep`
+- `deploy/Backups/.gitkeep`
+- `deploy/Logs/.gitkeep`
+- `deploy/Uploads/.gitkeep`
+
+**Durum:** Tamamlandı
+
+### Kayıt 020 - Servis katmanında okuma ve soft delete tutarlılığı
+**Talep:** Servis katmanındaki güvenli refaktör işlerinin tamamlanması.
+
+**Yapılanlar:**
+- `GuzergahService.cs`: soft delete işleminde `UpdatedAt` güncellemesi eklendi
+- `GuzergahService.cs`: kod üretiminde okuma sorguları `AsNoTracking()` ile güvenli hale getirildi
+- `MasrafKalemiService.cs`: soft delete işleminde `UpdatedAt` güncellemesi eklendi
+- `PiyasaKaynakService.cs`: `DateTime.Now` yerine `DateTime.UtcNow` standardı uygulandı
+- `PiyasaKaynakService.cs`: kod kontrolü ve seed sayım sorgularında `AsNoTracking()` eklendi
+- `SoforService.cs`: aktif kayıt sayımı `AsNoTracking()` ile güncellendi
+- `SoforService.cs`: soft delete işleminde `UpdatedAt` güncellemesi eklendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/GuzergahService.cs`
+- `CRMFiloServis.Web/Services/MasrafKalemiService.cs`
+- `CRMFiloServis.Web/Services/PiyasaKaynakService.cs`
+- `CRMFiloServis.Web/Services/SoforService.cs`
+
+**Durum:** Tamamlandı
+
+### Kayıt 019 - Marka adı görünür metin taraması
+**Talep:** Proje genelinde görünür marka adlarının taranması ve `Koa Filo Servis` ile tutarlı hale getirilmesi.
+
+**Yapılanlar:**
+- `Login.razor`: footer içindeki GitHub bağlantı etiketi `Koa Filo Servis` olarak güncellendi
+- `README.md`: ilgili projeler tablosundaki eski marka adı güncellendi
+- `ROADMAP.md`: doküman başlığındaki eski marka adı güncellendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Login.razor`
+- `README.md`
+- `ROADMAP.md`
+
+**Durum:** Tamamlandı
+
+### Kayıt 018 - Muhasebe eşleştirme yönetim ekranları
+**Talep:** Banka/kasa hesap ve hareketlerinde muhasebe eşleştirme alanlarının yönetilebilir hale getirilmesi.
+
+**Sorun:**
+Muhasebe eşleştirme alanları entity ve servis katmanında vardı; ancak banka hesap ve banka hareket ekranlarında bu alanlar yönetilemiyordu.
+
+**Yapılanlar:**
+- `BankaHesapForm.razor`: varsayılan muhasebe kodu ve kost merkezi alanları eklendi
+- `BankaHesapForm.razor`: hesap tipine göre önerilen varsayılan muhasebe kodu ataması eklendi (`100` / `102` / `300`)
+- `BankaHesapList.razor`: hesap kartlarında varsayılan muhasebe kodu ve kost merkezi görünür hale getirildi
+- `BankaHareketForm.razor`: hareket bazlı muhasebe hesap kodu, alt hesap, kost merkezi, proje kodu ve muhasebe açıklama alanları eklendi
+- `BankaHareketForm.razor`: seçilen hesaptan varsayılan muhasebe değerlerini doldurma desteği eklendi
+- `BankaHareketList.razor`: hareket listesine muhasebe özeti kolonu eklendi
+- `BankaKasaHareketService.cs`: create/update sırasında hesap varsayılanlarını servis katmanında otomatik uygulama eklendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/BankaHesaplari/BankaHesapForm.razor`
+- `CRMFiloServis.Web/Components/Pages/BankaHesaplari/BankaHesapList.razor`
+- `CRMFiloServis.Web/Components/Pages/BankaHareketleri/BankaHareketForm.razor`
+- `CRMFiloServis.Web/Components/Pages/BankaHareketleri/BankaHareketList.razor`
+- `CRMFiloServis.Web/Services/BankaKasaHareketService.cs`
+
+**Durum:** Tamamlandı
+
+### Kayıt 017 - Servis Puantaj firma filtresi düzeltmesi
+**Talep:** Servis puantaj ekranında "Tüm Firmalar" filtrelemesi ve toplu puantaj akışı düzeltmesi.
+
+**Sorunlar:**
+1. `YenileAsync` metodunda `firmaId = 0` olduğunda hard-coded `firmaId = 1` kullanılıyordu
+2. Tüm firmalar seçildiğinde sadece FirmaId=1 olan eşleştirmeler geliyordu
+3. Toplu puantaj üretiminde firma seçimi zorunlu değildi
+
+**Yapılanlar:**
+- `IFiloKomisyonService.cs`: `GetEslestirmelerAsync` ve `GetPuantajlarByTarihAraligiAsync` parametreleri nullable yapıldı
+- `FiloKomisyonService.cs`: firmaId null veya 0 ise tüm firmaları getir
+- `ServisPuantaj.razor`:
+  - `YenileAsync`: Hard-coded değer kaldırıldı, nullable int kullanımı
+  - `TopluPuantajOlustur`: Firma seçimi zorunlu hale getirildi (toplu üretim için)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IFiloKomisyonService.cs`
+- `CRMFiloServis.Web/Services/FiloKomisyonService.cs`
+- `CRMFiloServis.Web/Components/Pages/Filo/ServisPuantaj.razor`
+
+**Durum:** Tamamlandı
+
+### Kayıt 016 - Bütçe ödemelerinde cari mahsup entegrasyonu
+**Talep:** Bütçe ödemelerinde CariMahsup tipi seçildiğinde otomatik hareket ve muhasebe fişi üretimi.
+
+**Sorun:**
+BudgetService.OdemeYapAsync metodunda sadece `OdemeTipi.Mahsup` kontrol ediliyordu, `OdemeTipi.CariMahsup` için ayrı işlem yapılmıyordu. Bu durumda:
+- Cari mahsup seçildiğinde BankaKasaHareket oluşturulmuyordu
+- Muhasebe fişi üretilmiyordu
+
+**Yapılanlar:**
+- `BudgetService.cs`: IBankaKasaHareketService dependency injection eklendi
+- `BudgetService.OdemeYapAsync`: CariMahsup tipi için ayrı branch eklendi
+  - CariId ve BankaHesapId validasyonu
+  - BankaKasaHareketService.CariMahsupAsync çağrısı
+  - CaridenTahsilat yönü desteği
+  - Otomatik muhasebe fişi zinciri (CariMahsupAsync → CreateCariMahsupFisiAsync)
+  - Hareket ID'sini BudgetOdeme kaydına bağlama
+
+**Akış:**
+```
+BudgetAnaliz → OdemeTipi.CariMahsup seç → OdemeYapAsync
+  → BankaKasaHareketService.CariMahsupAsync
+    → BankaKasaHareket oluştur
+    → MuhasebeService.CreateCariMahsupFisiAsync
+      → MuhasebeFis + MuhasebeFisKalem kayıtları
+```
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/BudgetService.cs`
+
+**Durum:** Tamamlandı
+
+### Kayıt 015 - Taşıma → Güzergah akışı doğrulama ve düzeltme
+**Talep:** Fatura kaleminden güzergah oluşturma akışının doğrulanması ve düzeltilmesi.
+
+**Sorunlar:**
+1. CariId yanlış atanıyordu (Firma.Id yerine Fatura.CariId olmalı)
+2. Aynı fatura kaleminden tekrar güzergah oluşturulabiliyordu (kontrol yoktu)
+3. Aynı firma + güzergah adı kombinasyonu için benzersizlik kontrolü eksikti
+
+**Yapılanlar:**
+- `IGuzergahService.cs`: 3 yeni doğrulama metodu eklendi
+  - FaturaKalemdenGuzergahVarMiAsync: Fatura kaleminden daha önce güzergah oluşturulmuş mu
+  - GetByFaturaKalemIdAsync: Fatura kaleminden oluşturulan güzergahı getir
+  - BenzersizGuzergahMiAsync: Firma + güzergah adı benzersizlik kontrolü
+- `GuzergahService.cs`: Doğrulama region'ı ile metodlar implemente edildi
+- `StokTuruEslestir.razor`: Güzergah oluşturma akışı düzeltildi
+  - GuzergahOnizlemeItem'a CariId ve ZatenMevcut alanları eklendi
+  - MevcutGuzergahKontrolEtAsync: Modal açıldığında mevcut kontrol
+  - GuzergahlariOlustur: Doğrulama kontrolleri ve bilgilendirme mesajları
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IGuzergahService.cs`
+- `CRMFiloServis.Web/Services/GuzergahService.cs`
+- `CRMFiloServis.Web/Components/Pages/EFatura/StokTuruEslestir.razor`
+
+**Durum:** Tamamlandı
+
+### Kayıt 014 - Mahsup işlemleri muhasebe fişi entegrasyonu
+**Talep:** Mahsup işlemlerinde otomatik muhasebe fişi üretimi ve iptal kaydı.
+
+**Yapılanlar:**
+- `IMuhasebeService.cs`: 3 yeni metod eklendi (CreateHesapTransferFisiAsync, CreateCariMahsupFisiAsync, IptalFisiOlusturAsync)
+- `MuhasebeService.cs`: Mahsup fişi oluşturma implementasyonu eklendi
+  - Hesaplar arası transfer için çift taraflı fiş (kaynak ALACAK, hedef BORÇ)
+  - Cari mahsup için tahsilat/ödeme fişi (Kasa/Banka vs Alıcılar/Satıcılar)
+  - İptal için ters kayıt (storno) fişi oluşturma
+- `BankaKasaHareketService.cs`: IMuhasebeService bağımlılığı eklendi
+  - HesaplarArasiTransferAsync: Transfer sonrası otomatik fiş üretimi
+  - CariMahsupAsync: Cari mahsup sonrası otomatik fiş üretimi
+  - MahsupIptalAsync: İptal öncesi ters kayıt fişi oluşturma
+- Hesap tipine göre varsayılan muhasebe kodu eşleştirmesi (Kasa:100, Banka:102, Kredi:300)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IMuhasebeService.cs`
+- `CRMFiloServis.Web/Services/MuhasebeService.cs`
+- `CRMFiloServis.Web/Services/BankaKasaHareketService.cs`
+
+**Durum:** Tamamlandı
+
+### Kayıt 013 - Login stabilizasyonu ve Servis Puantaj Excel export
+**Talep:** Login akışı stabilitesi artırımı ve Servis Puantaj ekranı Excel export özelliği.
+
+**Yapılanlar:**
+- `RedirectToLogin.razor`: `forceLoad: true` yerine `false` yapıldı - circuit korunarak auth state kaybı önlendi
+- `Login.razor`: Input değerleri trim edilerek gereksiz boşluk temizliği eklendi
+- `Login.razor`: Auth state propagation bekleme süresi 100ms'den 150ms'ye artırıldı
+- `ServisPuantaj.razor`: Excel export özelliği tamamlandı (ClosedXML ile puantaj tablosu export)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Shared/RedirectToLogin.razor`
+- `CRMFiloServis.Web/Components/Pages/Login.razor`
+- `CRMFiloServis.Web/Components/Pages/Filo/ServisPuantaj.razor`
+
+**Durum:** Tamamlandı
+
+### Kayıt 012 - Bütçe Analiz ödeme ve hareket düzeltmeleri
+**Talep:** Bütçe analizde ödeme yaparken kesinti/ek masraf hesaplama ve listeden kaldırma sorunları.
+
+**Sorunlar:**
+1. 791 TL ceza + 3,90 TL masraf kesintisi = Net 794,90 TL olması gerekirken (-) işaretsiz net rakam gelmiyordu
+2. Kredi kartı listesinde net rakama eklenmesi gerekirken eksiltme yapılıyordu
+3. Ödeme yapıldıktan sonra sağ taraftaki bekleyen ödemeler tablosundan kayıt kaldırılmıyordu
+4. Kasa/banka hareketi silindiğinde ilişkili bütçe ödeme durumu geri alınmıyordu
+
+**Yapılanlar:**
+- Ek masraf değerleri için `Math.Abs()` ile mutlak değer alınması sağlandı (BudgetAnaliz.razor, BudgetService.cs, IBudgetService.cs)
+- Net ödeme tutarı hesaplaması düzeltildi (her zaman tutar + ek masraf)
+- Ödeme yapıldıktan sonra `bekleyenOdemeler` listesinden kayıt kaldırma eklendi
+- `BankaKasaHareketService.DeleteAsync()` metodunda ilişkili bütçe ödeme durumunu "Bekliyor"a geri alma eklendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Budget/BudgetAnaliz.razor`
+- `CRMFiloServis.Web/Services/BudgetService.cs`
+- `CRMFiloServis.Web/Services/Interfaces/IBudgetService.cs`
+- `CRMFiloServis.Web/Services/BankaKasaHareketService.cs`
+
+**Durum:** Tamamlandı
+
 ### Kayıt 001 - E-Fatura PDF eşleştirme sorunu
 **Talep:** PDF dosyasına sürekli aynı faturanın PDF'inin eklenmesi sorununun çözülmesi.
 
@@ -61,9 +280,7 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 - çözüm dosyasına yanlışlıkla eklenen harici proje referansı geri alındı
 
 **Yapılacaklar:**
-- refaktör edilen servislerin tamamı gözden geçirilmeli
-- bu değişiklikler ayrı bir teknik borç/refaktör commit'i olarak ele alınmalı
-- davranış değişikliği riski olan servislerde manuel doğrulama yapılmalı
+- davranış değişikliği riski düşük tutularak refaktör tamamlandı; kritik akışlarda manuel doğrulama önerilir
 
 **Etkilenen Dosyalar:**
 - `CRMFiloServis.Web/Services/BankaHesapService.cs`
@@ -74,7 +291,7 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 - `CRMFiloServis.Web/Services/SoforService.cs`
 - `CRMFiloServis.slnx`
 
-**Durum:** Devam ediyor
+**Durum:** Tamamlandı
 
 ### Kayıt 002 - Taşıma hizmetlerinden güzergah üretimi
 **Talep:** Stok türü eşleştirmede `Hizmet > Taşıma` seçildiğinde güzergah listesi hazırlanması ve kullanıcı onayı sonrası firma bazlı güzergah açılması.
@@ -94,9 +311,11 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 - yükleme çıktıları için repo temizliği maddesi aktif takip listesine işlendi
 - git takibine girmiş upload dosyaları index'ten çıkarıldı
 - klasörü korumak için `CRMFiloServis.Web/wwwroot/uploads/.gitkeep` eklendi
+- `CRMFiloServis.Web/Backups`, `deploy/Backups`, `deploy/Logs`, `deploy/Uploads` çalışma zamanı klasörleri ignore kapsamına alındı
+- runtime klasörleri için `.gitkeep` istisna yaklaşımı genişletildi
 
 **Yapılacaklar:**
-- diğer çalışma zamanı klasörleri de taranmalı
+- ek çalışma zamanı klasörü oluşursa aynı ignore + `.gitkeep` standardı uygulanmalı
 
 **Etkilenen Dosyalar:**
 - `.gitignore`
@@ -115,19 +334,21 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 - deploy dokümantasyonu ve build script başlıkları güncellendi
 - lisans masaüstü uygulama başlıkları güncellendi
 - lisans kodu ön eki `KOA-` olarak güncellendi
+- login footer GitHub etiketi `Koa Filo Servis` olarak güncellendi
+- `README.md` proje tablosundaki eski marka adı güncellendi
+- `ROADMAP.md` başlığı güncellendi
 
 **Yapılacaklar:**
-- proje genelinde görünen eski marka adları taranmalı
-- masaüstü uygulama ve diğer görünür başlıklar kontrol edilmeli
-- uygun yerlerde repo adı ile görünen ürün adı ayrıştırılmalı
+- teknik namespace, repo adı ve veritabanı adı gibi ürün adı olmayan teknik referanslar korunarak ayrıştırma yaklaşımı sürdürülmeli
 
 **Etkilenen Dosyalar:**
 - `CRMFiloServis.Web/Components/Pages/Login.razor`
 - `CRMFiloServis.Web/Components/Layout/NavMenu.razor`
 - `README.md`
 - `KURULUM.md`
+- `ROADMAP.md`
 
-**Durum:** Devam ediyor
+**Durum:** Tamamlandı
 
 ### Kayıt 003 - Servis puantaj sistemi
 **Talep:** Güzergah / araç / şoför eşleştirme ve günlük puantaj tablosu oluşturulması.
@@ -155,8 +376,11 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 - banka/kasa hareketlerine muhasebe alanları eklendi
 - hesap bazlı varsayılan muhasebe kodu alanları eklendi
 - kost merkezi ve proje tanımları için altyapı eklendi
+- banka hesap form ve liste ekranlarına muhasebe eşleştirme alanları eklendi
+- banka hareket form ve liste ekranlarına muhasebe eşleştirme yönetimi eklendi
+- hesap varsayılanlarının hareket kayıtlarında otomatik uygulanması eklendi
 
-**Durum:** Altyapı tamamlandı, yönetim ekranları eksik
+**Durum:** Tamamlandı
 
 ### Kayıt 006 - Bütçe ödeme kesintileri
 **Talep:** Bütçe analiz ödeme ekranında masraf/ceza kesintileri ve ödeme şekline göre kayıt yapılması.
@@ -195,17 +419,17 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 | No | Konu | Durum | Öncelik | Not |
 |---|---|---|---|---|
-| 001 | Login akışı | Devam ediyor | Yüksek | Giriş, auth state ve yönlendirme tekrar doğrulanmalı |
-| 002 | Taşıma → Güzergah akışı | Kısmen tamamlandı | Yüksek | Oluşturma ve doğrulama akışı tamamlanmalı |
-| 003 | Servis puantaj sistemi | Devam ediyor | Yüksek | Ekran var, iş akışı eksik |
-| 004 | Mahsup işlemleri | Kısmen tamamlandı | Yüksek | Fiş üretimi ve bütçe entegrasyonu eksik |
-| 005 | Muhasebe eşleştirme ekranları | Bekliyor | Orta | Alanlar var, yönetim ekranları eksik |
-| 006 | Bütçe + cari mahsup | Devam ediyor | Yüksek | Uçtan uca kayıt akışı tamamlanmalı |
-| 007 | Marka adı tutarlılığı | Devam ediyor | Orta | Proje genelinde eski isimler taranmalı |
+| 001 | Login akışı | Tamamlandı | Yüksek | forceLoad düzeltildi, input trim eklendi, delay artırıldı |
+| 002 | Taşıma → Güzergah akışı | Tamamlandı | Yüksek | CariId düzeltildi, doğrulama ve benzersizlik kontrolü eklendi |
+| 003 | Servis puantaj sistemi | Tamamlandı | Yüksek | Firma filtresi düzeltildi, toplu kayıt akışı tamamlandı |
+| 004 | Mahsup işlemleri | Tamamlandı | Yüksek | Fiş üretimi ve iptal kaydı eklendi |
+| 005 | Muhasebe eşleştirme ekranları | Tamamlandı | Orta | Hesap ve hareket ekranlarında yönetim alanları eklendi |
+| 006 | Bütçe + cari mahsup | Tamamlandı | Yüksek | CariMahsup entegrasyonu ve muhasebe fişi zinciri eklendi |
+| 007 | Marka adı tutarlılığı | Tamamlandı | Orta | Görünür marka metinleri ve doküman başlıkları güncellendi |
 | 008 | Repo temizliği / uploads | Tamamlandı | Orta | Ignore + cached dosya temizliği yapıldı |
-| 009 | Dokümantasyon marka güncellemesi | Devam ediyor | Düşük | README, kurulum ve deploy başlıkları güncellendi |
-| 010 | Çalışma zamanı dosya disiplini | Kısmen tamamlandı | Düşük | Upload klasörü ignore edildi |
-| 011 | Servis refaktörlerinin sınıflandırılması | Devam ediyor | Orta | NoTracking ve güvenli update refaktörü bekliyor |
+| 009 | Dokümantasyon marka güncellemesi | Tamamlandı | Düşük | README, kurulum, roadmap ve deploy başlıkları güncellendi |
+| 010 | Çalışma zamanı dosya disiplini | Tamamlandı | Düşük | Upload, backup, log ve deploy runtime klasörleri ignore edildi |
+| 011 | Servis refaktörlerinin sınıflandırılması | Tamamlandı | Orta | AsNoTracking, UTC ve soft delete audit tutarlılığı tamamlandı |
 
 ---
 

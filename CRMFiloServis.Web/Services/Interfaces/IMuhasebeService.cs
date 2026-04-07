@@ -32,6 +32,11 @@ public interface IMuhasebeService
     Task<MuhasebeFis> CreateTahsilatFisiAsync(BankaKasaHareket hareket, int faturaId);
     Task<MuhasebeFis> CreateTediyeFisiAsync(BankaKasaHareket hareket, int? faturaId = null);
 
+    // Mahsup Fişi Oluşturma
+    Task<MuhasebeFis?> CreateHesapTransferFisiAsync(BankaKasaHareket cikisHareket, BankaKasaHareket girisHareket, BankaHesap kaynakHesap, BankaHesap hedefHesap);
+    Task<MuhasebeFis?> CreateCariMahsupFisiAsync(BankaKasaHareket hareket, Cari cari, BankaHesap hesap, bool tahsilatMi);
+    Task IptalFisiOlusturAsync(Guid mahsupGrupId);
+
     // Donemler
     Task<List<MuhasebeDonem>> GetDonemlerAsync(int yil);
     Task<MuhasebeDonem?> GetAktifDonemAsync();

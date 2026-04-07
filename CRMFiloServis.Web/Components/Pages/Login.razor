@@ -101,7 +101,7 @@
             }
             <div class="github-links mb-2">
                 <a href="https://github.com/karamur/CRMFiloServis" target="_blank" class="text-light me-3">
-                    <i class="bi bi-github"></i> CRMFiloServis
+                    <i class="bi bi-github"></i> Koa Filo Servis
                 </a>
                 <a href="https://github.com/karamur/AYDAAnaliz" target="_blank" class="text-light">
                     <i class="bi bi-github"></i> AYDAAnaliz
@@ -407,6 +407,10 @@
 
     private async Task GirisYapAsync()
     {
+        // Input degerlerini temizle (bosluk karakterleri)
+        kullaniciAdi = kullaniciAdi?.Trim() ?? "";
+        sifre = sifre ?? "";
+
         if (string.IsNullOrWhiteSpace(kullaniciAdi) || string.IsNullOrWhiteSpace(sifre))
         {
             errorMessage = "Kullanici adi ve sifre zorunludur!";
@@ -444,8 +448,9 @@
                 successMessage = "Giris basarili! Yonlendiriliyorsunuz...";
                 StateHasChanged();
 
-                // Kisa bir bekleme ile authentication state'in yayilmasini sagla
-                await Task.Delay(100);
+                // Kisa bir bekleme ile authentication state'in tum componentlere yayilmasini sagla
+                // 150ms - auth state propagation icin yeterli sure
+                await Task.Delay(150);
 
                 // Dashboard'a yonlendir - forceLoad: false ile ayni circuit icinde
                 // navigation yaparak authentication state'in korunmasini sagliyoruz

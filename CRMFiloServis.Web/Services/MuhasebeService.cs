@@ -1419,6 +1419,250 @@ public class MuhasebeService : IMuhasebeService
 
     #endregion
 
+    #region Mahsup Fişi Oluşturma
+
+    /// <summary>
+    /// Hesaplar arası transfer için muhasebe fişi oluşturur.
+    /// Kaynak hesap ALACAK, Hedef hesap BORÇ kaydedilir.
+    /// Örnek: Kasadan Bankaya transfer -> 102 Banka BORÇ, 100 Kasa ALACAK
+    /// </summary>
+    public async Task<MuhasebeFis?> CreateHesapTransferFisiAsync(
+        BankaKasaHareket cikisHareket, 
+        BankaKasaHareket girisHareket,
+        BankaHesap kaynakHesap, 
+        BankaHesap hedefHesap)
+    {
+        // Hesap tipine göre muhasebe hesap kodlarını belirle
+        var kaynakMuhasebeKodu = kaynakHesap.VarsayilanMuhasebeKodu ?? GetDefaultMuhasebeKodu(kaynakHesap.HesapTipi);
+        var hedefMuhasebeKodu = hedefHesap.VarsayilanMuhasebeKodu ?? GetDefaultMuhasebeKodu(hedefHesap.HesapTipi);
+
+        var kaynakMuhasebeHesap = await GetHesapByKodAsync(kaynakMuhasebeKodu);
+        var hedefMuhasebeHesap = await GetHesapByKodAsync(hedefMuhasebeKodu);
+
+        // Muhasebe hesapları yoksa null dön (muhasebe entegrasyonu aktif değil)
+        if (kaynakMuhasebeHesap == null || hedefMuhasebeHesap == null)
+            return null;
+
+        var fisNo = await GenerateNextFisNoAsync(FisTipi.Mahsup);
+
+        var fis = new MuhasebeFis
+        {
+            FisNo = fisNo,
+            FisTarihi = DateTime.SpecifyKind(cikisHareket.IslemTarihi, DateTimeKind.Utc),
+            FisTipi = FisTipi.Mahsup,
+            Aciklama = $"Hesaplar Arası Transfer: {kaynakHesap.HesapAdi} → {hedefHesap.HesapAdi}",
+            Kaynak = FisKaynak.BankaHareket,
+            KaynakId = cikisHareket.Id,
+            KaynakTip = "HesapTransfer",
+            Durum = FisDurum.Onaylandi,
+            CreatedAt = DateTime.UtcNow,
+            Kalemler = new List<MuhasebeFisKalem>
+            {
+                // Hedef hesap BORÇ (para giriyor)
+                new()
+                {
+                    HesapId = hedefMuhasebeHesap.Id,
+                    Borc = girisHareket.Tutar,
+                    Alacak = 0,
+                    Aciklama = $"Transfer girişi: {kaynakHesap.HesapAdi}'ndan",
+                    SiraNo = 1
+                },
+                // Kaynak hesap ALACAK (para çıkıyor)
+                new()
+                {
+                    HesapId = kaynakMuhasebeHesap.Id,
+                    Borc = 0,
+                    Alacak = cikisHareket.Tutar,
+                    Aciklama = $"Transfer çıkışı: {hedefHesap.HesapAdi}'na",
+                    SiraNo = 2
+                }
+            }
+        };
+
+        fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
+        fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
+
+        _context.MuhasebeFisleri.Add(fis);
+        await _context.SaveChangesAsync();
+
+        return fis;
+    }
+
+    /// <summary>
+    /// Cari mahsup için muhasebe fişi oluşturur.
+    /// Tahsilat: Kasa/Banka BORÇ, 120 Alıcılar ALACAK
+    /// Ödeme: 320 Satıcılar BORÇ, Kasa/Banka ALACAK
+    /// </summary>
+    public async Task<MuhasebeFis?> CreateCariMahsupFisiAsync(
+        BankaKasaHareket hareket, 
+        Cari cari, 
+        BankaHesap hesap,
+        bool tahsilatMi)
+    {
+        var hesapMuhasebeKodu = hesap.VarsayilanMuhasebeKodu ?? GetDefaultMuhasebeKodu(hesap.HesapTipi);
+        var kasaBankaHesap = await GetHesapByKodAsync(hesapMuhasebeKodu);
+
+        if (kasaBankaHesap == null)
+            return null;
+
+        // Cari hesap kodunu belirle (Müşteri: 120, Tedarikçi: 320)
+        var cariUstKod = tahsilatMi ? "120" : "320";
+        var cariHesap = await GetOrCreateCariHesapAsync(cariUstKod, cari.Id);
+
+        var fisNo = await GenerateNextFisNoAsync(tahsilatMi ? FisTipi.Tahsilat : FisTipi.Tediye);
+
+        var fis = new MuhasebeFis
+        {
+            FisNo = fisNo,
+            FisTarihi = DateTime.SpecifyKind(hareket.IslemTarihi, DateTimeKind.Utc),
+            FisTipi = tahsilatMi ? FisTipi.Tahsilat : FisTipi.Tediye,
+            Aciklama = $"Cari Mahsup: {cari.Unvan} - {(tahsilatMi ? "Tahsilat" : "Ödeme")}",
+            Kaynak = FisKaynak.BankaHareket,
+            KaynakId = hareket.Id,
+            KaynakTip = "CariMahsup",
+            Durum = FisDurum.Onaylandi,
+            CreatedAt = DateTime.UtcNow,
+            Kalemler = new List<MuhasebeFisKalem>()
+        };
+
+        if (tahsilatMi)
+        {
+            // Tahsilat: Kasa/Banka BORÇ, Alıcılar ALACAK
+            fis.Kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = kasaBankaHesap.Id,
+                Borc = hareket.Tutar,
+                Alacak = 0,
+                Aciklama = $"Tahsilat: {cari.Unvan}",
+                SiraNo = 1
+            });
+            fis.Kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = cariHesap.Id,
+                Borc = 0,
+                Alacak = hareket.Tutar,
+                CariId = cari.Id,
+                Aciklama = $"Tahsilat: {hesap.HesapAdi}",
+                SiraNo = 2
+            });
+        }
+        else
+        {
+            // Ödeme: Satıcılar BORÇ, Kasa/Banka ALACAK
+            fis.Kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = cariHesap.Id,
+                Borc = hareket.Tutar,
+                Alacak = 0,
+                CariId = cari.Id,
+                Aciklama = $"Ödeme: {hesap.HesapAdi}",
+                SiraNo = 1
+            });
+            fis.Kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = kasaBankaHesap.Id,
+                Borc = 0,
+                Alacak = hareket.Tutar,
+                Aciklama = $"Ödeme: {cari.Unvan}",
+                SiraNo = 2
+            });
+        }
+
+        fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
+        fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
+
+        _context.MuhasebeFisleri.Add(fis);
+        await _context.SaveChangesAsync();
+
+        return fis;
+    }
+
+    /// <summary>
+    /// Mahsup iptal edildiğinde ters kayıt (storno) fişi oluşturur.
+    /// </summary>
+    public async Task IptalFisiOlusturAsync(Guid mahsupGrupId)
+    {
+        // İlişkili muhasebe fişini bul
+        var mevcutFisler = await _context.MuhasebeFisleri
+            .Include(f => f.Kalemler)
+                .ThenInclude(k => k.Hesap)
+            .Where(f => f.KaynakTip == "HesapTransfer" || f.KaynakTip == "CariMahsup")
+            .ToListAsync();
+
+        // MahsupGrupId ile eşleşen hareketlerin KaynakId'lerini bul
+        var iliskiliHareketler = await _context.BankaKasaHareketleri
+            .Where(h => h.MahsupGrupId == mahsupGrupId)
+            .Select(h => h.Id)
+            .ToListAsync();
+
+        var iptalEdilecekFisler = mevcutFisler
+            .Where(f => f.KaynakId.HasValue && iliskiliHareketler.Contains(f.KaynakId.Value))
+            .ToList();
+
+        foreach (var eskiFis in iptalEdilecekFisler)
+        {
+            if (eskiFis.Durum == FisDurum.IptalEdildi)
+                continue;
+
+            // Eski fişi iptal et
+            eskiFis.Durum = FisDurum.IptalEdildi;
+            eskiFis.UpdatedAt = DateTime.UtcNow;
+
+            // Ters kayıt fişi oluştur
+            var fisNo = await GenerateNextFisNoAsync(eskiFis.FisTipi);
+            var tersFis = new MuhasebeFis
+            {
+                FisNo = fisNo,
+                FisTarihi = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc),
+                FisTipi = eskiFis.FisTipi,
+                Aciklama = $"[İPTAL] {eskiFis.Aciklama} - Orijinal Fiş: {eskiFis.FisNo}",
+                Kaynak = FisKaynak.Otomatik,
+                KaynakId = eskiFis.Id,
+                KaynakTip = "IptalKaydi",
+                Durum = FisDurum.Onaylandi,
+                CreatedAt = DateTime.UtcNow,
+                Kalemler = new List<MuhasebeFisKalem>()
+            };
+
+            // Borç ve alacakları ters çevir
+            int siraNo = 1;
+            foreach (var kalem in eskiFis.Kalemler)
+            {
+                tersFis.Kalemler.Add(new MuhasebeFisKalem
+                {
+                    HesapId = kalem.HesapId,
+                    Borc = kalem.Alacak,  // Alacağı borç yap
+                    Alacak = kalem.Borc,  // Borcu alacak yap
+                    CariId = kalem.CariId,
+                    Aciklama = $"[İPTAL] {kalem.Aciklama}",
+                    SiraNo = siraNo++
+                });
+            }
+
+            tersFis.ToplamBorc = tersFis.Kalemler.Sum(k => k.Borc);
+            tersFis.ToplamAlacak = tersFis.Kalemler.Sum(k => k.Alacak);
+
+            _context.MuhasebeFisleri.Add(tersFis);
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Hesap tipine göre varsayılan muhasebe kodunu döndürür.
+    /// </summary>
+    private string GetDefaultMuhasebeKodu(HesapTipi tip) => tip switch
+    {
+        HesapTipi.Kasa => "100",
+        HesapTipi.VadesizHesap => "102",
+        HesapTipi.VadeliHesap => "102",
+        HesapTipi.KrediHesabi => "300",
+        HesapTipi.KrediKarti => "103",  // Veya 300 Kredi
+        _ => "102"
+    };
+
+    #endregion
+
     #region Nakit Akış Raporu
 
     /// <summary>

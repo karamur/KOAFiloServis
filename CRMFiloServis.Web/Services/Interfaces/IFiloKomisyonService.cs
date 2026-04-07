@@ -8,7 +8,7 @@ namespace CRMFiloServis.Web.Services.Interfaces;
 public interface IFiloKomisyonService
 {
     // CUD İşlemleri Eşleştirme Şablonu
-    Task<List<FiloGuzergahEslestirme>> GetEslestirmelerAsync(int firmaId, bool sadeceAktifler = true);
+    Task<List<FiloGuzergahEslestirme>> GetEslestirmelerAsync(int? firmaId = null, bool sadeceAktifler = true);
     Task<FiloGuzergahEslestirme?> GetEslestirmeByIdAsync(int id);
     Task<FiloGuzergahEslestirme> CreateEslestirmeAsync(FiloGuzergahEslestirme eslestirme);
     Task<FiloGuzergahEslestirme> UpdateEslestirmeAsync(FiloGuzergahEslestirme eslestirme);
@@ -29,7 +29,7 @@ public interface IFiloKomisyonService
     /// <summary>
     /// İki tarih aralığındaki ve (opsiyonel) belirli bir kuruma / araca ait puantaj listesini getirir
     /// </summary>
-    Task<List<FiloGunlukPuantaj>> GetPuantajlarByTarihAraligiAsync(int firmaId, DateTime baslangic, DateTime bitis, int? kurumId = null, int? aracId = null);
+    Task<List<FiloGunlukPuantaj>> GetPuantajlarByTarihAraligiAsync(int? firmaId, DateTime baslangic, DateTime bitis, int? kurumId = null, int? aracId = null);
 
     Task<FiloGunlukPuantaj> CreatePuantajAsync(FiloGunlukPuantaj puantaj);
     Task<FiloGunlukPuantaj> UpdateGunlukPuantajAsync(FiloGunlukPuantaj puantaj);

@@ -782,7 +782,26 @@
 
         var secilenKalemler = eslesmemisKalemler.Where(k => seciliKalemler.Contains(k.Id)).ToList();
         guzergahListesi = secilenKalemler.Select(k => ParseGuzergahFromKalem(k)).ToList();
+
+        // Mevcut güzergah kontrolü yap (async olarak)
+        _ = MevcutGuzergahKontrolEtAsync();
+
         showGuzergahModal = true;
+    }
+
+    private async Task MevcutGuzergahKontrolEtAsync()
+    {
+        foreach (var item in guzergahListesi)
+        {
+            var mevcut = await GuzergahService.GetByFaturaKalemIdAsync(item.FaturaKalemId);
+            if (mevcut != null)
+            {
+                item.ZatenMevcut = true;
+                item.MevcutGuzergahAdi = mevcut.GuzergahAdi;
+                item.Secili = false; // Mevcut olanları otomatik seçme
+            }
+        }
+        StateHasChanged();
     }
 
     private GuzergahOnizlemeItem ParseGuzergahFromKalem(FaturaKalem kalem)
@@ -830,6 +849,8 @@
 
         // Firma eşleştir
         var firmaId = 0;
+        var cariId = kalem.Fatura?.CariId ?? 0;
+
         if (kalem.Fatura?.Cari != null)
         {
             var eslesenFirma = firmalar.FirstOrDefault(f => 
@@ -842,6 +863,7 @@
         return new GuzergahOnizlemeItem
         {
             FaturaKalemId = kalem.Id,
+            CariId = cariId,
             FirmaAdi = firmaAdi,
             FirmaId = firmaId,
             GuzergahAdi = guzergahAdi,
@@ -861,10 +883,14 @@
 
     private async Task GuzergahlariOlustur()
     {
-        var seciliGuzergahlar = guzergahListesi.Where(g => g.Secili && g.FirmaId > 0).ToList();
+        // Mevcut olmayan ve firma seçilmiş güzergahları al
+        var seciliGuzergahlar = guzergahListesi
+            .Where(g => g.Secili && g.FirmaId > 0 && !g.ZatenMevcut)
+            .ToList();
+
         if (!seciliGuzergahlar.Any())
         {
-            ToastService.ShowWarning("Lütfen firma seçili güzergahları işaretleyin.");
+            ToastService.ShowWarning("Lütfen firma seçili ve daha önce oluşturulmamış güzergahları işaretleyin.");
             return;
         }
 
@@ -874,14 +900,26 @@
         try
         {
             var olusturulanSayisi = 0;
+            var atladiSayisi = 0;
             var hataListesi = new List<string>();
 
             foreach (var item in seciliGuzergahlar)
             {
                 try
                 {
-                    var firma = firmalar.FirstOrDefault(f => f.Id == item.FirmaId);
-                    if (firma == null) continue;
+                    // Zaten bu fatura kaleminden oluşturulmuş mu kontrol et
+                    if (await GuzergahService.FaturaKalemdenGuzergahVarMiAsync(item.FaturaKalemId))
+                    {
+                        atladiSayisi++;
+                        continue;
+                    }
+
+                    // Aynı firma + güzergah adı benzersiz mi kontrol et
+                    if (!await GuzergahService.BenzersizGuzergahMiAsync(item.FirmaId, item.GuzergahAdi))
+                    {
+                        hataListesi.Add($"{item.GuzergahAdi}: Bu firma için zaten mevcut");
+                        continue;
+                    }
 
                     // Güzergah kodu oluştur
                     var guzergahKodu = await GuzergahService.GenerateGuzergahKoduAsync(item.FirmaId);
@@ -891,7 +929,7 @@
                         GuzergahKodu = guzergahKodu,
                         GuzergahAdi = item.GuzergahAdi,
                         FirmaId = item.FirmaId,
-                        CariId = firma.Id, // Geriye uyumluluk için
+                        CariId = item.CariId, // Fatura carisinin Id'si (doğru değer)
                         SeferTipi = item.SeferTipi,
                         PersonelSayisi = item.PersonelSayisi,
                         BirimFiyat = item.BirimFiyat,
@@ -911,6 +949,11 @@
             if (olusturulanSayisi > 0)
             {
                 ToastService.ShowSuccess($"{olusturulanSayisi} güzergah oluşturuldu.");
+            }
+
+            if (atladiSayisi > 0)
+            {
+                ToastService.ShowInfo($"{atladiSayisi} güzergah zaten mevcut olduğu için atlandı.");
             }
 
             foreach (var hata in hataListesi.Take(3))
@@ -938,6 +981,7 @@
     private class GuzergahOnizlemeItem
     {
         public int FaturaKalemId { get; set; }
+        public int CariId { get; set; } // Fatura carisinin Id'si
         public string FirmaAdi { get; set; } = "";
         public int FirmaId { get; set; }
         public string GuzergahAdi { get; set; } = "";
@@ -946,5 +990,7 @@
         public decimal BirimFiyat { get; set; }
         public decimal Miktar { get; set; }
         public bool Secili { get; set; }
+        public bool ZatenMevcut { get; set; } // Bu fatura kaleminden zaten güzergah oluşturulmuş mu
+        public string? MevcutGuzergahAdi { get; set; } // Varsa mevcut güzergah adı
     }
 }

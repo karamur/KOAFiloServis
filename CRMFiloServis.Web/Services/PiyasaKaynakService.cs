@@ -94,7 +94,7 @@ public class PiyasaKaynakService : IPiyasaKaynakService
     {
         try
         {
-            kaynak.OlusturmaTarihi = DateTime.Now;
+            kaynak.OlusturmaTarihi = DateTime.UtcNow;
             kaynak.Kod = SlugOlustur(kaynak.Kod);
             _context.PiyasaKaynaklar.Add(kaynak);
             await _context.SaveChangesAsync();
@@ -126,7 +126,7 @@ public class PiyasaKaynakService : IPiyasaKaynakService
             existing.Aktif = kaynak.Aktif;
             existing.Sira = kaynak.Sira;
             existing.IsDeleted = kaynak.IsDeleted;
-            existing.GuncellemeTarihi = DateTime.Now;
+            existing.GuncellemeTarihi = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return existing;
@@ -146,6 +146,7 @@ public class PiyasaKaynakService : IPiyasaKaynakService
             if (kaynak != null)
             {
                 kaynak.IsDeleted = true;
+                kaynak.GuncellemeTarihi = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
         }
@@ -161,7 +162,9 @@ public class PiyasaKaynakService : IPiyasaKaynakService
         try
         {
             var slug = SlugOlustur(kod);
-            var query = _context.PiyasaKaynaklar.Where(x => x.Kod == slug && !x.IsDeleted);
+            var query = _context.PiyasaKaynaklar
+                .AsNoTracking()
+                .Where(x => x.Kod == slug && !x.IsDeleted);
             if (excludeId.HasValue)
                 query = query.Where(x => x.Id != excludeId.Value);
             return await query.AnyAsync();
@@ -188,7 +191,9 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
         try
         {
-            var mevcutSayisi = await _context.PiyasaKaynaklar.CountAsync();
+            var mevcutSayisi = await _context.PiyasaKaynaklar
+                .AsNoTracking()
+                .CountAsync();
             if (mevcutSayisi > 0) return;
 
             var defaultKaynaklar = GetDefaultKaynaklar();

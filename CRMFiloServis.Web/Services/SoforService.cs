@@ -41,6 +41,7 @@ public class SoforService : ISoforService
     public async Task<int> GetActiveCountAsync()
     {
         return await _context.Soforler
+            .AsNoTracking()
             .Where(s => s.Aktif)
             .CountAsync();
     }
@@ -117,6 +118,7 @@ public class SoforService : ISoforService
         if (sofor != null)
         {
             sofor.IsDeleted = true;
+            sofor.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
     }

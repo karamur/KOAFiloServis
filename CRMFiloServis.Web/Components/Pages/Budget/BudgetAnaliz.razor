@@ -1583,14 +1583,17 @@
             await BudgetService.OdemeYapAsync(odenenId, odemeYapRequest);
 
             var mesaj = $"{odemeYapilacak.MasrafKalemi} ödendi! ({FormatPara(NetOdemeTutari)})";
-            if (odemeYapRequest.ToplamEkMasraf > 0)
-                mesaj += $" - Ek Masraf: {FormatPara(odemeYapRequest.ToplamEkMasraf)}";
+            if (ToplamEkMasraf > 0)
+                mesaj += $" - Ek Masraf: {FormatPara(ToplamEkMasraf)}";
 
             ToastService.ShowSuccess(mesaj);
             ModalKapat();
 
             // Ödenen kaydı seçili gün listesinden kaldır
             secilenGunOdemeleri.RemoveAll(o => o.Id == odenenId);
+
+            // Bekleyen ödemeler listesinden de kaldır
+            bekleyenOdemeler.RemoveAll(o => o.Id == odenenId);
 
             // Hesap bakiyelerini güncelle
             hesapBakiyeleri = await BankaHesapService.GetTumHesapBakiyeleriAsync();
@@ -1644,7 +1647,7 @@
         };
     }
 
-    private decimal ToplamEkMasraf => odemeYapRequest.MasrafKesintisi + odemeYapRequest.CezaKesintisi + odemeYapRequest.DigerKesinti;
+    private decimal ToplamEkMasraf => Math.Abs(odemeYapRequest.MasrafKesintisi) + Math.Abs(odemeYapRequest.CezaKesintisi) + Math.Abs(odemeYapRequest.DigerKesinti);
     private decimal NetOdemeTutari => (odemeYapilacak?.Miktar ?? 0) + ToplamEkMasraf;
 
     private void YeniOdemeAc()

@@ -1,4 +1,4 @@
-@page "/filo/servis-puantaj"
+ï»¿@page "/filo/servis-puantaj"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Web.Services.Interfaces
@@ -18,10 +18,10 @@
         <h3><i class="bi bi-calendar-check me-2"></i>Servis Puantaj</h3>
         <div class="d-flex gap-2">
             <button class="btn btn-primary" @onclick="EslestirmeModalAc">
-                <i class="bi bi-link-45deg me-1"></i>Eþleþtirme Yönet
+                <i class="bi bi-link-45deg me-1"></i>EÅŸleÅŸtirme YÃ¶net
             </button>
             <button class="btn btn-success" @onclick="TopluPuantajOlustur" disabled="@(!eslestirmeler.Any())">
-                <i class="bi bi-calendar-plus me-1"></i>Ay Puantajý Oluþtur
+                <i class="bi bi-calendar-plus me-1"></i>Ay PuantajÄ± OluÅŸtur
             </button>
             <button class="btn btn-outline-secondary" @onclick="YenileAsync">
                 <i class="bi bi-arrow-clockwise"></i>
@@ -36,7 +36,7 @@
                 <div class="col-md-3">
                     <label class="form-label small mb-1">Firma</label>
                     <select class="form-select form-select-sm" @bind="filtreFirmaId" @bind:after="YenileAsync">
-                        <option value="0">Tüm Firmalar</option>
+                        <option value="0">TÃ¼m Firmalar</option>
                         @foreach (var firma in firmalar)
                         {
                             <option value="@firma.Id">@firma.FirmaAdi</option>
@@ -44,7 +44,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small mb-1">Yýl</label>
+                    <label class="form-label small mb-1">YÄ±l</label>
                     <select class="form-select form-select-sm" @bind="filtreYil" @bind:after="YenileAsync">
                         @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 2; y--)
                         {
@@ -62,9 +62,9 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small mb-1">Güzergah</label>
+                    <label class="form-label small mb-1">GÃ¼zergah</label>
                     <select class="form-select form-select-sm" @bind="filtreGuzergahId" @bind:after="FiltreleListeyi">
-                        <option value="0">Tüm Güzergahlar</option>
+                        <option value="0">TÃ¼m GÃ¼zergahlar</option>
                         @foreach (var g in guzergahlar)
                         {
                             <option value="@g.Id">@g.GuzergahAdi</option>
@@ -84,7 +84,7 @@
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item">
             <button class="nav-link @(aktifTab == "eslestirme" ? "active" : "")" @onclick='() => TabDegistir("eslestirme")'>
-                <i class="bi bi-link me-1"></i>Eþleþtirmeler
+                <i class="bi bi-link me-1"></i>EÅŸleÅŸtirmeler
                 <span class="badge bg-primary ms-1">@eslestirmeler.Count</span>
             </button>
         </li>
@@ -103,22 +103,22 @@
     }
     else if (aktifTab == "eslestirme")
     {
-        <!-- Eþleþtirme Listesi -->
+        <!-- EÅŸleÅŸtirme Listesi -->
         <div class="card">
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover table-sm mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Güzergah</th>
+                                <th>GÃ¼zergah</th>
                                 <th>Firma</th>
                                 <th>Sefer</th>
-                                <th>Araç</th>
-                                <th>Þoför</th>
-                                <th class="text-end">Kurum Ücret</th>
-                                <th class="text-end">Taþeron Ücret</th>
+                                <th>AraÃ§</th>
+                                <th>ÅžofÃ¶r</th>
+                                <th class="text-end">Kurum Ãœcret</th>
+                                <th class="text-end">TaÅŸeron Ãœcret</th>
                                 <th class="text-center">Durum</th>
-                                <th class="text-center">Ýþlem</th>
+                                <th class="text-center">Ä°ÅŸlem</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -127,7 +127,7 @@
                                 <tr>
                                     <td colspan="9" class="text-center text-muted py-4">
                                         <i class="bi bi-inbox display-6 d-block mb-2"></i>
-                                        Henüz eþleþtirme yok. "Eþleþtirme Yönet" butonuna týklayýn.
+                                        HenÃ¼z eÅŸleÅŸtirme yok. "EÅŸleÅŸtirme YÃ¶net" butonuna tÄ±klayÄ±n.
                                     </td>
                                 </tr>
                             }
@@ -158,7 +158,7 @@
                                     </td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-primary" @onclick="() => EslestirmeDuzenle(e)" title="Düzenle">
+                                            <button class="btn btn-outline-primary" @onclick="() => EslestirmeDuzenle(e)" title="DÃ¼zenle">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                             <button class="btn btn-outline-danger" @onclick="() => EslestirmeSil(e)" title="Sil">
@@ -197,7 +197,7 @@
                         <thead class="table-light sticky-top">
                             <tr>
                                 <th class="sticky-start" style="min-width: 200px; position: sticky; left: 0; background: #f8f9fa; z-index: 10;">
-                                    Güzergah / Araç / Þoför
+                                    GÃ¼zergah / AraÃ§ / ÅžofÃ¶r
                                 </th>
                                 @for (int gun = 1; gun <= AyGunSayisi; gun++)
                                 {
@@ -259,13 +259,13 @@
                         <span class="badge bg-success">G</span> Gitti
                     </div>
                     <div class="col">
-                        <span class="badge bg-warning text-dark">Y</span> Yarým
+                        <span class="badge bg-warning text-dark">Y</span> YarÄ±m
                     </div>
                     <div class="col">
                         <span class="badge bg-danger">X</span> Gitmedi
                     </div>
                     <div class="col">
-                        <span class="badge bg-info">Ý</span> Ýzinli
+                        <span class="badge bg-info">Ä°</span> Ä°zinli
                     </div>
                     <div class="col">
                         <span class="badge bg-secondary">T</span> Taksi
@@ -276,7 +276,7 @@
     }
 </div>
 
-<!-- Eþleþtirme Modal -->
+<!-- EÅŸleÅŸtirme Modal -->
 @if (showEslestirmeModal)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
@@ -285,7 +285,7 @@
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">
                         <i class="bi bi-link-45deg me-2"></i>
-                        @(editEslestirme.Id == 0 ? "Yeni Eþleþtirme" : "Eþleþtirme Düzenle")
+                        @(editEslestirme.Id == 0 ? "Yeni EÅŸleÅŸtirme" : "EÅŸleÅŸtirme DÃ¼zenle")
                     </h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="ModalKapat"></button>
                 </div>
@@ -294,7 +294,7 @@
                         <div class="col-md-6">
                             <label class="form-label">Firma (Kurum) *</label>
                             <select class="form-select" @bind="editEslestirme.KurumFirmaId">
-                                <option value="0">-- Seçin --</option>
+                                <option value="0">-- SeÃ§in --</option>
                                 @foreach (var f in firmalar)
                                 {
                                     <option value="@f.Id">@f.FirmaAdi</option>
@@ -302,9 +302,9 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Güzergah *</label>
+                            <label class="form-label">GÃ¼zergah *</label>
                             <select class="form-select" @bind="editEslestirme.GuzergahId">
-                                <option value="0">-- Seçin --</option>
+                                <option value="0">-- SeÃ§in --</option>
                                 @foreach (var g in guzergahlar.Where(x => editEslestirme.KurumFirmaId == 0 || x.FirmaId == editEslestirme.KurumFirmaId))
                                 {
                                     <option value="@g.Id">@g.GuzergahAdi (@g.GuzergahKodu)</option>
@@ -312,9 +312,9 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Araç *</label>
+                            <label class="form-label">AraÃ§ *</label>
                             <select class="form-select" @bind="editEslestirme.AracId">
-                                <option value="0">-- Seçin --</option>
+                                <option value="0">-- SeÃ§in --</option>
                                 @foreach (var a in araclar)
                                 {
                                     <option value="@a.Id">@a.AktifPlaka - @a.Marka @a.Model</option>
@@ -322,9 +322,9 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Þoför *</label>
+                            <label class="form-label">ÅžofÃ¶r *</label>
                             <select class="form-select" @bind="editEslestirme.SoforId">
-                                <option value="0">-- Seçin --</option>
+                                <option value="0">-- SeÃ§in --</option>
                                 @foreach (var s in soforler)
                                 {
                                     <option value="@s.Id">@s.TamAd</option>
@@ -332,22 +332,22 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Sefer Türü</label>
+                            <label class="form-label">Sefer TÃ¼rÃ¼</label>
                             <select class="form-select" @bind="editEslestirme.ServisTuru">
-                                <option value="@ServisTuru.SabahAksam">Sabah-Akþam</option>
+                                <option value="@ServisTuru.SabahAksam">Sabah-AkÅŸam</option>
                                 <option value="@ServisTuru.Sabah">Sabah</option>
-                                <option value="@ServisTuru.Aksam">Akþam</option>
+                                <option value="@ServisTuru.Aksam">AkÅŸam</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Kurum Ücreti</label>
+                            <label class="form-label">Kurum Ãœcreti</label>
                             <div class="input-group">
                                 <input type="number" class="form-control" @bind="editEslestirme.KurumaKesilecekUcret" step="0.01" />
                                 <span class="input-group-text">?</span>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Taþeron Ücreti</label>
+                            <label class="form-label">TaÅŸeron Ãœcreti</label>
                             <div class="input-group">
                                 <input type="number" class="form-control" @bind="editEslestirme.TaseronaOdenenUcret" step="0.01" />
                                 <span class="input-group-text">?</span>
@@ -362,7 +362,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Ýptal</button>
+                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Ä°ptal</button>
                     <button type="button" class="btn btn-primary" @onclick="EslestirmeKaydet">
                         <i class="bi bi-check me-1"></i>Kaydet
                     </button>
@@ -372,7 +372,7 @@
     </div>
 }
 
-<!-- Puantaj Düzenleme Modal -->
+<!-- Puantaj DÃ¼zenleme Modal -->
 @if (showPuantajModal && editPuantaj != null)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
@@ -381,7 +381,7 @@
                 <div class="modal-header bg-info text-white">
                     <h5 class="modal-title">
                         <i class="bi bi-calendar-check me-2"></i>
-                        Puantaj Düzenle - @editPuantaj.Tarih.ToString("dd.MM.yyyy")
+                        Puantaj DÃ¼zenle - @editPuantaj.Tarih.ToString("dd.MM.yyyy")
                     </h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => showPuantajModal = false"></button>
                 </div>
@@ -401,24 +401,24 @@
                                 <option value="@OperasyonDurumu.Gitmedi_Mazeretli">Gitmedi (Mazeretli)</option>
                                 <option value="@OperasyonDurumu.Gitmedi_Mazeretsiz">Gitmedi (Mazeretsiz)</option>
                                 <option value="@OperasyonDurumu.Taksiyle_Gidildi">Taksiyle Gidildi</option>
-                                <option value="@OperasyonDurumu.Arizalandi_YoldaKaldi">Arýzalandý</option>
-                                <option value="@OperasyonDurumu.Iptal_KurumTarafindan">Ýptal (Kurum)</option>
+                                <option value="@OperasyonDurumu.Arizalandi_YoldaKaldi">ArÄ±zalandÄ±</option>
+                                <option value="@OperasyonDurumu.Iptal_KurumTarafindan">Ä°ptal (Kurum)</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Çarpan</label>
+                            <label class="form-label">Ã‡arpan</label>
                             <input type="number" class="form-control" @bind="editPuantaj.PuantajCarpani" step="0.5" min="0" max="2" />
                         </div>
                         <div class="col-12">
                             <div class="form-check">
                                 <input type="checkbox" class="form-check-input" @bind="editPuantaj.TaksiKullanildiMi" />
-                                <label class="form-check-label">Taksi Kullanýldý</label>
+                                <label class="form-check-label">Taksi KullanÄ±ldÄ±</label>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="() => showPuantajModal = false">Ýptal</button>
+                    <button type="button" class="btn btn-secondary" @onclick="() => showPuantajModal = false">Ä°ptal</button>
                     <button type="button" class="btn btn-primary" @onclick="PuantajGuncelle">
                         <i class="bi bi-check me-1"></i>Kaydet
                     </button>
@@ -474,7 +474,7 @@
 
         try
         {
-            var firmaIdParam = filtreFirmaId > 0 ? filtreFirmaId : 1;
+            int? firmaIdParam = filtreFirmaId > 0 ? filtreFirmaId : null;
             eslestirmeler = await FiloService.GetEslestirmelerAsync(firmaIdParam);
 
             if (aktifTab == "puantaj")
@@ -546,7 +546,7 @@
         if (editEslestirme.KurumFirmaId == 0 || editEslestirme.GuzergahId == 0 ||
             editEslestirme.AracId == 0 || editEslestirme.SoforId == 0)
         {
-            ToastService.ShowWarning("Lütfen tüm alanlarý doldurun.");
+            ToastService.ShowWarning("LÃ¼tfen tÃ¼m alanlarÄ± doldurun.");
             return;
         }
 
@@ -556,12 +556,12 @@
             {
                 editEslestirme.FirmaId = 1; // Default
                 await FiloService.CreateEslestirmeAsync(editEslestirme);
-                ToastService.ShowSuccess("Eþleþtirme oluþturuldu.");
+                ToastService.ShowSuccess("EÅŸleÅŸtirme oluÅŸturuldu.");
             }
             else
             {
                 await FiloService.UpdateEslestirmeAsync(editEslestirme);
-                ToastService.ShowSuccess("Eþleþtirme güncellendi.");
+                ToastService.ShowSuccess("EÅŸleÅŸtirme gÃ¼ncellendi.");
             }
 
             showEslestirmeModal = false;
@@ -575,13 +575,13 @@
 
     private async Task EslestirmeSil(FiloGuzergahEslestirme e)
     {
-        var onay = await JS.InvokeAsync<bool>("confirm", $"'{e.Guzergah?.GuzergahAdi}' eþleþtirmesi silinecek. Emin misiniz?");
+        var onay = await JS.InvokeAsync<bool>("confirm", $"'{e.Guzergah?.GuzergahAdi}' eÅŸleÅŸtirmesi silinecek. Emin misiniz?");
         if (!onay) return;
 
         try
         {
             await FiloService.DeleteEslestirmeAsync(e.Id);
-            ToastService.ShowSuccess("Eþleþtirme silindi.");
+            ToastService.ShowSuccess("EÅŸleÅŸtirme silindi.");
             await YenileAsync();
         }
         catch (Exception ex)
@@ -592,14 +592,19 @@
 
     private async Task TopluPuantajOlustur()
     {
-        var onay = await JS.InvokeAsync<bool>("confirm", $"{GetAyAdi(filtreAy)} {filtreYil} için tüm eþleþtirmelere puantaj kaydý oluþturulacak. Devam?");
+        if (filtreFirmaId == 0)
+        {
+            ToastService.ShowWarning("Toplu puantaj oluÅŸturmak iÃ§in lÃ¼tfen bir firma seÃ§in.");
+            return;
+        }
+
+        var onay = await JS.InvokeAsync<bool>("confirm", $"{GetAyAdi(filtreAy)} {filtreYil} iÃ§in tÃ¼m eÅŸleÅŸtirmelere puantaj kaydÄ± oluÅŸturulacak. Devam?");
         if (!onay) return;
 
         try
         {
-            var firmaIdParam = filtreFirmaId > 0 ? filtreFirmaId : 1;
-            await FiloService.TopluPuantajUretAsync(firmaIdParam, filtreYil, filtreAy);
-            ToastService.ShowSuccess("Puantaj kayýtlarý oluþturuldu.");
+            await FiloService.TopluPuantajUretAsync(filtreFirmaId, filtreYil, filtreAy);
+            ToastService.ShowSuccess("Puantaj kayÄ±tlarÄ± oluÅŸturuldu.");
             aktifTab = "puantaj";
             await YenileAsync();
         }
@@ -649,7 +654,7 @@
 
         try
         {
-            // Duruma göre çarpaný otomatik ayarla
+            // Duruma gÃ¶re Ã§arpanÄ± otomatik ayarla
             editPuantaj.PuantajCarpani = editPuantaj.Durum switch
             {
                 OperasyonDurumu.Gitti => 1,
@@ -670,7 +675,7 @@
                 await FiloService.UpdateGunlukPuantajAsync(editPuantaj);
             }
 
-            ToastService.ShowSuccess("Puantaj güncellendi.");
+            ToastService.ShowSuccess("Puantaj gÃ¼ncellendi.");
             showPuantajModal = false;
             await YenileAsync();
         }
@@ -688,7 +693,89 @@
 
     private async Task PuantajExcelExport()
     {
-        ToastService.ShowInfo("Excel export özelliði yakýnda eklenecek.");
+        if (!filtrelenmisEslestirmeler.Any(e => e.IsActive))
+        {
+            ToastService.ShowWarning("Disa aktarilacak veri bulunamadi.");
+            return;
+        }
+
+        try
+        {
+            // Baslik satiri: Guzergah/Arac/Sofor + 1-31 gunler + Toplam
+            var headers = new List<string> { "Guzergah / Arac / Sofor" };
+            for (int gun = 1; gun <= AyGunSayisi; gun++)
+            {
+                var tarih = new DateTime(filtreYil, filtreAy, gun);
+                headers.Add($"{gun} ({GetGunKisa(tarih)})");
+            }
+            headers.Add("Toplam");
+
+            // Veri satirlari
+            var rows = new List<object[]>();
+            foreach (var eslestirme in filtrelenmisEslestirmeler.Where(e => e.IsActive))
+            {
+                var eslestirmePuantajlari = puantajlar.Where(p => p.FiloGuzergahEslestirmeId == eslestirme.Id).ToList();
+                var row = new List<object>();
+
+                // Ilk sutun: Guzergah bilgisi
+                row.Add($"{eslestirme.Guzergah?.GuzergahAdi} | {eslestirme.Arac?.AktifPlaka} | {eslestirme.Sofor?.TamAd}");
+
+                // Gunluk puantajlar
+                decimal toplam = 0;
+                for (int gun = 1; gun <= AyGunSayisi; gun++)
+                {
+                    var tarih = new DateTime(filtreYil, filtreAy, gun);
+                    var puantaj = eslestirmePuantajlari.FirstOrDefault(p => p.Tarih.Date == tarih.Date);
+                    if (puantaj != null)
+                    {
+                        row.Add(GetDurumKisa(puantaj.Durum));
+                        toplam += puantaj.PuantajCarpani;
+                    }
+                    else
+                    {
+                        row.Add("-");
+                    }
+                }
+                row.Add(toplam);
+                rows.Add(row.ToArray());
+            }
+
+            // Excel olustur
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var worksheet = workbook.Worksheets.Add($"Puantaj {GetAyAdi(filtreAy)} {filtreYil}");
+
+            // Basliklari yaz
+            for (int i = 0; i < headers.Count; i++)
+            {
+                worksheet.Cell(1, i + 1).Value = headers[i];
+                worksheet.Cell(1, i + 1).Style.Font.Bold = true;
+                worksheet.Cell(1, i + 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightBlue;
+            }
+
+            // Verileri yaz
+            for (int r = 0; r < rows.Count; r++)
+            {
+                for (int c = 0; c < rows[r].Length; c++)
+                {
+                    worksheet.Cell(r + 2, c + 1).Value = rows[r][c]?.ToString() ?? "";
+                }
+            }
+
+            worksheet.Columns().AdjustToContents();
+
+            using var stream = new System.IO.MemoryStream();
+            workbook.SaveAs(stream);
+            var base64 = Convert.ToBase64String(stream.ToArray());
+
+            var fileName = $"Puantaj_{GetAyAdi(filtreAy)}_{filtreYil}.xlsx";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, base64);
+
+            ToastService.ShowSuccess("Excel dosyasi indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Excel export hatasi: {ex.Message}");
+        }
     }
 
     private void ModalKapat()
@@ -706,7 +793,7 @@
     {
         ServisTuru.SabahAksam => "S-A",
         ServisTuru.Sabah => "Sabah",
-        ServisTuru.Aksam => "Akþam",
+        ServisTuru.Aksam => "AkÅŸam",
         _ => t.ToString()
     };
 
@@ -725,7 +812,7 @@
         OperasyonDurumu.Gitmedi_Mazeretsiz => "X",
         OperasyonDurumu.Taksiyle_Gidildi => "T",
         OperasyonDurumu.Arizalandi_YoldaKaldi => "A",
-        OperasyonDurumu.Iptal_KurumTarafindan => "Ý",
+        OperasyonDurumu.Iptal_KurumTarafindan => "Ä°",
         _ => "?"
     };
 

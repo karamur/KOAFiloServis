@@ -15,4 +15,9 @@ public interface IGuzergahService
     Task DeleteAsync(int id);
     Task<string> GenerateNextKodAsync();
     Task<string> GenerateGuzergahKoduAsync(int firmaId);
+
+    // Doğrulama metodları
+    Task<bool> FaturaKalemdenGuzergahVarMiAsync(int faturaKalemId);
+    Task<Guzergah?> GetByFaturaKalemIdAsync(int faturaKalemId);
+    Task<bool> BenzersizGuzergahMiAsync(int firmaId, string guzergahAdi, int? haricId = null);
 }

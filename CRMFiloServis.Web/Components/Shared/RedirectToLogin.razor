@@ -1,8 +1,9 @@
-@inject NavigationManager Navigation
+﻿@inject NavigationManager Navigation
 
 @code {
     protected override void OnInitialized()
     {
-        Navigation.NavigateTo("/login", true);
+        // forceLoad: false - circuit koruyarak yonlendir (auth state korunur)
+        Navigation.NavigateTo("/login", forceLoad: false);
     }
 }

@@ -1,4 +1,4 @@
-@page "/banka-hareketleri"
+﻿@page "/banka-hareketleri"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @inject IBankaKasaHareketService HareketService
@@ -47,6 +47,7 @@
                                 <th>Tip</th>
                                 <th>Tutar</th>
                                 <th>Aciklama</th>
+                                <th>Muhasebe</th>
                                 <th style="width: 120px;">Islemler</th>
                             </tr>
                         </thead>
@@ -78,6 +79,20 @@
                                         </strong>
                                     </td>
                                     <td>@hareket.Aciklama</td>
+                                     <td>
+                                         @if (!string.IsNullOrWhiteSpace(hareket.MuhasebeHesapKodu) || !string.IsNullOrWhiteSpace(hareket.KostMerkeziKodu))
+                                         {
+                                             <div><code>@hareket.MuhasebeHesapKodu</code></div>
+                                             @if (!string.IsNullOrWhiteSpace(hareket.KostMerkeziKodu))
+                                             {
+                                                 <small class="text-muted">KM: @hareket.KostMerkeziKodu</small>
+                                             }
+                                         }
+                                         else
+                                         {
+                                             <span class="text-muted">-</span>
+                                         }
+                                     </td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(hareket.Id)" title="Duzenle">
                                             <i class="bi bi-pencil"></i>

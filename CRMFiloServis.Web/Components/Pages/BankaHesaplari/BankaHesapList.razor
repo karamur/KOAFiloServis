@@ -50,6 +50,14 @@
                             {
                                 <p class="mb-1"><small class="text-muted">IBAN:</small> @hesap.Iban</p>
                             }
+                            @if (!string.IsNullOrWhiteSpace(hesap.VarsayilanMuhasebeKodu))
+                            {
+                                <p class="mb-1"><small class="text-muted">Muhasebe Kodu:</small> <code>@hesap.VarsayilanMuhasebeKodu</code></p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(hesap.VarsayilanKostMerkezi))
+                            {
+                                <p class="mb-1"><small class="text-muted">Kost Merkezi:</small> <code>@hesap.VarsayilanKostMerkezi</code></p>
+                            }
                             <hr />
                             <div class="text-center">
                                 <span class="text-muted">@(hesap.HesapTipi == HesapTipi.KrediKarti ? "Kullanılan Limit" : "Güncel Bakiye")</span>

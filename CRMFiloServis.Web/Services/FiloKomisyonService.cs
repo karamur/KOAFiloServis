@@ -18,14 +18,19 @@ public class FiloKomisyonService : IFiloKomisyonService
         _context = context;
     }
 
-    public async Task<List<FiloGuzergahEslestirme>> GetEslestirmelerAsync(int firmaId, bool sadeceAktifler = true)
+    public async Task<List<FiloGuzergahEslestirme>> GetEslestirmelerAsync(int? firmaId = null, bool sadeceAktifler = true)
     {
         var query = _context.FiloGuzergahEslestirmeleri
             .Include(e => e.KurumFirma)
             .Include(e => e.Guzergah)
             .Include(e => e.Arac)
             .Include(e => e.Sofor)
-            .Where(e => e.FirmaId == firmaId && !e.IsDeleted);
+            .Where(e => !e.IsDeleted);
+
+        if (firmaId.HasValue && firmaId.Value > 0)
+        {
+            query = query.Where(e => e.FirmaId == firmaId.Value);
+        }
 
         if (sadeceAktifler)
         {
@@ -150,14 +155,17 @@ public class FiloKomisyonService : IFiloKomisyonService
             .ToListAsync();
     }
 
-    public async Task<List<FiloGunlukPuantaj>> GetPuantajlarByTarihAraligiAsync(int firmaId, DateTime baslangic, DateTime bitis, int? kurumId = null, int? aracId = null)
+    public async Task<List<FiloGunlukPuantaj>> GetPuantajlarByTarihAraligiAsync(int? firmaId, DateTime baslangic, DateTime bitis, int? kurumId = null, int? aracId = null)
     {
         var query = _context.FiloGunlukPuantajlar
             .Include(p => p.KurumFirma)
             .Include(p => p.Guzergah)
             .Include(p => p.Arac)
             .Include(p => p.Sofor)
-            .Where(p => p.FirmaId == firmaId && p.Tarih >= baslangic && p.Tarih <= bitis && !p.IsDeleted);
+            .Where(p => p.Tarih >= baslangic && p.Tarih <= bitis && !p.IsDeleted);
+
+        if (firmaId.HasValue && firmaId.Value > 0)
+            query = query.Where(p => p.FirmaId == firmaId.Value);
 
         if (kurumId.HasValue && kurumId.Value > 0)
             query = query.Where(p => p.KurumFirmaId == kurumId.Value);

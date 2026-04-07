@@ -7,10 +7,12 @@ namespace CRMFiloServis.Web.Services;
 public class BankaKasaHareketService : IBankaKasaHareketService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IMuhasebeService _muhasebeService;
 
-    public BankaKasaHareketService(ApplicationDbContext context)
+    public BankaKasaHareketService(ApplicationDbContext context, IMuhasebeService muhasebeService)
     {
         _context = context;
+        _muhasebeService = muhasebeService;
     }
 
     public async Task<List<BankaKasaHareket>> GetAllAsync()
@@ -106,6 +108,7 @@ public class BankaKasaHareketService : IBankaKasaHareketService
 
     public async Task<BankaKasaHareket> CreateAsync(BankaKasaHareket hareket)
     {
+        await ApplyMuhasebeDefaultsAsync(hareket);
         hareket.BankaHesap = null!;
         hareket.Cari = null;
         _context.BankaKasaHareketleri.Add(hareket);
@@ -115,6 +118,8 @@ public class BankaKasaHareketService : IBankaKasaHareketService
 
     public async Task<BankaKasaHareket> UpdateAsync(BankaKasaHareket hareket)
     {
+        await ApplyMuhasebeDefaultsAsync(hareket);
+
         var existing = await _context.BankaKasaHareketleri.FindAsync(hareket.Id);
         if (existing == null)
             throw new InvalidOperationException($"Banka/Kasa hareketi bulunamadı. Id: {hareket.Id}");
@@ -142,6 +147,30 @@ public class BankaKasaHareketService : IBankaKasaHareketService
         return existing;
     }
 
+    private async Task ApplyMuhasebeDefaultsAsync(BankaKasaHareket hareket)
+    {
+        if (string.IsNullOrWhiteSpace(hareket.MuhasebeAciklama) && !string.IsNullOrWhiteSpace(hareket.Aciklama))
+        {
+            hareket.MuhasebeAciklama = hareket.Aciklama;
+        }
+
+        if (hareket.BankaHesapId == 0)
+            return;
+
+        var hesap = await _context.BankaHesaplari
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == hareket.BankaHesapId);
+
+        if (hesap == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(hareket.MuhasebeHesapKodu))
+            hareket.MuhasebeHesapKodu = hesap.VarsayilanMuhasebeKodu;
+
+        if (string.IsNullOrWhiteSpace(hareket.KostMerkeziKodu))
+            hareket.KostMerkeziKodu = hesap.VarsayilanKostMerkezi;
+    }
+
     public async Task DeleteAsync(int id)
     {
         var hareket = await _context.BankaKasaHareketleri
@@ -150,6 +179,26 @@ public class BankaKasaHareketService : IBankaKasaHareketService
 
         if (hareket != null)
         {
+            // İlişkili bütçe ödemesini bul ve durumunu geri al
+            var iliskiliOdeme = await _context.BudgetOdemeler
+                .FirstOrDefaultAsync(o => o.BankaKasaHareketId == id);
+
+            if (iliskiliOdeme != null)
+            {
+                // Ödeme durumunu geri al
+                iliskiliOdeme.Durum = OdemeDurum.Bekliyor;
+                iliskiliOdeme.GercekOdemeTarihi = null;
+                iliskiliOdeme.OdenenTutar = null;
+                iliskiliOdeme.BankaKasaHareketId = null;
+                iliskiliOdeme.OdemeYapildigiHesapId = null;
+                iliskiliOdeme.OdemeNotu = null;
+                iliskiliOdeme.MasrafKesintisi = 0;
+                iliskiliOdeme.CezaKesintisi = 0;
+                iliskiliOdeme.DigerKesinti = 0;
+                iliskiliOdeme.KesintiAciklamasi = null;
+                iliskiliOdeme.UpdatedAt = DateTime.UtcNow;
+            }
+
             // Önce ilişkili OdemeEslestirmeleri sil
             if (hareket.OdemeEslestirmeleri.Any())
             {
@@ -355,6 +404,17 @@ public class BankaKasaHareketService : IBankaKasaHareketService
             cikisHareket.MahsupHareketId = girisHareket.Id;
             await _context.SaveChangesAsync();
 
+            // Muhasebe fişi oluştur
+            try
+            {
+                await _muhasebeService.CreateHesapTransferFisiAsync(cikisHareket, girisHareket, kaynakHesap, hedefHesap);
+            }
+            catch
+            {
+                // Muhasebe entegrasyonu başarısız olsa bile işlem devam eder
+                // Loglama eklenebilir
+            }
+
             await transaction.CommitAsync();
 
             return new MahsupSonuc
@@ -406,6 +466,16 @@ public class BankaKasaHareketService : IBankaKasaHareketService
             _context.BankaKasaHareketleri.Add(hareket);
             await _context.SaveChangesAsync();
 
+            // Muhasebe fişi oluştur
+            try
+            {
+                await _muhasebeService.CreateCariMahsupFisiAsync(hareket, cari, hesap, caridenHesaba);
+            }
+            catch
+            {
+                // Muhasebe entegrasyonu başarısız olsa bile işlem devam eder
+            }
+
             return new MahsupSonuc
             {
                 Basarili = true,
@@ -442,6 +512,16 @@ public class BankaKasaHareketService : IBankaKasaHareketService
             .Include(h => h.OdemeEslestirmeleri)
             .Where(h => h.MahsupGrupId == mahsupGrupId)
             .ToListAsync();
+
+        // Önce muhasebe iptal fişi oluştur
+        try
+        {
+            await _muhasebeService.IptalFisiOlusturAsync(mahsupGrupId);
+        }
+        catch
+        {
+            // Muhasebe entegrasyonu başarısız olsa bile işlem devam eder
+        }
 
         // Önce ilişkili OdemeEslestirmeleri sil
         var eslestirmeler = hareketler.SelectMany(h => h.OdemeEslestirmeleri).ToList();

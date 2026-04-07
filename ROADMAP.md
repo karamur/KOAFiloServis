@@ -1,119 +1,119 @@
-# ?? CRM Filo Servis - Proje Faz Planı
+ï»¿# ?? Koa Filo Servis - Proje Faz PlanÄ±
 
 ## ?? Mevcut Durum Analizi
 
-### ? Tamamlanan Modüller (Faz 1 - MVP)
-| Modül | Durum | Açıklama |
+### ? Tamamlanan ModÃ¼ller (Faz 1 - MVP)
+| ModÃ¼l | Durum | AÃ§Ä±klama |
 |-------|-------|----------|
-| Cari Yönetimi | ? Tamamlandı | CRUD, Liste, Form |
-| Araç Yönetimi | ? Tamamlandı | CRUD, Liste, Form |
-| Şoför Yönetimi | ? Tamamlandı | CRUD, Liste, Form |
-| Güzergah Yönetimi | ? Tamamlandı | CRUD, Liste, Form |
-| Masraf Kalemleri | ? Tamamlandı | CRUD, Liste, Form |
-| Araç Masrafları | ? Tamamlandı | CRUD, Liste, Form |
-| Servis Çalışmaları | ? Tamamlandı | CRUD, Toplu Giriş |
-| Fatura Yönetimi | ? Tamamlandı | CRUD, Detay |
-| Banka/Kasa Hesapları | ? Tamamlandı | CRUD |
-| Banka Hareketleri | ? Tamamlandı | CRUD |
-| Ödeme Eşleştirme | ? Tamamlandı | Fatura-Hareket eşleştirme |
-| Raporlar | ? Tamamlandı | Servis, Fatura, Araç Masraf, Cari Ekstre |
-| Dashboard | ? Tamamlandı | Özet kartlar, optimize sorgular |
-| UI/UX | ? Tamamlandı | Açılır menü, okunabilir renkler |
+| Cari YÃ¶netimi | ? TamamlandÄ± | CRUD, Liste, Form |
+| AraÃ§ YÃ¶netimi | ? TamamlandÄ± | CRUD, Liste, Form |
+| ÅofÃ¶r YÃ¶netimi | ? TamamlandÄ± | CRUD, Liste, Form |
+| GÃ¼zergah YÃ¶netimi | ? TamamlandÄ± | CRUD, Liste, Form |
+| Masraf Kalemleri | ? TamamlandÄ± | CRUD, Liste, Form |
+| AraÃ§ MasraflarÄ± | ? TamamlandÄ± | CRUD, Liste, Form |
+| Servis Ã‡alÄ±ÅŸmalarÄ± | ? TamamlandÄ± | CRUD, Toplu GiriÅŸ |
+| Fatura YÃ¶netimi | ? TamamlandÄ± | CRUD, Detay |
+| Banka/Kasa HesaplarÄ± | ? TamamlandÄ± | CRUD |
+| Banka Hareketleri | ? TamamlandÄ± | CRUD |
+| Ã–deme EÅŸleÅŸtirme | ? TamamlandÄ± | Fatura-Hareket eÅŸleÅŸtirme |
+| Raporlar | ? TamamlandÄ± | Servis, Fatura, AraÃ§ Masraf, Cari Ekstre |
+| Dashboard | ? TamamlandÄ± | Ã–zet kartlar, optimize sorgular |
+| UI/UX | ? TamamlandÄ± | AÃ§Ä±lÄ±r menÃ¼, okunabilir renkler |
 
 ---
 
-## ?? FAZ 2 - Gelişmiş Özellikler
+## ?? FAZ 2 - GeliÅŸmiÅŸ Ã–zellikler
 
-### 2.1 Kullanıcı Yönetimi & Yetkilendirme
-| Özellik | Öncelik | Süre | Durum |
+### 2.1 KullanÄ±cÄ± YÃ¶netimi & Yetkilendirme
+| Ã–zellik | Ã–ncelik | SÃ¼re | Durum |
 |---------|---------|------|-------|
-| ASP.NET Core Identity entegrasyonu | ?? Yüksek | 3 gün | ? |
-| Kullanıcı kayıt/giriş | ?? Yüksek | 2 gün | ? |
-| Rol tabanlı yetkilendirme (Admin, Muhasebe, Operasyon) | ?? Yüksek | 2 gün | ? |
-| Şifre sıfırlama | ?? Orta | 1 gün | ? |
-| Kullanıcı profil sayfası | ?? Düşük | 1 gün | ? |
+| ASP.NET Core Identity entegrasyonu | ?? YÃ¼ksek | 3 gÃ¼n | ? |
+| KullanÄ±cÄ± kayÄ±t/giriÅŸ | ?? YÃ¼ksek | 2 gÃ¼n | ? |
+| Rol tabanlÄ± yetkilendirme (Admin, Muhasebe, Operasyon) | ?? YÃ¼ksek | 2 gÃ¼n | ? |
+| Åifre sÄ±fÄ±rlama | ?? Orta | 1 gÃ¼n | ? |
+| KullanÄ±cÄ± profil sayfasÄ± | ?? DÃ¼ÅŸÃ¼k | 1 gÃ¼n | ? |
 
 ### 2.2 Bildirim Sistemi
-| Özellik | Öncelik | Süre | Durum |
+| Ã–zellik | Ã–ncelik | SÃ¼re | Durum |
 |---------|---------|------|-------|
-| Vade yaklaşan fatura bildirimleri | ?? Yüksek | 2 gün | ? |
-| Ehliyet/Muayene/Sigorta bitiş uyarıları | ?? Yüksek | 2 gün | ? |
-| E-posta bildirimleri | ?? Orta | 2 gün | ? |
-| Uygulama içi bildirimler (toast) | ?? Düşük | 1 gün | ? |
+| Vade yaklaÅŸan fatura bildirimleri | ?? YÃ¼ksek | 2 gÃ¼n | ? |
+| Ehliyet/Muayene/Sigorta bitiÅŸ uyarÄ±larÄ± | ?? YÃ¼ksek | 2 gÃ¼n | ? |
+| E-posta bildirimleri | ?? Orta | 2 gÃ¼n | ? |
+| Uygulama iÃ§i bildirimler (toast) | ?? DÃ¼ÅŸÃ¼k | 1 gÃ¼n | ? |
 
-### 2.3 Doküman Yönetimi
-| Özellik | Öncelik | Süre | Durum |
+### 2.3 DokÃ¼man YÃ¶netimi
+| Ã–zellik | Ã–ncelik | SÃ¼re | Durum |
 |---------|---------|------|-------|
-| Fatura PDF oluşturma | ?? Yüksek | 2 gün | ? |
-| Excel export (mevcut, iyileştirme) | ?? Orta | 1 gün | ? |
-| Dosya yükleme (ruhsat, ehliyet, sözleşme) | ?? Orta | 2 gün | ? |
+| Fatura PDF oluÅŸturma | ?? YÃ¼ksek | 2 gÃ¼n | ? |
+| Excel export (mevcut, iyileÅŸtirme) | ?? Orta | 1 gÃ¼n | ? |
+| Dosya yÃ¼kleme (ruhsat, ehliyet, sÃ¶zleÅŸme) | ?? Orta | 2 gÃ¼n | ? |
 
 ---
 
-## ?? FAZ 3 - İleri Seviye Özellikler
+## ?? FAZ 3 - Ä°leri Seviye Ã–zellikler
 
 ### 3.1 Entegrasyonlar
-| Özellik | Öncelik | Süre | Durum |
+| Ã–zellik | Ã–ncelik | SÃ¼re | Durum |
 |---------|---------|------|-------|
-| E-Fatura entegrasyonu (GİB) | ?? Yüksek | 5 gün | ? |
-| SMS entegrasyonu | ?? Orta | 2 gün | ? |
-| Harita entegrasyonu (güzergah gösterimi) | ?? Düşük | 3 gün | ? |
-| Araç takip sistemi entegrasyonu | ?? Düşük | 4 gün | ? |
+| E-Fatura entegrasyonu (GÄ°B) | ?? YÃ¼ksek | 5 gÃ¼n | ? |
+| SMS entegrasyonu | ?? Orta | 2 gÃ¼n | ? |
+| Harita entegrasyonu (gÃ¼zergah gÃ¶sterimi) | ?? DÃ¼ÅŸÃ¼k | 3 gÃ¼n | ? |
+| AraÃ§ takip sistemi entegrasyonu | ?? DÃ¼ÅŸÃ¼k | 4 gÃ¼n | ? |
 
-### 3.2 Gelişmiş Raporlama
-| Özellik | Öncelik | Süre | Durum |
+### 3.2 GeliÅŸmiÅŸ Raporlama
+| Ã–zellik | Ã–ncelik | SÃ¼re | Durum |
 |---------|---------|------|-------|
-| Dashboard grafikleri (Chart.js) | ?? Yüksek | 2 gün | ? |
-| Şoför performans raporu | ?? Orta | 2 gün | ? |
-| Araç karlılık analizi | ?? Orta | 2 gün | ? |
-| Cari bakiye yaşlandırma raporu | ?? Orta | 2 gün | ? |
-| Aylık/Yıllık karşılaştırmalı raporlar | ?? Düşük | 2 gün | ? |
+| Dashboard grafikleri (Chart.js) | ?? YÃ¼ksek | 2 gÃ¼n | ? |
+| ÅofÃ¶r performans raporu | ?? Orta | 2 gÃ¼n | ? |
+| AraÃ§ karlÄ±lÄ±k analizi | ?? Orta | 2 gÃ¼n | ? |
+| Cari bakiye yaÅŸlandÄ±rma raporu | ?? Orta | 2 gÃ¼n | ? |
+| AylÄ±k/YÄ±llÄ±k karÅŸÄ±laÅŸtÄ±rmalÄ± raporlar | ?? DÃ¼ÅŸÃ¼k | 2 gÃ¼n | ? |
 
 ### 3.3 Mobil Uygulama
-| Özellik | Öncelik | Süre | Durum |
+| Ã–zellik | Ã–ncelik | SÃ¼re | Durum |
 |---------|---------|------|-------|
-| Şoför mobil uygulaması (MAUI Blazor) | ?? Orta | 10 gün | ? |
-| Sefer başlat/bitir | ?? Orta | 2 gün | ? |
-| Arıza bildirimi | ?? Orta | 1 gün | ? |
-| Masraf girişi (fotoğraflı) | ?? Orta | 2 gün | ? |
+| ÅofÃ¶r mobil uygulamasÄ± (MAUI Blazor) | ?? Orta | 10 gÃ¼n | ? |
+| Sefer baÅŸlat/bitir | ?? Orta | 2 gÃ¼n | ? |
+| ArÄ±za bildirimi | ?? Orta | 1 gÃ¼n | ? |
+| Masraf giriÅŸi (fotoÄŸraflÄ±) | ?? Orta | 2 gÃ¼n | ? |
 
 ---
 
-## ?? FAZ 4 - Kurumsal Özellikler
+## ?? FAZ 4 - Kurumsal Ã–zellikler
 
-### 4.1 Çoklu Şirket Desteği
-| Özellik | Öncelik | Süre | Durum |
+### 4.1 Ã‡oklu Åirket DesteÄŸi
+| Ã–zellik | Ã–ncelik | SÃ¼re | Durum |
 |---------|---------|------|-------|
-| Multi-tenant mimari | ?? Düşük | 5 gün | ? |
-| Şirket bazlı veri izolasyonu | ?? Düşük | 3 gün | ? |
-| Şirketler arası transfer | ?? Düşük | 2 gün | ? |
+| Multi-tenant mimari | ?? DÃ¼ÅŸÃ¼k | 5 gÃ¼n | ? |
+| Åirket bazlÄ± veri izolasyonu | ?? DÃ¼ÅŸÃ¼k | 3 gÃ¼n | ? |
+| Åirketler arasÄ± transfer | ?? DÃ¼ÅŸÃ¼k | 2 gÃ¼n | ? |
 
 ### 4.2 API & Entegrasyon
-| Özellik | Öncelik | Süre | Durum |
+| Ã–zellik | Ã–ncelik | SÃ¼re | Durum |
 |---------|---------|------|-------|
-| REST API oluşturma | ?? Orta | 4 gün | ? |
-| API dokümantasyonu (Swagger) | ?? Orta | 1 gün | ? |
-| Webhook desteği | ?? Düşük | 2 gün | ? |
+| REST API oluÅŸturma | ?? Orta | 4 gÃ¼n | ? |
+| API dokÃ¼mantasyonu (Swagger) | ?? Orta | 1 gÃ¼n | ? |
+| Webhook desteÄŸi | ?? DÃ¼ÅŸÃ¼k | 2 gÃ¼n | ? |
 
-### 4.3 Performans & Ölçekleme
-| Özellik | Öncelik | Süre | Durum |
+### 4.3 Performans & Ã–lÃ§ekleme
+| Ã–zellik | Ã–ncelik | SÃ¼re | Durum |
 |---------|---------|------|-------|
-| Redis cache entegrasyonu | ?? Düşük | 2 gün | ? |
-| Sayfalama (pagination) | ?? Yüksek | 2 gün | ? |
-| Lazy loading optimizasyonu | ?? Orta | 1 gün | ? |
+| Redis cache entegrasyonu | ?? DÃ¼ÅŸÃ¼k | 2 gÃ¼n | ? |
+| Sayfalama (pagination) | ?? YÃ¼ksek | 2 gÃ¼n | ? |
+| Lazy loading optimizasyonu | ?? Orta | 1 gÃ¼n | ? |
 
 ---
 
-## ?? Önerilen Uygulama Takvimi
+## ?? Ã–nerilen Uygulama Takvimi
 
 ```
 FAZ 2 (4-5 Hafta)
-??? Hafta 1-2: Kullanıcı Yönetimi & Yetkilendirme
+??? Hafta 1-2: KullanÄ±cÄ± YÃ¶netimi & Yetkilendirme
 ??? Hafta 3: Bildirim Sistemi
-??? Hafta 4-5: Doküman Yönetimi
+??? Hafta 4-5: DokÃ¼man YÃ¶netimi
 
 FAZ 3 (6-8 Hafta)
-??? Hafta 1-2: Dashboard Grafikleri & Gelişmiş Raporlar
+??? Hafta 1-2: Dashboard Grafikleri & GeliÅŸmiÅŸ Raporlar
 ??? Hafta 3-4: E-Fatura Entegrasyonu
 ??? Hafta 5-6: SMS & E-posta Entegrasyonu
 ??? Hafta 7-8: Mobil Uygulama (opsiyonel)
@@ -121,26 +121,26 @@ FAZ 3 (6-8 Hafta)
 FAZ 4 (4-6 Hafta)
 ??? Hafta 1-2: REST API
 ??? Hafta 3-4: Multi-tenant (opsiyonel)
-??? Hafta 5-6: Performans optimizasyonları
+??? Hafta 5-6: Performans optimizasyonlarÄ±
 ```
 
 ---
 
-## ?? Hemen Başlanabilecek Öncelikli İşler
+## ?? Hemen BaÅŸlanabilecek Ã–ncelikli Ä°ÅŸler
 
-1. **Sayfalama (Pagination)** - Büyük veri setlerinde performans
-2. **Dashboard Grafikleri** - Chart.js ile görsel raporlar
-3. **Vade Uyarı Sistemi** - Vadesi geçen/yaklaşan faturalar
-4. **Araç Belge Takibi** - Muayene, sigorta, kasko uyarıları
-5. **Kullanıcı Giriş Sistemi** - Identity entegrasyonu
+1. **Sayfalama (Pagination)** - BÃ¼yÃ¼k veri setlerinde performans
+2. **Dashboard Grafikleri** - Chart.js ile gÃ¶rsel raporlar
+3. **Vade UyarÄ± Sistemi** - Vadesi geÃ§en/yaklaÅŸan faturalar
+4. **AraÃ§ Belge Takibi** - Muayene, sigorta, kasko uyarÄ±larÄ±
+5. **KullanÄ±cÄ± GiriÅŸ Sistemi** - Identity entegrasyonu
 
 ---
 
 ## ?? Notlar
 
-- Öncelik: ?? Yüksek | ?? Orta | ?? Düşük
-- Durum: ? Bekliyor | ?? Devam Ediyor | ? Tamamlandı
+- Ã–ncelik: ?? YÃ¼ksek | ?? Orta | ?? DÃ¼ÅŸÃ¼k
+- Durum: ? Bekliyor | ?? Devam Ediyor | ? TamamlandÄ±
 
 ---
 
-*Son güncelleme: Ocak 2025*
+*Son gÃ¼ncelleme: Ocak 2025*

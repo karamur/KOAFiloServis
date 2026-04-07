@@ -52,7 +52,7 @@
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label class="form-label">Hesap *</label>
-                            <InputSelect @bind-Value="hareket.BankaHesapId" class="form-select">
+                            <InputSelect @bind-Value="hareket.BankaHesapId" @bind-Value:after="OnHesapChanged" class="form-select">
                                 <option value="0">-- Hesap Seçiniz --</option>
                                 @foreach (var hesap in hesaplar)
                                 {
@@ -104,6 +104,39 @@
                 <div class="mb-3">
                     <label class="form-label">Açıklama</label>
                     <InputTextArea @bind-Value="hareket.Aciklama" class="form-control" rows="3" />
+                </div>
+
+                <div class="card border-light-subtle mb-3">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <strong><i class="bi bi-journal-code me-2"></i>Muhasebe Eşleştirme</strong>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick='() => HesapVarsayilanlariniUygula(force: true)' disabled="@(hareket.BankaHesapId == 0)">
+                            <i class="bi bi-magic me-1"></i>Hesap Varsayılanlarını Uygula
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Muhasebe Hesap Kodu</label>
+                                <InputText @bind-Value="hareket.MuhasebeHesapKodu" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Alt Hesap Kodu</label>
+                                <InputText @bind-Value="hareket.MuhasebeAltHesapKodu" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Kost Merkezi</label>
+                                <InputText @bind-Value="hareket.KostMerkeziKodu" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Proje Kodu</label>
+                                <InputText @bind-Value="hareket.ProjeKodu" class="form-control" />
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">Muhasebe Açıklama</label>
+                                <InputText @bind-Value="hareket.MuhasebeAciklama" class="form-control" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="d-flex gap-2">
@@ -185,6 +218,28 @@
     private void Geri()
     {
         Navigation.NavigateTo("/banka-hareketleri");
+    }
+
+    private Task OnHesapChanged()
+    {
+        HesapVarsayilanlariniUygula();
+        return Task.CompletedTask;
+    }
+
+    private void HesapVarsayilanlariniUygula(bool force = false)
+    {
+        var seciliHesap = hesaplar.FirstOrDefault(x => x.Id == hareket.BankaHesapId);
+        if (seciliHesap == null)
+            return;
+
+        if (force || string.IsNullOrWhiteSpace(hareket.MuhasebeHesapKodu))
+            hareket.MuhasebeHesapKodu = seciliHesap.VarsayilanMuhasebeKodu;
+
+        if (force || string.IsNullOrWhiteSpace(hareket.KostMerkeziKodu))
+            hareket.KostMerkeziKodu = seciliHesap.VarsayilanKostMerkezi;
+
+        if (force || string.IsNullOrWhiteSpace(hareket.MuhasebeAciklama))
+            hareket.MuhasebeAciklama = hareket.Aciklama;
     }
 
     private string GetTipText(HesapTipi tip) => tip switch

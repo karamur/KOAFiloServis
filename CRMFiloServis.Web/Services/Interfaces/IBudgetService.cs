@@ -112,8 +112,8 @@ public class OdemeYapRequest
     public string? KostMerkeziKodu { get; set; }
     public string? ProjeKodu { get; set; }
 
-    // Hesaplanan (Ek masraflar tutara eklenir)
-    public decimal ToplamEkMasraf => MasrafKesintisi + CezaKesintisi + DigerKesinti;
+    // Hesaplanan (Ek masraflar tutara eklenir - her zaman pozitif)
+    public decimal ToplamEkMasraf => Math.Abs(MasrafKesintisi) + Math.Abs(CezaKesintisi) + Math.Abs(DigerKesinti);
 }
 
 public enum OdemeTipi

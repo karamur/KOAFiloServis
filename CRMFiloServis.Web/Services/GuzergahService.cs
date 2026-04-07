@@ -110,6 +110,7 @@ public class GuzergahService : IGuzergahService
         if (guzergah != null)
         {
             guzergah.IsDeleted = true;
+            guzergah.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
     }
@@ -127,7 +128,9 @@ public class GuzergahService : IGuzergahService
 
     public async Task<string> GenerateGuzergahKoduAsync(int firmaId)
     {
-        var firma = await _context.Firmalar.FindAsync(firmaId);
+        var firma = await _context.Firmalar
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == firmaId);
         var firmaKisaltma = firma?.FirmaAdi?.Length >= 3 
             ? firma.FirmaAdi.Substring(0, 3).ToUpperInvariant() 
             : "GZR";
@@ -149,10 +152,49 @@ public class GuzergahService : IGuzergahService
             }
             else
             {
-                sayi = await _context.Guzergahlar.CountAsync(g => g.FirmaId == firmaId) + 1;
+                sayi = await _context.Guzergahlar
+                    .AsNoTracking()
+                    .CountAsync(g => g.FirmaId == firmaId) + 1;
             }
         }
 
         return $"{firmaKisaltma}-{sayi:D3}";
     }
+
+    #region Doğrulama Metodları
+
+    public async Task<bool> FaturaKalemdenGuzergahVarMiAsync(int faturaKalemId)
+    {
+        return await _context.Guzergahlar
+            .AsNoTracking()
+            .AnyAsync(g => g.FaturaKalemId == faturaKalemId && !g.IsDeleted);
+    }
+
+    public async Task<Guzergah?> GetByFaturaKalemIdAsync(int faturaKalemId)
+    {
+        return await _context.Guzergahlar
+            .AsNoTracking()
+            .Include(g => g.Firma)
+            .FirstOrDefaultAsync(g => g.FaturaKalemId == faturaKalemId && !g.IsDeleted);
+    }
+
+    public async Task<bool> BenzersizGuzergahMiAsync(int firmaId, string guzergahAdi, int? haricId = null)
+    {
+        var normalizedAdi = guzergahAdi.Trim().ToLowerInvariant();
+
+        var query = _context.Guzergahlar
+            .AsNoTracking()
+            .Where(g => g.FirmaId == firmaId && !g.IsDeleted);
+
+        if (haricId.HasValue)
+            query = query.Where(g => g.Id != haricId.Value);
+
+        var mevcutlar = await query
+            .Select(g => g.GuzergahAdi.ToLower().Trim())
+            .ToListAsync();
+
+        return !mevcutlar.Contains(normalizedAdi);
+    }
+
+    #endregion
 }

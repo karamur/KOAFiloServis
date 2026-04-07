@@ -140,6 +140,30 @@
                     <InputTextArea @bind-Value="hesap.Notlar" class="form-control" rows="2" />
                 </div>
 
+                <div class="card border-light-subtle mb-3">
+                    <div class="card-header bg-light">
+                        <strong><i class="bi bi-journal-code me-2"></i>Muhasebe Eşleştirme</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3 mb-md-0">
+                                    <label class="form-label">Varsayılan Muhasebe Kodu</label>
+                                    <InputText @bind-Value="hesap.VarsayilanMuhasebeKodu" class="form-control" />
+                                    <div class="form-text">Örn: Kasa için `100`, banka için `102`, kredi için `300`.</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div>
+                                    <label class="form-label">Varsayılan Kost Merkezi</label>
+                                    <InputText @bind-Value="hesap.VarsayilanKostMerkezi" class="form-control" />
+                                    <div class="form-text">Bu hesaptan açılan hareketlere otomatik önerilir.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-check-lg me-1"></i>Kaydet
@@ -189,6 +213,7 @@
             hesap.HesapTipi = HesapTipi.VadesizHesap;
             hesap.ParaBirimi = "TRY";
             hesap.Aktif = true;
+            ApplyVarsayilanMuhasebeAlanlari(force: true);
         }
     }
 
@@ -199,6 +224,8 @@
             secilenKrediGrupId = "";
             hesap.KrediTaksitGrupId = null;
         }
+
+        ApplyVarsayilanMuhasebeAlanlari();
     }
 
     private async Task Kaydet()
@@ -246,4 +273,22 @@
     {
         return tutar.ToString("N2", new System.Globalization.CultureInfo("tr-TR")) + " ₺";
     }
+
+    private void ApplyVarsayilanMuhasebeAlanlari(bool force = false)
+    {
+        if (force || string.IsNullOrWhiteSpace(hesap.VarsayilanMuhasebeKodu))
+        {
+            hesap.VarsayilanMuhasebeKodu = GetVarsayilanMuhasebeKodu(hesap.HesapTipi);
+        }
+    }
+
+    private string GetVarsayilanMuhasebeKodu(HesapTipi tip) => tip switch
+    {
+        HesapTipi.Kasa => "100",
+        HesapTipi.VadesizHesap => "102",
+        HesapTipi.VadeliHesap => "102",
+        HesapTipi.KrediHesabi => "300",
+        HesapTipi.KrediKarti => "300",
+        _ => string.Empty
+    };
 }

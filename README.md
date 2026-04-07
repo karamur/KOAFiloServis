@@ -230,7 +230,7 @@ CRMFiloServis/
 
 | Proje | Aciklama | Link |
 |-------|----------|------|
-| CRM Filo Servis | Filo Yonetimi, Muhasebe ve CRM Uygulamasi | [GitHub](https://github.com/karamur/CRMFiloServis) |
+| Koa Filo Servis | Filo Yonetimi, Muhasebe ve CRM Uygulamasi | [GitHub](https://github.com/karamur/CRMFiloServis) |
 | AYDA Analiz | Mali Analiz ve Muhasebe Uygulamasi | [GitHub](https://github.com/karamur/AYDAAnaliz) |
 
 ## ?? Iletisim

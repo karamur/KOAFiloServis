@@ -1,0 +1,27 @@
+ .gitignore                                         |  15 [32m+[m[31m-[m
+ CRMFiloServis.Web/CRMFiloServis.Web.csproj         |   2 [31m-[m
+ .../Pages/BankaHareketleri/BankaHareketForm.razor  |  57 [32m++++[m[31m-[m
+ .../Pages/BankaHareketleri/BankaHareketList.razor  |  17 [32m+[m[31m-[m
+ .../Pages/BankaHesaplari/BankaHesapForm.razor      |  45 [32m++++[m
+ .../Pages/BankaHesaplari/BankaHesapList.razor      |   8 [32m+[m
+ .../Components/Pages/Budget/BudgetAnaliz.razor     |   9 [32m+[m[31m-[m
+ .../Pages/EFatura/StokTuruEslestir.razor           |  56 [32m++++[m[31m-[m
+ .../Components/Pages/Filo/ServisPuantaj.razor      | 201 [32m+++++++++++[m[31m-----[m
+ CRMFiloServis.Web/Components/Pages/Login.razor     |  11 [32m+[m[31m-[m
+ .../Components/Shared/RedirectToLogin.razor        |   5 [32m+[m[31m-[m
+ .../Services/BankaKasaHareketService.cs            |  82 [32m++++++[m[31m-[m
+ CRMFiloServis.Web/Services/BudgetService.cs        |  50 [32m+++[m[31m-[m
+ CRMFiloServis.Web/Services/FiloKomisyonService.cs  |  16 [32m+[m[31m-[m
+ CRMFiloServis.Web/Services/GuzergahService.cs      |  46 [32m+++[m[31m-[m
+ .../Services/Interfaces/IBudgetService.cs          |   4 [32m+[m[31m-[m
+ .../Services/Interfaces/IFiloKomisyonService.cs    |   4 [32m+[m[31m-[m
+ .../Services/Interfaces/IGuzergahService.cs        |   5 [32m+[m
+ .../Services/Interfaces/IMuhasebeService.cs        |   5 [32m+[m
+ CRMFiloServis.Web/Services/MasrafKalemiService.cs  |   1 [32m+[m
+ CRMFiloServis.Web/Services/MuhasebeService.cs      | 244 [32m+++++++++++++++++++[m
+ CRMFiloServis.Web/Services/PiyasaKaynakService.cs  |  13 [32m+[m[31m-[m
+ CRMFiloServis.Web/Services/SoforService.cs         |   2 [32m+[m
+ DEVELOPMENT.md                                     | 264 [32m+++++++++++++++++++[m[31m--[m
+ README.md                                          |   2 [32m+[m[31m-[m
+ ROADMAP.md                                         | 164 [32m++++++[m[31m-------[m
+ 26 files changed, 1124 insertions(+), 204 deletions(-)

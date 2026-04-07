@@ -79,6 +79,7 @@ public class MasrafKalemiService : IMasrafKalemiService
         if (masrafKalemi != null)
         {
             masrafKalemi.IsDeleted = true;
+            masrafKalemi.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
     }

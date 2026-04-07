@@ -7,12 +7,14 @@ namespace CRMFiloServis.Web.Services;
 public class BudgetService : IBudgetService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IBankaKasaHareketService _bankaKasaHareketService;
     private static readonly string[] AyAdlari = { "", "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", 
                                                    "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik" };
 
-    public BudgetService(ApplicationDbContext context)
+    public BudgetService(ApplicationDbContext context, IBankaKasaHareketService bankaKasaHareketService)
     {
         _context = context;
+        _bankaKasaHareketService = bankaKasaHareketService;
     }
 
     #region Odeme Islemleri
@@ -202,9 +204,11 @@ public class BudgetService : IBudgetService
 
         var odemeTutari = RoundCurrency(Math.Abs(request.KismiOdemeTutari ?? odeme.Miktar));
         var odemeTarihi = DateTime.SpecifyKind(request.OdemeTarihi, DateTimeKind.Utc);
-        var masrafKesintisi = RoundCurrency(request.MasrafKesintisi);
-        var cezaKesintisi = RoundCurrency(request.CezaKesintisi);
-        var digerKesinti = RoundCurrency(request.DigerKesinti);
+
+        // Ek masraflar her zaman pozitif olmalı (mutlak değer al)
+        var masrafKesintisi = RoundCurrency(Math.Abs(request.MasrafKesintisi));
+        var cezaKesintisi = RoundCurrency(Math.Abs(request.CezaKesintisi));
+        var digerKesinti = RoundCurrency(Math.Abs(request.DigerKesinti));
 
         // Ek masraf bilgilerini kaydet
         odeme.MasrafKesintisi = masrafKesintisi;
@@ -228,9 +232,43 @@ public class BudgetService : IBudgetService
         odeme.OdemeNotu = request.OdemeNotu ?? request.Aciklama;
         odeme.UpdatedAt = DateTime.UtcNow;
 
-        // Kasa/Banka hareketi olustur (Mahsup disinda)
+        // Cari Mahsup ödeme tipi için özel işlem
+        if (request.OdemeTipi == OdemeTipi.CariMahsup)
+        {
+            if (!request.CariId.HasValue)
+                throw new Exception("Cari mahsup için cari seçilmelidir.");
+            if (!request.BankaHesapId.HasValue)
+                throw new Exception("Cari mahsup için hesap seçilmelidir.");
+
+            var aciklamaBuilder = $"Bütçe Ödemesi: {odeme.MasrafKalemi}";
+            if (!string.IsNullOrEmpty(request.OdemeNotu))
+                aciklamaBuilder += $" - {request.OdemeNotu}";
+            if (toplamEkMasraf != 0)
+            {
+                aciklamaBuilder += $" (Ek Masraf: {toplamEkMasraf:N2} ₺)";
+            }
+
+            // CariMahsup: Biz cariye borçluyuz, ödeme yapıyoruz (caridenHesaba = false)
+            // veya Cari bize borçlu, tahsil ediyoruz (caridenHesaba = true = CaridenTahsilat)
+            var sonuc = await _bankaKasaHareketService.CariMahsupAsync(
+                request.CariId.Value,
+                request.BankaHesapId.Value,
+                netOdemeTutari,
+                odemeTarihi,
+                aciklamaBuilder,
+                request.CaridenTahsilat
+            );
+
+            if (!sonuc.Basarili)
+                throw new Exception($"Cari mahsup işlemi başarısız: {sonuc.Hata}");
+
+            // Hareket ID'sini kaydet
+            if (sonuc.KaynakHareket != null)
+                odeme.BankaKasaHareketId = sonuc.KaynakHareket.Id;
+        }
+        // Kasa/Banka hareketi olustur (Mahsup ve CariMahsup disinda)
         // KASA = BORC (Cikis hareket), ODEME = ALACAK
-        if (request.OdemeTipi != OdemeTipi.Mahsup && request.BankaHesapId.HasValue)
+        else if (request.OdemeTipi != OdemeTipi.Mahsup && request.BankaHesapId.HasValue)
         {
             var aciklamaBuilder = $"Bütçe Ödemesi: {odeme.MasrafKalemi}";
             if (!string.IsNullOrEmpty(request.OdemeNotu))
