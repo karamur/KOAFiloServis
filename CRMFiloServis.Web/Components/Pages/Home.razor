@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
+@using CRMFiloServis.Web.Models
 @using Microsoft.AspNetCore.Authorization
 @using FaturaEntity = CRMFiloServis.Shared.Entities.Fatura
 @inject ICariService CariService
@@ -16,6 +17,8 @@
 @inject IKullaniciService KullaniciService
 @inject NavigationManager Navigation
 @inject ILogger<Home> Logger
+@inject IDashboardGrafikService GrafikService
+@inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
 @using CRMFiloServis.Web.Data
 @inject IServiceScopeFactory ScopeFactory
@@ -271,6 +274,106 @@ else
                     <a href="/butce" class="btn btn-outline-primary btn-sm w-100">
                         <i class="bi bi-arrow-right me-1"></i>Detay Görüntüle
                     </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafikler Bölümü -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Aylık Gelir/Gider (@DateTime.Today.Year)</h6>
+                </div>
+                <div class="card-body">
+                    <div style="height: 280px;">
+                        <canvas id="gelirGiderChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-pie-chart-fill me-2"></i>Masraf Dağılımı (6 Ay)</h6>
+                </div>
+                <div class="card-body">
+                    <div style="height: 200px;">
+                        <canvas id="masrafDagilimiChart"></canvas>
+                    </div>
+                    @if (masrafDagilimi != null && masrafDagilimi.Any())
+                    {
+                        <div class="mt-2" style="max-height: 60px; overflow-y: auto; font-size: 0.75rem;">
+                            @{
+                                var colors = new[] { "#0d6efd", "#6610f2", "#6f42c1", "#d63384", "#dc3545", "#fd7e14", "#ffc107", "#198754" };
+                                var i = 0;
+                            }
+                            @foreach (var item in masrafDagilimi.Take(8))
+                            {
+                                <span class="me-2">
+                                    <span style="display:inline-block;width:10px;height:10px;background:@colors[i++ % colors.Length];border-radius:2px;"></span>
+                                    @item.KategoriAdi
+                                </span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>Bütçe Takibi (6 Ay)</h6>
+                </div>
+                <div class="card-body">
+                    <div style="height: 200px;">
+                        <canvas id="butceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-people-fill me-2"></i>Cari Dağılımı</h6>
+                </div>
+                <div class="card-body" style="max-height: 250px; overflow-y: auto;">
+                    @if (cariDagilimi != null && cariDagilimi.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Cari Tipi</th>
+                                        <th class="text-center">Adet</th>
+                                        <th class="text-end">Toplam Bakiye</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in cariDagilimi)
+                                    {
+                                        <tr>
+                                            <td>@item.TipAdi</td>
+                                            <td class="text-center"><span class="badge bg-secondary">@item.Adet</span></td>
+                                            <td class="text-end">
+                                                <strong class="@(item.ToplamBakiye >= 0 ? "text-success" : "text-danger")">
+                                                    @FormatKisa(item.ToplamBakiye)
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted text-center py-3">Cari verisi yok</p>
+                    }
                 </div>
             </div>
         </div>
@@ -796,6 +899,13 @@ else
     private bool isLoading = true;
     private bool dashboardLoadInProgress;
     private readonly List<string> dashboardHatalari = new();
+
+    // Grafik verileri
+    private AylikGrafikData? gelirGiderData;
+    private List<MasrafKategoriDagilimi>? masrafDagilimi;
+    private List<CariTipDagilimi>? cariDagilimi;
+    private List<AylikButceVeri>? aylikButce;
+    private bool chartsRendered = false;
     
     // Yetki kontrolleri - Shared.Entities.Yetkiler sabitlerini kullanıyoruz
     private HashSet<string> kullaniciYetkileri = new();
@@ -974,7 +1084,7 @@ else
                     await Task.Delay(10);
                 }, "Servis verileri");
             }
-            
+
             if (CanViewBelgeUyarilari)
             {
                 await TryLoadDashboardSectionAsync(async sp =>
@@ -982,6 +1092,21 @@ else
                     var belgeUyariService = sp.GetRequiredService<IBelgeUyariService>();
                     belgeUyarilar = await belgeUyariService.GetBelgeUyarilarAsync(30);
                 }, "Belge uyarıları");
+            }
+
+            // Grafik verilerini yükle
+            if (CanViewFinans)
+            {
+                await TryLoadDashboardSectionAsync(async sp =>
+                {
+                    var grafikService = sp.GetRequiredService<IDashboardGrafikService>();
+                    var yil = DateTime.Today.Year;
+
+                    gelirGiderData = await grafikService.GetAylikGelirGiderAsync(yil);
+                    masrafDagilimi = await grafikService.GetMasrafKategoriDagilimiAsync(6);
+                    cariDagilimi = await grafikService.GetCariTipDagilimiAsync();
+                    aylikButce = await grafikService.GetAylikButceAsync(6);
+                }, "Grafik verileri");
             }
         }
         catch (Exception ex)
@@ -1060,6 +1185,58 @@ else
     {
         showGecmisBorcModal = false;
         seciliGecmisBorc = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender && !isLoading && !chartsRendered && HasDashboardPermission && CanViewFinans)
+        {
+            chartsRendered = true;
+            await RenderChartsAsync();
+        }
+    }
+
+    private async Task RenderChartsAsync()
+    {
+        try
+        {
+            // Aylık Gelir/Gider Bar Chart
+            if (gelirGiderData != null && gelirGiderData.Aylar.Any())
+            {
+                await JSRuntime.InvokeVoidAsync("createBarChart",
+                    "gelirGiderChart",
+                    gelirGiderData.Aylar.ToArray(),
+                    gelirGiderData.Veri1.Select(v => (double)v).ToArray(),
+                    gelirGiderData.Veri2.Select(v => (double)v).ToArray(),
+                    gelirGiderData.Veri1Label,
+                    gelirGiderData.Veri2Label);
+            }
+
+            // Masraf Kategori Doughnut Chart
+            if (masrafDagilimi != null && masrafDagilimi.Any())
+            {
+                var colors = new[] { "#0d6efd", "#6610f2", "#6f42c1", "#d63384", "#dc3545", "#fd7e14", "#ffc107", "#198754" };
+                await JSRuntime.InvokeVoidAsync("createDoughnutChart",
+                    "masrafDagilimiChart",
+                    masrafDagilimi.Select(m => m.KategoriAdi).ToArray(),
+                    masrafDagilimi.Select(m => (double)m.Tutar).ToArray(),
+                    colors.Take(masrafDagilimi.Count).ToArray());
+            }
+
+            // Aylık Bütçe Line Chart
+            if (aylikButce != null && aylikButce.Any())
+            {
+                await JSRuntime.InvokeVoidAsync("createLineChart",
+                    "butceChart",
+                    aylikButce.Select(b => b.AyAdi).ToArray(),
+                    aylikButce.Select(b => (double)b.PlanlananOdeme).ToArray(),
+                    aylikButce.Select(b => (double)b.GerceklesenOdeme).ToArray());
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Grafik render hatası");
+        }
     }
 
     private sealed class FirmaDevirBorcOzet

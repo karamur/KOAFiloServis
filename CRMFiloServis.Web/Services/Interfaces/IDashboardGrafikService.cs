@@ -1,3 +1,5 @@
+﻿using CRMFiloServis.Web.Models;
+
 namespace CRMFiloServis.Web.Services;
 
 public interface IDashboardGrafikService
@@ -6,12 +8,17 @@ public interface IDashboardGrafikService
     Task<AylikGrafikData> GetAylikSeferSayisiAsync(int yil);
     Task<List<AracPerformansData>> GetAracPerformansAsync(int yil, int ay);
     Task<List<CariPerformansData>> GetCariPerformansAsync(int yil, int ay);
+
+    // Yeni grafik metodları
+    Task<List<MasrafKategoriDagilimi>> GetMasrafKategoriDagilimiAsync(int aySayisi = 6);
+    Task<List<CariTipDagilimi>> GetCariTipDagilimiAsync();
+    Task<List<AylikButceVeri>> GetAylikButceAsync(int aySayisi = 6);
 }
 
 public class AylikGrafikData
 {
     public List<string> Aylar { get; set; } = new();
-    public List<decimal> Veri1 { get; set; } = new(); // Gelir veya Sefer Say�s�
+    public List<decimal> Veri1 { get; set; } = new(); // Gelir veya Sefer Sayısı
     public List<decimal> Veri2 { get; set; } = new(); // Gider (opsiyonel)
     public string Veri1Label { get; set; } = string.Empty;
     public string Veri2Label { get; set; } = string.Empty;

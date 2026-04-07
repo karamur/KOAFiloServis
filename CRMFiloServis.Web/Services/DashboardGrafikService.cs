@@ -1,12 +1,15 @@
-using CRMFiloServis.Shared.Entities;
+﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace CRMFiloServis.Web.Services;
 
 public class DashboardGrafikService : IDashboardGrafikService
 {
     private readonly ApplicationDbContext _context;
+    private static readonly CultureInfo TrCulture = new("tr-TR");
 
     public DashboardGrafikService(ApplicationDbContext context)
     {
@@ -21,17 +24,17 @@ public class DashboardGrafikService : IDashboardGrafikService
             Veri2Label = "Gider"
         };
 
-        var aylar = new[] { "Oca", "�ub", "Mar", "Nis", "May", "Haz", "Tem", "A�u", "Eyl", "Eki", "Kas", "Ara" };
+        var aylar = new[] { "Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara" };
         data.Aylar = aylar.ToList();
 
-        // Ayl�k gelirler (servis �al��malar�ndan)
+        // Aylık gelirler (servis çalışmalarından)
         var calismalar = await _context.ServisCalismalari
             .Where(c => c.CalismaTarihi.Year == yil)
             .GroupBy(c => c.CalismaTarihi.Month)
             .Select(g => new { Ay = g.Key, Toplam = g.Sum(c => c.Fiyat ?? 0) })
             .ToListAsync();
 
-        // Ayl�k giderler (ara� masraflar�ndan)
+        // Aylık giderler (araç masraflarından)
         var masraflar = await _context.AracMasraflari
             .Where(m => m.MasrafTarihi.Year == yil)
             .GroupBy(m => m.MasrafTarihi.Month)
@@ -53,10 +56,10 @@ public class DashboardGrafikService : IDashboardGrafikService
     {
         var data = new AylikGrafikData
         {
-            Veri1Label = "Sefer Say�s�"
+            Veri1Label = "Sefer Sayısı"
         };
 
-        var aylar = new[] { "Oca", "�ub", "Mar", "Nis", "May", "Haz", "Tem", "A�u", "Eyl", "Eki", "Kas", "Ara" };
+        var aylar = new[] { "Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara" };
         data.Aylar = aylar.ToList();
 
         var calismalar = await _context.ServisCalismalari
@@ -127,4 +130,120 @@ public class DashboardGrafikService : IDashboardGrafikService
 
         return faturalar;
     }
+
+    public async Task<List<MasrafKategoriDagilimi>> GetMasrafKategoriDagilimiAsync(int aySayisi = 6)
+    {
+        var bugun = DateTime.Today;
+        var baslangic = new DateTime(bugun.Year, bugun.Month, 1).AddMonths(-aySayisi + 1);
+        var bitis = new DateTime(bugun.Year, bugun.Month, 1).AddMonths(1).AddDays(-1);
+
+        // Araç masraflarından kategori dağılımı
+        var masraflar = await _context.AracMasraflari
+            .AsNoTracking()
+            .Include(m => m.MasrafKalemi)
+            .Where(m => m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis)
+            .Select(m => new
+            {
+                KategoriAdi = m.MasrafKalemi != null ? m.MasrafKalemi.MasrafAdi : "Diğer",
+                m.Tutar
+            })
+            .ToListAsync();
+
+        var gruplar = masraflar
+            .GroupBy(m => m.KategoriAdi)
+            .Select(g => new MasrafKategoriDagilimi
+            {
+                KategoriAdi = g.Key,
+                Tutar = g.Sum(x => x.Tutar),
+                Adet = g.Count()
+            })
+            .OrderByDescending(x => x.Tutar)
+            .Take(8) // En yüksek 8 kategori
+            .ToList();
+
+        return gruplar;
+    }
+
+    public async Task<List<CariTipDagilimi>> GetCariTipDagilimiAsync()
+    {
+        var cariler = await _context.Cariler
+            .AsNoTracking()
+            .Where(c => !c.IsDeleted)
+            .Select(c => new
+            {
+                c.CariTipi,
+                c.Borc,
+                c.Alacak
+            })
+            .ToListAsync();
+
+        var gruplar = cariler
+            .GroupBy(c => c.CariTipi)
+            .Select(g => new CariTipDagilimi
+            {
+                TipAdi = GetCariTipAdi(g.Key),
+                Adet = g.Count(),
+                ToplamBakiye = g.Sum(x => x.Alacak - x.Borc)
+            })
+            .OrderByDescending(x => x.Adet)
+            .ToList();
+
+        return gruplar;
+    }
+
+    public async Task<List<AylikButceVeri>> GetAylikButceAsync(int aySayisi = 6)
+    {
+        var bugun = DateTime.Today;
+        var baslangic = new DateTime(bugun.Year, bugun.Month, 1).AddMonths(-aySayisi + 1);
+        var bitis = new DateTime(bugun.Year, bugun.Month, 1).AddMonths(1).AddDays(-1);
+
+        // Bütçe ödemelerinden aylık veri
+        var odemeler = await _context.BudgetOdemeler
+            .AsNoTracking()
+            .Where(o => o.OdemeTarihi >= baslangic && o.OdemeTarihi <= bitis)
+            .Select(o => new
+            {
+                o.OdemeTarihi,
+                o.Miktar,
+                o.Durum
+            })
+            .ToListAsync();
+
+        // Son N ayı oluştur
+        var sonuc = new List<AylikButceVeri>();
+        for (int i = 0; i < aySayisi; i++)
+        {
+            var tarih = bugun.AddMonths(-aySayisi + 1 + i);
+            var yil = tarih.Year;
+            var ay = tarih.Month;
+
+            var aylikOdemeler = odemeler.Where(o => 
+                o.OdemeTarihi.Year == yil && o.OdemeTarihi.Month == ay);
+
+            var planlanan = aylikOdemeler.Sum(o => o.Miktar);
+            var gerceklesen = aylikOdemeler
+                .Where(o => o.Durum == OdemeDurum.Odendi)
+                .Sum(o => o.Miktar);
+
+            sonuc.Add(new AylikButceVeri
+            {
+                Yil = yil,
+                Ay = ay,
+                AyAdi = new DateTime(yil, ay, 1).ToString("MMM", TrCulture),
+                PlanlananOdeme = planlanan,
+                GerceklesenOdeme = gerceklesen
+            });
+        }
+
+        return sonuc;
+    }
+
+    private static string GetCariTipAdi(CariTipi tip) => tip switch
+    {
+        CariTipi.Musteri => "Müşteri",
+        CariTipi.Tedarikci => "Tedarikçi",
+        CariTipi.MusteriTedarikci => "Müşteri/Tedarikçi",
+        CariTipi.Personel => "Personel",
+        _ => "Diğer"
+    };
 }

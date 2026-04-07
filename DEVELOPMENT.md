@@ -41,6 +41,26 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 023 - Dashboard Grafikleri (Chart.js)
+**Talep:** Dashboard'a görsel grafikler eklenmesi - Aylık gelir/gider, masraf dağılımı, bütçe takibi.
+
+**Yapılanlar:**
+- `ChartDataModels.cs`: Yeni grafik veri modelleri oluşturuldu (AylikGelirGiderVeri, CariTipDagilimi, MasrafKategoriDagilimi, AylikButceVeri)
+- `IDashboardGrafikService.cs`: 3 yeni metod eklendi (GetMasrafKategoriDagilimiAsync, GetCariTipDagilimiAsync, GetAylikButceAsync)
+- `DashboardGrafikService.cs`: Yeni metodların implementasyonu eklendi
+- `Home.razor`: Chart.js entegrasyonu yapıldı (IJSRuntime ile JS interop)
+- `Home.razor`: 4 grafik kartı eklendi (Aylık Gelir/Gider bar chart, Masraf Dağılımı doughnut chart, Bütçe Takibi line chart, Cari Dağılımı tablosu)
+- `Home.razor`: OnAfterRenderAsync ve RenderChartsAsync metodları eklendi
+- Mevcut `dashboard-charts.js` fonksiyonları kullanıldı (createBarChart, createLineChart, createDoughnutChart)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Models/ChartDataModels.cs` (yeni)
+- `CRMFiloServis.Web/Services/Interfaces/IDashboardGrafikService.cs`
+- `CRMFiloServis.Web/Services/DashboardGrafikService.cs`
+- `CRMFiloServis.Web/Components/Pages/Home.razor`
+
+**Durum:** Tamamlandı
+
 ### Kayıt 022 - Sayfalama (Pagination) altyapısı
 **Talep:** Liste sayfalarında performans iyileştirmesi için server-side sayfalama altyapısının eklenmesi.
 
