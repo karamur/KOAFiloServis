@@ -1,5 +1,6 @@
 ﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace CRMFiloServis.Web.Services;
@@ -23,6 +24,67 @@ public class BankaKasaHareketService : IBankaKasaHareketService
             .Include(h => h.Cari)
             .OrderByDescending(h => h.IslemTarihi)
             .ToListAsync();
+    }
+
+    public async Task<PagedResult<BankaKasaHareket>> GetPagedAsync(BankaHareketFilterParams filter)
+    {
+        var query = _context.BankaKasaHareketleri
+            .AsNoTracking()
+            .Include(h => h.BankaHesap)
+            .Include(h => h.Cari)
+            .AsQueryable();
+
+        // Arama filtresi
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var searchLower = filter.SearchTerm.ToLower();
+            query = query.Where(h =>
+                (h.IslemNo != null && h.IslemNo.ToLower().Contains(searchLower)) ||
+                (h.Aciklama != null && h.Aciklama.ToLower().Contains(searchLower)) ||
+                (h.BelgeNo != null && h.BelgeNo.ToLower().Contains(searchLower)) ||
+                (h.BankaHesap != null && h.BankaHesap.HesapAdi.ToLower().Contains(searchLower)) ||
+                (h.Cari != null && h.Cari.Unvan.ToLower().Contains(searchLower)));
+        }
+
+        // Hesap filtresi
+        if (filter.HesapId.HasValue && filter.HesapId.Value > 0)
+        {
+            query = query.Where(h => h.BankaHesapId == filter.HesapId.Value);
+        }
+
+        // Cari filtresi
+        if (filter.CariId.HasValue && filter.CariId.Value > 0)
+        {
+            query = query.Where(h => h.CariId == filter.CariId.Value);
+        }
+
+        // Hareket tipi filtresi
+        if (filter.HareketTipi.HasValue)
+        {
+            query = query.Where(h => h.HareketTipi == filter.HareketTipi.Value);
+        }
+
+        // Tarih aralığı filtresi
+        if (filter.BaslangicTarihi.HasValue)
+        {
+            query = query.Where(h => h.IslemTarihi >= filter.BaslangicTarihi.Value);
+        }
+
+        if (filter.BitisTarihi.HasValue)
+        {
+            query = query.Where(h => h.IslemTarihi <= filter.BitisTarihi.Value);
+        }
+
+        var totalItems = await query.CountAsync();
+
+        var items = await query
+            .OrderByDescending(h => h.IslemTarihi)
+            .ThenByDescending(h => h.Id)
+            .Skip(filter.Skip)
+            .Take(filter.PageSize)
+            .ToListAsync();
+
+        return new PagedResult<BankaKasaHareket>(items, totalItems, filter.PageNumber, filter.PageSize);
     }
 
     public async Task<List<BankaKasaHareket>> GetRecentAsync(int count = 5)

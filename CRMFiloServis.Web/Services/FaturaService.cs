@@ -1,6 +1,7 @@
 ﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Helpers;
+using CRMFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 
@@ -28,6 +29,69 @@ public class FaturaService : IFaturaService
             .Include(f => f.KarsiFirma)
             .OrderByDescending(f => f.FaturaTarihi)
             .ToListAsync();
+    }
+
+    public async Task<PagedResult<Fatura>> GetPagedAsync(FaturaFilterParams filter)
+    {
+        var query = _context.Faturalar
+            .Include(f => f.Cari)
+            .Include(f => f.KarsiFirma)
+            .AsQueryable();
+
+        // Arama filtresi
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var searchLower = filter.SearchTerm.ToLower();
+            query = query.Where(f =>
+                (f.FaturaNo != null && f.FaturaNo.ToLower().Contains(searchLower)) ||
+                (f.Cari != null && f.Cari.Unvan != null && f.Cari.Unvan.ToLower().Contains(searchLower)));
+        }
+
+        // Tip filtresi
+        if (filter.FaturaTipi.HasValue)
+        {
+            query = query.Where(f => f.FaturaTipi == filter.FaturaTipi.Value);
+        }
+
+        // Durum filtresi
+        if (filter.Durum.HasValue)
+        {
+            query = query.Where(f => f.Durum == filter.Durum.Value);
+        }
+
+        // Yön filtresi
+        if (filter.Yon.HasValue)
+        {
+            query = query.Where(f => f.FaturaYonu == filter.Yon.Value);
+        }
+
+        // Cari filtresi
+        if (filter.CariId.HasValue)
+        {
+            query = query.Where(f => f.CariId == filter.CariId.Value);
+        }
+
+        // Tarih aralığı
+        if (filter.BaslangicTarih.HasValue)
+        {
+            query = query.Where(f => f.FaturaTarihi >= filter.BaslangicTarih.Value);
+        }
+        if (filter.BitisTarih.HasValue)
+        {
+            query = query.Where(f => f.FaturaTarihi <= filter.BitisTarih.Value);
+        }
+
+        // Toplam kayıt sayısı
+        var totalCount = await query.CountAsync();
+
+        // Sayfalama uygula
+        var items = await query
+            .OrderByDescending(f => f.FaturaTarihi)
+            .Skip(filter.Skip)
+            .Take(filter.PageSize)
+            .ToListAsync();
+
+        return new PagedResult<Fatura>(items, totalCount, filter.PageNumber, filter.PageSize);
     }
 
     public async Task<List<Fatura>> GetByCariIdAsync(int cariId)

@@ -1,0 +1,144 @@
+﻿@* Sayfalama Komponenti - Tüm liste sayfalarında kullanılabilir *@
+
+@if (TotalPages > 1)
+{
+    <nav aria-label="Sayfalama" class="mt-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="text-muted small">
+                <span>Toplam <strong>@TotalItems</strong> kayıt</span>
+                @if (TotalItems > 0)
+                {
+                    var baslangic = (CurrentPage - 1) * PageSize + 1;
+                    var bitis = Math.Min(CurrentPage * PageSize, TotalItems);
+                    <span> | Gösterilen: <strong>@baslangic - @bitis</strong></span>
+                }
+            </div>
+            
+            <div class="d-flex align-items-center gap-2">
+                @if (ShowPageSizeSelector)
+                {
+                    <div class="input-group input-group-sm" style="width: auto;">
+                        <span class="input-group-text">Sayfa başına</span>
+                        <select class="form-select form-select-sm" style="width: 70px;" 
+                                value="@PageSize" @onchange="OnPageSizeChanged">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                }
+                
+                <ul class="pagination pagination-sm mb-0">
+                    @* İlk sayfa *@
+                    <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => GoToPage(1)" disabled="@(CurrentPage == 1)">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </button>
+                    </li>
+                    
+                    @* Önceki sayfa *@
+                    <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => GoToPage(CurrentPage - 1)" disabled="@(CurrentPage == 1)">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                    </li>
+                    
+                    @* Sayfa numaraları *@
+                    @foreach (var pageNum in GetPageNumbers())
+                    {
+                        if (pageNum == -1)
+                        {
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="page-item @(pageNum == CurrentPage ? "active" : "")">
+                                <button class="page-link" @onclick="() => GoToPage(pageNum)">@pageNum</button>
+                            </li>
+                        }
+                    }
+                    
+                    @* Sonraki sayfa *@
+                    <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => GoToPage(CurrentPage + 1)" disabled="@(CurrentPage == TotalPages)">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </li>
+                    
+                    @* Son sayfa *@
+                    <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => GoToPage(TotalPages)" disabled="@(CurrentPage == TotalPages)">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+}
+
+@code {
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int PageSize { get; set; } = 25;
+    [Parameter] public int TotalItems { get; set; }
+    [Parameter] public bool ShowPageSizeSelector { get; set; } = true;
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+    [Parameter] public EventCallback<int> PageSizeChanged { get; set; }
+
+    private int TotalPages => (int)Math.Ceiling((double)TotalItems / PageSize);
+
+    private async Task GoToPage(int page)
+    {
+        if (page < 1 || page > TotalPages || page == CurrentPage) return;
+        await OnPageChanged.InvokeAsync(page);
+    }
+
+    private async Task OnPageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var newSize))
+        {
+            await PageSizeChanged.InvokeAsync(newSize);
+        }
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        var delta = 2; // Aktif sayfanın her iki tarafında gösterilecek sayfa sayısı
+
+        var rangeStart = Math.Max(2, CurrentPage - delta);
+        var rangeEnd = Math.Min(TotalPages - 1, CurrentPage + delta);
+
+        // İlk sayfa her zaman göster
+        pages.Add(1);
+
+        // Başlangıçta boşluk varsa ... ekle
+        if (rangeStart > 2)
+        {
+            pages.Add(-1); // -1 = "..."
+        }
+
+        // Aralıktaki sayfalar
+        for (var i = rangeStart; i <= rangeEnd; i++)
+        {
+            pages.Add(i);
+        }
+
+        // Sonda boşluk varsa ... ekle
+        if (rangeEnd < TotalPages - 1)
+        {
+            pages.Add(-1); // -1 = "..."
+        }
+
+        // Son sayfa her zaman göster (eğer birden fazla sayfa varsa)
+        if (TotalPages > 1)
+        {
+            pages.Add(TotalPages);
+        }
+
+        return pages;
+    }
+}

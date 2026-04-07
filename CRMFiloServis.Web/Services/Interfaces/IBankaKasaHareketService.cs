@@ -1,10 +1,25 @@
 ﻿using CRMFiloServis.Shared.Entities;
+using CRMFiloServis.Web.Models;
 
 namespace CRMFiloServis.Web.Services;
+
+/// <summary>
+/// Banka/Kasa hareket filtre parametreleri
+/// </summary>
+public class BankaHareketFilterParams : PagingParameters
+{
+    public string? SearchTerm { get; set; }
+    public int? HesapId { get; set; }
+    public int? CariId { get; set; }
+    public HareketTipi? HareketTipi { get; set; }
+    public DateTime? BaslangicTarihi { get; set; }
+    public DateTime? BitisTarihi { get; set; }
+}
 
 public interface IBankaKasaHareketService
 {
     Task<List<BankaKasaHareket>> GetAllAsync();
+    Task<PagedResult<BankaKasaHareket>> GetPagedAsync(BankaHareketFilterParams filter);
     Task<List<BankaKasaHareket>> GetRecentAsync(int count = 5);
     Task<List<BankaKasaHareket>> GetByHesapIdAsync(int hesapId);
     Task<List<BankaKasaHareket>> GetByCariIdAsync(int cariId);

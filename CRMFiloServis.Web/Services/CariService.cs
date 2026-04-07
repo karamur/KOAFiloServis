@@ -1,5 +1,6 @@
 ﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace CRMFiloServis.Web.Services;
@@ -95,6 +96,113 @@ public class CariService : ICariService
         return await _context.Cariler
             .Where(c => !c.IsDeleted)
             .CountAsync();
+    }
+
+    public async Task<PagedResult<Cari>> GetPagedAsync(CariFilterParams filter)
+    {
+        var query = _context.Cariler
+            .Include(c => c.MuhasebeHesap)
+            .Where(c => !c.IsDeleted)
+            .AsQueryable();
+
+        // Arama filtresi
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var searchLower = filter.SearchTerm.ToLower();
+            query = query.Where(c =>
+                (c.CariKodu != null && c.CariKodu.ToLower().Contains(searchLower)) ||
+                (c.Unvan != null && c.Unvan.ToLower().Contains(searchLower)) ||
+                (c.YetkiliKisi != null && c.YetkiliKisi.ToLower().Contains(searchLower)) ||
+                (c.Telefon != null && c.Telefon.Contains(searchLower)));
+        }
+
+        // Tip filtresi
+        if (filter.CariTipi.HasValue)
+        {
+            query = query.Where(c => c.CariTipi == filter.CariTipi.Value);
+        }
+
+        // Aktif/Pasif filtresi
+        if (filter.Aktif.HasValue)
+        {
+            query = query.Where(c => c.Aktif == filter.Aktif.Value);
+        }
+
+        // Toplam kayıt sayısı (filtrelenmiş)
+        var totalCount = await query.CountAsync();
+
+        // Sayfalama uygula
+        var items = await query
+            .OrderBy(c => c.Unvan)
+            .Skip(filter.Skip)
+            .Take(filter.PageSize)
+            .ToListAsync();
+
+        // Bakiye hesaplamaları
+        foreach (var cari in items)
+        {
+            await FillMuhasebeBilgisiAsync(cari);
+            await CalculateBakiyeAsync(cari);
+        }
+
+        // Durum filtresi (bakiye hesaplaması sonrası)
+        if (!string.IsNullOrEmpty(filter.DurumFiltre))
+        {
+            items = filter.DurumFiltre switch
+            {
+                "borclu" => items.Where(c => c.Borc > c.Alacak).ToList(),
+                "alacakli" => items.Where(c => c.Alacak > c.Borc).ToList(),
+                "sifir" => items.Where(c => c.Borc == c.Alacak).ToList(),
+                "islemsiz" => items.Where(c => c.Borc == 0 && c.Alacak == 0).ToList(),
+                _ => items
+            };
+            // Not: Durum filtresinde toplam sayı yeniden hesaplanmaz (performans için)
+        }
+
+        return new PagedResult<Cari>(items, totalCount, filter.PageNumber, filter.PageSize);
+    }
+
+    private async Task CalculateBakiyeAsync(Cari cari)
+    {
+        // Gelen faturalar (Alis) = Borcumuz
+        var gelenFaturalar = await _context.Faturalar
+            .Where(f => f.CariId == cari.Id && f.FaturaYonu == FaturaYonu.Gelen)
+            .SumAsync(f => (decimal?)f.GenelToplam) ?? 0;
+
+        // Giden faturalar (Satis) = Alacagimiz
+        var gidenFaturalar = await _context.Faturalar
+            .Where(f => f.CariId == cari.Id && f.FaturaYonu == FaturaYonu.Giden)
+            .SumAsync(f => (decimal?)f.GenelToplam) ?? 0;
+
+        // Banka hareketlerinden odeme/tahsilat
+        var odemeler = await _context.BankaKasaHareketleri
+            .Where(h => h.CariId == cari.Id && h.HareketTipi == HareketTipi.Cikis)
+            .SumAsync(h => (decimal?)h.Tutar) ?? 0;
+
+        var tahsilatlar = await _context.BankaKasaHareketleri
+            .Where(h => h.CariId == cari.Id && h.HareketTipi == HareketTipi.Giris)
+            .SumAsync(h => (decimal?)h.Tutar) ?? 0;
+
+        if (cari.CariTipi == CariTipi.Musteri)
+        {
+            cari.Alacak = gidenFaturalar;
+            cari.Borc = tahsilatlar;
+        }
+        else if (cari.CariTipi == CariTipi.Tedarikci)
+        {
+            cari.Borc = gelenFaturalar;
+            cari.Alacak = odemeler;
+        }
+        else if (cari.CariTipi == CariTipi.Personel)
+        {
+            cari.Borc = gelenFaturalar;
+            cari.Alacak = odemeler;
+        }
+        else // MusteriTedarikci
+        {
+            cari.Alacak = gidenFaturalar + odemeler;
+            cari.Borc = gelenFaturalar + tahsilatlar;
+        }
     }
 
     public async Task<Cari?> GetByIdAsync(int id)

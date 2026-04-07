@@ -1,10 +1,12 @@
 ﻿using CRMFiloServis.Shared.Entities;
+using CRMFiloServis.Web.Models;
 
 namespace CRMFiloServis.Web.Services;
 
 public interface IFaturaService
 {
     Task<List<Fatura>> GetAllAsync();
+    Task<PagedResult<Fatura>> GetPagedAsync(FaturaFilterParams filter); // Sayfalı ve filtrelenmiş
     Task<List<Fatura>> GetByCariIdAsync(int cariId);
     Task<List<Fatura>> GetByTipAsync(FaturaTipi tip);
     Task<List<Fatura>> GetByDurumAsync(FaturaDurum durum);
@@ -94,6 +96,20 @@ public class XmlPdfFileContent
     public byte[] XmlContent { get; set; } = Array.Empty<byte>();
     public string? PdfFileName { get; set; }
     public byte[]? PdfContent { get; set; }
+}
+
+/// <summary>
+/// Fatura listesi için filtre parametreleri
+/// </summary>
+public class FaturaFilterParams : PagingParameters
+{
+    public string? SearchTerm { get; set; }
+    public FaturaTipi? FaturaTipi { get; set; }
+    public FaturaDurum? Durum { get; set; }
+    public FaturaYonu? Yon { get; set; }
+    public int? CariId { get; set; }
+    public DateTime? BaslangicTarih { get; set; }
+    public DateTime? BitisTarih { get; set; }
 }
 
 public enum FaturaDosyaTuru

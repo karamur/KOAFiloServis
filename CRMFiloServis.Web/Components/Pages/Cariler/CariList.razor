@@ -1,9 +1,12 @@
-@page "/cariler"
+﻿@page "/cariler"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
+@using CRMFiloServis.Web.Models
+@using CRMFiloServis.Web.Components.Shared
 @inject ICariService CariService
 @inject NavigationManager Navigation
 @inject IToastService ToastService
+@implements IDisposable
 @rendermode InteractiveServer
 
 <PageTitle>Cariler</PageTitle>
@@ -52,7 +55,7 @@
                     </select>
                 </div>
                 <div class="col-md-3 text-end">
-                    <span class="badge bg-secondary">@filtrelenmisCariler.Count / @cariler?.Count kayit</span>
+                    <span class="badge bg-secondary">@pagedResult?.TotalCount kayit</span>
                     <button class="btn btn-outline-secondary btn-sm ms-2" @onclick="FiltreleriTemizle">
                         <i class="bi bi-x-circle"></i> Temizle
                     </button>
@@ -61,7 +64,7 @@
         </div>
     </div>
 
-    @if (cariler == null)
+    @if (isLoading)
     {
         <div class="text-center py-4">
             <div class="spinner-border" role="status">
@@ -69,7 +72,7 @@
             </div>
         </div>
     }
-    else if (!filtrelenmisCariler.Any())
+    else if (pagedResult == null || !pagedResult.Items.Any())
     {
         <div class="alert alert-info">
             <i class="bi bi-info-circle me-2"></i>Filtrelere uygun cari bulunamadi.
@@ -95,7 +98,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var cari in filtrelenmisCariler)
+                            @foreach (var cari in pagedResult.Items)
                             {
                                 var bakiye = cari.Alacak - cari.Borc;
                                 <tr>
@@ -146,10 +149,10 @@
                         </tbody>
                         <tfoot class="table-secondary">
                             <tr>
-                                <td colspan="5"><strong>Toplam (@filtrelenmisCariler.Count cari)</strong></td>
-                                <td class="text-end text-danger"><strong>@filtrelenmisCariler.Sum(c => c.Borc).ToString("N2") TL</strong></td>
-                                <td class="text-end text-success"><strong>@filtrelenmisCariler.Sum(c => c.Alacak).ToString("N2") TL</strong></td>
-                                <td class="text-end"><strong>@((filtrelenmisCariler.Sum(c => c.Alacak) - filtrelenmisCariler.Sum(c => c.Borc)).ToString("N2")) TL</strong></td>
+                                <td colspan="5"><strong>Sayfa Toplamı (@pagedResult.Items.Count kayıt)</strong></td>
+                                <td class="text-end text-danger"><strong>@pagedResult.Items.Sum(c => c.Borc).ToString("N2") TL</strong></td>
+                                <td class="text-end text-success"><strong>@pagedResult.Items.Sum(c => c.Alacak).ToString("N2") TL</strong></td>
+                                <td class="text-end"><strong>@((pagedResult.Items.Sum(c => c.Alacak) - pagedResult.Items.Sum(c => c.Borc)).ToString("N2")) TL</strong></td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -157,6 +160,14 @@
                 </div>
             </div>
         </div>
+
+        <!-- Sayfalama -->
+        <Pagination 
+            CurrentPage="@currentPage"
+            PageSize="@pageSize"
+            TotalItems="@(pagedResult?.TotalCount ?? 0)"
+            OnPageChanged="OnPageChanged"
+            PageSizeChanged="OnPageSizeChanged" />
     }
 </div>
 
@@ -254,18 +265,25 @@
 }
 
 @code {
-    private List<Cari>? cariler;
-    private List<Cari> filtrelenmisCariler = new();
+    private PagedResult<Cari>? pagedResult;
+    private bool isLoading = true;
     private bool showDeleteModal = false;
     private bool showDetayModal = false;
     private Cari? silinecekCari;
     private Cari? detayCari;
+
+    // Sayfalama
+    private int currentPage = 1;
+    private int pageSize = 25;
 
     // Filtre degiskenleri
     private string aramaMetni = "";
     private string filtreTip = "";
     private string filtreDurum = "";
     private string filtreAktif = "aktif";
+
+    // Debounce için timer
+    private System.Timers.Timer? _debounceTimer;
 
     protected override async Task OnInitializedAsync()
     {
@@ -274,60 +292,69 @@
 
     private async Task LoadData()
     {
-        cariler = await CariService.GetAllWithBakiyeAsync();
-        FiltreUygula();
+        isLoading = true;
+        StateHasChanged();
+
+        var filter = new CariFilterParams
+        {
+            PageNumber = currentPage,
+            PageSize = pageSize,
+            SearchTerm = aramaMetni,
+            CariTipi = string.IsNullOrEmpty(filtreTip) ? null : Enum.Parse<CariTipi>(filtreTip),
+            DurumFiltre = filtreDurum,
+            Aktif = filtreAktif switch
+            {
+                "aktif" => true,
+                "pasif" => false,
+                _ => null
+            }
+        };
+
+        pagedResult = await CariService.GetPagedAsync(filter);
+        isLoading = false;
+        StateHasChanged();
     }
 
     private void FiltreUygula()
     {
-        if (cariler == null) return;
-
-        var query = cariler.AsEnumerable();
-
-        // Arama
-        if (!string.IsNullOrWhiteSpace(aramaMetni))
+        // Debounce: Kullanıcı yazmayı bitirene kadar bekle
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Timers.Timer(300);
+        _debounceTimer.Elapsed += async (s, e) =>
         {
-            var aranan = aramaMetni.ToLower();
-            query = query.Where(c =>
-                (c.CariKodu?.ToLower().Contains(aranan) ?? false) ||
-                (c.Unvan?.ToLower().Contains(aranan) ?? false) ||
-                (c.YetkiliKisi?.ToLower().Contains(aranan) ?? false) ||
-                (c.Telefon?.Contains(aranan) ?? false));
-        }
-
-        // Tip filtresi
-        if (!string.IsNullOrEmpty(filtreTip))
-        {
-            var tip = Enum.Parse<CariTipi>(filtreTip);
-            query = query.Where(c => c.CariTipi == tip);
-        }
-
-        // Aktif/Pasif filtresi
-        if (filtreAktif == "aktif")
-            query = query.Where(c => c.Aktif);
-        else if (filtreAktif == "pasif")
-            query = query.Where(c => !c.Aktif);
-
-        // Durum filtresi (borc/alacak)
-        query = filtreDurum switch
-        {
-            "borclu" => query.Where(c => c.Borc > c.Alacak),
-            "alacakli" => query.Where(c => c.Alacak > c.Borc),
-            "sifir" => query.Where(c => c.Borc == c.Alacak),
-            "islemsiz" => query.Where(c => c.Borc == 0 && c.Alacak == 0),
-            _ => query
+            _debounceTimer?.Stop();
+            currentPage = 1; // Filtre değiştiğinde ilk sayfaya dön
+            await InvokeAsync(async () =>
+            {
+                await LoadData();
+            });
         };
-
-        filtrelenmisCariler = query.OrderBy(c => c.Unvan).ToList();
+        _debounceTimer.AutoReset = false;
+        _debounceTimer.Start();
     }
 
-    private void FiltreleriTemizle()
+    private async Task FiltreleriTemizle()
     {
         aramaMetni = "";
         filtreTip = "";
         filtreDurum = "";
         filtreAktif = "aktif";
-        FiltreUygula();
+        currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        currentPage = page;
+        await LoadData();
+    }
+
+    private async Task OnPageSizeChanged(int size)
+    {
+        pageSize = size;
+        currentPage = 1;
+        await LoadData();
     }
 
     private void YeniCari()
@@ -371,10 +398,9 @@
                     ToastService.ShowSuccess($"{silinecekCari.Unvan} silindi.");
                     showDeleteModal = false;
                     silinecekCari = null;
-                    
+
                     // Listeyi yenile
                     await LoadData();
-                    FiltreUygula();
                     StateHasChanged();
                 }
                 else
@@ -389,6 +415,12 @@
         }
         showDeleteModal = false;
         silinecekCari = null;
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
     }
 
     private string GetTipBadgeClass(CariTipi tip) => tip switch

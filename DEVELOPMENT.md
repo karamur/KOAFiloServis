@@ -41,6 +41,37 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 022 - Sayfalama (Pagination) altyapısı
+**Talep:** Liste sayfalarında performans iyileştirmesi için server-side sayfalama altyapısının eklenmesi.
+
+**Yapılanlar:**
+- `Pagination.razor`: Yeniden kullanılabilir sayfalama komponenti oluşturuldu
+- `PagedResult.cs`: Generic `PagedResult<T>` ve `PagingParameters` modelleri oluşturuldu
+- `ICariService.cs`: `GetPagedAsync` metodu ve `CariFilterParams` sınıfı eklendi
+- `CariService.cs`: Sayfalama implementasyonu ve bakiye hesaplama eklendi
+- `CariList.razor`: Server-side sayfalama entegrasyonu ve debounce arama eklendi
+- `IFaturaService.cs`: `GetPagedAsync` metodu ve `FaturaFilterParams` sınıfı eklendi
+- `FaturaService.cs`: Sayfalama implementasyonu eklendi
+- `FaturaList.razor`: Sayfalama destekli yeniden oluşturuldu (tip, durum, tarih filtreleri)
+- `IBankaKasaHareketService.cs`: `GetPagedAsync` metodu ve `BankaHareketFilterParams` sınıfı eklendi
+- `BankaKasaHareketService.cs`: Sayfalama implementasyonu eklendi
+- `BankaHareketList.razor`: Sayfalama destekli güncellendi (hesap, tip, tarih filtreleri, toplam özeti)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Shared/Pagination.razor`
+- `CRMFiloServis.Web/Models/PagedResult.cs`
+- `CRMFiloServis.Web/Services/Interfaces/ICariService.cs`
+- `CRMFiloServis.Web/Services/CariService.cs`
+- `CRMFiloServis.Web/Components/Pages/Cariler/CariList.razor`
+- `CRMFiloServis.Web/Services/Interfaces/IFaturaService.cs`
+- `CRMFiloServis.Web/Services/FaturaService.cs`
+- `CRMFiloServis.Web/Components/Pages/Faturalar/FaturaList.razor`
+- `CRMFiloServis.Web/Services/Interfaces/IBankaKasaHareketService.cs`
+- `CRMFiloServis.Web/Services/BankaKasaHareketService.cs`
+- `CRMFiloServis.Web/Components/Pages/BankaHareketleri/BankaHareketList.razor`
+
+**Durum:** Tamamlandı
+
 ### Kayıt 021 - Çalışma zamanı klasör disiplininin genişletilmesi
 **Talep:** Sadece `uploads` değil, diğer çalışma zamanı klasörlerinin de git takibinden ayrılması.
 
@@ -438,6 +469,7 @@ BudgetAnaliz → OdemeTipi.CariMahsup seç → OdemeYapAsync
 | 009 | Dokümantasyon marka güncellemesi | Tamamlandı | Düşük | README, kurulum, roadmap ve deploy başlıkları güncellendi |
 | 010 | Çalışma zamanı dosya disiplini | Tamamlandı | Düşük | Upload, backup, log ve deploy runtime klasörleri ignore edildi |
 | 011 | Servis refaktörlerinin sınıflandırılması | Tamamlandı | Orta | AsNoTracking, UTC ve soft delete audit tutarlılığı tamamlandı |
+| 012 | Sayfalama altyapısı | Tamamlandı | Yüksek | CariList, FaturaList, BankaHareketList sayfalama destekli |
 
 ---
 
