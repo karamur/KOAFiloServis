@@ -6,7 +6,7 @@
 #Requires -RunAsAdministrator
 
 param(
-    [string]$InstallPath = "C:\CRMFiloServis",
+    [string]$InstallPath = "C:\KOAFiloServis",
     [switch]$InstallService = $false,
     [switch]$OpenFirewall = $true
 )
@@ -65,12 +65,12 @@ Write-Host "  OK - Dosyalar kopyalandi" -ForegroundColor Green
 
 # Gerekli klasorleri olustur
 Write-Host "[4/6] Gerekli klasorler olusturuluyor..." -ForegroundColor Yellow
-$storageRoot = Join-Path $InstallPath "yedekleme"
+$storageRoot = "C:\KOAFiloServis_yedekleme"
 $folders = @(
-    (Join-Path $InstallPath "Data"),
     $storageRoot,
     (Join-Path $storageRoot "database"),
     (Join-Path $storageRoot "uploads"),
+    (Join-Path $storageRoot "pdf"),
     (Join-Path $storageRoot "keys"),
     (Join-Path $storageRoot "logs"),
     (Join-Path $InstallPath "Temp")
@@ -81,6 +81,63 @@ foreach ($folder in $folders) {
     }
 }
 Write-Host "  OK - Yedekleme koku hazirlandi: $storageRoot" -ForegroundColor Green
+
+$sqlitePath = Join-Path $InstallPath "CRMFiloServis.db"
+if (-not (Test-Path $sqlitePath)) {
+    New-Item -ItemType File -Path $sqlitePath -Force | Out-Null
+}
+
+$prodJson = @'
+{
+  "DatabaseProvider": "SQLite",
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=CRMFiloServis.db;"
+  },
+  "PythonScraper": {
+    "BaseUrl": "http://localhost:5050",
+    "Enabled": false
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Warning",
+      "Microsoft.EntityFrameworkCore.Infrastructure": "Warning",
+      "System.Net.Http.HttpClient": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+'@
+
+$dbSettingsJson = @'
+{
+  "Id": 0,
+  "Provider": 1,
+  "Host": "",
+  "Port": 0,
+  "DatabaseName": "CRMFiloServis.db",
+  "Username": "",
+  "Password": "",
+  "UseIntegratedSecurity": false,
+  "AdditionalOptions": null
+}
+'@
+
+$backupSettingsJson = @'
+{
+  "AutoBackupEnabled": true,
+  "AutoBackupIntervalHours": 24,
+  "KeepBackupCount": 10,
+  "BackupFolder": "database",
+  "LastBackupTime": null
+}
+'@
+
+Set-Content -Path (Join-Path $InstallPath "appsettings.Production.json") -Value $prodJson -Encoding UTF8
+Set-Content -Path (Join-Path $InstallPath "dbsettings.json") -Value $dbSettingsJson -Encoding UTF8
+Set-Content -Path (Join-Path $InstallPath "backup_settings.json") -Value $backupSettingsJson -Encoding UTF8
+Write-Host "  OK - SQLite ve depolama ayarlari yazildi" -ForegroundColor Green
 
 # Firewall kurali
 if ($OpenFirewall) {

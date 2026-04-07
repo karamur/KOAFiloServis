@@ -13,7 +13,7 @@ public partial class MainForm : Form
 
     private KurulumTipi _kurulumTipi = KurulumTipi.Normal;
     private KurulumModu _kurulumModu = KurulumModu.YeniKurulum;
-    private string _hedefDizin = @"C:\CRMFiloServis";
+    private string _hedefDizin = @"C:\KOAFiloServis";
     private string? _yedekDosyaYolu;
     private string? _paketDosyaYolu;
 
@@ -316,11 +316,16 @@ public partial class MainForm : Form
 
     private void ConfigureSqliteForNormalInstall()
     {
-        var dataDir = Path.Combine(_hedefDizin, "Data");
-        Directory.CreateDirectory(dataDir);
-
-        var sqliteRelativePath = Path.Combine("Data", "CRMFiloServis.db");
+        var storageRoot = @"C:\KOAFiloServis_yedekleme";
+        var sqliteRelativePath = "CRMFiloServis.db";
         var sqliteFullPath = Path.Combine(_hedefDizin, sqliteRelativePath);
+
+        Directory.CreateDirectory(_hedefDizin);
+        Directory.CreateDirectory(storageRoot);
+        Directory.CreateDirectory(Path.Combine(storageRoot, "database"));
+        Directory.CreateDirectory(Path.Combine(storageRoot, "uploads"));
+        Directory.CreateDirectory(Path.Combine(storageRoot, "keys"));
+        Directory.CreateDirectory(Path.Combine(storageRoot, "logs"));
 
         if (!File.Exists(sqliteFullPath))
         {
@@ -331,7 +336,7 @@ public partial class MainForm : Form
         {
           "DatabaseProvider": "SQLite",
           "ConnectionStrings": {
-            "DefaultConnection": "Data Source=Data/CRMFiloServis.db;"
+            "DefaultConnection": "Data Source=CRMFiloServis.db;"
           },
           "OpenAI": {
             "ApiKey": "",
@@ -360,7 +365,7 @@ public partial class MainForm : Form
         var dbSettings = new DatabaseSettings
         {
             Provider = DatabaseProvider.SQLite,
-            DatabaseName = sqliteRelativePath.Replace('\\', '/'),
+            DatabaseName = sqliteRelativePath,
             Host = string.Empty,
             Port = 0,
             Username = string.Empty,

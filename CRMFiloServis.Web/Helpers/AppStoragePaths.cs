@@ -2,6 +2,9 @@
 
 public static class AppStoragePaths
 {
+    public const string DefaultInstallRoot = @"C:\KOAFiloServis";
+    public const string DefaultStorageRoot = @"C:\KOAFiloServis_yedekleme";
+
     public static string GetStorageRoot(string contentRootPath)
     {
         var configured = Environment.GetEnvironmentVariable("CRMFILO_STORAGE_ROOT");
@@ -10,13 +13,7 @@ public static class AppStoragePaths
             return Path.GetFullPath(configured);
         }
 
-        var siblingRoot = Path.GetFullPath(Path.Combine(contentRootPath, "..", "..", "yedekleme"));
-        if (Directory.Exists(siblingRoot))
-        {
-            return siblingRoot;
-        }
-
-        return Path.Combine(AppContext.BaseDirectory, "yedekleme");
+        return DefaultStorageRoot;
     }
 
     public static string GetUploadsRoot(string contentRootPath)
