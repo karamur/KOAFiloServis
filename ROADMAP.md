@@ -311,7 +311,7 @@ FAZ 7 (5-6 Hafta)
 ### 🟡 Önemli Geliştirmeler (Öncelik 5)
 18. ~~**Bordro personel bazlı düzenleme**~~ - ✅ Normal + AR-GE düzenleme modalı eklendi
 19. ~~**Bordro hesap pusulası**~~ - ✅ Personel bazlı yazdırma tamamlandı
-20. **Personel Excel import** - Toplu personel yükleme
+20. ~~**Personel Excel import**~~ - ✅ Toplu personel yükleme tamamlandı
 21. ~~**Puantaj listesi**~~ - Acil listeye taşındı (Öncelik 1.5)
 
 ### 🟢 Planlanan Geliştirmeler (Öncelik 6)

@@ -82,6 +82,34 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 **Durum:** ✅ Tamamlandı
 
+### Kayıt 038 - Personel Excel Import
+**Talep:** Excel dosyasından toplu personel yükleme (import) özelliği.
+
+**Yapılanlar:**
+- `PersonelImport.razor` oluşturuldu - Toplu personel Excel import sayfası
+  - **Excel Şablon İndirme**: ClosedXML ile hazır şablon (16 kolon), örnek veriler ve açıklama sayfası
+  - **Dosya Yükleme**: InputFile ile .xlsx yükleme (10MB limit)
+  - **Önizleme**: Excel parse → satır bazlı durum tespiti (Yeni/Güncelleme/Atla/Hata)
+  - **Mevcut Personel Kontrolü**: TC Kimlik No veya Ad+Soyad ile eşleşme tespiti
+  - **Güncelleme Modu**: Checkbox ile mevcut personeli güncelleme opsiyonu
+  - **Toplu Kaydetme**: ISoforService.CreateAsync/UpdateAsync ile yeni ekleme veya güncelleme
+  - **Otomatik Kod Üretimi**: GenerateNextKodAsync(gorev) ile görev bazlı personel kodu
+  - **Bordro Tipi Otomatik Ayarma**: Yok/Normal/Arge → SGKBordroDahilMi senkronizasyonu
+  - **Durum Filtreleme**: Yeni/Güncelleme/Atlanan/Hatalı filtre dropdown
+  - **Özet Kartları**: Toplam/Yeni/Güncelleme/Atla/Hata/İşlenecek sayıları
+  - **Tarih/Para Birimi Parse**: Türkçe format desteği (GG.AA.YYYY, virgül/nokta)
+  - **Görev Parse**: Şoför/Ofis/Muhasebe/Yönetici/Teknik/Diğer (case-insensitive, alias destekli)
+- NavMenu'ya "Excel Import" linki eklendi (Personel bölümü)
+- ROADMAP: #20 tamamlandı olarak işaretlendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Personel/PersonelImport.razor` (yeni)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
 ### Kayıt 037 - Bütçe Analiz Geliştirme + AI Rapor Yorumlama (Ollama)
 **Talep:** Bütçe Analiz sayfasına kategori bazlı analiz, aylık trend grafikleri ve Ollama (internetsiz AI) ile akıllı rapor yorumlama ekle.
 
