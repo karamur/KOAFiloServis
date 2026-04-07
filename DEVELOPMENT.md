@@ -41,6 +41,25 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 030 - Maaş Yönetimi "Ödeme Yap" Butonu Bug Fix
+**Talep:** Maaş yönetimi sayfasındaki "Ödeme Yap" butonu pasif durumda, düzgün çalışmıyordu.
+
+**Yapılanlar:**
+- `MaasYonetimi.razor`: Ödeme Yap butonu tamamen yeniden tasarlandı
+  - Onay modalı eklendi (tarih seçimi, açıklama girişi)
+  - Loading durumu eklendi (işlem sırasında spinner gösterimi)
+  - Başarı/hata toast bildirimleri eklendi (3 sn otomatik kapanma)
+  - Ödeme iptal etme özelliği eklendi (ödendi → bekliyor geri alma)
+  - Ödendi durumunda ödeme tarihi tooltip olarak gösteriliyor
+  - Toplu maaş oluşturma sonrası bildirim eklendi
+  - Maaş kaydetme sonrası bildirim eklendi
+  - `IDisposable` implementasyonu eklendi (timer temizliği)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Personel/MaasYonetimi.razor` (güncelleme)
+
+**Durum:** Tamamlandı
+
 ### Kayıt 029 - Cari Borç/Alacak Detaylı Takip
 **Talep:** Cari hesaplar için detaylı borç/alacak analizi, risk skorlaması ve tahsilat planlaması.
 

@@ -3,6 +3,7 @@
 @using CRMFiloServis.Web.Services
 @inject IPersonelMaasIzinService PersonelService
 @inject ISoforService SoforService
+@implements IDisposable
 @rendermode InteractiveServer
 
 <PageTitle>Personel Maaş Yönetimi</PageTitle>
@@ -119,7 +120,7 @@
                                     <td class="text-center">
                                         @if (maas.OdemeDurum == "Odendi")
                                         {
-                                            <span class="badge bg-success">
+                                            <span class="badge bg-success" title="@(maas.OdemeTarihi?.ToString("dd.MM.yyyy"))">
                                                 <i class="bi bi-check-circle me-1"></i>Ödendi
                                             </span>
                                         }
@@ -137,8 +138,14 @@
                                             </button>
                                             @if (maas.OdemeDurum != "Odendi")
                                             {
-                                                <button class="btn btn-outline-success" @onclick="() => OdemeYap(maas.MaasId)" title="Ödeme Yap">
+                                                <button class="btn btn-outline-success" @onclick="() => OdemeModalAc(maas)" title="Ödeme Yap" disabled="@isOdemeYapiliyor">
                                                     <i class="bi bi-cash-coin"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-outline-warning btn-sm" @onclick="() => OdemeIptalEt(maas.MaasId)" title="Ödemeyi İptal Et">
+                                                    <i class="bi bi-arrow-counterclockwise"></i>
                                                 </button>
                                             }
                                         </div>
@@ -245,12 +252,87 @@
     </div>
 }
 
+<!-- Ödeme Onay Modalı -->
+@if (odemeOnayModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-cash-coin me-2"></i>Ödeme Yap</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="OdemeModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    @if (secilenOdemeMaas != null)
+                    {
+                        <div class="alert alert-info">
+                            <strong>@secilenOdemeMaas.SoforAdSoyad</strong> - Ödenecek Tutar: <strong>@secilenOdemeMaas.OdenecekTutar.ToString("N2") ₺</strong>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Ödeme Tarihi</label>
+                            <input type="date" class="form-control" @bind="odemeTarihi" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Açıklama (Opsiyonel)</label>
+                            <textarea class="form-control" rows="2" @bind="odemeAciklama" placeholder="Ödeme ile ilgili not..."></textarea>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="OdemeModalKapat" disabled="@isOdemeYapiliyor">İptal</button>
+                    <button class="btn btn-success" @onclick="OdemeOnayla" disabled="@isOdemeYapiliyor">
+                        @if (isOdemeYapiliyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <span>İşleniyor...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-check-circle me-1"></i>
+                            <span>Ödemeyi Onayla</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Bildirim Toast -->
+@if (!string.IsNullOrEmpty(bildirimMesaj))
+{
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+        <div class="toast show" role="alert">
+            <div class="toast-header @(bildirimBasarili ? "bg-success" : "bg-danger") text-white">
+                <i class="bi @(bildirimBasarili ? "bi-check-circle" : "bi-exclamation-circle") me-2"></i>
+                <strong class="me-auto">@(bildirimBasarili ? "Başarılı" : "Hata")</strong>
+                <button type="button" class="btn-close btn-close-white" @onclick="() => bildirimMesaj = null"></button>
+            </div>
+            <div class="toast-body">
+                @bildirimMesaj
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private int secilenYil = DateTime.Today.Year;
     private int secilenAy = DateTime.Today.Month;
     private MaasRaporOzet? maasRapor;
     private PersonelMaas? duzenlenenMaas;
     private bool isLoading = false;
+
+    // Ödeme modal state
+    private bool odemeOnayModal = false;
+    private MaasDetay? secilenOdemeMaas;
+    private DateTime odemeTarihi = DateTime.Today;
+    private string? odemeAciklama;
+    private bool isOdemeYapiliyor = false;
+
+    // Bildirim state
+    private string? bildirimMesaj;
+    private bool bildirimBasarili;
+    private System.Threading.Timer? bildirimTimer;
 
     protected override async Task OnInitializedAsync()
     {
@@ -274,6 +356,7 @@
     {
         await PersonelService.TopluMaasOlusturAsync(secilenYil, secilenAy);
         await YenileData();
+        BildirimGoster("Toplu maaş kayıtları oluşturuldu.", true);
     }
 
     private async Task DuzenleAc(int maasId)
@@ -293,12 +376,96 @@
             await PersonelService.UpdateMaasAsync(duzenlenenMaas);
             ModalKapat();
             await YenileData();
+            BildirimGoster("Maaş bilgileri güncellendi.", true);
         }
     }
 
-    private async Task OdemeYap(int maasId)
+    private void OdemeModalAc(MaasDetay maas)
     {
-        await PersonelService.MaasOdemeYapAsync(maasId, DateTime.Now);
-        await YenileData();
+        secilenOdemeMaas = maas;
+        odemeTarihi = DateTime.Today;
+        odemeAciklama = null;
+        odemeOnayModal = true;
+    }
+
+    private void OdemeModalKapat()
+    {
+        odemeOnayModal = false;
+        secilenOdemeMaas = null;
+        odemeAciklama = null;
+    }
+
+    private async Task OdemeOnayla()
+    {
+        if (secilenOdemeMaas == null) return;
+
+        isOdemeYapiliyor = true;
+        try
+        {
+            await PersonelService.MaasOdemeYapAsync(secilenOdemeMaas.MaasId, odemeTarihi);
+
+            // Açıklama varsa güncelle
+            if (!string.IsNullOrWhiteSpace(odemeAciklama))
+            {
+                var maas = await PersonelService.GetMaasByIdAsync(secilenOdemeMaas.MaasId);
+                if (maas != null)
+                {
+                    maas.OdemeAciklama = odemeAciklama;
+                    await PersonelService.UpdateMaasAsync(maas);
+                }
+            }
+
+            OdemeModalKapat();
+            await YenileData();
+            BildirimGoster($"Ödeme başarıyla kaydedildi.", true);
+        }
+        catch (Exception ex)
+        {
+            BildirimGoster($"Ödeme sırasında hata: {ex.Message}", false);
+        }
+        finally
+        {
+            isOdemeYapiliyor = false;
+        }
+    }
+
+    private async Task OdemeIptalEt(int maasId)
+    {
+        try
+        {
+            var maas = await PersonelService.GetMaasByIdAsync(maasId);
+            if (maas != null)
+            {
+                maas.OdemeTarihi = null;
+                maas.OdemeDurum = MaasOdemeDurum.Bekliyor;
+                maas.OdemeAciklama = null;
+                await PersonelService.UpdateMaasAsync(maas);
+                await YenileData();
+                BildirimGoster("Ödeme iptal edildi.", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            BildirimGoster($"İptal sırasında hata: {ex.Message}", false);
+        }
+    }
+
+    private void BildirimGoster(string mesaj, bool basarili)
+    {
+        bildirimMesaj = mesaj;
+        bildirimBasarili = basarili;
+
+        // 3 saniye sonra otomatik kapat
+        bildirimTimer?.Dispose();
+        bildirimTimer = new System.Threading.Timer(_ =>
+        {
+            bildirimMesaj = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, System.Threading.Timeout.Infinite);
+    }
+
+    public void Dispose()
+    {
+        bildirimTimer?.Dispose();
     }
 }
