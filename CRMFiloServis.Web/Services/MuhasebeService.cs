@@ -1,5 +1,6 @@
 ﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace CRMFiloServis.Web.Services;
@@ -2125,4 +2126,277 @@ public class MuhasebeService : IMuhasebeService
         }
 
         #endregion
+
+    #region Toplu Muhasebeleştirme
+
+    public async Task<MuhasbelestirmeDurum> GetMuhasbelestirmeDurumuAsync()
+    {
+        var faturalar = await _context.Faturalar
+            .Where(f => !f.IsDeleted)
+            .ToListAsync();
+
+        var masraflar = await _context.AracMasraflari
+            .Where(m => !m.IsDeleted)
+            .ToListAsync();
+
+        var bekleyenFaturalar = faturalar.Where(f => !f.MuhasebeFisiOlusturuldu).ToList();
+        var bekleyenMasraflar = masraflar.Where(m => m.MuhasebeFisId == null).ToList();
+
+        return new MuhasbelestirmeDurum
+        {
+            ToplamFatura = faturalar.Count,
+            MuhasbelestirilmisFatura = faturalar.Count(f => f.MuhasebeFisiOlusturuldu),
+            BekleyenFatura = bekleyenFaturalar.Count,
+            BekleyenFaturaTutar = bekleyenFaturalar.Sum(f => f.GenelToplam),
+            ToplamMasraf = masraflar.Count,
+            MuhasbelestirilmisMasraf = masraflar.Count(m => m.MuhasebeFisId != null),
+            BekleyenMasraf = bekleyenMasraflar.Count,
+            BekleyenMasrafTutar = bekleyenMasraflar.Sum(m => m.Tutar)
+        };
+    }
+
+    public async Task<List<MuhasebeFaturaOzet>> GetMuhasbelestirilmemisFaturalarAsync(
+        DateTime? baslangic = null, DateTime? bitis = null, FaturaYonu? faturaYonu = null)
+    {
+        var query = _context.Faturalar
+            .Include(f => f.Cari)
+            .Where(f => !f.IsDeleted && !f.MuhasebeFisiOlusturuldu)
+            .AsQueryable();
+
+        if (baslangic.HasValue)
+            query = query.Where(f => f.FaturaTarihi >= baslangic.Value);
+        if (bitis.HasValue)
+            query = query.Where(f => f.FaturaTarihi <= bitis.Value);
+        if (faturaYonu.HasValue)
+            query = query.Where(f => f.FaturaYonu == faturaYonu.Value);
+
+        return await query
+            .OrderBy(f => f.FaturaTarihi)
+            .Select(f => new MuhasebeFaturaOzet
+            {
+                FaturaId = f.Id,
+                FaturaNo = f.FaturaNo,
+                FaturaTarihi = f.FaturaTarihi,
+                CariUnvan = f.Cari != null ? f.Cari.Unvan : "",
+                FaturaYonu = f.FaturaYonu == FaturaYonu.Giden ? "Giden" : "Gelen",
+                FaturaTipi = f.FaturaTipi.ToString(),
+                AraToplam = f.AraToplam,
+                KdvTutar = f.KdvTutar,
+                GenelToplam = f.GenelToplam,
+                TevkifatliMi = f.TevkifatliMi,
+                TevkifatTutar = f.TevkifatTutar
+            })
+            .ToListAsync();
+    }
+
+    public async Task<List<MuhasebeMasrafOzet>> GetMuhasbelestirilmemisMasraflarAsync(
+        DateTime? baslangic = null, DateTime? bitis = null)
+    {
+        var query = _context.AracMasraflari
+            .Include(m => m.Arac)
+            .Include(m => m.MasrafKalemi)
+            .Include(m => m.Cari)
+            .Include(m => m.Sofor)
+            .Where(m => !m.IsDeleted && m.MuhasebeFisId == null)
+            .AsQueryable();
+
+        if (baslangic.HasValue)
+            query = query.Where(m => m.MasrafTarihi >= baslangic.Value);
+        if (bitis.HasValue)
+            query = query.Where(m => m.MasrafTarihi <= bitis.Value);
+
+        return await query
+            .OrderBy(m => m.MasrafTarihi)
+            .Select(m => new MuhasebeMasrafOzet
+            {
+                MasrafId = m.Id,
+                MasrafTarihi = m.MasrafTarihi,
+                AracPlaka = m.Arac != null ? m.Arac.AktifPlaka : "",
+                MasrafKalemi = m.MasrafKalemi != null ? m.MasrafKalemi.MasrafAdi : "",
+                MasrafKategori = m.MasrafKalemi != null ? m.MasrafKalemi.Kategori.ToString() : "",
+                Tutar = m.Tutar,
+                BelgeNo = m.BelgeNo,
+                CariUnvan = m.Cari != null ? m.Cari.Unvan : null,
+                SoforAd = m.Sofor != null ? (m.Sofor.Ad + " " + m.Sofor.Soyad) : null,
+                Aciklama = m.Aciklama
+            })
+            .ToListAsync();
+    }
+
+    public async Task<MuhasbelestirmeSonuc> TopluFaturaMuhasbelestirAsync(List<int> faturaIdleri)
+    {
+        var sonuc = new MuhasbelestirmeSonuc();
+
+        foreach (var faturaId in faturaIdleri)
+        {
+            try
+            {
+                var fatura = await _context.Faturalar
+                    .Include(f => f.Cari)
+                    .Include(f => f.FaturaKalemleri)
+                    .FirstOrDefaultAsync(f => f.Id == faturaId && !f.IsDeleted);
+
+                if (fatura == null)
+                {
+                    sonuc.HataliSayisi++;
+                    sonuc.Hatalar.Add($"Fatura #{faturaId} bulunamadı.");
+                    continue;
+                }
+
+                if (fatura.MuhasebeFisiOlusturuldu)
+                {
+                    sonuc.Hatalar.Add($"Fatura {fatura.FaturaNo} zaten muhasebeleştirilmiş.");
+                    continue;
+                }
+
+                var fis = await CreateFaturaFisiAsync(fatura);
+                sonuc.BasariliSayisi++;
+                sonuc.OlusturulanFisIdleri.Add(fis.Id);
+            }
+            catch (Exception ex)
+            {
+                sonuc.HataliSayisi++;
+                sonuc.Hatalar.Add($"Fatura #{faturaId}: {ex.Message}");
+            }
+        }
+
+        return sonuc;
+    }
+
+    public async Task<MuhasbelestirmeSonuc> TopluMasrafMuhasbelestirAsync(List<int> masrafIdleri)
+    {
+        var sonuc = new MuhasbelestirmeSonuc();
+
+        foreach (var masrafId in masrafIdleri)
+        {
+            try
+            {
+                var masraf = await _context.AracMasraflari
+                    .Include(m => m.Arac)
+                    .Include(m => m.MasrafKalemi)
+                    .Include(m => m.Sofor)
+                    .Include(m => m.Cari)
+                    .FirstOrDefaultAsync(m => m.Id == masrafId && !m.IsDeleted);
+
+                if (masraf == null)
+                {
+                    sonuc.HataliSayisi++;
+                    sonuc.Hatalar.Add($"Masraf #{masrafId} bulunamadı.");
+                    continue;
+                }
+
+                if (masraf.MuhasebeFisId != null)
+                {
+                    sonuc.Hatalar.Add($"Masraf #{masrafId} zaten muhasebeleştirilmiş.");
+                    continue;
+                }
+
+                // Masraf muhasebe fişi oluştur
+                var fis = await CreateMasrafMuhasebeFisiAsync(masraf);
+                sonuc.BasariliSayisi++;
+                sonuc.OlusturulanFisIdleri.Add(fis.Id);
+            }
+            catch (Exception ex)
+            {
+                sonuc.HataliSayisi++;
+                sonuc.Hatalar.Add($"Masraf #{masrafId}: {ex.Message}");
+            }
+        }
+
+        return sonuc;
+    }
+
+    private async Task<MuhasebeFis> CreateMasrafMuhasebeFisiAsync(AracMasraf masraf)
+    {
+        var ayar = await _context.MuhasebeAyarlari.FirstOrDefaultAsync();
+
+        // Masraf kategorisine göre gider hesabı
+        var giderHesapKodu = masraf.MasrafKalemi?.Kategori switch
+        {
+            MasrafKategori.Yakit => "770.06",
+            MasrafKategori.Bakim or MasrafKategori.Tamir or MasrafKategori.Lastik or MasrafKategori.YedekParca => "770.07",
+            MasrafKategori.Sigorta => "770.08",
+            MasrafKategori.Personel => "770.09",
+            _ => "770"
+        };
+
+        var giderHesap = await GetHesapByKodAsync(giderHesapKodu) ?? await GetHesapByKodAsync("770");
+        if (giderHesap == null)
+            throw new InvalidOperationException("Masraf gider hesabı bulunamadı.");
+
+        // Karşı hesap belirleme
+        MuhasebeHesap karsiHesap;
+        string karsiAciklama;
+
+        if (masraf.CariId.HasValue)
+        {
+            karsiHesap = await GetOrCreateCariHesapAsync("320", masraf.CariId.Value);
+            karsiAciklama = $"Cari: {masraf.Cari?.Unvan}";
+        }
+        else if (masraf.SoforId.HasValue)
+        {
+            // Personel hesabı (335)
+            var personelHesap = await GetHesapByKodAsync("335");
+            karsiHesap = personelHesap ?? await GetHesapByKodAsync("100") ?? throw new InvalidOperationException("Karşı hesap bulunamadı.");
+            karsiAciklama = $"Personel: {masraf.Sofor?.TamAd}";
+        }
+        else
+        {
+            karsiHesap = await GetHesapByKodAsync("100") ?? throw new InvalidOperationException("Kasa hesabı bulunamadı.");
+            karsiAciklama = "Kasa karşılığı";
+        }
+
+        var fisNo = await GenerateNextFisNoAsync(FisTipi.Mahsup);
+        var aciklama = $"Araç Masrafı: {masraf.Arac?.AktifPlaka} - {masraf.MasrafKalemi?.MasrafAdi}";
+        if (!string.IsNullOrWhiteSpace(masraf.BelgeNo))
+            aciklama += $" / Belge: {masraf.BelgeNo}";
+
+        var fis = new MuhasebeFis
+        {
+            FisNo = fisNo,
+            FisTarihi = DateTime.SpecifyKind(masraf.MasrafTarihi, DateTimeKind.Utc),
+            FisTipi = FisTipi.Mahsup,
+            Aciklama = aciklama,
+            Kaynak = FisKaynak.Otomatik,
+            KaynakId = masraf.Id,
+            KaynakTip = "AracMasraf",
+            Durum = FisDurum.Onaylandi,
+            CreatedAt = DateTime.UtcNow,
+            Kalemler = new List<MuhasebeFisKalem>
+            {
+                new()
+                {
+                    HesapId = giderHesap.Id,
+                    Borc = masraf.Tutar,
+                    Alacak = 0,
+                    SiraNo = 1,
+                    Aciklama = aciklama,
+                    CariId = masraf.CariId
+                },
+                new()
+                {
+                    HesapId = karsiHesap.Id,
+                    Borc = 0,
+                    Alacak = masraf.Tutar,
+                    SiraNo = 2,
+                    Aciklama = karsiAciklama,
+                    CariId = masraf.CariId
+                }
+            }
+        };
+
+        fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
+        fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
+
+        _context.MuhasebeFisleri.Add(fis);
+        await _context.SaveChangesAsync();
+
+        // Masrafa fiş ID kaydet
+        masraf.MuhasebeFisId = fis.Id;
+        await _context.SaveChangesAsync();
+
+        return fis;
+    }
+
+    #endregion
     }

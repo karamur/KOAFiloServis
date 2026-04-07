@@ -287,7 +287,7 @@ FAZ 7 (5-6 Hafta)
 
 ### 🔴🔴 ACİL - Zirve Muhasebe Entegrasyonu (Öncelik 1.5) - YENİ
 3. ~~**Zirve Formatında Yevmiye Export** - Muhasebe fişleri Zirve programı formatında Excel~~ ✅
-4. **Fatura/Masraf Resmi Muhasebe Kaydı** - Girilen fatura ve masrafların resmi yevmiye kaydı 🆕
+4. ~~**Fatura/Masraf Resmi Muhasebe Kaydı** - Girilen fatura ve masrafların resmi yevmiye kaydı~~ ✅
 5. ~~**Muhasebe Fişleri Yazdır/Excel** - Hata yapmamak için kontrol listesi~~ ✅
 6. ~~**Proforma Fatura Sistemi** - Fatura kesilmeden önce proforma oluşturma~~ ✅
 7. **Personel Servis Çalışma Puantajı** - Günlük/aylık puantaj takibi 🆕

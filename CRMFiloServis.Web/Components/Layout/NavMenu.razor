@@ -336,6 +336,14 @@
                                 </NavLink>
                             </div>
                         }
+                        @if (HasYetki("muhasebefis.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="muhasebe/muhasbelestirme">
+                                    <i class="bi bi-journal-check me-2"></i> Muhasebeleştirme
+                                </NavLink>
+                            </div>
+                        }
                         @if (HasYetki("muhaseberapor.oku"))
                         {
                             <div class="nav-item px-3">

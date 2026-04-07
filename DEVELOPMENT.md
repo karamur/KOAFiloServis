@@ -41,6 +41,46 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 031 - Fatura/Masraf Resmi Muhasebe Kaydı (Toplu Muhasebeleştirme)
+**Talep:** Girilen fatura ve masrafların toplu olarak resmi yevmiye kaydı (muhasebe fişi) oluşturulması.
+
+**Yapılanlar:**
+- `MuhasebeleştirmeModels.cs`: DTO modeller oluşturuldu
+  - `MuhasebeFaturaOzet`: Fatura özet bilgileri (seçim desteği ile)
+  - `MuhasebeMasrafOzet`: Masraf özet bilgileri (seçim desteği ile)
+  - `MuhasbelestirmeSonuc`: Toplu işlem sonucu (başarılı/hatalı sayısı, hatalar)
+  - `MuhasbelestirmeDurum`: Genel durum özeti (bekleyen/işlenmiş sayıları)
+- `IMuhasebeService.cs`: Yeni metotlar eklendi
+  - GetMuhasbelestirmeDurumuAsync: Durum özeti
+  - GetMuhasbelestirilmemisFaturalarAsync: Bekleyen fatura listesi (filtre desteği)
+  - GetMuhasbelestirilmemisMasraflarAsync: Bekleyen masraf listesi (filtre desteği)
+  - TopluFaturaMuhasbelestirAsync: Toplu fatura muhasebeleştirme
+  - TopluMasrafMuhasbelestirAsync: Toplu masraf muhasebeleştirme
+- `MuhasebeService.cs`: Implementasyon
+  - Toplu fatura muhasebeleştirme (mevcut CreateFaturaFisiAsync kullanılarak)
+  - Toplu masraf muhasebeleştirme (yeni CreateMasrafMuhasebeFisiAsync)
+  - Masraf kategorisine göre gider hesabı eşleme (770.06-770.09)
+  - Karşı hesap otomatik belirleme (cari/personel/kasa)
+- `Muhasbelestirme.razor`: Tam sayfa oluşturuldu
+  - Özet kartları (bekleyen/işlenmiş fatura ve masraf sayıları)
+  - Tarih ve fatura yönü filtreleri
+  - Fatura/Masraf sekme navigasyonu
+  - Tümünü seç/kaldır, tekli seçim
+  - Seçili toplamlar (footer)
+  - Toplu muhasebeleştir butonu (loading state)
+  - Sonuç modalı (başarılı/hatalı ayrıntılı gösterim)
+  - Toast bildirimleri
+- `NavMenu.razor`: "Muhasebeleştirme" linki eklendi (Muhasebe menüsü altına)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Models/MuhasebeleştirmeModels.cs` (güncelleme)
+- `CRMFiloServis.Web/Services/Interfaces/IMuhasebeService.cs` (güncelleme)
+- `CRMFiloServis.Web/Services/MuhasebeService.cs` (güncelleme)
+- `CRMFiloServis.Web/Components/Pages/Muhasebe/Muhasbelestirme.razor` (yeni)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncelleme)
+
+**Durum:** Tamamlandı
+
 ### Kayıt 030 - Maaş Yönetimi "Ödeme Yap" Butonu Bug Fix
 **Talep:** Maaş yönetimi sayfasındaki "Ödeme Yap" butonu pasif durumda, düzgün çalışmıyordu.
 
