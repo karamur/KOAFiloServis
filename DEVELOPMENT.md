@@ -41,6 +41,25 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 033 - Maaş Hareket Listesi
+**Talep:** Personel maaş ödeme geçmişi görüntüleme sayfası. Tüm aylara ait maaş kayıtlarının filtrelenerek listelenmesi, detay görüntüleme ve Excel export.
+
+**Yapılanlar:**
+- `MaasHareketleri.razor`: Tam sayfa oluşturuldu (`/personel/maas-hareketleri`)
+  - Personel, Yıl, Ay, Ödeme Durumu filtreleri
+  - Özet kartları: Toplam Kayıt, Toplam Ödenen, Bekleyen, Genel Toplam
+  - Detaylı hareket tablosu: Brüt/Net maaş, eklemeler, kesintiler, ödenecek, çalışma günü, ödeme durumu
+  - Personel bazlı özet tablosu (tüm personel görünümünde)
+  - Detay modalı: Dönem bilgisi, ödeme bilgisi, ek ödemeler, kesintiler detayı
+  - Excel export (ClosedXML)
+  - Toast bildirim sistemi
+- NavMenu: "Maaş Hareketleri" linki eklendi (Personel menüsü altına)
+- ROADMAP: #16 tamamlandı olarak işaretlendi
+
+**Durum:** ✅ Tamamlandı
+
+---
+
 ### Kayıt 032 - Personel Servis Çalışma Puantajı
 **Talep:** Personel bazlı günlük/aylık çalışma puantaj takibi sayfası. Hangi gün çalıştı, izinli, mazeretli olduğu takip edilecek.
 
