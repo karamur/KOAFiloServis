@@ -219,4 +219,109 @@ public class RaporService : IRaporService
 
         return ekstre;
     }
+
+    public async Task<SoforPerformansOzet> GetSoforPerformansAsync(
+        int soforId,
+        DateTime startDate,
+        DateTime endDate)
+    {
+        var sofor = await _context.Soforler.FindAsync(soforId);
+        if (sofor == null)
+            throw new ArgumentException("Şoför bulunamadı", nameof(soforId));
+
+        var calismalar = await _context.ServisCalismalari
+            .Include(s => s.Arac)
+            .Include(s => s.Guzergah)
+                .ThenInclude(g => g.Cari)
+            .Where(s => s.SoforId == soforId)
+            .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate)
+            .Where(s => s.Durum == CalismaDurum.Tamamlandi)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var ozet = new SoforPerformansOzet
+        {
+            SoforId = sofor.Id,
+            SoforAdi = sofor.TamAd,
+            SoforKodu = sofor.SoforKodu,
+            ToplamSeferSayisi = calismalar.Count,
+            CalistigiGunSayisi = calismalar.Select(c => c.CalismaTarihi.Date).Distinct().Count(),
+            ToplamKazanc = calismalar.Sum(c => c.Fiyat ?? c.Guzergah.BirimFiyat),
+            ArizaliSeferSayisi = calismalar.Count(c => c.ArizaOlduMu),
+            ToplamKm = calismalar.Where(c => c.KmBaslangic.HasValue && c.KmBitis.HasValue)
+                        .Sum(c => c.KmBitis!.Value - c.KmBaslangic!.Value)
+        };
+
+        // Araç bazlı performans
+        ozet.CalistigiAraclar = calismalar
+            .GroupBy(c => new { c.AracId, c.Arac?.AktifPlaka })
+            .Select(g => new SoforAracPerformansi
+            {
+                AracId = g.Key.AracId,
+                Plaka = g.Key.AktifPlaka ?? "-",
+                SeferSayisi = g.Count(),
+                ToplamKazanc = g.Sum(c => c.Fiyat ?? c.Guzergah.BirimFiyat),
+                ArizaSayisi = g.Count(c => c.ArizaOlduMu)
+            })
+            .OrderByDescending(a => a.SeferSayisi)
+            .ToList();
+
+        // Güzergah bazlı performans
+        ozet.CalistigiGuzergahlar = calismalar
+            .GroupBy(c => new { c.GuzergahId, c.Guzergah.GuzergahAdi, CariAdi = c.Guzergah.Cari.Unvan })
+            .Select(g => new SoforGuzergahPerformansi
+            {
+                GuzergahId = g.Key.GuzergahId,
+                GuzergahAdi = g.Key.GuzergahAdi,
+                CariAdi = g.Key.CariAdi,
+                SeferSayisi = g.Count(),
+                ToplamKazanc = g.Sum(c => c.Fiyat ?? c.Guzergah.BirimFiyat)
+            })
+            .OrderByDescending(g => g.SeferSayisi)
+            .ToList();
+
+        // Aylık performans (grafik için)
+        ozet.AylikPerformans = calismalar
+            .GroupBy(c => new { c.CalismaTarihi.Year, c.CalismaTarihi.Month })
+            .Select(g => new SoforAylikPerformans
+            {
+                Yil = g.Key.Year,
+                Ay = g.Key.Month,
+                AyAdi = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy", new System.Globalization.CultureInfo("tr-TR")),
+                SeferSayisi = g.Count(),
+                ToplamKazanc = g.Sum(c => c.Fiyat ?? c.Guzergah.BirimFiyat),
+                CalistigiGun = g.Select(c => c.CalismaTarihi.Date).Distinct().Count()
+            })
+            .OrderBy(m => m.Yil).ThenBy(m => m.Ay)
+            .ToList();
+
+        return ozet;
+    }
+
+    public async Task<List<SoforKarsilastirmaOzeti>> GetSoforKarsilastirmaAsync(
+        DateTime startDate,
+        DateTime endDate)
+    {
+        var calismalar = await _context.ServisCalismalari
+            .Include(s => s.Sofor)
+            .Include(s => s.Guzergah)
+            .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate)
+            .Where(s => s.Durum == CalismaDurum.Tamamlandi)
+            .AsNoTracking()
+            .ToListAsync();
+
+        return calismalar
+            .GroupBy(c => new { c.SoforId, c.Sofor.TamAd })
+            .Select(g => new SoforKarsilastirmaOzeti
+            {
+                SoforId = g.Key.SoforId,
+                SoforAdi = g.Key.TamAd,
+                SeferSayisi = g.Count(),
+                ToplamKazanc = g.Sum(c => c.Fiyat ?? c.Guzergah.BirimFiyat),
+                ArizaOrani = g.Count() > 0 ? (decimal)g.Count(c => c.ArizaOlduMu) / g.Count() * 100 : 0,
+                CalistigiGun = g.Select(c => c.CalismaTarihi.Date).Distinct().Count()
+            })
+            .OrderByDescending(s => s.ToplamKazanc)
+            .ToList();
+    }
 }

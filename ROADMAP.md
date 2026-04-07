@@ -63,11 +63,11 @@
 ### 3.2 Gelişmiş Raporlama
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Dashboard grafikleri (Chart.js) | ?? Yüksek | 2 gün | ? |
-| Şoför performans raporu | ?? Orta | 2 gün | ? |
-| Araç karlılık analizi | ?? Orta | 2 gün | ? |
-| Cari bakiye yaşlandırma raporu | ?? Orta | 2 gün | ? |
-| Aylık/Yıllık karşılaştırmalı raporlar | ?? Düşük | 2 gün | ? |
+| Dashboard grafikleri (Chart.js) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Şoför performans raporu | 🟡 Orta | 2 gün | ✅ Tamamlandı |
+| Araç karlılık analizi | 🟡 Orta | 2 gün | ❌ |
+| Cari bakiye yaşlandırma raporu | 🟡 Orta | 2 gün | ❌ |
+| Aylık/Yıllık karşılaştırmalı raporlar | 🟢 Düşük | 2 gün | ❌ |
 
 ### 3.3 Mobil Uygulama
 | Özellik | Öncelik | Süre | Durum |

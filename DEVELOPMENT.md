@@ -41,6 +41,31 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 024 - Şoför Performans Raporu
+**Talep:** Şoförlerin performansını analiz eden detaylı rapor sayfası oluşturulması.
+
+**Yapılanlar:**
+- `SoforPerformansRaporModels.cs`: Yeni rapor modelleri oluşturuldu (SoforPerformansOzet, SoforAracPerformansi, SoforGuzergahPerformansi, SoforAylikPerformans, SoforKarsilastirmaOzeti)
+- `IRaporService.cs`: 2 yeni metod eklendi (GetSoforPerformansAsync, GetSoforKarsilastirmaAsync)
+- `RaporService.cs`: Şoför performans metodları implementasyonu eklendi
+- `SoforPerformansRapor.razor`: Şoför performans raporu sayfası oluşturuldu
+  - Bireysel şoför detaylı performans özeti
+  - Tüm şoförler karşılaştırma tablosu
+  - Özet kartları (toplam sefer, kazanç, çalışılan gün, arıza oranı)
+  - Aylık performans grafiği (Chart.js entegrasyonu)
+  - Araç ve güzergah bazlı analiz tabloları
+  - Excel export desteği
+- `NavMenu.razor`: Raporlar menüsüne "Şoför Performans" linki eklendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Models/SoforPerformansRaporModels.cs` (yeni)
+- `CRMFiloServis.Web/Services/Interfaces/IRaporService.cs`
+- `CRMFiloServis.Web/Services/RaporService.cs`
+- `CRMFiloServis.Web/Components/Pages/Raporlar/SoforPerformansRapor.razor` (yeni)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor`
+
+**Durum:** Tamamlandı
+
 ### Kayıt 023 - Dashboard Grafikleri (Chart.js)
 **Talep:** Dashboard'a görsel grafikler eklenmesi - Aylık gelir/gider, masraf dağılımı, bütçe takibi.
 

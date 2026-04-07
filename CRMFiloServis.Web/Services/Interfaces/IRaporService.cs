@@ -1,4 +1,4 @@
-using CRMFiloServis.Web.Models;
+﻿using CRMFiloServis.Web.Models;
 
 namespace CRMFiloServis.Web.Services;
 
@@ -27,4 +27,14 @@ public interface IRaporService
         int cariId,
         DateTime? startDate = null,
         DateTime? endDate = null);
+
+    // Şoför Performans Raporu
+    Task<SoforPerformansOzet> GetSoforPerformansAsync(
+        int soforId,
+        DateTime startDate,
+        DateTime endDate);
+
+    Task<List<SoforKarsilastirmaOzeti>> GetSoforKarsilastirmaAsync(
+        DateTime startDate,
+        DateTime endDate);
 }
