@@ -82,8 +82,6 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task SeedVarsayilanHesapPlaniAsync()
     {
-        if (await _context.MuhasebeHesaplari.AnyAsync()) return;
-
         var hesaplar = new List<MuhasebeHesap>
         {
             // 1 - DONEN VARLIKLAR
@@ -158,7 +156,24 @@ public class MuhasebeService : IMuhasebeService
             new() { HesapKodu = "780", HesapAdi = "FINANSMAN GIDERLERI", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari }
         };
 
-        _context.MuhasebeHesaplari.AddRange(hesaplar);
+        var mevcutKodlar = await _context.MuhasebeHesaplari
+            .Select(h => h.HesapKodu)
+            .ToListAsync();
+
+        var mevcutKodSet = new HashSet<string>(mevcutKodlar, StringComparer.OrdinalIgnoreCase);
+        var eklenecekHesaplar = hesaplar
+            .Where(h => !mevcutKodSet.Contains(h.HesapKodu))
+            .Select(h =>
+            {
+                h.CreatedAt = DateTime.UtcNow;
+                return h;
+            })
+            .ToList();
+
+        if (eklenecekHesaplar.Count == 0)
+            return;
+
+        _context.MuhasebeHesaplari.AddRange(eklenecekHesaplar);
         await _context.SaveChangesAsync();
     }
 
@@ -671,13 +686,23 @@ public class MuhasebeService : IMuhasebeService
     public async Task<MuhasebeFis> CreateTahsilatFisiAsync(BankaKasaHareket hareket, int faturaId)
     {
         var fatura = await _context.Faturalar.FindAsync(faturaId);
+        if (fatura == null)
+            throw new Exception("Fatura bulunamadi");
+
         var fisNo = await GenerateNextFisNoAsync(FisTipi.Tahsilat);
 
-        var kasaBankaHesap = hareket.BankaHesap?.HesapTipi == HesapTipi.Kasa
+        var bankaHesap = await _context.BankaHesaplari.FindAsync(hareket.BankaHesapId);
+        if (bankaHesap == null)
+            throw new Exception("Banka/Kasa hesabi bulunamadi");
+
+        var kasaBankaHesap = bankaHesap.HesapTipi == HesapTipi.Kasa
             ? await GetHesapByKodAsync("100")
             : await GetHesapByKodAsync("102");
 
-        var alicilarHesap = await GetOrCreateCariHesapAsync("120", fatura?.CariId);
+        if (kasaBankaHesap == null)
+            throw new Exception("Kasa/Banka muhasebe hesabi bulunamadi");
+
+        var alicilarHesap = await GetOrCreateCariHesapAsync("120", fatura.CariId);
 
         var fis = new MuhasebeFis
         {
@@ -692,8 +717,8 @@ public class MuhasebeService : IMuhasebeService
             CreatedAt = DateTime.UtcNow,
             Kalemler = new List<MuhasebeFisKalem>
             {
-                new() { HesapId = kasaBankaHesap!.Id, Borc = hareket.Tutar, Alacak = 0, SiraNo = 1 },
-                new() { HesapId = alicilarHesap.Id, Borc = 0, Alacak = hareket.Tutar, CariId = fatura?.CariId, SiraNo = 2 }
+                new() { HesapId = kasaBankaHesap.Id, Borc = hareket.Tutar, Alacak = 0, SiraNo = 1 },
+                new() { HesapId = alicilarHesap.Id, Borc = 0, Alacak = hareket.Tutar, CariId = fatura.CariId, SiraNo = 2 }
             }
         };
 
@@ -714,9 +739,15 @@ public class MuhasebeService : IMuhasebeService
         var fisNo = await GenerateNextFisNoAsync(FisTipi.Tediye);
 
         var bankaHesap = await _context.BankaHesaplari.FindAsync(hareket.BankaHesapId);
+        if (bankaHesap == null)
+            throw new Exception("Banka/Kasa hesabi bulunamadi");
+
         var kasaBankaHesap = bankaHesap?.HesapTipi == HesapTipi.Kasa
             ? await GetHesapByKodAsync("100")
             : await GetHesapByKodAsync("102");
+
+        if (kasaBankaHesap == null)
+            throw new Exception("Kasa/Banka muhasebe hesabi bulunamadi");
 
         var fis = new MuhasebeFis
         {
@@ -742,11 +773,14 @@ public class MuhasebeService : IMuhasebeService
         {
             // Genel odeme: 770 Gider BORC
             var giderHesap = await GetHesapByKodAsync("770");
-            fis.Kalemler.Add(new MuhasebeFisKalem { HesapId = giderHesap!.Id, Borc = hareket.Tutar, Alacak = 0, SiraNo = 1 });
+            if (giderHesap == null)
+                throw new Exception("Gider muhasebe hesabi bulunamadi");
+
+            fis.Kalemler.Add(new MuhasebeFisKalem { HesapId = giderHesap.Id, Borc = hareket.Tutar, Alacak = 0, SiraNo = 1 });
         }
 
         // Kasa/Banka ALACAK
-        fis.Kalemler.Add(new MuhasebeFisKalem { HesapId = kasaBankaHesap!.Id, Borc = 0, Alacak = hareket.Tutar, SiraNo = 2 });
+        fis.Kalemler.Add(new MuhasebeFisKalem { HesapId = kasaBankaHesap.Id, Borc = 0, Alacak = hareket.Tutar, SiraNo = 2 });
 
         fis.ToplamBorc = hareket.Tutar;
         fis.ToplamAlacak = hareket.Tutar;
@@ -770,7 +804,8 @@ public class MuhasebeService : IMuhasebeService
             return ustHesap;
 
         // Cari alt hesabi var mi?
-        var cariHesapKodu = $"{ustHesapKodu}.{cari.CariKodu}";
+        var cariAltKod = BuildCariAltKod(cari);
+        var cariHesapKodu = $"{ustHesapKodu}.{cariAltKod}";
         var cariHesap = await GetHesapByKodAsync(cariHesapKodu);
 
         if (cariHesap == null)
@@ -795,6 +830,20 @@ public class MuhasebeService : IMuhasebeService
         }
 
         return cariHesap;
+    }
+
+    private string BuildCariAltKod(Cari cari)
+    {
+        var kaynakKod = string.IsNullOrWhiteSpace(cari.CariKodu)
+            ? cari.Id.ToString()
+            : cari.CariKodu;
+
+        var temizKod = NormalizeHesapKodu(kaynakKod);
+        temizKod = new string(temizKod.Where(ch => char.IsLetterOrDigit(ch) || ch == '.').ToArray());
+
+        return string.IsNullOrWhiteSpace(temizKod)
+            ? cari.Id.ToString()
+            : temizKod;
     }
 
     #endregion
