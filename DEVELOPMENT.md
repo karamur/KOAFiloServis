@@ -41,6 +41,50 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 028 - Proforma Fatura Sistemi
+**Talep:** Fatura kesilmeden önce müşteriye proforma fatura gönderme sistemi.
+
+**Yapılanlar:**
+- `ProformaFatura.cs`: Yeni entity oluşturuldu (ProformaFatura, ProformaFaturaKalem sınıfları)
+- `ProformaDurum` enum eklendi (Taslak, Gonderildi, Onaylandi, Reddedildi, FaturayaDonusturuldu, SuresiDoldu)
+- `ApplicationDbContext.cs`: DbSet ve OnModelCreating konfigürasyonları eklendi
+- `IProformaFaturaService.cs`: Interface oluşturuldu
+- `ProformaFaturaService.cs`: Tam implementasyon
+  - CRUD işlemleri
+  - Numara otomatik üretimi (PRF-YYYYMM-XXXX)
+  - Faturaya dönüştürme (FaturayaDonusturAsync)
+  - Süresi dolan proformaları güncelleme
+  - Excel export desteği
+- `Program.cs`: Servis DI kaydı eklendi
+- `ProformaList.razor`: Liste sayfası oluşturuldu
+  - Arama, filtreleme (durum, tarih aralığı)
+  - İstatistik kartları (toplam, onaylanan, bekleyen, reddedilen)
+  - Hızlı işlem butonları (faturaya dönüştür, onayla, reddet)
+- `ProformaForm.razor`: Form sayfası oluşturuldu
+  - Cari seçimi
+  - Kalem ekleme/silme
+  - KDV ve toplam otomatik hesaplama
+  - Geçerlilik tarihi
+- `ProformaDetay.razor`: Detay sayfası oluşturuldu
+  - Durum badge'leri
+  - Kalem listesi
+  - İşlem butonları (onayla, reddet, faturaya dönüştür, Excel)
+- `NavMenu.razor`: Proforma Faturalar linki eklendi
+- Migration oluşturuldu: `AddProformaFatura`
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/ProformaFatura.cs` (yeni)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs`
+- `CRMFiloServis.Web/Services/Interfaces/IProformaFaturaService.cs` (yeni)
+- `CRMFiloServis.Web/Services/ProformaFaturaService.cs` (yeni)
+- `CRMFiloServis.Web/Program.cs`
+- `CRMFiloServis.Web/Components/Pages/ProformaFaturalar/ProformaList.razor` (yeni)
+- `CRMFiloServis.Web/Components/Pages/ProformaFaturalar/ProformaForm.razor` (yeni)
+- `CRMFiloServis.Web/Components/Pages/ProformaFaturalar/ProformaDetay.razor` (yeni)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor`
+
+**Durum:** Tamamlandı
+
 ### Kayıt 024 - Şoför Performans Raporu
 **Talep:** Şoförlerin performansını analiz eden detaylı rapor sayfası oluşturulması.
 
@@ -589,6 +633,7 @@ BudgetAnaliz → OdemeTipi.CariMahsup seç → OdemeYapAsync
 | 009 | Dokümantasyon marka güncellemesi | Tamamlandı | Düşük | README, kurulum, roadmap ve deploy başlıkları güncellendi |
 | 010 | Çalışma zamanı dosya disiplini | Tamamlandı | Düşük | Upload, backup, log ve deploy runtime klasörleri ignore edildi |
 | 011 | Servis refaktörlerinin sınıflandırılması | Tamamlandı | Orta | AsNoTracking, UTC ve soft delete audit tutarlılığı tamamlandı |
+| 015 | Proforma Fatura Sistemi | Tamamlandı | Yüksek | Entity, servis, 3 sayfa, faturaya dönüştürme, Excel export |
 | 012 | Sayfalama altyapısı | Tamamlandı | Yüksek | CariList, FaturaList, BankaHareketList sayfalama destekli |
 | 013 | Şoför Performans Raporu | Tamamlandı | Orta | Bireysel/karşılaştırma, grafik, Excel export |
 | 014 | Araç Karlılık Raporu | Tamamlandı | Orta | Gelir/gider/kar analizi, masraf dağılımı, trend grafikleri |

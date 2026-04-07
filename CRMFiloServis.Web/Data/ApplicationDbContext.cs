@@ -161,6 +161,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<PuantajExcelImport> PuantajExcelImportlar { get; set; }
     public DbSet<PuantajEslestirmeOneri> PuantajEslestirmeOnerileri { get; set; }
 
+    // Proforma Fatura Modülü
+    public DbSet<ProformaFatura> ProformaFaturalar { get; set; }
+    public DbSet<ProformaFaturaKalem> ProformaFaturaKalemler { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1494,6 +1498,62 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<PersonelBorcOdeme>()
             .HasQueryFilter(e => !e.IsDeleted && !e.Borc.IsDeleted);
+
+        // Proforma Fatura
+        modelBuilder.Entity<ProformaFatura>(entity =>
+        {
+            entity.HasIndex(e => e.ProformaNo).IsUnique();
+            entity.Property(e => e.ProformaNo).HasMaxLength(50);
+            entity.Property(e => e.AraToplam).HasPrecision(18, 2);
+            entity.Property(e => e.IskontoTutar).HasPrecision(18, 2);
+            entity.Property(e => e.IskontoOrani).HasPrecision(5, 2);
+            entity.Property(e => e.KdvOrani).HasPrecision(5, 2);
+            entity.Property(e => e.KdvTutar).HasPrecision(18, 2);
+            entity.Property(e => e.GenelToplam).HasPrecision(18, 2);
+            entity.Property(e => e.OdemeKosulu).HasMaxLength(100);
+            entity.Property(e => e.TeslimKosulu).HasMaxLength(100);
+            entity.Property(e => e.IlgiliKisi).HasMaxLength(100);
+            entity.Property(e => e.Telefon).HasMaxLength(20);
+            entity.Property(e => e.Email).HasMaxLength(100);
+            entity.HasOne(e => e.Cari)
+                .WithMany()
+                .HasForeignKey(e => e.CariId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Firma)
+                .WithMany()
+                .HasForeignKey(e => e.FirmaId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Fatura)
+                .WithMany()
+                .HasForeignKey(e => e.FaturaId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<ProformaFaturaKalem>(entity =>
+        {
+            entity.Property(e => e.UrunAdi).HasMaxLength(250);
+            entity.Property(e => e.UrunKodu).HasMaxLength(50);
+            entity.Property(e => e.Birim).HasMaxLength(20);
+            entity.Property(e => e.Miktar).HasPrecision(18, 4);
+            entity.Property(e => e.BirimFiyat).HasPrecision(18, 2);
+            entity.Property(e => e.IskontoOrani).HasPrecision(5, 2);
+            entity.Property(e => e.IskontoTutar).HasPrecision(18, 2);
+            entity.Property(e => e.KdvOrani).HasPrecision(5, 2);
+            entity.Property(e => e.KdvTutar).HasPrecision(18, 2);
+            entity.Property(e => e.AraToplam).HasPrecision(18, 2);
+            entity.Property(e => e.NetTutar).HasPrecision(18, 2);
+            entity.Property(e => e.ToplamTutar).HasPrecision(18, 2);
+            entity.HasOne(e => e.ProformaFatura)
+                .WithMany(p => p.Kalemler)
+                .HasForeignKey(e => e.ProformaFaturaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.StokKarti)
+                .WithMany()
+                .HasForeignKey(e => e.StokKartiId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
     }
 
     public override int SaveChanges()
