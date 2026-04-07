@@ -135,9 +135,9 @@
 ### 5.4 Personel Excel Import
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Excel'den personel yükleme | 🔴 Yüksek | 2 gün | ❌ |
-| Mevcut personel kontrolü (kaydetmeme) | 🔴 Yüksek | 1 gün | ❌ |
-| SGK'lı normal/AR-GE otomatik ayırma | 🟡 Orta | 1 gün | ❌ |
+| Excel'den personel yükleme | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Mevcut personel kontrolü (kaydetmeme) | 🔴 Yüksek | 1 gün | ✅ Tamamlandı |
+| SGK'lı normal/AR-GE otomatik ayırma | 🟡 Orta | 1 gün | ✅ Tamamlandı |
 
 ### 5.5 Muhasebe & Raporlama Geliştirmeleri (YENİ - ÖNCELİKLİ)
 | Özellik | Öncelik | Süre | Durum |

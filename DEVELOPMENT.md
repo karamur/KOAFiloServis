@@ -41,6 +41,58 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 047 - Excel'den Personel Import
+**Talep:** Excel dosyasından toplu personel yükleme özelliği.
+
+**Yapılanlar:**
+- `ISoforService.cs` interface güncellendi:
+  - `GetImportSablonAsync()` - Import şablonu oluşturma
+  - `ImportFromExcelAsync(byte[] excelData, bool mevcutGuncelle)` - Excel'den import
+  - `ExportToExcelAsync()` - Mevcut personelleri Excel'e export
+  - `PersonelImportSonuc` sınıfı - Import sonuç bilgileri
+  - `PersonelImportHata` sınıfı - Import hata detayları
+- `SoforService.cs` güncellendi (~350 satır eklendi):
+  - **Import Şablonu** (2 sayfa):
+    - Personel Import sayfası: 17 kolon (Ad*, Soyad*, TC, Telefon, Email, Adres, Görev, Departman, Pozisyon, İşe Başlama, Brüt Maaş, Net Maaş, SGK, Bordro Tipi, Banka, IBAN, Notlar)
+    - Açıklamalar sayfası: Kullanım kılavuzu
+    - Zorunlu alanlar kırmızı arka planla işaretli
+    - Örnek veri satırı mevcut
+  - **Import İşlemi**:
+    - TC Kimlik No ile mevcut personel kontrolü
+    - `mevcutGuncelle` flag'i ile güncelleme seçeneği
+    - Satır satır hata yakalama (kritik/uyarı ayrımı)
+    - Görev otomatik parse (Sofor, OfisCalisani, Muhasebe, vb.)
+    - Tarih formatı desteği (dd.MM.yyyy, dd/MM/yyyy, yyyy-MM-dd)
+    - Bordro tipi otomatik ayırma (Normal/Arge)
+    - SGK flag'i otomatik set
+  - **Export İşlemi**: Mevcut personel listesini Excel'e aktarma
+- `SoforList.razor` güncellendi:
+  - Header'a buton grubu eklendi:
+    - 📥 Şablon İndir butonu
+    - 📤 Excel Import butonu
+    - 📊 Excel Export butonu
+  - **Import Modal** (~120 satır):
+    - Dosya seçici (InputFile, max 5MB)
+    - "Mevcut personelleri güncelle" checkbox
+    - İşlem sonuç kartları (toplam, eklenen, güncellenen, atlanan)
+    - Hata/uyarı listesi (max 20 gösterim)
+  - Import değişkenleri ve metodlar eklendi
+
+**Özellikler:**
+- ✅ TC Kimlik ile duplikasyon kontrolü
+- ✅ Mevcut personel güncelleme seçeneği
+- ✅ SGK'lı normal/AR-GE otomatik ayırma
+- ✅ Detaylı hata raporlama
+- ✅ Şablon indirme (örnek verili)
+- ✅ Mevcut liste export
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/ISoforService.cs` (güncellendi)
+- `CRMFiloServis.Web/Services/SoforService.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Pages/Soforler/SoforList.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
 ### Kayıt 046 - Yevmiye Kayıtları Yazdır ve Excel Export
 **Talep:** Tarih bazlı yevmiye kayıtlarını yazdırma ve Excel'e export etme özelliği.
 

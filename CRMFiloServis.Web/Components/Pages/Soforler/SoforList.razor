@@ -2,6 +2,7 @@
 @page "/personel"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
+@using Microsoft.AspNetCore.Components.Forms
 @inject ISoforService SoforService
 @inject IPersonelOzlukService OzlukService
 @inject IJSRuntime JS
@@ -22,6 +23,17 @@
                     <option value="@gorev">@GetGorevAdi(gorev)</option>
                 }
             </select>
+            <div class="btn-group">
+                <button class="btn btn-outline-success" @onclick="ImportSablonIndir" title="Import Şablonu İndir">
+                    <i class="bi bi-download me-1"></i>Şablon
+                </button>
+                <button class="btn btn-success" @onclick="() => showImportModal = true" title="Excel'den Personel Yükle">
+                    <i class="bi bi-upload me-1"></i>Excel Import
+                </button>
+                <button class="btn btn-outline-primary" @onclick="ExportToExcel" title="Excel'e Aktar">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Excel Export
+                </button>
+            </div>
             <button class="btn btn-outline-secondary" @onclick="BosPersonelDosyasiIndir">
                 <i class="bi bi-file-earmark-text me-1"></i>Boş Personel Dosyası
             </button>
@@ -203,11 +215,150 @@
     </div>
 }
 
+@if (showImportModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Excel'den Personel Import</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseImportModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (importSonuc == null)
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Önemli:</strong> Import şablonunu indirip doldurun. TC Kimlik No ile mevcut personel kontrolü yapılır.
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Excel Dosyası Seçin</label>
+                            <InputFile OnChange="OnFileSelected" accept=".xlsx,.xls" class="form-control" />
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" @bind="mevcutGuncelle" id="mevcutGuncelle">
+                            <label class="form-check-label" for="mevcutGuncelle">
+                                Mevcut personelleri güncelle (TC eşleşirse)
+                            </label>
+                        </div>
+
+                        @if (selectedFile != null)
+                        {
+                            <div class="alert alert-secondary">
+                                <i class="bi bi-file-earmark-excel me-2"></i>
+                                <strong>Seçilen:</strong> @selectedFile.Name (@(selectedFile.Size / 1024) KB)
+                            </div>
+                        }
+
+                        @if (importHata != null)
+                        {
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle me-2"></i>@importHata
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="alert @(importSonuc.Basarili ? "alert-success" : "alert-warning")">
+                            <h5><i class="bi bi-check-circle me-2"></i>Import Tamamlandı</h5>
+                        </div>
+
+                        <div class="row text-center mb-3">
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body py-2">
+                                        <small class="text-muted">Toplam Satır</small>
+                                        <h4 class="mb-0">@importSonuc.ToplamSatir</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body py-2">
+                                        <small>Eklenen</small>
+                                        <h4 class="mb-0">@importSonuc.BasariliEklenen</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body py-2">
+                                        <small>Güncellenen</small>
+                                        <h4 class="mb-0">@importSonuc.BasariliGuncellenen</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning">
+                                    <div class="card-body py-2">
+                                        <small>Atlanan</small>
+                                        <h4 class="mb-0">@importSonuc.Atlanan</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (importSonuc.Hatalar.Any())
+                        {
+                            <div class="card">
+                                <div class="card-header bg-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>Uyarılar ve Hatalar
+                                </div>
+                                <div class="card-body" style="max-height: 200px; overflow-y: auto;">
+                                    <ul class="mb-0">
+                                        @foreach (var hata in importSonuc.Hatalar.Take(20))
+                                        {
+                                            <li class="@(hata.Kritik ? "text-danger" : "text-warning")">
+                                                <strong>Satır @hata.SatirNo:</strong> [@hata.Kolon] @hata.Mesaj
+                                            </li>
+                                        }
+                                        @if (importSonuc.Hatalar.Count > 20)
+                                        {
+                                            <li class="text-muted">...ve @(importSonuc.Hatalar.Count - 20) hata daha</li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    @if (importSonuc == null)
+                    {
+                        <button type="button" class="btn btn-secondary" @onclick="CloseImportModal">İptal</button>
+                        <button type="button" class="btn btn-success" @onclick="ImportBaslat" disabled="@(selectedFile == null || isImporting)">
+                            @if (isImporting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-upload me-1"></i>Import Başlat
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary" @onclick="CloseImportModal">Tamam</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Sofor>? personeller;
     private bool showDeleteModal = false;
     private Sofor? silinecekPersonel;
     private string secilenGorev = "";
+
+    // Import değişkenleri
+    private bool showImportModal = false;
+    private IBrowserFile? selectedFile;
+    private bool mevcutGuncelle = false;
+    private bool isImporting = false;
+    private string? importHata;
+    private PersonelImportSonuc? importSonuc;
 
     protected override async Task OnInitializedAsync()
     {
@@ -218,7 +369,7 @@
     {
         personeller = await SoforService.GetAllAsync();
     }
-    
+
     private async Task FiltreleAsync()
     {
         if (string.IsNullOrEmpty(secilenGorev))
@@ -257,6 +408,94 @@
         showDeleteModal = false;
         silinecekPersonel = null;
     }
+
+    #region Excel Import/Export
+
+    private async Task ImportSablonIndir()
+    {
+        try
+        {
+            var bytes = await SoforService.GetImportSablonAsync();
+            var dosyaAdi = $"personel_import_sablonu.xlsx";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Import şablonu indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task ExportToExcel()
+    {
+        try
+        {
+            var bytes = await SoforService.ExportToExcelAsync();
+            var dosyaAdi = $"personel_listesi_{DateTime.Now:yyyyMMdd}.xlsx";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Personel listesi Excel'e aktarıldı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        importHata = null;
+    }
+
+    private async Task ImportBaslat()
+    {
+        if (selectedFile == null) return;
+
+        isImporting = true;
+        importHata = null;
+        importSonuc = null;
+
+        try
+        {
+            // Max 5MB
+            if (selectedFile.Size > 5 * 1024 * 1024)
+            {
+                importHata = "Dosya boyutu 5MB'dan büyük olamaz.";
+                return;
+            }
+
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+
+            importSonuc = await SoforService.ImportFromExcelAsync(ms.ToArray(), mevcutGuncelle);
+
+            if (importSonuc.BasariliEklenen > 0 || importSonuc.BasariliGuncellenen > 0)
+            {
+                await LoadData();
+                ToastService.ShowSuccess($"{importSonuc.BasariliEklenen} personel eklendi, {importSonuc.BasariliGuncellenen} güncellendi.");
+            }
+        }
+        catch (Exception ex)
+        {
+            importHata = $"Import hatası: {ex.Message}";
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    private void CloseImportModal()
+    {
+        showImportModal = false;
+        selectedFile = null;
+        importHata = null;
+        importSonuc = null;
+        mevcutGuncelle = false;
+    }
+
+    #endregion
 
     private async Task PersonelDosyasiIndir(int personelId)
     {

@@ -19,4 +19,30 @@ public interface ISoforService
     Task<List<Sofor>> GetByGorevAsync(PersonelGorev gorev);
     Task<List<Sofor>> GetActiveSoforlerAsync(); // Sadece aktif şoförler
     Task<List<Sofor>> GetActiveByGorevAsync(PersonelGorev gorev);
+
+    // Excel Import/Export
+    Task<byte[]> GetImportSablonAsync();
+    Task<PersonelImportSonuc> ImportFromExcelAsync(byte[] excelData, bool mevcutGuncelle = false);
+    Task<byte[]> ExportToExcelAsync();
+}
+
+/// <summary>
+/// Excel import işlem sonucu
+/// </summary>
+public class PersonelImportSonuc
+{
+    public int ToplamSatir { get; set; }
+    public int BasariliEklenen { get; set; }
+    public int BasariliGuncellenen { get; set; }
+    public int Atlanan { get; set; }
+    public List<PersonelImportHata> Hatalar { get; set; } = new();
+    public bool Basarili => !Hatalar.Any(h => h.Kritik);
+}
+
+public class PersonelImportHata
+{
+    public int SatirNo { get; set; }
+    public string Kolon { get; set; } = string.Empty;
+    public string Mesaj { get; set; } = string.Empty;
+    public bool Kritik { get; set; }
 }

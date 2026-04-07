@@ -1,5 +1,6 @@
 ﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 
 namespace CRMFiloServis.Web.Services;
@@ -246,4 +247,413 @@ public class SoforService : ISoforService
         // ArgePersoneli geriye dönük uyumluluk
         sofor.ArgePersoneli = sofor.SGKBordroDahilMi && sofor.BordroTipiPersonel == PersonelBordroTipi.Arge;
     }
+
+    #region Excel Import/Export
+
+    /// <summary>
+    /// Personel import şablonu oluşturur (Excel)
+    /// </summary>
+    public Task<byte[]> GetImportSablonAsync()
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Personel Import");
+
+        // Başlık satırı
+        var headers = new[]
+        {
+            "Ad*", "Soyad*", "TC Kimlik No", "Telefon", "Email", "Adres",
+            "Görev (Sofor/OfisCalisani/Muhasebe/Yonetici/Teknik/Diger)", "Departman", "Pozisyon",
+            "İşe Başlama (GG.AA.YYYY)", "Brüt Maaş", "Net Maaş",
+            "SGK Bordrolu (Evet/Hayır)", "Bordro Tipi (Normal/Arge)",
+            "Banka Adı", "IBAN", "Notlar"
+        };
+
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var cell = ws.Cell(1, i + 1);
+            cell.Value = headers[i];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = XLColor.LightBlue;
+            cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+            // Zorunlu alanları vurgula
+            if (headers[i].EndsWith("*"))
+            {
+                cell.Style.Fill.BackgroundColor = XLColor.LightCoral;
+            }
+        }
+
+        // Örnek veri satırı
+        ws.Cell(2, 1).Value = "Ahmet";
+        ws.Cell(2, 2).Value = "Yılmaz";
+        ws.Cell(2, 3).Value = "12345678901";
+        ws.Cell(2, 4).Value = "0532 123 4567";
+        ws.Cell(2, 5).Value = "ahmet@firma.com";
+        ws.Cell(2, 6).Value = "İstanbul";
+        ws.Cell(2, 7).Value = "Sofor";
+        ws.Cell(2, 8).Value = "Operasyon";
+        ws.Cell(2, 9).Value = "Şoför";
+        ws.Cell(2, 10).Value = DateTime.Now.ToString("dd.MM.yyyy");
+        ws.Cell(2, 11).Value = 50000;
+        ws.Cell(2, 12).Value = 35000;
+        ws.Cell(2, 13).Value = "Evet";
+        ws.Cell(2, 14).Value = "Normal";
+        ws.Cell(2, 15).Value = "Ziraat Bankası";
+        ws.Cell(2, 16).Value = "TR00 0000 0000 0000 0000 0000 00";
+        ws.Cell(2, 17).Value = "Örnek personel";
+
+        // Sütun genişlikleri
+        ws.Columns().AdjustToContents();
+
+        // Açıklama sayfası
+        var helpWs = workbook.Worksheets.Add("Açıklamalar");
+        helpWs.Cell(1, 1).Value = "PERSONEL IMPORT ŞABLONU AÇIKLAMALARI";
+        helpWs.Cell(1, 1).Style.Font.Bold = true;
+        helpWs.Cell(1, 1).Style.Font.FontSize = 14;
+
+        helpWs.Cell(3, 1).Value = "Zorunlu Alanlar:";
+        helpWs.Cell(3, 1).Style.Font.Bold = true;
+        helpWs.Cell(4, 1).Value = "• Ad ve Soyad zorunludur (kırmızı arka plan)";
+
+        helpWs.Cell(6, 1).Value = "Görev Değerleri:";
+        helpWs.Cell(6, 1).Style.Font.Bold = true;
+        helpWs.Cell(7, 1).Value = "• Sofor, OfisCalisani, Muhasebe, Yonetici, Teknik, Diger";
+
+        helpWs.Cell(9, 1).Value = "Tarih Formatı:";
+        helpWs.Cell(9, 1).Style.Font.Bold = true;
+        helpWs.Cell(10, 1).Value = "• GG.AA.YYYY (örn: 15.03.2024)";
+
+        helpWs.Cell(12, 1).Value = "SGK/Bordro:";
+        helpWs.Cell(12, 1).Style.Font.Bold = true;
+        helpWs.Cell(13, 1).Value = "• SGK Bordrolu: Evet/Hayır veya 1/0";
+        helpWs.Cell(14, 1).Value = "• Bordro Tipi: Normal veya Arge";
+
+        helpWs.Cell(16, 1).Value = "Önemli Not:";
+        helpWs.Cell(16, 1).Style.Font.Bold = true;
+        helpWs.Cell(17, 1).Value = "• TC Kimlik No ile mevcut personel kontrolü yapılır";
+        helpWs.Cell(18, 1).Value = "• Aynı TC'li personel varsa güncelleme seçeneğine göre işlem yapılır";
+
+        helpWs.Column(1).Width = 60;
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return Task.FromResult(stream.ToArray());
+    }
+
+    /// <summary>
+    /// Excel dosyasından personel import eder
+    /// </summary>
+    public async Task<PersonelImportSonuc> ImportFromExcelAsync(byte[] excelData, bool mevcutGuncelle = false)
+    {
+        var sonuc = new PersonelImportSonuc();
+
+        using var stream = new MemoryStream(excelData);
+        using var workbook = new XLWorkbook(stream);
+        var ws = workbook.Worksheet(1);
+
+        var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+        sonuc.ToplamSatir = Math.Max(0, lastRow - 1); // Başlık hariç
+
+        // Mevcut personelleri TC'ye göre indexle
+        var mevcutPersoneller = await _context.Soforler
+            .AsNoTracking()
+            .ToDictionaryAsync(p => p.TcKimlikNo ?? $"ID_{p.Id}", p => p);
+
+        for (int row = 2; row <= lastRow; row++)
+        {
+            try
+            {
+                var ad = ws.Cell(row, 1).GetString().Trim();
+                var soyad = ws.Cell(row, 2).GetString().Trim();
+
+                // Zorunlu alan kontrolü
+                if (string.IsNullOrWhiteSpace(ad) || string.IsNullOrWhiteSpace(soyad))
+                {
+                    sonuc.Hatalar.Add(new PersonelImportHata
+                    {
+                        SatirNo = row,
+                        Kolon = "Ad/Soyad",
+                        Mesaj = "Ad ve Soyad zorunludur",
+                        Kritik = false
+                    });
+                    sonuc.Atlanan++;
+                    continue;
+                }
+
+                var tcKimlik = ws.Cell(row, 3).GetString().Trim();
+
+                // Mevcut personel kontrolü (TC ile)
+                if (!string.IsNullOrWhiteSpace(tcKimlik) && mevcutPersoneller.TryGetValue(tcKimlik, out var mevcut))
+                {
+                    if (!mevcutGuncelle)
+                    {
+                        sonuc.Hatalar.Add(new PersonelImportHata
+                        {
+                            SatirNo = row,
+                            Kolon = "TC Kimlik",
+                            Mesaj = $"{tcKimlik} TC'li personel zaten mevcut: {mevcut.TamAd}",
+                            Kritik = false
+                        });
+                        sonuc.Atlanan++;
+                        continue;
+                    }
+
+                    // Mevcut personeli güncelle
+                    await GuncellePersonelFromRow(mevcut.Id, ws, row);
+                    sonuc.BasariliGuncellenen++;
+                    continue;
+                }
+
+                // Yeni personel oluştur
+                var personel = await OlusturPersonelFromRow(ws, row);
+                sonuc.BasariliEklenen++;
+            }
+            catch (Exception ex)
+            {
+                sonuc.Hatalar.Add(new PersonelImportHata
+                {
+                    SatirNo = row,
+                    Kolon = "Genel",
+                    Mesaj = ex.Message,
+                    Kritik = false
+                });
+                sonuc.Atlanan++;
+            }
+        }
+
+        return sonuc;
+    }
+
+    private async Task<Sofor> OlusturPersonelFromRow(IXLWorksheet ws, int row)
+    {
+        var gorevStr = ws.Cell(row, 7).GetString().Trim();
+        var gorev = ParseGorev(gorevStr);
+
+        var personel = new Sofor
+        {
+            SoforKodu = await GenerateNextKodAsync(gorev),
+            Ad = ws.Cell(row, 1).GetString().Trim(),
+            Soyad = ws.Cell(row, 2).GetString().Trim(),
+            TcKimlikNo = ws.Cell(row, 3).GetString().Trim().NullIfEmpty(),
+            Telefon = ws.Cell(row, 4).GetString().Trim().NullIfEmpty(),
+            Email = ws.Cell(row, 5).GetString().Trim().NullIfEmpty(),
+            Adres = ws.Cell(row, 6).GetString().Trim().NullIfEmpty(),
+            Gorev = gorev,
+            Departman = ws.Cell(row, 8).GetString().Trim().NullIfEmpty(),
+            Pozisyon = ws.Cell(row, 9).GetString().Trim().NullIfEmpty(),
+            IseBaslamaTarihi = ParseTarih(ws.Cell(row, 10)),
+            BrutMaas = ParseDecimal(ws.Cell(row, 11)),
+            NetMaas = ParseDecimal(ws.Cell(row, 12)),
+            SGKBordroDahilMi = ParseBool(ws.Cell(row, 13)),
+            BordroTipiPersonel = ParseBordroTipi(ws.Cell(row, 14)),
+            BankaAdi = ws.Cell(row, 15).GetString().Trim().NullIfEmpty(),
+            IBAN = ws.Cell(row, 16).GetString().Trim().NullIfEmpty(),
+            Notlar = ws.Cell(row, 17).GetString().Trim().NullIfEmpty(),
+            Aktif = true
+        };
+
+        // SGK'lı ise bordro tipine göre AR-GE flag'i set et
+        if (personel.SGKBordroDahilMi)
+        {
+            personel.ArgePersoneli = personel.BordroTipiPersonel == PersonelBordroTipi.Arge;
+        }
+
+        return await CreateAsync(personel);
+    }
+
+    private async Task GuncellePersonelFromRow(int personelId, IXLWorksheet ws, int row)
+    {
+        var existing = await _context.Soforler.FirstOrDefaultAsync(p => p.Id == personelId);
+        if (existing == null) return;
+
+        existing.Ad = ws.Cell(row, 1).GetString().Trim();
+        existing.Soyad = ws.Cell(row, 2).GetString().Trim();
+        existing.Telefon = ws.Cell(row, 4).GetString().Trim().NullIfEmpty() ?? existing.Telefon;
+        existing.Email = ws.Cell(row, 5).GetString().Trim().NullIfEmpty() ?? existing.Email;
+        existing.Adres = ws.Cell(row, 6).GetString().Trim().NullIfEmpty() ?? existing.Adres;
+        existing.Departman = ws.Cell(row, 8).GetString().Trim().NullIfEmpty() ?? existing.Departman;
+        existing.Pozisyon = ws.Cell(row, 9).GetString().Trim().NullIfEmpty() ?? existing.Pozisyon;
+
+        var yeniIseBaslama = ParseTarih(ws.Cell(row, 10));
+        if (yeniIseBaslama.HasValue) existing.IseBaslamaTarihi = yeniIseBaslama;
+
+        var brutMaas = ParseDecimal(ws.Cell(row, 11));
+        if (brutMaas > 0) existing.BrutMaas = brutMaas;
+
+        var netMaas = ParseDecimal(ws.Cell(row, 12));
+        if (netMaas > 0) existing.NetMaas = netMaas;
+
+        existing.BankaAdi = ws.Cell(row, 15).GetString().Trim().NullIfEmpty() ?? existing.BankaAdi;
+        existing.IBAN = ws.Cell(row, 16).GetString().Trim().NullIfEmpty() ?? existing.IBAN;
+        existing.Notlar = ws.Cell(row, 17).GetString().Trim().NullIfEmpty() ?? existing.Notlar;
+
+        existing.UpdatedAt = DateTime.UtcNow;
+        _context.Soforler.Update(existing);
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Mevcut personelleri Excel'e export eder
+    /// </summary>
+    public async Task<byte[]> ExportToExcelAsync()
+    {
+        var personeller = await GetAllAsync();
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Personel Listesi");
+
+        // Başlık
+        ws.Cell(1, 1).Value = "PERSONEL LİSTESİ";
+        ws.Cell(1, 1).Style.Font.Bold = true;
+        ws.Cell(1, 1).Style.Font.FontSize = 14;
+        ws.Range(1, 1, 1, 15).Merge();
+
+        ws.Cell(2, 1).Value = $"Oluşturma Tarihi: {DateTime.Now:dd.MM.yyyy HH:mm}";
+        ws.Range(2, 1, 2, 15).Merge();
+
+        // Tablo başlıkları
+        var headers = new[]
+        {
+            "Personel Kodu", "Ad", "Soyad", "TC Kimlik", "Telefon", "Email",
+            "Görev", "Departman", "Pozisyon", "İşe Başlama", "Durum",
+            "Brüt Maaş", "Net Maaş", "SGK Bordrolu", "Bordro Tipi"
+        };
+
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var cell = ws.Cell(4, i + 1);
+            cell.Value = headers[i];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = XLColor.LightBlue;
+            cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        }
+
+        // Veri satırları
+        int row = 5;
+        foreach (var p in personeller.OrderBy(x => x.SiralamaNo == 0 ? int.MaxValue : x.SiralamaNo).ThenBy(x => x.Ad))
+        {
+            ws.Cell(row, 1).Value = p.SoforKodu;
+            ws.Cell(row, 2).Value = p.Ad;
+            ws.Cell(row, 3).Value = p.Soyad;
+            ws.Cell(row, 4).Value = p.TcKimlikNo;
+            ws.Cell(row, 5).Value = p.Telefon;
+            ws.Cell(row, 6).Value = p.Email;
+            ws.Cell(row, 7).Value = GetGorevAdi(p.Gorev);
+            ws.Cell(row, 8).Value = p.Departman;
+            ws.Cell(row, 9).Value = p.Pozisyon;
+            ws.Cell(row, 10).Value = p.IseBaslamaTarihi?.ToString("dd.MM.yyyy");
+            ws.Cell(row, 11).Value = p.Aktif ? "Aktif" : "Pasif";
+            ws.Cell(row, 12).Value = p.BrutMaas;
+            ws.Cell(row, 13).Value = p.NetMaas;
+            ws.Cell(row, 14).Value = p.SGKBordroDahilMi ? "Evet" : "Hayır";
+            ws.Cell(row, 15).Value = GetBordroTipiAdi(p.BordroTipiPersonel);
+
+            ws.Cell(row, 12).Style.NumberFormat.Format = "#,##0.00";
+            ws.Cell(row, 13).Style.NumberFormat.Format = "#,##0.00";
+
+            row++;
+        }
+
+        // Özet
+        row++;
+        ws.Cell(row, 1).Value = "ÖZET";
+        ws.Cell(row, 1).Style.Font.Bold = true;
+        row++;
+        ws.Cell(row, 1).Value = $"Toplam Personel: {personeller.Count}";
+        row++;
+        ws.Cell(row, 1).Value = $"Aktif Personel: {personeller.Count(p => p.Aktif)}";
+        row++;
+        ws.Cell(row, 1).Value = $"Toplam Net Maaş: {personeller.Where(p => p.Aktif).Sum(p => p.NetMaas):C0}";
+
+        ws.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    // Helper methods
+    private static PersonelGorev ParseGorev(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return PersonelGorev.Sofor;
+
+        return value.ToLowerInvariant() switch
+        {
+            "sofor" or "şoför" => PersonelGorev.Sofor,
+            "ofiscalisani" or "ofis çalışanı" or "ofis" => PersonelGorev.OfisCalisani,
+            "muhasebe" => PersonelGorev.Muhasebe,
+            "yonetici" or "yönetici" => PersonelGorev.Yonetici,
+            "teknik" => PersonelGorev.Teknik,
+            _ => PersonelGorev.Diger
+        };
+    }
+
+    private static PersonelBordroTipi ParseBordroTipi(IXLCell cell)
+    {
+        var value = cell.GetString().Trim().ToLowerInvariant();
+        return value switch
+        {
+            "arge" or "ar-ge" => PersonelBordroTipi.Arge,
+            "normal" => PersonelBordroTipi.Normal,
+            _ => PersonelBordroTipi.Yok
+        };
+    }
+
+    private static DateTime? ParseTarih(IXLCell cell)
+    {
+        if (cell.TryGetValue<DateTime>(out var dt))
+            return dt;
+
+        var str = cell.GetString().Trim();
+        if (DateTime.TryParseExact(str, new[] { "dd.MM.yyyy", "dd/MM/yyyy", "yyyy-MM-dd" },
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var parsed))
+            return parsed;
+
+        return null;
+    }
+
+    private static decimal ParseDecimal(IXLCell cell)
+    {
+        if (cell.TryGetValue<decimal>(out var d))
+            return d;
+
+        var str = cell.GetString().Trim().Replace(".", "").Replace(",", ".");
+        if (decimal.TryParse(str, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            return parsed;
+
+        return 0;
+    }
+
+    private static bool ParseBool(IXLCell cell)
+    {
+        var value = cell.GetString().Trim().ToLowerInvariant();
+        return value is "evet" or "yes" or "1" or "true" or "e";
+    }
+
+    private static string GetGorevAdi(PersonelGorev gorev) => gorev switch
+    {
+        PersonelGorev.Sofor => "Şoför",
+        PersonelGorev.OfisCalisani => "Ofis Çalışanı",
+        PersonelGorev.Muhasebe => "Muhasebe",
+        PersonelGorev.Yonetici => "Yönetici",
+        PersonelGorev.Teknik => "Teknik",
+        _ => "Diğer"
+    };
+
+    private static string GetBordroTipiAdi(PersonelBordroTipi tip) => tip switch
+    {
+        PersonelBordroTipi.Normal => "Normal",
+        PersonelBordroTipi.Arge => "AR-GE",
+        _ => "Yok"
+    };
+
+    #endregion
+}
+
+internal static class StringExtensions
+{
+    public static string? NullIfEmpty(this string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value;
 }
