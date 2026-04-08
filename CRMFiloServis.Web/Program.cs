@@ -193,6 +193,7 @@ builder.Services.AddScoped<IEFaturaXmlService, EFaturaXmlService>(); // E-Fatura
 builder.Services.AddScoped<ILucaPortalService, LucaPortalService>(); // Luca Portal E-Fatura/E-Arşiv Entegrasyonu
 builder.Services.AddScoped<ICariHatirlatmaService, CariHatirlatmaService>(); // Cari Otomatik Hatırlatma Servisi
 builder.Services.AddHostedService<CariHatirlatmaBackgroundService>(); // Cari Hatırlatma Arka Plan Servisi
+builder.Services.AddScoped<IFaturaSablonService, FaturaSablonService>(); // Fatura Şablon Yönetimi Servisi
 builder.Services.AddHostedService<AutoBackupService>();
 builder.Services.AddHttpContextAccessor();
 

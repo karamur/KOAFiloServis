@@ -353,6 +353,88 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 **Durum:** ✅ Tamamlandı
 
+### Kayıt 053 - Fatura Şablonları
+**Talep:** Özelleştirilebilir fatura şablonları, PDF oluşturma, yazdırma, e-posta ile gönderme. Firma logosu, renk temaları, sayfa düzeni ayarları.
+
+**Yapılanlar:**
+- `FaturaSablon.cs` entity oluşturuldu (~180 satır):
+  - `FaturaSablon`: Şablon ayarları (ad, varsayılan, firma bağlantısı)
+  - **Sayfa Ayarları**: Boyut (A4/A5/Letter), yönelim (Dikey/Yatay), kenar boşlukları
+  - **Logo Ayarları**: Logo görüntüsü (Base64), konum (Sol/Orta/Sağ), boyutlar
+  - **Başlık Ayarları**: Fatura başlığı metni, konum, yazı boyutu
+  - **Renk Ayarları**: Primary renk, tablo başlık/satır/zebra renkleri, toplam arka plan
+  - **Tablo Ayarları**: Sütun görünürlükleri (sıra no, KDV, iskonto), zebra deseni
+  - **Toplam Ayarları**: Konum (Sol/Orta/Sağ), genişlik, ara toplam/KDV/ödenen/kalan gösterimi
+  - **Ek Alanlar**: Banka bilgileri, notlar, kaşe/imza alanları, QR kod
+  - `SayfaBoyutu` enum: A4, A5, Letter
+  - `SayfaYonelimi` enum: Dikey, Yatay
+  - `LogoKonumu` enum: Sol, Orta, Sag
+  - `BaslikKonumu` enum: Sol, Orta, Sag
+  - `ToplamKonumu` enum: Sol, Orta, Sag
+  - `QrKodIcerik` enum: Yok, FaturaBilgisi, OdemeLinki, WebSitesi
+  - `FaturaYazdirRequest`: Yazdırma isteği (fatura ID, şablon ID, kopya sayısı)
+  - `FaturaPdfResult`: PDF sonucu (bytes, dosya adı, başarı, hata)
+- `IFaturaSablonService.cs` interface oluşturuldu (12 metot):
+  - **Şablon CRUD**: `TumSablonlariGetirAsync`, `SablonGetirAsync(id)`, `VarsayilanSablonGetirAsync`, `SablonKaydetAsync`, `SablonSilAsync`
+  - **PDF Oluşturma**: `FaturaPdfOlusturAsync(faturaId, sablonId?)`, `TopluFaturaPdfAsync(faturaIdler)`, `OnizlemePdfOlusturAsync(sablon)` - örnek fatura ile önizleme
+  - **Yazdırma/E-posta**: `FaturaYazdirAsync(request)`, `FaturaEmailGonderAsync(faturaId, email, sablonId?)`
+  - **Yardımcı**: `VarsayilanSablonOlusturAsync`, `SablonKopyalaAsync(id, yeniAd)`
+- `FaturaSablonService.cs` implementasyon oluşturuldu (~1050 satır):
+  - **QuestPDF Entegrasyonu**: Fluent API ile PDF oluşturma
+  - **Şablon Yönetimi**: CRUD işlemleri, varsayılan şablon kontrolü
+  - **PDF Oluşturma**:
+    - `ComposeHeader`: Firma logosu, fatura başlığı, fatura/vade tarihi, fatura no, cari bilgileri
+    - `ComposeContent`: Fatura kalemleri tablosu, toplam bölümü, banka bilgileri, notlar, kaşe/imza alanları
+    - `ComposeFooter`: Sayfa numarası
+  - **Dinamik Düzen**:
+    - Logo konumu ayarına göre hizalama
+    - Sayfa boyutu ve yönelim desteği
+    - Özelleştirilebilir renk temaları
+    - Zebra desen, sütun görünürlükleri
+  - **E-posta Gönderimi**: PDF eki ile SMTP üzerinden gönderim (System.Net.Mail)
+  - **Önizleme**: Örnek fatura verisi ile şablon önizlemesi
+  - **Renk Dönüşümü**: Hex → QuestPDF Color (`ParseColor` metodu)
+- `FaturaSablonlari.razor` sayfa oluşturuldu (~550 satır):
+  - **Route**: `/ayarlar/fatura-sablonlari`
+  - **Şablon Listesi**: Mevcut şablonlar, varsayılan işareti, düzenle/sil butonları
+  - **Sekmeli Düzenleme**:
+    - **Genel**: Şablon adı, varsayılan seçimi, sayfa boyutu/yönelimi, kenar boşlukları
+    - **Logo & Başlık**: Logo yükleme (Base64), konum/boyut, başlık metni/konum
+    - **Renkler**: Primary renk, tablo başlık/satır/zebra renkleri, toplam arka plan
+    - **Tablo**: Sütun görünürlükleri, zebra deseni, cari bilgi kutusu
+    - **Diğer**: Toplam konumu/genişliği, banka bilgileri, kaşe/imza alanları
+  - **PDF Önizleme**: Modal içinde örnek fatura görüntüleme
+  - **Logo/Kaşe Yükleme**: Dosya seçim ve Base64 dönüşümü
+  - **Renk Seçiciler**: HTML5 color input ile renk seçimi
+- `ApplicationDbContext.cs` güncellendi - `FaturaSablonlari` DbSet eklendi
+- `Program.cs` güncellendi - `IFaturaSablonService` DI kaydı eklendi
+- `NavMenu.razor` güncellendi - Ayarlar menüsüne "Fatura Şablonları" linki eklendi
+
+**Özellikler:**
+- ✅ Özelleştirilebilir fatura şablonları (çoklu şablon desteği)
+- ✅ Varsayılan şablon belirleme
+- ✅ QuestPDF ile profesyonel PDF oluşturma
+- ✅ Firma logosu desteği (Base64)
+- ✅ Sayfa boyutu (A4/A5/Letter) ve yönelim (Dikey/Yatay)
+- ✅ Renk teması özelleştirme
+- ✅ Tablo düzeni ayarları (sütunlar, zebra desen)
+- ✅ Toplam bölümü konumlandırma
+- ✅ Banka bilgileri, notlar, kaşe/imza alanları
+- ✅ PDF önizleme (örnek fatura ile)
+- ✅ E-posta ile fatura gönderimi (PDF eki)
+- ✅ Şablon kopyalama
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/FaturaSablon.cs` (yeni)
+- `CRMFiloServis.Web/Services/Interfaces/IFaturaSablonService.cs` (yeni)
+- `CRMFiloServis.Web/Services/FaturaSablonService.cs` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/FaturaSablonlari.razor` (yeni)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (güncellendi)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
 ### Kayıt 048 - Kolay Muhasebe Girişi
 **Talep:** Muhasebe bilgisi olmayan kullanıcılar için tek sayfadan gelir-gider fatura, masraf, fiş, tahsilat, ödeme, mahsup, avans girişleri yapılabilecek sayfa. Girilen bilgilere göre altta muhasebe kaydı (borç-alacak) otomatik gösterilecek, kullanıcı manuel düzeltme yapabilecek, "Muhasebeleştir" butonu ile kayıt oluşturulacak.
 

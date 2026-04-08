@@ -163,7 +163,7 @@
 | **Fatura - E-Fatura XML (GİB UBL-TR)** | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | **Fatura - Luca Portal Entegrasyonu** | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | **Cari - Otomatik hatırlatmalar** | 🟡 Orta | 2 gün | ✅ Tamamlandı |
-| Fatura - Fatura şablonları | 🟡 Orta | 2 gün | ❌ |
+| **Fatura - Fatura şablonları** | 🟡 Orta | 2 gün | ✅ Tamamlandı |
 | Fatura - E-fatura hazırlık | 🟡 Orta | 2 gün | ❌ |
 
 ---

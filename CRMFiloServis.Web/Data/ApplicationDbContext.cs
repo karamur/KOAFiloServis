@@ -138,6 +138,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<OzlukEvrakTanim> OzlukEvrakTanimlari { get; set; }
     public DbSet<PersonelOzlukEvrak> PersonelOzlukEvraklar { get; set; }
 
+    // Fatura Şablon Modülü
+    public DbSet<FaturaSablon> FaturaSablonlari { get; set; }
+
     // Personel Finans Modülü (Avans ve Borç Takip)
     public DbSet<PersonelAvans> PersonelAvanslar { get; set; }
     public DbSet<PersonelBorc> PersonelBorclar { get; set; }
