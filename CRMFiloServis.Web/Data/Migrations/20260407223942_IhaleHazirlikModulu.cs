@@ -12,12 +12,6 @@ namespace CRMFiloServis.Web.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "CariId1",
-                table: "Hatirlaticilar",
-                type: "integer",
-                nullable: true);
-
             migrationBuilder.CreateTable(
                 name: "CariIletisimNotlar",
                 columns: table => new
@@ -182,11 +176,6 @@ namespace CRMFiloServis.Web.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Hatirlaticilar_CariId1",
-                table: "Hatirlaticilar",
-                column: "CariId1");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_CariIletisimNotlar_CariId",
                 table: "CariIletisimNotlar",
                 column: "CariId");
@@ -225,22 +214,11 @@ namespace CRMFiloServis.Web.Data.Migrations
                 name: "IX_IhaleProjeleri_FirmaId",
                 table: "IhaleProjeleri",
                 column: "FirmaId");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Hatirlaticilar_Cariler_CariId1",
-                table: "Hatirlaticilar",
-                column: "CariId1",
-                principalTable: "Cariler",
-                principalColumn: "Id");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Hatirlaticilar_Cariler_CariId1",
-                table: "Hatirlaticilar");
-
             migrationBuilder.DropTable(
                 name: "CariIletisimNotlar");
 
@@ -249,14 +227,6 @@ namespace CRMFiloServis.Web.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "IhaleProjeleri");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Hatirlaticilar_CariId1",
-                table: "Hatirlaticilar");
-
-            migrationBuilder.DropColumn(
-                name: "CariId1",
-                table: "Hatirlaticilar");
         }
     }
 }

@@ -1246,7 +1246,7 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.KullaniciId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Cari)
-                .WithMany()
+                .WithMany(c => c.Hatirlaticilar)
                 .HasForeignKey(e => e.CariId)
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasQueryFilter(e => !e.IsDeleted);
