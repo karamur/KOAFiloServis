@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Models;
 using ClosedXML.Excel;
@@ -586,9 +586,10 @@ public class CariHareketTakipService : ICariHareketTakipService
 
     private async Task HesaplaVadeAnaliziAsync(CariBorcAlacakOzet result, DateTime bugun)
     {
+        // NOT: KalanTutar hesaplanmış property, LINQ'da (GenelToplam - OdenenTutar) kullanılmalı
         var acikFaturalar = await _context.Faturalar
             .AsNoTracking()
-            .Where(f => !f.IsDeleted && f.KalanTutar > 0 && f.FaturaYonu == FaturaYonu.Giden)
+            .Where(f => !f.IsDeleted && (f.GenelToplam - f.OdenenTutar) > 0 && f.FaturaYonu == FaturaYonu.Giden)
             .ToListAsync();
 
         foreach (var fatura in acikFaturalar)

@@ -76,6 +76,12 @@ public static class DbInitializer
             }
         }
 
+        // PostgreSQL için eksik kolonları ekle
+        if (dbProvider == "PostgreSQL")
+        {
+            await EnsurePostgreSqlMissingColumnsAsync(context, configuration);
+        }
+
         // PiyasaKaynaklar tablosunu oluştur
         await EnsurePiyasaKaynaklarTableAsync(context, dbProvider, configuration);
 
@@ -84,6 +90,9 @@ public static class DbInitializer
 
         // Roller tablosuna Renk kolonu ekle (yoksa)
         await EnsureRollerRenkColumnAsync(context, dbProvider, configuration);
+
+        // PuantajKayitlar tablosuna yeni kolonları ekle
+        await EnsurePuantajKayitlarColumnsAsync(context, dbProvider, configuration);
 
         // Budget masraf kalemleri her zaman kontrol et
         await SeedBudgetMasrafKalemleriAsync(context);
@@ -323,6 +332,53 @@ public static class DbInitializer
         }
     }
 
+    private static async Task EnsurePuantajKayitlarColumnsAsync(ApplicationDbContext context, string dbProvider, IConfiguration configuration)
+    {
+        try
+        {
+            if (dbProvider != "PostgreSQL") return;
+
+            var connectionString = GetDefaultConnectionString(context, configuration);
+            using var conn = new NpgsqlConnection(connectionString);
+            await conn.OpenAsync();
+
+            // Eklenecek kolonlar: Bolge, SiraNo, AitFirmaAdi, Gun01-Gun31
+            var kolonlar = new List<(string kolon, string tip, string varsayilan)>
+            {
+                ("Bolge", "VARCHAR(100)", "NULL"),
+                ("SiraNo", "INTEGER", "0"),
+                ("AitFirmaAdi", "VARCHAR(200)", "NULL"),
+            };
+
+            // Gun01 - Gun31
+            for (int g = 1; g <= 31; g++)
+                kolonlar.Add(($"Gun{g:D2}", "INTEGER", "0"));
+
+            foreach (var (kolon, tip, varsayilan) in kolonlar)
+            {
+                using var checkCmd = new NpgsqlCommand(
+                    $"SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'PuantajKayitlar' AND column_name = '{kolon}')", conn);
+                var exists = (bool)(await checkCmd.ExecuteScalarAsync() ?? false);
+
+                if (!exists)
+                {
+                    var defaultClause = varsayilan == "NULL" ? "" : $" DEFAULT {varsayilan}";
+                    var nullClause = varsayilan == "NULL" ? "" : " NOT NULL";
+                    using var addCmd = new NpgsqlCommand(
+                        $"ALTER TABLE \"PuantajKayitlar\" ADD COLUMN \"{kolon}\" {tip}{nullClause}{defaultClause}", conn);
+                    await addCmd.ExecuteNonQueryAsync();
+                    Console.WriteLine($"PuantajKayitlar tablosuna {kolon} kolonu eklendi.");
+                }
+            }
+
+            Console.WriteLine("PuantajKayitlar tablo kolon kontrolü tamamlandı.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PuantajKayitlar kolon ekleme hatası: {ex.Message}");
+        }
+    }
+
     private static async Task EnsureSqliteMigrationHistoryAsync(ApplicationDbContext context, List<string> pendingMigrations)
     {
         var connection = context.Database.GetDbConnection();
@@ -452,5 +508,92 @@ public static class DbInitializer
         {
             Console.WriteLine($"Seed hatasi: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// PostgreSQL için eksik kolonları otomatik ekler
+    /// </summary>
+    private static async Task EnsurePostgreSqlMissingColumnsAsync(ApplicationDbContext context, IConfiguration configuration)
+    {
+        var connectionString = GetDefaultConnectionString(context, configuration);
+
+        // Eklenecek kolonlar listesi: (Tablo, Kolon, Tip, Default)
+        var missingColumns = new List<(string Table, string Column, string Type, string? Default)>
+        {
+            // Fatura tablosu - EslesenFatura ve Mahsup alanları
+            ("Faturalar", "EslesenFaturaId", "INTEGER", null),
+            ("Faturalar", "MahsupKapatildi", "BOOLEAN", "FALSE"),
+            ("Faturalar", "MahsupTarihi", "TIMESTAMP WITHOUT TIME ZONE", null),
+
+            // Fatura tablosu - FirmalarArasi alanları
+            ("Faturalar", "FirmalarArasiFatura", "BOOLEAN", "FALSE"),
+            ("Faturalar", "KarsiFirmaId", "INTEGER", null),
+
+            // BudgetOdemeler tablosu - Ödeme bilgileri
+            ("BudgetOdemeler", "GercekOdemeTarihi", "TIMESTAMP WITHOUT TIME ZONE", null),
+            ("BudgetOdemeler", "OdemeYapildigiHesapId", "INTEGER", null),
+            ("BudgetOdemeler", "OdenenTutar", "NUMERIC(18,2)", null),
+            ("BudgetOdemeler", "OdemeNotu", "VARCHAR(500)", null),
+            ("BudgetOdemeler", "BankaKasaHareketId", "INTEGER", null),
+
+            // BudgetOdemeler tablosu - Kesinti bilgileri
+            ("BudgetOdemeler", "MasrafKesintisi", "NUMERIC(18,2)", "0"),
+            ("BudgetOdemeler", "CezaKesintisi", "NUMERIC(18,2)", "0"),
+            ("BudgetOdemeler", "DigerKesinti", "NUMERIC(18,2)", "0"),
+            ("BudgetOdemeler", "KesintiAciklamasi", "VARCHAR(500)", null),
+
+            // BudgetOdemeler tablosu - Fatura eşleştirme
+            ("BudgetOdemeler", "FaturaId", "INTEGER", null),
+            ("BudgetOdemeler", "FaturaIleKapatildi", "BOOLEAN", "FALSE"),
+
+            // Soforlar tablosu - Sıralama
+            ("Soforlar", "SiralamaNo", "INTEGER", "0"),
+
+            // BankaKasaHareketleri tablosu - Mahsup alanları
+            ("BankaKasaHareketleri", "MahsupHareketId", "INTEGER", null),
+            ("BankaKasaHareketleri", "MahsupGrupId", "UUID", null),
+
+            // BankaKasaHareketleri tablosu - Muhasebe alanları
+            ("BankaKasaHareketleri", "MuhasebeHesapKodu", "TEXT", null),
+            ("BankaKasaHareketleri", "MuhasebeAltHesapKodu", "TEXT", null),
+            ("BankaKasaHareketleri", "KostMerkeziKodu", "TEXT", null),
+            ("BankaKasaHareketleri", "ProjeKodu", "TEXT", null),
+            ("BankaKasaHareketleri", "MuhasebeAciklama", "TEXT", null),
+        };
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+
+        foreach (var (table, column, type, defaultValue) in missingColumns)
+        {
+            try
+            {
+                // Kolon var mı kontrol et
+                var checkSql = $@"
+                    SELECT COUNT(*) FROM information_schema.columns 
+                    WHERE table_name = '{table}' AND column_name = '{column}'";
+
+                await using var checkCmd = new NpgsqlCommand(checkSql, connection);
+                var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
+
+                if (!exists)
+                {
+                    // Kolonu ekle
+                    var alterSql = defaultValue != null
+                        ? $@"ALTER TABLE ""{table}"" ADD COLUMN ""{column}"" {type} NOT NULL DEFAULT {defaultValue}"
+                        : $@"ALTER TABLE ""{table}"" ADD COLUMN ""{column}"" {type} NULL";
+
+                    await using var alterCmd = new NpgsqlCommand(alterSql, connection);
+                    await alterCmd.ExecuteNonQueryAsync();
+                    Console.WriteLine($"{table}.{column} kolonu eklendi.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"{table}.{column} eklenirken hata: {ex.Message}");
+            }
+        }
+
+        await connection.CloseAsync();
     }
 }

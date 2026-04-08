@@ -1046,6 +1046,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.GiderFaturaNo).HasMaxLength(50);
             entity.Property(e => e.OnaylayanKullanici).HasMaxLength(100);
             entity.Property(e => e.Notlar).HasMaxLength(1000);
+            entity.Property(e => e.Bolge).HasMaxLength(100);
+            entity.Property(e => e.AitFirmaAdi).HasMaxLength(200);
 
             // Decimal precision
             entity.Property(e => e.Gun).HasPrecision(10, 2);

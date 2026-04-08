@@ -31,20 +31,22 @@ public class CariRiskService : ICariRiskService
             .ToListAsync();
         
         // Vadesi geçmiş faturalar (tahsilat bekleyen) - Giden fatura = kesilen fatura = gelir
+        // NOT: KalanTutar hesaplanmış property, LINQ'da (GenelToplam - OdenenTutar) kullanılmalı
         var vadesiGecmisFaturalar = await context.Faturalar
             .Where(f => !f.IsDeleted && 
                        f.FaturaYonu == FaturaYonu.Giden && 
                        f.VadeTarihi.HasValue && f.VadeTarihi < bugun &&
-                       f.KalanTutar > 0)
+                       (f.GenelToplam - f.OdenenTutar) > 0)
             .ToListAsync();
         
         var vadesiGecmisCariIds = vadesiGecmisFaturalar.Select(f => f.CariId).Distinct().ToList();
         
         // Ödenmiş faturalar için ortalama tahsilat süresi - OdemeTarihi yok, VadeTarihi ile fatura tarihi farkını kullan
+        // NOT: KalanTutar hesaplanmış property, LINQ'da (GenelToplam - OdenenTutar) kullanılmalı
         var odenmisGidenFaturalari = await context.Faturalar
             .Where(f => !f.IsDeleted && 
                        f.FaturaYonu == FaturaYonu.Giden && 
-                       f.KalanTutar == 0 &&
+                       (f.GenelToplam - f.OdenenTutar) == 0 &&
                        f.VadeTarihi.HasValue)
             .ToListAsync();
 
@@ -229,19 +231,20 @@ public class CariRiskService : ICariRiskService
         var bugun = DateTime.Today;
         var minVadeTarihi = minGecikmeGunu.HasValue ? bugun.AddDays(-minGecikmeGunu.Value) : bugun;
         
+        // NOT: KalanTutar hesaplanmış property, LINQ'da (GenelToplam - OdenenTutar) kullanılmalı
         var query = context.Faturalar
             .Include(f => f.Cari)
             .Where(f => !f.IsDeleted && 
                        f.FaturaYonu == FaturaYonu.Giden && 
                        f.VadeTarihi.HasValue && f.VadeTarihi < bugun &&
-                       f.KalanTutar > 0);
-        
+                       (f.GenelToplam - f.OdenenTutar) > 0);
+
         if (cariId.HasValue)
             query = query.Where(f => f.CariId == cariId.Value);
-        
+
         if (minGecikmeGunu.HasValue)
             query = query.Where(f => f.VadeTarihi <= minVadeTarihi);
-        
+
         var faturalar = await query.OrderBy(f => f.VadeTarihi).ToListAsync();
         
         return faturalar.Select(f => new VadesiGecmisFatura
@@ -277,11 +280,12 @@ public class CariRiskService : ICariRiskService
             var donemSonu = new DateTime(donemTarih.Year, donemTarih.Month, DateTime.DaysInMonth(donemTarih.Year, donemTarih.Month));
             
             // O dönemdeki vadesi geçmiş faturalar (OdemeTarihi yok - KalanTutar > 0 ile kontrol)
+            // NOT: KalanTutar hesaplanmış property, LINQ'da (GenelToplam - OdenenTutar) kullanılmalı
             var vadesiGecmisler = await context.Faturalar
                 .Where(f => !f.IsDeleted && 
                            f.FaturaYonu == FaturaYonu.Giden && 
                            f.VadeTarihi.HasValue && f.VadeTarihi < donemSonu &&
-                           f.KalanTutar > 0)
+                           (f.GenelToplam - f.OdenenTutar) > 0)
                 .ToListAsync();
             
             trendItems.Add(new RiskTrendItem

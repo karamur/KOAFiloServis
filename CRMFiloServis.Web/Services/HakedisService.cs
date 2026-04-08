@@ -77,6 +77,49 @@ public class HakedisExcelSatiri
 }
 
 /// <summary>
+/// Puantaj Excel şablon satırı (günlük puantajlı format)
+/// Bölge | SıraNo | Semt(Güzergah) | Sefer Fiyatı | S/A | Plaka | Şoför | Şoför Tel | Firma Adı | Gün1...Gün31 | Sefer Günü Top | Toplam | KDV20 | KDV10 | Kesinti | Ödenecek
+/// </summary>
+public class PuantajSablonSatiri
+{
+    public int SatirNo { get; set; }
+    public string? Bolge { get; set; }
+    public int SiraNo { get; set; }
+    public string? Semt { get; set; } // Güzergah adı
+    public decimal SeferFiyati { get; set; }
+    public string? ServisTipi { get; set; } // S, A, S/A
+    public string? Plaka { get; set; }
+    public string? SoforAdi { get; set; }
+    public string? SoforTelefon { get; set; }
+    public string? FirmaAdi { get; set; } // Ait yada kiralayan firma adı
+
+    // Günlük puantaj (1-31)
+    public int[] Gunler { get; set; } = new int[31];
+
+    // Hesaplanan toplamlar
+    public int SeferGunuToplami { get; set; }
+    public decimal Toplam { get; set; } // SeferFiyati * SeferGunuToplami
+    public decimal Kdv20 { get; set; } // Toplam * 1.20
+    public decimal Kdv10 { get; set; } // Toplam * 1.10
+    public decimal Kesinti { get; set; }
+    public decimal Odenecek { get; set; } // Kdv10 - Kesinti
+
+    // Eşleştirme
+    public int? GuzergahId { get; set; }
+    public int? AracId { get; set; }
+    public int? SoforId { get; set; }
+    public int? KurumCariId { get; set; }
+    public string? SahiplikTipi { get; set; } // Öz mal / Kiralama
+
+    public bool GuzergahEslesti { get; set; }
+    public bool AracEslesti { get; set; }
+    public bool SoforEslesti { get; set; }
+
+    public bool Gecerli => !string.IsNullOrEmpty(Semt) || !string.IsNullOrEmpty(Plaka);
+    public string? HataMesaji { get; set; }
+}
+
+/// <summary>
 /// Excel kolon eşleştirme
 /// </summary>
 public class HakedisKolonEslestirme
@@ -122,13 +165,13 @@ public interface IHakedisService
     Task<PuantajKayit> UpdateHakedisAsync(PuantajKayit hakedis);
     Task DeleteHakedisAsync(int id);
     Task<HakedisIstatistikleri> GetIstatistiklerAsync(int yil, int ay);
-    
+
     // Toplu işlemler
     Task TopluOnaylaAsync(List<int> hakedisIdleri, string onaylayanKullanici);
     Task TopluFaturaIsaretle(List<int> hakedisIdleri, bool gelir, string faturaNo);
     Task TopluOdemeIsaretle(List<int> hakedisIdleri, bool gelir, decimal tutar);
-    
-    // Excel import
+
+    // Excel import (hakedis formatı)
     Task<List<HakedisExcelSatiri>> ExcelOnizlemeAsync(Stream excelStream, HakedisKolonEslestirme eslestirme);
     Task<PuantajExcelImport> ExcelImportAsync(
         List<HakedisExcelSatiri> satirlar, 
@@ -138,7 +181,17 @@ public interface IHakedisService
         string kullanici,
         bool otomatikOlustur = true);
     Task<List<PuantajExcelImport>> GetImportGecmisiAsync(int? yil = null, int? ay = null);
-    
+
+    // Puantaj şablon Excel import (günlük puantajlı format)
+    Task<List<PuantajSablonSatiri>> PuantajSablonOnizlemeAsync(Stream excelStream, int yil, int ay, int baslangicSatiri = 2);
+    Task<PuantajExcelImport> PuantajSablonImportAsync(
+        List<PuantajSablonSatiri> satirlar,
+        int yil, int ay,
+        string dosyaAdi, string kullanici,
+        int? kurumCariId = null,
+        bool otomatikOlustur = true);
+    Task<byte[]> PuantajSablonIndirAsync(int yil, int ay);
+
     // Eşleştirme yardımcıları
     Task<List<Cari>> AraKurumAsync(string arama);
     Task<List<Guzergah>> AraGuzergahAsync(string arama, int? kurumId = null);
@@ -752,6 +805,408 @@ public class HakedisService : IHakedisService
             .ToListAsync();
     }
 
+    #region Puantaj Şablon Import
+
+    public async Task<List<PuantajSablonSatiri>> PuantajSablonOnizlemeAsync(Stream excelStream, int yil, int ay, int baslangicSatiri = 2)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var satirlar = new List<PuantajSablonSatiri>();
+
+        using var package = new ExcelPackage(excelStream);
+        var worksheet = package.Workbook.Worksheets.FirstOrDefault();
+        if (worksheet == null) return satirlar;
+
+        var rowCount = worksheet.Dimension?.Rows ?? 0;
+        var gunSayisi = DateTime.DaysInMonth(yil, ay);
+
+        // Cache
+        var guzergahlar = await context.Guzergahlar.Where(g => g.Aktif).ToListAsync();
+        var araclar = await context.Araclar.Where(a => a.Aktif).Include(a => a.PlakaGecmisi).ToListAsync();
+        var soforler = await context.Soforler.Where(s => s.Aktif).ToListAsync();
+
+        // Excel kolon düzeni: Bölge(1) | SıraNo(2) | Semt/Güzergah(3) | Sefer Fiyatı(4) | S/A(5) | Plaka(6) | Şoför(7) | Şoför Tel(8) | Firma Adı(9) | Gün1(10)...Gün31(40) | SeferGünüTop(41) | Toplam(42) | KDV20(43) | KDV10(44) | Kesinti(45) | Ödenecek(46)
+        int gunBaslangicKol = 10;
+        int seferTopKol = gunBaslangicKol + gunSayisi; // Ay günü kadar kolon sonra
+        int toplamKol = seferTopKol + 1;
+        int kdv20Kol = toplamKol + 1;
+        int kdv10Kol = kdv20Kol + 1;
+        int kesintiKol = kdv10Kol + 1;
+        int odenecekKol = kesintiKol + 1;
+
+        for (int row = baslangicSatiri; row <= rowCount; row++)
+        {
+            var semt = GetCellValue(worksheet, row, 3);
+            var plaka = GetCellValue(worksheet, row, 6);
+
+            // Boş satır atla
+            if (string.IsNullOrWhiteSpace(semt) && string.IsNullOrWhiteSpace(plaka))
+                continue;
+
+            var satir = new PuantajSablonSatiri
+            {
+                SatirNo = row,
+                Bolge = GetCellValue(worksheet, row, 1),
+                SiraNo = (int)GetCellDecimal(worksheet, row, 2),
+                Semt = semt,
+                SeferFiyati = GetCellDecimal(worksheet, row, 4),
+                ServisTipi = GetCellValue(worksheet, row, 5),
+                Plaka = plaka,
+                SoforAdi = GetCellValue(worksheet, row, 7),
+                SoforTelefon = GetCellValue(worksheet, row, 8),
+                FirmaAdi = GetCellValue(worksheet, row, 9)
+            };
+
+            // Günlük puantaj oku
+            for (int g = 1; g <= gunSayisi; g++)
+            {
+                var val = GetCellDecimal(worksheet, row, gunBaslangicKol + g - 1);
+                satir.Gunler[g - 1] = (int)val;
+            }
+
+            // Toplam kolonları oku
+            satir.SeferGunuToplami = (int)GetCellDecimal(worksheet, row, seferTopKol);
+            satir.Toplam = GetCellDecimal(worksheet, row, toplamKol);
+            satir.Kdv20 = GetCellDecimal(worksheet, row, kdv20Kol);
+            satir.Kdv10 = GetCellDecimal(worksheet, row, kdv10Kol);
+            satir.Kesinti = GetCellDecimal(worksheet, row, kesintiKol);
+            satir.Odenecek = GetCellDecimal(worksheet, row, odenecekKol);
+
+            // Sefer günü toplamı Excel'de yoksa hesapla
+            if (satir.SeferGunuToplami == 0)
+                satir.SeferGunuToplami = satir.Gunler.Take(gunSayisi).Sum();
+
+            // Toplam yoksa hesapla
+            if (satir.Toplam == 0 && satir.SeferFiyati > 0)
+                satir.Toplam = satir.SeferFiyati * satir.SeferGunuToplami;
+
+            // Güzergah eşleştirme
+            if (!string.IsNullOrEmpty(satir.Semt))
+            {
+                var guzergah = guzergahlar.FirstOrDefault(g =>
+                    g.GuzergahAdi.Equals(satir.Semt, StringComparison.OrdinalIgnoreCase) ||
+                    g.GuzergahKodu.Equals(satir.Semt, StringComparison.OrdinalIgnoreCase) ||
+                    g.GuzergahAdi.Contains(satir.Semt, StringComparison.OrdinalIgnoreCase) ||
+                    satir.Semt.Contains(g.GuzergahAdi, StringComparison.OrdinalIgnoreCase));
+                if (guzergah != null)
+                {
+                    satir.GuzergahId = guzergah.Id;
+                    satir.GuzergahEslesti = true;
+                    if (guzergah.CariId > 0)
+                        satir.KurumCariId = guzergah.CariId;
+                }
+            }
+
+            // Araç eşleştirme (plaka)
+            if (!string.IsNullOrEmpty(satir.Plaka))
+            {
+                var plakaNormalize = NormalizePlaka(satir.Plaka);
+                var arac = araclar.FirstOrDefault(a =>
+                    NormalizePlaka(a.AktifPlaka) == plakaNormalize ||
+                    a.PlakaGecmisi.Any(p => NormalizePlaka(p.Plaka) == plakaNormalize && !p.IsDeleted));
+                if (arac != null)
+                {
+                    satir.AracId = arac.Id;
+                    satir.AracEslesti = true;
+                    satir.SahiplikTipi = arac.SahiplikTipi switch
+                    {
+                        AracSahiplikTipi.Ozmal => "Öz Mal",
+                        AracSahiplikTipi.Kiralik => "Kiralama",
+                        AracSahiplikTipi.Komisyon => "Komisyon",
+                        _ => "Diğer"
+                    };
+                }
+            }
+
+            // Şoför eşleştirme
+            if (!string.IsNullOrEmpty(satir.SoforAdi))
+            {
+                var sofor = soforler.FirstOrDefault(s =>
+                    s.TamAd.Equals(satir.SoforAdi, StringComparison.OrdinalIgnoreCase) ||
+                    s.TamAd.Contains(satir.SoforAdi, StringComparison.OrdinalIgnoreCase) ||
+                    satir.SoforAdi.Contains(s.TamAd, StringComparison.OrdinalIgnoreCase));
+                if (sofor != null)
+                {
+                    satir.SoforId = sofor.Id;
+                    satir.SoforEslesti = true;
+                }
+            }
+
+            satirlar.Add(satir);
+        }
+
+        return satirlar;
+    }
+
+    public async Task<PuantajExcelImport> PuantajSablonImportAsync(
+        List<PuantajSablonSatiri> satirlar,
+        int yil, int ay,
+        string dosyaAdi, string kullanici,
+        int? kurumCariId = null,
+        bool otomatikOlustur = true)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+
+        var import = new PuantajExcelImport
+        {
+            DosyaAdi = dosyaAdi,
+            ImportTarihi = DateTime.UtcNow,
+            ImportEdenKullanici = kullanici,
+            Yil = yil,
+            Ay = ay,
+            ToplamSatir = satirlar.Count,
+            Durum = ImportDurum.Isleniyor
+        };
+        context.PuantajExcelImportlar.Add(import);
+        await context.SaveChangesAsync();
+
+        int basarili = 0, hatali = 0, olusturulanGuzergah = 0, olusturulanSofor = 0;
+        var gunSayisi = DateTime.DaysInMonth(yil, ay);
+
+        foreach (var satir in satirlar)
+        {
+            try
+            {
+                if (otomatikOlustur)
+                {
+                    // Güzergah oluştur
+                    if (!satir.GuzergahEslesti && !string.IsNullOrEmpty(satir.Semt))
+                    {
+                        var yeniGuzergah = new Guzergah
+                        {
+                            GuzergahKodu = await GenerateGuzergahKodu(context),
+                            GuzergahAdi = satir.Semt,
+                            CariId = kurumCariId ?? 0,
+                            BirimFiyat = satir.SeferFiyati,
+                            Aktif = true,
+                            SeferTipi = ParseServisTipiToSeferTipi(satir.ServisTipi)
+                        };
+                        context.Guzergahlar.Add(yeniGuzergah);
+                        await context.SaveChangesAsync();
+                        satir.GuzergahId = yeniGuzergah.Id;
+                        satir.GuzergahEslesti = true;
+                        olusturulanGuzergah++;
+                    }
+
+                    // Şoför oluştur (SGK'sız)
+                    if (!satir.SoforEslesti && !string.IsNullOrEmpty(satir.SoforAdi))
+                    {
+                        var adSoyad = ParseAdSoyad(satir.SoforAdi);
+                        var yeniSofor = new Sofor
+                        {
+                            SoforKodu = await GenerateSoforKodu(context),
+                            Ad = adSoyad.Item1,
+                            Soyad = adSoyad.Item2,
+                            Telefon = satir.SoforTelefon,
+                            Gorev = PersonelGorev.Sofor,
+                            SGKBordroDahilMi = false,
+                            Aktif = true
+                        };
+                        context.Soforler.Add(yeniSofor);
+                        await context.SaveChangesAsync();
+                        satir.SoforId = yeniSofor.Id;
+                        satir.SoforEslesti = true;
+                        olusturulanSofor++;
+                    }
+                }
+
+                // PuantajKayit oluştur
+                var puantaj = new PuantajKayit
+                {
+                    Yil = yil,
+                    Ay = ay,
+                    Bolge = satir.Bolge,
+                    SiraNo = satir.SiraNo,
+                    KurumCariId = satir.KurumCariId ?? kurumCariId,
+                    GuzergahId = satir.GuzergahId,
+                    GuzergahAdi = satir.Semt,
+                    Yon = ParseServisTipiToPuantajYon(satir.ServisTipi),
+                    AracId = satir.AracId,
+                    Plaka = satir.Plaka,
+                    SoforId = satir.SoforId,
+                    SoforAdi = satir.SoforAdi,
+                    SoforTelefon = satir.SoforTelefon,
+                    AitFirmaAdi = satir.FirmaAdi,
+                    SoforOdemeTipi = satir.SahiplikTipi == "Kiralama" ? SoforOdemeTipi.Kiralik : SoforOdemeTipi.Ozmal,
+
+                    // Sefer fiyatı → BirimGider
+                    BirimGider = satir.SeferFiyati,
+                    Gun = satir.SeferGunuToplami,
+                    ToplamGider = satir.Toplam > 0 ? satir.Toplam : satir.SeferFiyati * satir.SeferGunuToplami,
+                    GiderKdv20Tutari = satir.Kdv20,
+                    GiderKdv10Tutari = satir.Kdv10,
+                    GiderKesinti = satir.Kesinti,
+                    Odenecek = satir.Odenecek,
+
+                    Kaynak = PuantajKaynak.ExcelImport,
+                    ExcelImportId = import.Id,
+                    ExcelSatirNo = satir.SatirNo,
+                    OnayDurum = PuantajOnayDurum.Taslak
+                };
+
+                // Günlük puantaj değerlerini ata
+                for (int g = 1; g <= gunSayisi; g++)
+                    puantaj.SetGunDeger(g, satir.Gunler[g - 1]);
+
+                // Ödenecek yoksa hesapla
+                if (puantaj.Odenecek == 0 && puantaj.ToplamGider > 0)
+                    puantaj.HesaplaPuantajToplam();
+
+                context.PuantajKayitlar.Add(puantaj);
+                basarili++;
+            }
+            catch (Exception ex)
+            {
+                satir.HataMesaji = ex.Message;
+                hatali++;
+            }
+        }
+
+        await context.SaveChangesAsync();
+
+        import.BasariliSatir = basarili;
+        import.HataliSatir = hatali;
+        import.OtoOlusturulanGuzergah = olusturulanGuzergah;
+        import.OtoOlusturulanSofor = olusturulanSofor;
+        import.Durum = hatali > 0 ? ImportDurum.Hata : ImportDurum.Tamamlandi;
+        await context.SaveChangesAsync();
+
+        return import;
+    }
+
+    public async Task<byte[]> PuantajSablonIndirAsync(int yil, int ay)
+    {
+        var gunSayisi = DateTime.DaysInMonth(yil, ay);
+
+        using var package = new ExcelPackage();
+        var ws = package.Workbook.Worksheets.Add($"Puantaj {yil}-{ay:D2}");
+
+        // Başlıklar
+        var headers = new List<string>
+        {
+            "Bölge", "Sıra No", "Semt (Güzergah)", "Sefer Fiyatı",
+            "S/A", "Plaka", "Şoför", "Şoför Tel", "Firma Adı"
+        };
+
+        // Gün başlıkları
+        for (int g = 1; g <= gunSayisi; g++)
+        {
+            var tarih = new DateTime(yil, ay, g);
+            headers.Add($"{g}\n{tarih:ddd}");
+        }
+
+        headers.AddRange(["Sefer Günü Top.", "Toplam", "KDV %20", "KDV %10", "Kesinti", "Ödenecek"]);
+
+        // Başlıkları yaz
+        for (int i = 0; i < headers.Count; i++)
+        {
+            ws.Cells[1, i + 1].Value = headers[i];
+            ws.Cells[1, i + 1].Style.Font.Bold = true;
+            ws.Cells[1, i + 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+            ws.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(68, 114, 196));
+            ws.Cells[1, i + 1].Style.Font.Color.SetColor(System.Drawing.Color.White);
+            ws.Cells[1, i + 1].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
+            ws.Cells[1, i + 1].Style.VerticalAlignment = OfficeOpenXml.Style.ExcelVerticalAlignment.Center;
+            ws.Cells[1, i + 1].Style.WrapText = true;
+        }
+
+        // Hafta sonu günlerini kırmızı yap
+        for (int g = 1; g <= gunSayisi; g++)
+        {
+            var tarih = new DateTime(yil, ay, g);
+            if (tarih.DayOfWeek == DayOfWeek.Saturday || tarih.DayOfWeek == DayOfWeek.Sunday)
+            {
+                ws.Cells[1, 9 + g].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(192, 0, 0));
+            }
+        }
+
+        // Kolon genişlikleri
+        ws.Column(1).Width = 12; // Bölge
+        ws.Column(2).Width = 8;  // SıraNo
+        ws.Column(3).Width = 25; // Semt
+        ws.Column(4).Width = 12; // Sefer Fiyatı
+        ws.Column(5).Width = 6;  // S/A
+        ws.Column(6).Width = 14; // Plaka
+        ws.Column(7).Width = 20; // Şoför
+        ws.Column(8).Width = 14; // Şoför Tel
+        ws.Column(9).Width = 20; // Firma Adı
+        for (int g = 1; g <= gunSayisi; g++)
+            ws.Column(9 + g).Width = 5; // Gün kolonları
+        int sonKolBaslangic = 10 + gunSayisi;
+        ws.Column(sonKolBaslangic).Width = 10;     // Sefer Günü Top
+        ws.Column(sonKolBaslangic + 1).Width = 14; // Toplam
+        ws.Column(sonKolBaslangic + 2).Width = 14; // KDV20
+        ws.Column(sonKolBaslangic + 3).Width = 14; // KDV10
+        ws.Column(sonKolBaslangic + 4).Width = 14; // Kesinti
+        ws.Column(sonKolBaslangic + 5).Width = 14; // Ödenecek
+
+        // Satır yüksekliği
+        ws.Row(1).Height = 35;
+
+        // Mevcut güzergahları örnek veri olarak ekle (opsiyonel)
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcutGuzergahlar = await context.Guzergahlar
+            .Where(g => g.Aktif)
+            .Include(g => g.VarsayilanSofor)
+            .Include(g => g.VarsayilanArac).ThenInclude(a => a!.PlakaGecmisi)
+            .OrderBy(g => g.GuzergahAdi)
+            .Take(50)
+            .ToListAsync();
+
+        int satir = 2;
+        foreach (var guz in mevcutGuzergahlar)
+        {
+            ws.Cells[satir, 2].Value = satir - 1; // SıraNo
+            ws.Cells[satir, 3].Value = guz.GuzergahAdi;
+            ws.Cells[satir, 4].Value = (double)guz.BirimFiyat;
+            ws.Cells[satir, 5].Value = guz.SeferTipi switch
+            {
+                SeferTipi.Sabah => "S",
+                SeferTipi.Aksam => "A",
+                SeferTipi.SabahAksam => "S/A",
+                _ => "S/A"
+            };
+            if (guz.VarsayilanArac != null)
+            {
+                ws.Cells[satir, 6].Value = guz.VarsayilanArac.AktifPlaka;
+            }
+            if (guz.VarsayilanSofor != null)
+            {
+                ws.Cells[satir, 7].Value = guz.VarsayilanSofor.TamAd;
+                ws.Cells[satir, 8].Value = guz.VarsayilanSofor.Telefon;
+            }
+
+            // Formüller: Sefer Günü Toplamı, Toplam, KDV20, KDV10, Kesinti, Ödenecek
+            var gunRange = $"{ws.Cells[satir, 10].Address}:{ws.Cells[satir, 9 + gunSayisi].Address}";
+            ws.Cells[satir, sonKolBaslangic].Formula = $"SUM({gunRange})";
+            ws.Cells[satir, sonKolBaslangic + 1].Formula = $"{ws.Cells[satir, 4].Address}*{ws.Cells[satir, sonKolBaslangic].Address}";
+            ws.Cells[satir, sonKolBaslangic + 2].Formula = $"{ws.Cells[satir, sonKolBaslangic + 1].Address}*1.2";
+            ws.Cells[satir, sonKolBaslangic + 3].Formula = $"{ws.Cells[satir, sonKolBaslangic + 1].Address}*1.1";
+            // Kesinti boş
+            ws.Cells[satir, sonKolBaslangic + 5].Formula = $"{ws.Cells[satir, sonKolBaslangic + 3].Address}-{ws.Cells[satir, sonKolBaslangic + 4].Address}";
+
+            satir++;
+        }
+
+        // Para formatı
+        var paraFormat = "#,##0.00";
+        for (int r = 2; r < satir; r++)
+        {
+            ws.Cells[r, 4].Style.Numberformat.Format = paraFormat;
+            ws.Cells[r, sonKolBaslangic + 1].Style.Numberformat.Format = paraFormat;
+            ws.Cells[r, sonKolBaslangic + 2].Style.Numberformat.Format = paraFormat;
+            ws.Cells[r, sonKolBaslangic + 3].Style.Numberformat.Format = paraFormat;
+            ws.Cells[r, sonKolBaslangic + 4].Style.Numberformat.Format = paraFormat;
+            ws.Cells[r, sonKolBaslangic + 5].Style.Numberformat.Format = paraFormat;
+        }
+
+        // Sayfa koruma (başlıklar)
+        ws.Cells[1, 1, 1, headers.Count].Style.Locked = true;
+
+        return package.GetAsByteArray();
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private string? GetCellValue(ExcelWorksheet ws, int row, int col)
@@ -792,13 +1247,33 @@ public class HakedisService : IHakedisService
     private SeferTipi ParseYonToSeferTipi(string? yon)
     {
         if (string.IsNullOrEmpty(yon)) return SeferTipi.SabahAksam;
-        
+
         var lower = yon.ToLowerInvariant();
         if (lower.Contains("sabah") && lower.Contains("akşam")) return SeferTipi.SabahAksam;
         if (lower.Contains("sabah") && lower.Contains("aksam")) return SeferTipi.SabahAksam;
         if (lower.Contains("sabah")) return SeferTipi.Sabah;
         if (lower.Contains("akşam") || lower.Contains("aksam")) return SeferTipi.Aksam;
         return SeferTipi.Saatlik;
+    }
+
+    private PuantajYon ParseServisTipiToPuantajYon(string? tip)
+    {
+        if (string.IsNullOrEmpty(tip)) return PuantajYon.SabahAksam;
+        var t = tip.Trim().ToUpperInvariant();
+        if (t == "S/A" || t == "SA" || t == "S-A") return PuantajYon.SabahAksam;
+        if (t == "S") return PuantajYon.Sabah;
+        if (t == "A") return PuantajYon.Aksam;
+        return ParseYonToPuantajYon(tip);
+    }
+
+    private SeferTipi ParseServisTipiToSeferTipi(string? tip)
+    {
+        if (string.IsNullOrEmpty(tip)) return SeferTipi.SabahAksam;
+        var t = tip.Trim().ToUpperInvariant();
+        if (t == "S/A" || t == "SA" || t == "S-A") return SeferTipi.SabahAksam;
+        if (t == "S") return SeferTipi.Sabah;
+        if (t == "A") return SeferTipi.Aksam;
+        return ParseYonToSeferTipi(tip);
     }
 
     private (string, string) ParseAdSoyad(string tamAd)

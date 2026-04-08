@@ -634,9 +634,17 @@
     {
         if (odemeYapilacak == null) return;
 
-        if ((odemeYapRequest.OdemeTipi == Services.OdemeTipi.Kasa || odemeYapRequest.OdemeTipi == Services.OdemeTipi.Banka) && !odemeYapRequest.BankaHesapId.HasValue)
+        if (odemeYapRequest.OdemeTipi == Services.OdemeTipi.CariMahsup)
         {
-            ToastService.ShowWarning("Hesap secin!");
+            if (!odemeYapRequest.CariId.HasValue || odemeYapRequest.CariId == 0)
+            {
+                ToastService.ShowWarning("Lütfen cari hesap seçin!");
+                return;
+            }
+        }
+        else if (odemeYapRequest.OdemeTipi != Services.OdemeTipi.Mahsup && !odemeYapRequest.BankaHesapId.HasValue)
+        {
+            ToastService.ShowWarning("Lütfen hesap seçin!");
             return;
         }
 
