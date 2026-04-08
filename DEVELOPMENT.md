@@ -41,6 +41,65 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 049 - Toplu Fatura Oluşturma
+**Talep:** Puantaj kayıtlarından toplu fatura kesimi, cari bazlı dönemsel faturalama.
+
+**Yapılanlar:**
+- `TopluFaturaModels.cs` oluşturuldu (~190 satır):
+  - `TopluFaturaKaynak` enum: Puantaj, Sozlesme, Manuel
+  - `TopluFaturaDurum` enum: Hazir, EksikBilgi, FaturaKesildi
+  - `TopluFaturaFiltre`: Yıl/Ay/Kaynak/FaturaYönü/Cari filtreleri
+  - `TopluFaturaOnizleme`: Cari bazlı fatura önizleme (kalemler, toplamlar, tevkifat)
+  - `TopluFaturaKalemOnizleme`: Kalem detayı (miktar, birim fiyat, KDV)
+  - `TopluFaturaSonuc`: Oluşturma sonucu (başarılı/başarısız sayı, hatalar)
+  - `OlusturulanFaturaBilgi`: Oluşturulan fatura özeti
+  - `TopluFaturaOzet`: Dönem özeti (dashboard için)
+  - `CariFaturaAyar`: Cari bazlı varsayılan ayarlar
+- `ITopluFaturaService.cs` interface oluşturuldu (8 metot):
+  - `GetDonemOzetiAsync(yil, ay)` - Dönem özeti (kesilecek/kesilmiş)
+  - `GetOnizlemeAsync(filtre)` - Fatura önizleme listesi
+  - `FaturaOlusturAsync(onizlemeler)` - Toplu fatura oluşturma
+  - `TekFaturaOlusturAsync(onizleme)` - Tek fatura oluşturma
+  - `PuantajFaturaEslestirAsync` - Puantaj-Fatura eşleştirme
+  - `GetCariFaturaAyarAsync` - Cari fatura ayarları
+  - `GetFaturaKesilmemisPuantajlarAsync` - Bekleyen puantajlar
+  - `GetMevcutDonemlerAsync` - Mevcut dönem listesi
+- `TopluFaturaService.cs` implementasyon oluşturuldu (~430 satır):
+  - **Dönem Özeti**: Gelir/Gider fatura durumu, kesilecek tutar, kesilmiş tutar
+  - **Gelir Fatura Önizleme**: KurumCari bazlı gruplama, satış faturası oluşturma
+  - **Gider Fatura Önizleme**: OdemeYapilacakCari bazlı gruplama, alış faturası oluşturma
+  - **Kalem Oluşturma**: Puantaj bilgilerinden otomatik açıklama (dönem, güzergah, yön)
+  - **Toplu Faturalama**: Seçilen önizlemeleri toplu faturaya dönüştürme
+  - **Puantaj Eşleştirme**: Oluşturulan faturayı puantaj kayıtlarına işleme
+- `TopluFatura.razor` oluşturuldu (~450 satır):
+  - **Route**: `/faturalar/toplu-fatura`
+  - **Dönem Özet Kartları**: Kesilecek satış/alış fatura sayı ve tutarları
+  - **Filtre Paneli**: Yıl, Ay, Fatura Yönü (Satış/Alış), Kaynak seçimi
+  - **Önizleme Listesi**: Cari bazlı gruplu tablo, seçim checkbox'ları
+  - **Detay Modal**: Fatura tarihi/vade düzenleme, kalem düzenleme, tevkifat ayarı
+  - **Toplu İşlem**: "Seçilenleri Faturala" butonu, işlem sonuç bildirimi
+- `Program.cs` güncellendi - DI kaydı eklendi
+- `NavMenu.razor` güncellendi - Fatura menüsüne "Toplu Fatura" linki eklendi
+
+**Özellikler:**
+- ✅ Puantaj kayıtlarından otomatik fatura oluşturma
+- ✅ Cari bazlı gruplama (her cari için tek fatura)
+- ✅ Satış (Giden) ve Alış (Gelen) fatura desteği
+- ✅ Kalem bazlı düzenleme (miktar, birim fiyat, açıklama)
+- ✅ Tevkifat desteği (oran ve kod)
+- ✅ Dönem özeti (kesilecek vs kesilmiş karşılaştırma)
+- ✅ Puantaj-Fatura otomatik eşleştirme
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Models/TopluFaturaModels.cs` (yeni)
+- `CRMFiloServis.Web/Services/Interfaces/ITopluFaturaService.cs` (yeni)
+- `CRMFiloServis.Web/Services/TopluFaturaService.cs` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Faturalar/TopluFatura.razor` (yeni)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
 ### Kayıt 048 - Kolay Muhasebe Girişi
 **Talep:** Muhasebe bilgisi olmayan kullanıcılar için tek sayfadan gelir-gider fatura, masraf, fiş, tahsilat, ödeme, mahsup, avans girişleri yapılabilecek sayfa. Girilen bilgilere göre altta muhasebe kaydı (borç-alacak) otomatik gösterilecek, kullanıcı manuel düzeltme yapabilecek, "Muhasebeleştir" butonu ile kayıt oluşturulacak.
 

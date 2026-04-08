@@ -159,7 +159,7 @@
 | Cari - Risk analizi kartları | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | Cari - İletişim geçmişi | 🟡 Orta | 1 gün | ✅ Tamamlandı |
 | Cari - Otomatik hatırlatmalar | 🟡 Orta | 2 gün | ❌ |
-| Fatura - Toplu fatura oluşturma | 🔴 Yüksek | 2 gün | ❌ |
+| **Fatura - Toplu fatura oluşturma** | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | Fatura - Fatura şablonları | 🟡 Orta | 2 gün | ❌ |
 | Fatura - E-fatura hazırlık | 🟡 Orta | 2 gün | ❌ |
 
@@ -354,7 +354,9 @@ FAZ 8 (2-3 Hafta) - ✅ TAMAMLANDI
 12. ~~**Bütçe Analiz Geliştirme**~~ - ✅ Kategori bazlı analiz, trend grafikleri, AI rapor yorumlama tamamlandı
 13. ~~**Cari Geliştirme**~~ - ✅ İletişim geçmişi, hatırlatıcılar, vade uyarıları, AI fatura import
 14. ~~**AI Fatura Import**~~ - ✅ XML e-fatura yükleme, AI ile cari eşleştirme/oluşturma, kalem sınıflandırma (hizmet/mal/kiralama), güzergah-firma eşleştirme, stok kartı kontrolü, puantaj entegrasyonu
-15. **Fatura Geliştirme** - Toplu fatura oluşturma, fatura şablonları, e-fatura hazırlık
+15. ~~**Fatura Geliştirme**~~ - ✅ Toplu fatura oluşturma (puantaj bazlı), cari bazlı gruplama, tevkifat desteği
+16. **Fatura Şablonları** - Tekrarlayan faturalar için şablon sistemi
+17. **E-Fatura Hazırlık** - GİB formatında XML oluşturma
 
 ### 🟡 Maaş İyileştirmeleri (Öncelik 4)
 15. ~~**Maaş yönetimine yol parası**~~ - ✅ Eklendi

@@ -188,6 +188,7 @@ builder.Services.AddScoped<IFaturaAIImportService, FaturaAIImportService>(); // 
 builder.Services.AddScoped<IIhaleHazirlikService, IhaleHazirlikService>(); // İhale Hazırlık Servisi
 builder.Services.AddScoped<ICariRiskService, CariRiskService>(); // Cari Risk Analizi Servisi
 builder.Services.AddScoped<IKolayMuhasebeService, KolayMuhasebeService>(); // Kolay Muhasebe Girişi Servisi
+builder.Services.AddScoped<ITopluFaturaService, TopluFaturaService>(); // Toplu Fatura Oluşturma Servisi
 builder.Services.AddHostedService<AutoBackupService>();
 builder.Services.AddHttpContextAccessor();
 
