@@ -100,6 +100,188 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 **Durum:** ✅ Tamamlandı
 
+### Kayıt 050 - E-Fatura XML Oluşturma (GİB UBL-TR 1.2)
+**Talep:** Faturalardan GİB uyumlu UBL-TR 1.2 formatında e-fatura XML dosyası oluşturma.
+
+**Yapılanlar:**
+- `EFaturaXmlModels.cs` oluşturuldu (~650 satır):
+  - **Ana Modeller**:
+    - `EFaturaXmlRequest`: XML oluşturma isteği (FaturaId, Senaryo, ETTN)
+    - `EFaturaXmlSonuc`: XML oluşturma sonucu (XML içerik, ETTN, dosya yolu, hatalar)
+    - `EFaturaDogrulamaRapor`: Doğrulama sonucu (geçerli, hatalar, uyarılar)
+    - `EFaturaSenaryo` enum: Temel, Ticari, İhracat, Kamu
+  - **UBL-TR Yapıları** (GİB uyumlu):
+    - `UblInvoice`: Fatura kök elementi (ID, UUID, IssueDate, InvoiceTypeCode, vb.)
+    - `UblAccountingParty`, `UblParty`: Satıcı/Alıcı taraf bilgileri
+    - `UblPartyIdentification`: VKN/TCKN kimlik tanımlayıcı (schemeID ile)
+    - `UblAddress`, `UblCountry`: Adres ve ülke bilgileri
+    - `UblPartyTaxScheme`, `UblTaxScheme`: Vergi dairesi bilgisi
+    - `UblTaxTotal`, `UblTaxSubtotal`, `UblTaxCategory`: Vergi hesaplamaları
+    - `UblInvoiceLine`, `UblItem`, `UblPrice`: Fatura kalemi detayları
+    - `UblQuantity`, `UblAmount`: Miktar ve tutar (unitCode/currencyID ile)
+    - `UblMonetaryTotal`: Toplam tutarlar (LineExtension, TaxExclusive, PayableAmount)
+    - `UblAllowanceCharge`: İskonto/Ek ücret bilgileri
+    - `UblPaymentMeans`, `UblPaymentTerms`: Ödeme koşulları
+  - **GİB Sabit Kodları**:
+    - `GibVergiKodlari`: KDV (0015), ÖTV, Damga Vergisi vb.
+    - `GibTevkifatKodlari`: 40+ tevkifat kodu (601-699)
+    - `UblBirimKodlari`: Türkçe birim → UN/ECE kodu eşleştirme (Adet→C62, Kg→KGM, Lt→LTR, vb.)
+    - `EFaturaTipKodlari`: SATIS, IADE, TEVKIFAT, ISTISNA
+    - `EFaturaProfilIdleri`: TEMELFATURA, TICARIFATURA, IHRACATKAYITLI
+- `IEFaturaXmlService.cs` interface oluşturuldu (8 metot):
+  - `XmlOlusturAsync(request)` - E-Fatura XML oluşturma
+  - `UblDonusturAsync(faturaId)` - Fatura → UBL-TR dönüşümü
+  - `DogrulaAsync(xmlIcerik)` - XML doğrulama (zorunlu alan kontrolü)
+  - `DosyayaKaydetAsync(faturaId, xml)` - XML dosya kaydetme
+  - `XmlOkuAsync(faturaId)` - Mevcut XML okuma
+  - `TopluXmlOlusturAsync(faturaIdler, senaryo)` - Toplu XML oluşturma
+  - `YeniEttnOlustur()` - GUID formatında ETTN oluşturma
+  - `BirimKoduDonustur(birim)` - Birim → UBL kodu dönüşümü
+- `EFaturaXmlService.cs` implementasyon oluşturuldu (~550 satır):
+  - **XML Oluşturma**:
+    - Fatura → UblInvoice dönüşümü
+    - Profil ID senaryoya göre ayarlama
+    - XML serialization (namespace'ler ile)
+    - Doğrulama ve dosya kaydetme
+    - Fatura ETTN/XmlDosyaYolu güncelleme
+  - **Taraf Bilgileri**:
+    - `OlusturSatici(Firma)`: Firma bilgilerinden UBL satıcı oluşturma
+    - `OlusturAlici(Cari)`: Cari bilgilerinden UBL alıcı oluşturma
+    - VKN/TCKN otomatik tanımlama (11 haneli = TCKN)
+    - Şahıs firması için Person elementi
+  - **Fatura Kalemleri**:
+    - `OlusturFaturaKalemi`: Kalem bazlı KDV ve tevkifat hesaplama
+    - İskonto (AllowanceCharge) desteği
+    - Ürün kodu (SellersItemIdentification) desteği
+  - **Vergi Hesaplamaları**:
+    - `OlusturVergiToplamlari`: KDV oranlarına göre gruplama
+    - `OlusturTevkifatToplamlari`: Tevkifat toplamı
+    - `OlusturMonetaryTotal`: Toplam tutarlar
+  - **Doğrulama**:
+    - UUID, ID, Satıcı VKN, Fatura kalemleri, PayableAmount kontrolü
+    - XPath ile XML element kontrolü
+    - Hata ve uyarı listeleme
+  - **Dosya Yönetimi**:
+    - `wwwroot/efatura/YYYY/MM/` klasör yapısı
+    - UTF-8 encoding ile kaydetme
+- `EFaturaXml.razor` oluşturuldu (~400 satır):
+  - **Route**: `/faturalar/efatura-xml`
+  - **Filtre Paneli**:
+    - Tarih aralığı (başlangıç/bitiş)
+    - Fatura tipi (Satış, Alış, Tevkifatlı)
+    - XML durumu (Oluşturulmamış, Mevcut)
+    - Senaryo seçimi (Temel, Ticari, İhracat)
+  - **Fatura Listesi**:
+    - Toplu seçim (checkbox)
+    - Fatura no, tarih, cari, tip, tutar gösterimi
+    - ETTN gösterimi (kısaltılmış)
+    - XML durumu (Mevcut/Yok badge)
+    - İşlem butonları: Oluştur, Önizle, İndir, Yeniden Oluştur
+  - **Toplu İşlem**: Seçili faturalar için toplu XML oluşturma
+  - **XML Önizleme Modal**: Tam XML içeriği görüntüleme, panoya kopyalama
+  - **Doğrulama Raporu Modal**: Hatalar ve uyarılar listesi
+- `Program.cs` güncellendi - `IEFaturaXmlService` DI kaydı eklendi
+- `NavMenu.razor` güncellendi - "E-Fatura XML" linki eklendi
+
+**Özellikler:**
+- ✅ GİB UBL-TR 1.2 uyumlu XML oluşturma
+- ✅ Temel/Ticari/İhracat senaryo desteği
+- ✅ Satış ve iade fatura desteği
+- ✅ Tevkifatlı fatura desteği (WithholdingTaxTotal)
+- ✅ Türkçe birim → UN/ECE kod dönüşümü
+- ✅ VKN/TCKN otomatik tanımlama
+- ✅ XML doğrulama (zorunlu alan kontrolü)
+- ✅ Toplu XML oluşturma
+- ✅ XML önizleme ve indirme
+- ✅ ETTN (UUID) otomatik oluşturma
+- ✅ Fatura kaydına XML yolu ve ETTN kaydetme
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Models/EFaturaXmlModels.cs` (yeni)
+- `CRMFiloServis.Web/Services/Interfaces/IEFaturaXmlService.cs` (yeni)
+- `CRMFiloServis.Web/Services/EFaturaXmlService.cs` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Faturalar/EFaturaXml.razor` (yeni)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 051 - Luca Portal Entegrasyonu
+**Talep:** Luca e-dönüşüm portalı ile entegrasyon. Ayarlar sayfasından kullanıcı adı/şifre girişi, E-Fatura gelen/kesilen belgelerinin çekilmesi, E-Arşiv XML ve PDF dosyalarının indirilmesi.
+
+**Yapılanlar:**
+- `LucaPortalSettings.cs` entity oluşturuldu (~130 satır):
+  - `LucaPortalSettings`: Ayarlar modeli (kullanıcı adı, şifre, portal URL, token bilgileri, senkron ayarları, firma bağlantısı)
+  - `LucaBelge`: Portal'dan çekilen belge modeli (ETTN, fatura no, tarih, gönderici/alıcı VKN-unvan, tutarlar, durum, XML/PDF URL'leri)
+  - `LucaBelgeTipi` enum: EFatura, EArsiv, EMustahsil, EIrsaliye
+  - `LucaBelgeYonu` enum: Gelen, Giden
+  - `LucaSorguFiltre`: Sorgu parametreleri (tarih aralığı, belge tipi/yönü, VKN arama, sayfalama)
+  - `LucaSorguSonuc`: Sorgu sonucu (belgeler listesi, toplam kayıt, sayfalama)
+  - `LucaLoginSonuc`: Giriş sonucu (başarı, token, firma kodu/unvan)
+  - `LucaBelgeIndirmeSonuc`: İndirme sonucu (içerik bytes, dosya adı, content type)
+- `ILucaPortalService.cs` interface oluşturuldu (15 metot):
+  - **Ayarlar**: `GetAyarlarAsync(firmaId?)`, `AyarKaydetAsync(ayarlar)`
+  - **Kimlik Doğrulama**: `GirisYapAsync(kullaniciAdi, sifre)`, `TokenYenileAsync(refreshToken)`, `CikisYapAsync()`, `BaglantiTestiAsync()`
+  - **Belge Sorgulama**: `EFaturaListeleAsync(filtre)`, `EArsivListeleAsync(filtre)`, `BelgeDetayGetirAsync(belgeId, belgeTipi)`
+  - **Belge İndirme**: `XmlIndirAsync(belgeId, belgeTipi)`, `PdfIndirAsync(belgeId, belgeTipi)`, `TopluXmlIndirAsync(idler, belgeTipi)`, `TopluPdfIndirAsync(idler, belgeTipi)`
+  - **Sisteme Aktarma**: `BelgeleriSistemeAktarAsync(belgeler, xmlIndir, pdfIndir)`, `TumBelgeleriSenkronizeEtAsync(baslangic, bitis, progress)`
+- `LucaPortalService.cs` implementasyon oluşturuldu (~700 satır):
+  - **Ayar Yönetimi**: JSON dosyası ile firma bazlı ayar saklama (`Data/LucaSettings/lucasettings_{firmaId}.json`)
+  - **Kimlik Doğrulama**: Web scraping ile login (CSRF token, cookie yönetimi), oturum cache
+  - **Belge Listeleme**: HTML parse ile belge tablosu çözümleme (Regex ile TR/TD içerik okuma)
+  - **Belge İndirme**: HttpClient ile XML/PDF indirme, rate limiting (200ms delay)
+  - **Sisteme Aktarma**: 
+    - ETTN kontrolü ile mükerrer kayıt engelleme
+    - VKN ile cari eşleştirme veya otomatik cari oluşturma
+    - Fatura entity oluşturma (ImportKaynak = "Luca")
+    - XML/PDF dosya kaydetme (`wwwroot/belgeler/efatura/`)
+  - **Senkronizasyon**: Tüm belge tiplerini (E-Fatura Gelen/Giden, E-Arşiv Gelen/Giden) topluca çekme
+- `LucaPortalAyarlari.razor` oluşturuldu (~300 satır):
+  - **Route**: `/ayarlar/luca-portal`
+  - **Giriş Bilgileri**: Portal URL, kullanıcı adı, şifre (göster/gizle)
+  - **Bağlantı Testi**: Kimlik doğrulama ve durum gösterimi
+  - **Senkron Ayarları**: Otomatik senkron toggle, aralık seçimi (1-24 saat)
+  - **Bağlantı Durumu**: Token geçerliliği, firma kodu, son senkron tarihi
+  - **Hızlı İşlemler**: Belgeleri listele, şimdi senkronize et, oturumu kapat
+  - **Senkron Logu**: Terminal görünümünde işlem mesajları
+- `LucaPortalBelgeleri.razor` oluşturuldu (~400 satır):
+  - **Route**: `/faturalar/luca-portal`
+  - **Filtre Paneli**: Belge tipi (E-Fatura/E-Arşiv), yön (Gelen/Giden), tarih aralığı, VKN arama
+  - **Belge Listesi**: Tablo görünümü (fatura no, ETTN, tarih, gönderici/alıcı, VKN, tutar, durum, XML/PDF ikonları)
+  - **Toplu Seçim**: Checkbox ile çoklu seçim, tümünü seç
+  - **Tekil İşlemler**: Her satırda XML indir, PDF indir, sisteme aktar butonları
+  - **Toplu İşlemler**: Seçilenleri aktar, toplu XML indir, toplu PDF indir
+  - **Sayfalama**: Sayfa navigasyonu
+  - **Base64 İndirme**: JS ile tarayıcıya dosya indirme
+- `Program.cs` güncellendi - `ILucaPortalService` DI kaydı eklendi
+- `NavMenu.razor` güncellendi:
+  - Cari menüsüne "Luca Portal" linki eklendi
+  - Ayarlar menüsüne "Luca Portal" linki eklendi
+
+**Özellikler:**
+- ✅ Luca e-dönüşüm portal entegrasyonu
+- ✅ Kullanıcı adı/şifre ile kimlik doğrulama
+- ✅ E-Fatura gelen/kesilen belgeler listeleme
+- ✅ E-Arşiv gelen/kesilen belgeler listeleme
+- ✅ XML ve PDF dosya indirme (tekil ve toplu)
+- ✅ Belgeleri sisteme fatura olarak aktarma
+- ✅ Otomatik cari oluşturma (VKN ile eşleşme yoksa)
+- ✅ ETTN ile mükerrer kayıt engelleme
+- ✅ Firma bazlı ayar saklama (JSON dosya)
+- ✅ Otomatik senkronizasyon ayarı
+- ✅ Bağlantı testi ve durum gösterimi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/LucaPortalSettings.cs` (yeni)
+- `CRMFiloServis.Web/Services/Interfaces/ILucaPortalService.cs` (yeni)
+- `CRMFiloServis.Web/Services/LucaPortalService.cs` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/LucaPortalAyarlari.razor` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Faturalar/LucaPortalBelgeleri.razor` (yeni)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
 ### Kayıt 048 - Kolay Muhasebe Girişi
 **Talep:** Muhasebe bilgisi olmayan kullanıcılar için tek sayfadan gelir-gider fatura, masraf, fiş, tahsilat, ödeme, mahsup, avans girişleri yapılabilecek sayfa. Girilen bilgilere göre altta muhasebe kaydı (borç-alacak) otomatik gösterilecek, kullanıcı manuel düzeltme yapabilecek, "Muhasebeleştir" butonu ile kayıt oluşturulacak.
 
