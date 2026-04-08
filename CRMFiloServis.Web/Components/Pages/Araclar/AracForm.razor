@@ -18,6 +18,13 @@
         </button>
     </div>
 
+    @if (!string.IsNullOrWhiteSpace(loadWarning))
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>@loadWarning
+        </div>
+    }
+
     <div class="card">
         <div class="card-body">
             <EditForm Model="arac" OnValidSubmit="Kaydet">
@@ -312,22 +319,41 @@
     private List<Cari> tedarikciCariler = new();
     private bool IsEdit => Id.HasValue;
     private string plaka = string.Empty;
+    private string? loadWarning;
 
     protected override async Task OnInitializedAsync()
     {
-        // Tüm carileri yükle (Araç sahibi, kiralayan ve komisyoncular için)
-        tedarikciCariler = await CariService.GetAllAsync();
+        try
+        {
+            // Sadece araç sahibi / kiralayan / komisyoncu olabilecek cari tiplerini yükle
+            tedarikciCariler = await CariService.GetByTipAsync(CariTipi.Tedarikci);
+        }
+        catch (Exception ex)
+        {
+            tedarikciCariler = new();
+            loadWarning = $"Cari listesi yüklenemedi: {ex.GetBaseException().Message}";
+            ToastService.ShowWarning(loadWarning);
+        }
 
         if (IsEdit)
         {
-            var existing = await AracService.GetByIdAsync(Id!.Value);
-            if (existing != null)
+            try
             {
-                arac = existing;
-                plaka = arac.AktifPlaka ?? string.Empty;
+                var existing = await AracService.GetByIdAsync(Id!.Value);
+                if (existing != null)
+                {
+                    arac = existing;
+                    plaka = arac.AktifPlaka ?? string.Empty;
+                }
+                else
+                {
+                    ToastService.ShowWarning("Araç kaydı bulunamadı.");
+                    Navigation.NavigateTo("/araclar");
+                }
             }
-            else
+            catch (Exception ex)
             {
+                ToastService.ShowError($"Araç kartı açılırken hata oluştu: {ex.GetBaseException().Message}");
                 Navigation.NavigateTo("/araclar");
             }
         }

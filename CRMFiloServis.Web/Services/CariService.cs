@@ -674,10 +674,13 @@ public class CariService : ICariService
 
         if (muhasebeHesap == null && !string.IsNullOrWhiteSpace(cari.Unvan))
         {
+            var unvan = cari.Unvan.Trim();
+
             muhasebeHesap = await _context.MuhasebeHesaplari
-                .FirstOrDefaultAsync(h => h.HesapAdi == cari.Unvan)
+                .FirstOrDefaultAsync(h => h.HesapAdi == unvan)
                 ?? await _context.MuhasebeHesaplari
-                    .FirstOrDefaultAsync(h => h.HesapAdi.Contains(cari.Unvan) || cari.Unvan.Contains(h.HesapAdi));
+                    .FirstOrDefaultAsync(h => !string.IsNullOrWhiteSpace(h.HesapAdi) &&
+                                              (h.HesapAdi.Contains(unvan) || unvan.Contains(h.HesapAdi)));
         }
 
         if (muhasebeHesap != null)

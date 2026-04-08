@@ -41,6 +41,21 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 056 - Araç Kartı Açılış Hatası İlk Stabilizasyon
+**Talep:** Araç kartı açılırken oluşan hatanın incelenmesi ve başlanması. Ayrıca destek talepleri modülünün güncel durumunun kontrol edilmesi.
+
+**Yapılanlar:**
+- `BilgiBankasi.razor` içindeki yanlış `IDestekTalebiService` namespace kullanımı düzeltildi, destek talepleri modülündeki build hatası giderildi.
+- `AracForm.razor` açılış akışı sertleştirildi:
+  - cari listesi yüklenemezse sayfa tamamen düşmek yerine uyarı gösteriyor,
+  - araç kaydı yüklenirken hata oluşursa toast ile hata gösterilip listeye dönülüyor.
+- `AracForm.razor` içinde araç kartı açılırken gereksiz tüm cari listesi yerine yalnızca tedarikçi / müşteri+tedarikçi cariler yüklenir hale getirildi.
+- `CariService.FillMuhasebeBilgisiAsync` içinde ünvan-hesap adı eşleştirmesi null/boş değerler için daha güvenli hale getirildi.
+- `DestekTalepleri/BilgiBankasi.razor` geçici örnek veri modelinden çıkarıldı ve gerçek `IDestekTalebiService` bilgi bankası metodlarına bağlandı.
+- `DestekTalepleri/DestekAyarlar.razor` oluşturuldu; NavMenu'deki kırık rota için çalışan destek ayarları sayfası eklendi.
+
+**Durum:** 🔄 Devam Ediyor
+
 ### Kayıt 055 - Destek Talepleri Modülü (osTicket Benzeri)
 **Talep:** Müşteri destek talepleri yönetimi için kapsamlı bir biletleme sistemi. Departman, kategori, öncelik, SLA, hazır yanıtlar, dosya ekleri, aktivite takibi, performans raporlaması özellikleri.
 
