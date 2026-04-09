@@ -1,12 +1,18 @@
 ﻿@page "/ihale-hazirlik"
 @page "/ihale-hazirlik/{ProjeId:int}"
 @rendermode InteractiveServer
+@using System.Globalization
+@using System.Net
+@using System.Text.RegularExpressions
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Models
 @using CRMFiloServis.Web.Services
 @inject IIhaleHazirlikService IhaleService
 @inject IOllamaService OllamaService
 @inject ICariService CariService
+@inject IGuzergahService GuzergahService
+@inject IAracService AracService
+@inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigation
 @inject IToastService ToastService
 
@@ -285,6 +291,29 @@ else
                 <button class="btn btn-sm btn-outline-secondary" @onclick="() => raporGoster = false"><i class="bi bi-x"></i></button>
             </div>
             <div class="card-body p-0">
+                @if (projeOzet.AylikProjeksiyonlar.Any())
+                {
+                    var ilkAy = projeOzet.AylikProjeksiyonlar.First();
+                    var sonAy = projeOzet.AylikProjeksiyonlar.Last();
+                    var artisTutari = sonAy.ToplamMaliyet - ilkAy.ToplamMaliyet;
+                    var artisOrani = ilkAy.ToplamMaliyet > 0 ? artisTutari / ilkAy.ToplamMaliyet * 100 : 0;
+
+                    <div class="row g-0 border-bottom">
+                        <div class="col-md-4 p-3 text-center border-end">
+                            <small class="text-muted d-block">İlk Ay Maliyeti</small>
+                            <strong class="text-primary">@ilkAy.ToplamMaliyet.ToString("N0") ₺</strong>
+                        </div>
+                        <div class="col-md-4 p-3 text-center border-end">
+                            <small class="text-muted d-block">Son Ay Tahmini Maliyeti</small>
+                            <strong class="text-danger">@sonAy.ToplamMaliyet.ToString("N0") ₺</strong>
+                        </div>
+                        <div class="col-md-4 p-3 text-center">
+                            <small class="text-muted d-block">Süre Sonu Maliyet Artışı</small>
+                            <strong class="@(artisTutari >= 0 ? "text-warning" : "text-success")">@artisTutari.ToString("N0") ₺ (%@artisOrani.ToString("N1"))</strong>
+                        </div>
+                    </div>
+                }
+
                 <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
                     <table class="table table-sm table-striped mb-0">
                         <thead class="table-dark sticky-top">
@@ -468,6 +497,28 @@ else
                     <!-- Güzergah & Mesafe -->
                     <h6 class="border-bottom pb-1 mb-3"><i class="bi bi-signpost me-1"></i>Güzergah Bilgileri</h6>
                     <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Hazır Güzergah</label>
+                            <select class="form-select" @bind="editKalem.GuzergahId">
+                                <option value="">-- Seçiniz --</option>
+                                @foreach (var guzergah in tumGuzergahlar)
+                                {
+                                    <option value="@guzergah.Id">@guzergah.GuzergahAdi</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Bölge (yakıt fiyatı için)</label>
+                            <input type="text" class="form-control" @bind="editKalemBolge" placeholder="örn: Ankara, İstanbul Avrupa" />
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end gap-2">
+                            <button class="btn btn-outline-primary flex-fill" @onclick="GuzergahtanDoldurAsync">
+                                <i class="bi bi-signpost me-1"></i>Güzergahı Doldur
+                            </button>
+                            <button class="btn btn-outline-success flex-fill" @onclick="GuncelYakitFiyatiGetirAsync">
+                                <i class="bi bi-fuel-pump me-1"></i>Motorin Al
+                            </button>
+                        </div>
                         <div class="col-md-6">
                             <label class="form-label">Hat Adı</label>
                             <input type="text" class="form-control" @bind="editKalem.HatAdi" />
@@ -523,6 +574,11 @@ else
                                 }
                             </select>
                         </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button class="btn btn-outline-info w-100" @onclick="AracOnerAsync">
+                                <i class="bi bi-magic me-1"></i>Müsait Araç Öner
+                            </button>
+                        </div>
                         <div class="col-md-5">
                             <label class="form-label">Araç Model Bilgisi</label>
                             <input type="text" class="form-control" @bind="editKalem.AracModelBilgi" placeholder="örn: 2022 Mercedes Sprinter" />
@@ -565,6 +621,20 @@ else
                             </div>
                         }
                     </div>
+
+                    @if (!string.IsNullOrWhiteSpace(kalemOneriMesaji))
+                    {
+                        <div class="alert alert-info small">
+                            <i class="bi bi-info-circle me-2"></i>@kalemOneriMesaji
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(yakitFiyatMesaji))
+                    {
+                        <div class="alert alert-warning small">
+                            <i class="bi bi-fuel-pump me-2"></i>@yakitFiyatMesaji
+                        </div>
+                    }
 
                     <!-- Araç Masrafları -->
                     <h6 class="border-bottom pb-1 mb-3">
@@ -694,6 +764,8 @@ else
     private IhaleProje? secilenProje;
     private List<IhaleGuzergahKalem> aktifKalemler = [];
     private List<Cari>? tumCariler;
+    private List<Guzergah> tumGuzergahlar = [];
+    private List<Arac> tumAraclar = [];
 
     private IhaleProje editProje = new();
     private IhaleGuzergahKalem editKalem = new();
@@ -708,6 +780,9 @@ else
     private string? aiAnalizSonuc;
     private string? aiTahminMesaj;
     private string? aiMaasTahminMesaj;
+    private string? kalemOneriMesaji;
+    private string? yakitFiyatMesaji;
+    private string? editKalemBolge;
 
     private IhaleProjeOzet? projeOzet;
 
@@ -715,6 +790,8 @@ else
     {
         aiAktif = await OllamaService.BaglantiKontrolAsync();
         tumCariler = await CariService.GetAllAsync();
+        tumGuzergahlar = await GuzergahService.GetActiveAsync();
+        tumAraclar = await AracService.GetActiveAsync();
 
         if (ProjeId.HasValue)
             await ProjeSecAsync(ProjeId.Value);
@@ -855,6 +932,9 @@ else
         };
         aiTahminMesaj = null;
         aiMaasTahminMesaj = null;
+        kalemOneriMesaji = null;
+        yakitFiyatMesaji = null;
+        editKalemBolge = null;
         kalemModalGoster = true;
     }
 
@@ -863,7 +943,134 @@ else
         editKalem = kalem;
         aiTahminMesaj = null;
         aiMaasTahminMesaj = null;
+        kalemOneriMesaji = null;
+        yakitFiyatMesaji = null;
+        editKalemBolge = BolgeMetniGetir(kalem);
         kalemModalGoster = true;
+    }
+
+    private async Task GuzergahtanDoldurAsync()
+    {
+        if (!editKalem.GuzergahId.HasValue)
+        {
+            ToastService.ShowWarning("Önce bir güzergah seçin.");
+            return;
+        }
+
+        var guzergah = tumGuzergahlar.FirstOrDefault(g => g.Id == editKalem.GuzergahId.Value)
+            ?? await GuzergahService.GetByIdAsync(editKalem.GuzergahId.Value);
+        if (guzergah == null)
+        {
+            ToastService.ShowError("Güzergah bulunamadı.");
+            return;
+        }
+
+        editKalem.HatAdi = string.IsNullOrWhiteSpace(editKalem.HatAdi) ? guzergah.GuzergahAdi : editKalem.HatAdi;
+        editKalem.BaslangicNoktasi = string.IsNullOrWhiteSpace(editKalem.BaslangicNoktasi) ? guzergah.BaslangicNoktasi : editKalem.BaslangicNoktasi;
+        editKalem.BitisNoktasi = string.IsNullOrWhiteSpace(editKalem.BitisNoktasi) ? guzergah.BitisNoktasi : editKalem.BitisNoktasi;
+        if (editKalem.MesafeKm <= 0 && guzergah.Mesafe.HasValue)
+            editKalem.MesafeKm = guzergah.Mesafe.Value;
+        if (editKalem.TahminiSureDakika <= 0 && guzergah.TahminiSure.HasValue)
+            editKalem.TahminiSureDakika = guzergah.TahminiSure.Value;
+        if (editKalem.PersonelSayisi <= 0)
+            editKalem.PersonelSayisi = guzergah.PersonelSayisi;
+        if (editKalem.GunlukSeferSayisi <= 0)
+            editKalem.GunlukSeferSayisi = guzergah.SeferTipi == SeferTipi.SabahAksam ? 2 : 1;
+
+        editKalem.SeferTipi = guzergah.SeferTipi;
+        editKalemBolge ??= BolgeMetniGetir(editKalem);
+        kalemOneriMesaji = $"Güzergah bilgileri '{guzergah.GuzergahAdi}' üzerinden dolduruldu.";
+    }
+
+    private Task AracOnerAsync()
+    {
+        var gerekliKapasite = Math.Max(1, editKalem.PersonelSayisi);
+        var adaylar = tumAraclar
+            .Where(a => a.Aktif && !a.IsDeleted && a.KoltukSayisi >= gerekliKapasite)
+            .Where(a => editKalem.SahiplikDurumu switch
+            {
+                AracSahiplikKalem.Ozmal => a.SahiplikTipi == AracSahiplikTipi.Ozmal,
+                AracSahiplikKalem.Kiralik => a.SahiplikTipi == AracSahiplikTipi.Kiralik,
+                AracSahiplikKalem.Komisyon => a.SahiplikTipi == AracSahiplikTipi.Komisyon,
+                _ => true
+            })
+            .OrderBy(a => a.KoltukSayisi - gerekliKapasite)
+            .ThenBy(a => a.KmDurumu ?? int.MaxValue)
+            .ThenByDescending(a => a.ModelYili ?? 0)
+            .ToList();
+
+        if (!adaylar.Any())
+        {
+            adaylar = tumAraclar
+                .Where(a => a.Aktif && !a.IsDeleted && a.KoltukSayisi >= gerekliKapasite)
+                .OrderBy(a => a.KoltukSayisi - gerekliKapasite)
+                .ThenBy(a => a.KmDurumu ?? int.MaxValue)
+                .ThenByDescending(a => a.ModelYili ?? 0)
+                .ToList();
+        }
+
+        var arac = adaylar.FirstOrDefault();
+        if (arac == null)
+        {
+            kalemOneriMesaji = "Uygun aktif araç bulunamadı.";
+            return Task.CompletedTask;
+        }
+
+        editKalem.AracId = arac.Id;
+        editKalem.AracModelBilgi = string.Join(" ", new[] { arac.ModelYili?.ToString(), arac.Marka, arac.Model }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        editKalem.AracKoltukSayisi = arac.KoltukSayisi;
+        editKalem.SahiplikDurumu = arac.SahiplikTipi switch
+        {
+            AracSahiplikTipi.Ozmal => AracSahiplikKalem.Ozmal,
+            AracSahiplikTipi.Kiralik => AracSahiplikKalem.Kiralik,
+            AracSahiplikTipi.Komisyon => AracSahiplikKalem.Komisyon,
+            _ => editKalem.SahiplikDurumu
+        };
+
+        if (arac.AylikKiraBedeli.HasValue)
+            editKalem.AylikKiraBedeli = arac.AylikKiraBedeli.Value;
+        if (arac.KomisyonVar && arac.SabitKomisyonTutari.HasValue)
+            editKalem.SeferBasiKomisyon = arac.SabitKomisyonTutari.Value;
+
+        editKalem.YakitTuketimi = AracTipineGoreVarsayilanYakit(arac.AracTipi, editKalem.YakitTuketimi);
+        kalemOneriMesaji = $"Önerilen araç: {editKalem.AracModelBilgi} {(string.IsNullOrWhiteSpace(arac.AktifPlaka) ? string.Empty : $"({arac.AktifPlaka})")} - {arac.KoltukSayisi} koltuk.";
+        return Task.CompletedTask;
+    }
+
+    private async Task GuncelYakitFiyatiGetirAsync()
+    {
+        var bolge = string.IsNullOrWhiteSpace(editKalemBolge) ? BolgeMetniGetir(editKalem) : editKalemBolge;
+        if (string.IsNullOrWhiteSpace(bolge))
+        {
+            ToastService.ShowWarning("Yakıt fiyatı için önce bölge veya başlangıç bilgisi girin.");
+            return;
+        }
+
+        try
+        {
+            yakitFiyatMesaji = "Petrol Ofisi verilerinden güncel motorin fiyatı alınıyor...";
+            StateHasChanged();
+
+            var client = HttpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+            var html = await client.GetStringAsync("https://www.petrolofisi.com.tr/akaryakit-fiyatlari");
+            var fiyat = PetrolOfisiMotorinFiyatiBul(html, bolge);
+
+            if (fiyat.HasValue)
+            {
+                editKalem.YakitFiyati = fiyat.Value;
+                editKalemBolge = bolge;
+                yakitFiyatMesaji = $"{bolge} için webden motorin fiyatı alındı: {fiyat.Value:N2} TL/LT.";
+            }
+            else
+            {
+                yakitFiyatMesaji = $"{bolge} için web sayfasında eşleşen güncel motorin fiyatı bulunamadı. Mevcut değer korundu.";
+            }
+        }
+        catch (Exception ex)
+        {
+            yakitFiyatMesaji = $"Yakıt fiyatı alınamadı: {ex.Message}";
+        }
     }
 
     private async Task KaydetKalemAsync()
@@ -1068,5 +1275,69 @@ else
             AracSahiplikKalem.Komisyon => "bg-info",
             _ => "bg-secondary"
         };
+    }
+
+    private static string? BolgeMetniGetir(IhaleGuzergahKalem kalem)
+    {
+        if (!string.IsNullOrWhiteSpace(kalem.BaslangicNoktasi))
+            return kalem.BaslangicNoktasi;
+        if (!string.IsNullOrWhiteSpace(kalem.BitisNoktasi))
+            return kalem.BitisNoktasi;
+        return null;
+    }
+
+    private static decimal AracTipineGoreVarsayilanYakit(AracTipi aracTipi, decimal mevcut)
+    {
+        if (mevcut > 0)
+            return mevcut;
+
+        return aracTipi switch
+        {
+            AracTipi.Minibus => 14,
+            AracTipi.Midibus => 18,
+            AracTipi.Otobus => 28,
+            AracTipi.Otomobil => 8,
+            AracTipi.Panelvan => 11,
+            _ => 15
+        };
+    }
+
+    private static decimal? PetrolOfisiMotorinFiyatiBul(string html, string bolge)
+    {
+        var normalizedBolge = NormalizeBolge(bolge);
+        if (string.IsNullOrWhiteSpace(normalizedBolge))
+            return null;
+
+        var rowMatches = Regex.Matches(html,
+            @"<tr class=""price-row[^""]*""[^>]*data-disctrict-name=""(?<name>[^""]+)""[^>]*>(?<row>.*?)</tr>",
+            RegexOptions.Singleline | RegexOptions.IgnoreCase);
+
+        foreach (Match match in rowMatches)
+        {
+            var name = WebUtility.HtmlDecode(match.Groups["name"].Value);
+            var normalizedName = NormalizeBolge(name);
+            if (!normalizedName.Contains(normalizedBolge) && !normalizedBolge.Contains(normalizedName))
+                continue;
+
+            var priceMatches = Regex.Matches(match.Groups["row"].Value, @"<span class=""with-tax"">(?<price>[0-9]+(?:\.[0-9]+)?)</span>", RegexOptions.IgnoreCase);
+            if (priceMatches.Count >= 2 && decimal.TryParse(priceMatches[1].Groups["price"].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var motorin))
+                return motorin;
+        }
+
+        return null;
+    }
+
+    private static string NormalizeBolge(string value)
+    {
+        return (value ?? string.Empty)
+            .Trim()
+            .ToUpperInvariant()
+            .Replace("İ", "I")
+            .Replace("İ", "I")
+            .Replace("Ş", "S")
+            .Replace("Ğ", "G")
+            .Replace("Ü", "U")
+            .Replace("Ö", "O")
+            .Replace("Ç", "C");
     }
 }

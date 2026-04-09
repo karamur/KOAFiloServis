@@ -1500,6 +1500,9 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<DashboardWidget>()
             .HasQueryFilter(e => !e.IsDeleted && !e.Kullanici.IsDeleted);
 
+        modelBuilder.Entity<FaturaSablon>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Firma.IsDeleted);
+
         modelBuilder.Entity<FiloGuzergahEslestirme>()
             .HasQueryFilter(e => !e.IsDeleted && (e.Arac == null || !e.Arac.IsDeleted));
 
@@ -1511,6 +1514,36 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<KullaniciCari>()
             .HasQueryFilter(e => !e.IsDeleted && !e.Cari.IsDeleted);
+
+        modelBuilder.Entity<CariIletisimNot>(entity =>
+        {
+            entity.HasOne(e => e.Cari)
+                .WithMany(c => c.IletisimNotlari)
+                .HasForeignKey(e => e.CariId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasQueryFilter(e => !e.IsDeleted && !e.Cari.IsDeleted);
+        });
+
+        modelBuilder.Entity<CariHatirlatma>(entity =>
+        {
+            entity.HasIndex(e => new { e.CariId, e.Tip, e.CreatedAt });
+            entity.Property(e => e.Baslik).HasMaxLength(200);
+            entity.Property(e => e.Aciklama).HasMaxLength(2000);
+            entity.Property(e => e.Tutar).HasPrecision(18, 2);
+            entity.HasOne(e => e.Cari)
+                .WithMany(c => c.CariHatirlatmalar)
+                .HasForeignKey(e => e.CariId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Fatura)
+                .WithMany()
+                .HasForeignKey(e => e.FaturaId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Firma)
+                .WithMany()
+                .HasForeignKey(e => e.FirmaId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasQueryFilter(e => !e.IsDeleted && !e.Cari.IsDeleted);
+        });
 
         modelBuilder.Entity<PersonelAvans>()
             .HasQueryFilter(e => !e.IsDeleted && !e.Personel.IsDeleted);

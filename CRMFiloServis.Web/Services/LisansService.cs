@@ -197,8 +197,9 @@ public class LisansService : ILisansService
                 throw new Exception("Geçersiz lisans formatı - JSON parse edilemedi");
             
             // Makine kodu kontrolü
-            var currentMakineKodu = GetMakineKoduAsync().Result;
-            if (!string.Equals(lisansBilgi.MakineKodu, currentMakineKodu, StringComparison.OrdinalIgnoreCase))
+            var currentMakineKodu = CRMFiloServis.Shared.LisansHelper.NormalizeMachineCode(GetMakineKoduAsync().Result);
+            var lisansMakineKodu = CRMFiloServis.Shared.LisansHelper.NormalizeMachineCode(lisansBilgi.MakineKodu);
+            if (!string.Equals(lisansMakineKodu, currentMakineKodu, StringComparison.Ordinal))
             {
                 throw new Exception($"Bu lisans başka bir bilgisayar için oluşturulmuş!\n\nLisans Makine Kodu: {lisansBilgi.MakineKodu}\nBu PC Makine Kodu: {currentMakineKodu}");
             }

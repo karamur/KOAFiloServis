@@ -1,17 +1,34 @@
-using System;
+ï»¿using System;
 using System.Management;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Win32;
 
 namespace CRMFiloServis.Shared;
 
 public static class LisansHelper
 {
+    private static readonly Lazy<string> CachedMachineCode = new(GenerateMachineCode);
+
     /// <summary>
-    /// Bilgisayarýn benzersiz makine kodunu üretir
+    /// BilgisayarÄ±n benzersiz makine kodunu Ã¼retir
     /// (CPU ID + Ana Kart Seri No + Disk Seri No)
     /// </summary>
     public static string GetMachineCode()
+    {
+        return CachedMachineCode.Value;
+    }
+
+    public static string NormalizeMachineCode(string? machineCode)
+    {
+        return (machineCode ?? string.Empty)
+            .Trim()
+            .Replace("-", string.Empty)
+            .Replace(" ", string.Empty)
+            .ToUpperInvariant();
+    }
+
+    private static string GenerateMachineCode()
     {
         try
         {
@@ -19,17 +36,21 @@ public static class LisansHelper
             var motherboardSerial = GetMotherboardSerial();
             var diskSerial = GetDiskSerial();
 
-            var combined = $"{cpuId}-{motherboardSerial}-{diskSerial}";
+            var hasHardwareFingerprint =
+                !cpuId.StartsWith("CPU-UNKNOWN", StringComparison.OrdinalIgnoreCase) ||
+                !motherboardSerial.StartsWith("MB-UNKNOWN", StringComparison.OrdinalIgnoreCase) ||
+                !diskSerial.StartsWith("DISK-UNKNOWN", StringComparison.OrdinalIgnoreCase);
 
-            // Hash'le daha kýsa ve standart hale getir
-            using var sha256 = SHA256.Create();
-            var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(combined));
-            return Convert.ToBase64String(hash).Substring(0, 32).Replace("/", "").Replace("+", "");
+            var combined = hasHardwareFingerprint
+                ? $"{cpuId}-{motherboardSerial}-{diskSerial}"
+                : BuildDeterministicFallbackSource();
+
+            // Hash'le daha kÄ±sa ve standart hale getir
+            return HashMachineCode(combined);
         }
         catch
         {
-            // Hata durumunda fallback
-            return Environment.MachineName.GetHashCode().ToString("X8");
+            return HashMachineCode(BuildDeterministicFallbackSource());
         }
     }
 
@@ -77,15 +98,48 @@ public static class LisansHelper
         return "DISK-UNKNOWN";
     }
 
+    private static string BuildDeterministicFallbackSource()
+    {
+        var machineGuid = GetMachineGuid();
+        var machineName = Environment.MachineName;
+        var userDomain = Environment.UserDomainName;
+        var osVersion = Environment.OSVersion.VersionString;
+
+        return $"{machineGuid}-{machineName}-{userDomain}-{osVersion}";
+    }
+
+    private static string GetMachineGuid()
+    {
+        try
+        {
+            if (!OperatingSystem.IsWindows())
+                return "MACHINE-GUID-UNAVAILABLE";
+
+            return Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography", "MachineGuid", null)?.ToString()
+                ?? "MACHINE-GUID-UNAVAILABLE";
+        }
+        catch
+        {
+            return "MACHINE-GUID-UNAVAILABLE";
+        }
+    }
+
+    private static string HashMachineCode(string source)
+    {
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(source));
+        return Convert.ToBase64String(hash).Substring(0, 32).Replace("/", "").Replace("+", "");
+    }
+
     /// <summary>
-    /// Makine kodunu görsel formatta göster
+    /// Makine kodunu gÃ¶rsel formatta gÃ¶ster
     /// </summary>
     public static string FormatMachineCode(string machineCode)
     {
         if (string.IsNullOrEmpty(machineCode) || machineCode.Length < 16)
             return machineCode;
 
-        // XXXX-XXXX-XXXX-XXXX formatýnda göster
+        // XXXX-XXXX-XXXX-XXXX formatÄ±nda gÃ¶ster
         var formatted = "";
         for (int i = 0; i < Math.Min(machineCode.Length, 16); i++)
         {

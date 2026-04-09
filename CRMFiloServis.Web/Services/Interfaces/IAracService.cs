@@ -60,6 +60,8 @@ public class AracImportResult
     public bool Success { get; set; }
     public int ImportedCount { get; set; }
     public int UpdatedCount { get; set; }
+    public int SkippedCount { get; set; }
     public int ErrorCount { get; set; }
+    public List<string> SkippedRecords { get; set; } = new();
     public List<string> Errors { get; set; } = new();
 }

@@ -1,7 +1,12 @@
 ﻿@page "/ai-asistan"
+@using System.Text
+@using System.Text.RegularExpressions
 @using CRMFiloServis.Web.Services
+@using CRMFiloServis.Shared.Entities
 @using Microsoft.Extensions.AI
 @inject IOllamaAIChatService ChatService
+@inject IDestekTalebiService DestekTalebiService
+@inject IConfiguration Configuration
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
@@ -16,7 +21,7 @@
                     <h2 class="mb-1">
                         <i class="bi bi-robot me-2 text-primary"></i>AI Asistan
                     </h2>
-                    <small class="text-muted">Ollama ile yerel AI sohbeti</small>
+                    <small class="text-muted">Ollama ile çevrimiçi veya yerel AI sohbeti</small>
                 </div>
                 <div class="d-flex gap-2">
                     <!-- Model Seçimi -->
@@ -53,10 +58,34 @@
                     <div>
                         <strong>Ollama bağlantısı kurulamadı!</strong>
                         <br />
-                        <small>Ollama'nın çalıştığından emin olun: <code>ollama serve</code> veya <code>ollama run @selectedModel</code></small>
+                        <small>Endpoint: <code>@ollamaBaseUrl</code> · Ollama'nın çalıştığından emin olun: <code>ollama serve</code> veya <code>ollama run @selectedModel</code></small>
                     </div>
                 </div>
             }
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body py-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-7 small text-muted">
+                            <i class="bi bi-hdd-network me-1"></i>
+                            Endpoint: <code>@ollamaBaseUrl</code>
+                            <span class="ms-2 badge @(isRemoteEndpoint ? "bg-success" : "bg-secondary")">@(isRemoteEndpoint ? "Online" : "Yerel")</span>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-check form-switch d-flex justify-content-md-end align-items-center mb-0">
+                                <input class="form-check-input me-2" type="checkbox" id="kbToggle" @bind="useKnowledgeBase" />
+                                <label class="form-check-label small" for="kbToggle">Bilgi bankası ile cevapla</label>
+                            </div>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(lastKnowledgeInfo))
+                    {
+                        <div class="small text-muted mt-2">
+                            <i class="bi bi-bookmark-star me-1"></i>@lastKnowledgeInfo
+                        </div>
+                    }
+                </div>
+            </div>
 
             <!-- Chat Container -->
             <div class="card shadow-sm" style="height: calc(100vh - 280px); min-height: 400px;">
@@ -159,7 +188,7 @@
                         </div>
                         <small class="text-muted mt-1 d-block">
                             <i class="bi bi-info-circle me-1"></i>
-                            Model: <strong>@selectedModel</strong> | Enter ile gönder, Shift+Enter ile yeni satır
+                            Model: <strong>@selectedModel</strong> | Mod: <strong>@(isRemoteEndpoint ? "Online" : "Yerel")</strong> | Enter ile gönder, Shift+Enter ile yeni satır
                         </small>
                     </div>
                 </div>
@@ -242,6 +271,14 @@
     private bool connectionChecked = false;
     private string streamingContent = "";
     private CancellationTokenSource? streamingCts;
+    private readonly List<ChatMessage> conversationHistory = new();
+    private bool useKnowledgeBase = true;
+    private string ollamaBaseUrl = string.Empty;
+    private string lastKnowledgeInfo = string.Empty;
+
+    private bool isRemoteEndpoint =>
+        !ollamaBaseUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase) &&
+        !ollamaBaseUrl.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase);
 
     private readonly List<string> chatSuggestions = new()
     {
@@ -253,6 +290,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        ollamaBaseUrl = (Configuration["Ollama:BaseUrl"] ?? "http://localhost:11434").TrimEnd('/');
         selectedModel = ChatService.CurrentModel;
         await CheckOllamaConnection();
         if (isOllamaAvailable)
@@ -328,13 +366,17 @@
         {
             streamingCts = new CancellationTokenSource();
 
-            // Stream the response
-            await foreach (var chunk in ChatService.ChatStreamAsync(messageToSend, streamingCts.Token))
+            var aiPrompt = await BuildAssistantPromptAsync(messageToSend);
+
+            await foreach (var chunk in ChatService.ChatWithHistoryStreamAsync(conversationHistory, aiPrompt, streamingCts.Token))
             {
                 streamingContent += chunk;
                 StateHasChanged();
                 await ScrollToBottom();
             }
+
+            conversationHistory.Add(new ChatMessage(ChatRole.User, messageToSend));
+            conversationHistory.Add(new ChatMessage(ChatRole.Assistant, streamingContent));
 
             // Add assistant message
             messages.Add(new ChatMessageDisplay
@@ -382,11 +424,127 @@
     private void ClearChat()
     {
         messages.Clear();
+        conversationHistory.Clear();
         ChatService.ClearHistory();
         streamingCts?.Cancel();
         isLoading = false;
         isTyping = false;
         streamingContent = "";
+        lastKnowledgeInfo = string.Empty;
+    }
+
+    private async Task<string> BuildAssistantPromptAsync(string userPrompt)
+    {
+        if (!useKnowledgeBase)
+        {
+            lastKnowledgeInfo = "Bilgi bankası kapalı.";
+            return userPrompt;
+        }
+
+        var ilgiliMakaleler = await GetRelevantKnowledgeArticlesAsync(userPrompt);
+        if (!ilgiliMakaleler.Any())
+        {
+            lastKnowledgeInfo = "Bilgi bankasında eşleşen makale bulunamadı.";
+            return userPrompt;
+        }
+
+        lastKnowledgeInfo = $"Bilgi bankasından {ilgiliMakaleler.Count} makale bağlama eklendi: {string.Join(", ", ilgiliMakaleler.Select(x => x.Baslik).Take(3))}";
+
+        var builder = new StringBuilder();
+        builder.AppendLine("Aşağıdaki bilgi bankası kayıtlarını öncelikli bağlam olarak kullan.");
+        builder.AppendLine("Bağlam yeterli değilse bunu açıkça belirt ve ardından genel cevap ver.");
+        builder.AppendLine("Uydurma bilgi verme.");
+        builder.AppendLine();
+        builder.AppendLine("Bilgi Bankası Bağlamı:");
+
+        foreach (var makale in ilgiliMakaleler)
+        {
+            builder.AppendLine($"- Başlık: {makale.Baslik}");
+
+            if (!string.IsNullOrWhiteSpace(makale.Ozet))
+            {
+                builder.AppendLine($"  Özet: {TemizMetin(makale.Ozet, 300)}");
+            }
+
+            var icerik = TemizMetin(makale.Icerik, 700);
+            if (!string.IsNullOrWhiteSpace(icerik))
+            {
+                builder.AppendLine($"  İçerik: {icerik}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(makale.Etiketler))
+            {
+                builder.AppendLine($"  Etiketler: {makale.Etiketler}");
+            }
+
+            builder.AppendLine();
+        }
+
+        builder.AppendLine($"Kullanıcı sorusu: {userPrompt}");
+        return builder.ToString();
+    }
+
+    private async Task<List<DestekBilgiBankasi>> GetRelevantKnowledgeArticlesAsync(string prompt)
+    {
+        var sonuc = new Dictionary<int, DestekBilgiBankasi>();
+
+        foreach (var anahtarKelime in KelimelereAyir(prompt))
+        {
+            var makaleler = await DestekTalebiService.GetBilgiBankasiAramaAsync(anahtarKelime);
+            foreach (var makale in makaleler)
+            {
+                sonuc.TryAdd(makale.Id, makale);
+            }
+
+            if (sonuc.Count >= 5)
+            {
+                break;
+            }
+        }
+
+        if (sonuc.Count == 0 && prompt.Length <= 120)
+        {
+            var dogrudanArama = await DestekTalebiService.GetBilgiBankasiAramaAsync(prompt.Trim());
+            foreach (var makale in dogrudanArama)
+            {
+                sonuc.TryAdd(makale.Id, makale);
+            }
+        }
+
+        return sonuc.Values.Take(5).ToList();
+    }
+
+    private static List<string> KelimelereAyir(string text)
+    {
+        var anlamsizKelimeler = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ve", "veya", "ile", "için", "icin", "ama", "fakat", "gibi", "nasıl", "nasil", "nedir", "olan", "olanlar", "bana", "bir", "bu", "şu", "su", "çok", "cok", "daha"
+        };
+
+        return Regex.Split(text.ToLowerInvariant(), @"[^\p{L}\p{N}]+")
+            .Where(x => x.Length >= 3 && !anlamsizKelimeler.Contains(x))
+            .Distinct()
+            .Take(8)
+            .ToList();
+    }
+
+    private static string TemizMetin(string? html, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return string.Empty;
+        }
+
+        var text = Regex.Replace(html, "<.*?>", " ");
+        text = System.Net.WebUtility.HtmlDecode(text);
+        text = Regex.Replace(text, @"\s+", " ").Trim();
+
+        if (text.Length <= maxLength)
+        {
+            return text;
+        }
+
+        return text[..maxLength] + "...";
     }
 
     private async Task ScrollToBottom()

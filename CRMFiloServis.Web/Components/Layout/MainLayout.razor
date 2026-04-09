@@ -225,7 +225,8 @@
                 return;
             }
 
-            if (!string.IsNullOrEmpty(lisans.MakineKodu) && lisans.MakineKodu != makineKodu)
+            if (!string.IsNullOrEmpty(lisans.MakineKodu) &&
+                CRMFiloServis.Shared.LisansHelper.NormalizeMachineCode(lisans.MakineKodu) != CRMFiloServis.Shared.LisansHelper.NormalizeMachineCode(makineKodu))
             {
                 lisansGecerli = false;
                 lisansHataMesaji = "Bu lisans baska bir bilgisayar icin gecerlidir.";

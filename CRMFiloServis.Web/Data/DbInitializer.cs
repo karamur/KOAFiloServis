@@ -7,6 +7,8 @@ namespace CRMFiloServis.Web.Data;
 
 public static class DbInitializer
 {
+    private const string AracSasePlakaMigrationId = "20260326224724_AracSasePlakaYapisi";
+
     public static async Task InitializeAsync(ApplicationDbContext context, IConfiguration configuration)
     {
         var dbProvider = context.Database.IsNpgsql()
@@ -14,6 +16,7 @@ public static class DbInitializer
             : context.Database.IsSqlite()
                 ? "SQLite"
                 : configuration.GetValue<string>("DatabaseProvider") ?? "SQLite";
+        var migrationRecovered = false;
         
         try
         {
@@ -62,6 +65,28 @@ public static class DbInitializer
                 }
             }
 
+            if (context.Database.IsNpgsql())
+            {
+                try
+                {
+                    var pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToList();
+                    migrationRecovered = await EnsurePostgreSqlMigrationHistoryAsync(context, pendingMigrations, ex);
+                    if (migrationRecovered)
+                    {
+                        Console.WriteLine("PostgreSQL migration gecmisi mevcut tablo yapisina gore duzeltildi.");
+                    }
+                }
+                catch (Exception pgFixEx)
+                {
+                    Console.WriteLine($"PostgreSQL migration duzeltme hatasi: {pgFixEx.Message}");
+                }
+            }
+
+            if (migrationRecovered)
+            {
+                goto AfterMigrationHandling;
+            }
+
             // Migration hatasi durumunda EnsureCreated dene
             Console.WriteLine($"Migration hatasi: {ex.Message}. EnsureCreated deneniyor...");
             
@@ -75,6 +100,8 @@ public static class DbInitializer
                 // Tablolar zaten var, devam et
             }
         }
+
+AfterMigrationHandling:
 
         // PostgreSQL için eksik kolonları ekle
         if (dbProvider == "PostgreSQL")
@@ -480,6 +507,94 @@ public static class DbInitializer
             }
 
             Console.WriteLine($"SQLite migration history baselined: {migrationsToBaseline.Count} migration");
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
+    }
+
+    private static async Task<bool> EnsurePostgreSqlMigrationHistoryAsync(ApplicationDbContext context, List<string> pendingMigrations, Exception migrationException)
+    {
+        const string addBudgetHedefMigrationId = "20260409091451_AddBudgetHedef";
+
+        if (!pendingMigrations.Contains(addBudgetHedefMigrationId))
+        {
+            return false;
+        }
+
+        var errorText = migrationException.ToString();
+        var looksLikeDuplicateSchemaObject = errorText.Contains("already exists", StringComparison.OrdinalIgnoreCase)
+            || errorText.Contains("42701", StringComparison.OrdinalIgnoreCase)
+            || errorText.Contains("42P07", StringComparison.OrdinalIgnoreCase)
+            || errorText.Contains("42710", StringComparison.OrdinalIgnoreCase);
+
+        if (!looksLikeDuplicateSchemaObject)
+        {
+            return false;
+        }
+
+        var connection = (NpgsqlConnection)context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+
+        if (shouldClose)
+        {
+            await connection.OpenAsync();
+        }
+
+        try
+        {
+            await using var historyCreate = new NpgsqlCommand(@"
+                CREATE TABLE IF NOT EXISTS ""__EFMigrationsHistory"" (
+                    ""MigrationId"" character varying(150) NOT NULL,
+                    ""ProductVersion"" character varying(32) NOT NULL,
+                    CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY (""MigrationId"")
+                );", connection);
+            await historyCreate.ExecuteNonQueryAsync();
+
+            await using var markerCmd = new NpgsqlCommand(@"
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_name = 'PuantajKayitlar' AND column_name = 'AitFirmaAdi'
+                ) OR EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_name = 'BudgetHedefler'
+                ) OR EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_name = 'CariHatirlatmalar'
+                );", connection);
+
+            var schemaLooksApplied = (bool)(await markerCmd.ExecuteScalarAsync() ?? false);
+            if (!schemaLooksApplied)
+            {
+                return false;
+            }
+
+            await using var existsCmd = new NpgsqlCommand(@"
+                SELECT EXISTS (
+                    SELECT 1 FROM ""__EFMigrationsHistory"" WHERE ""MigrationId"" = @migrationId
+                );", connection);
+            existsCmd.Parameters.AddWithValue("migrationId", addBudgetHedefMigrationId);
+            var alreadyRecorded = (bool)(await existsCmd.ExecuteScalarAsync() ?? false);
+            if (alreadyRecorded)
+            {
+                return true;
+            }
+
+            await using var insertCmd = new NpgsqlCommand(@"
+                INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+                VALUES (@migrationId, @productVersion);", connection);
+            insertCmd.Parameters.AddWithValue("migrationId", addBudgetHedefMigrationId);
+            insertCmd.Parameters.AddWithValue("productVersion", "10.0.5");
+            await insertCmd.ExecuteNonQueryAsync();
+
+            return true;
         }
         finally
         {
@@ -1105,6 +1220,9 @@ public static class DbInitializer
         // ========== ADIM 1: Eksik tabloları oluştur ==========
         await EnsureCriticalTablesAsync(connection, existingTables);
 
+        // ========== ADIM 1.5: Araç şase-plaka yapısını eski şemadan taşı ==========
+        await EnsureAracSasePlakaMigrationAsync(connection, existingTables);
+
         // ========== ADIM 2: Eksik kolonları ekle ==========
         // Eklenecek kolonlar listesi: (Tablo, Kolon, Tip, Default)
         var missingColumns = new List<(string Table, string Column, string Type, string? Default)>
@@ -1134,6 +1252,9 @@ public static class DbInitializer
             // BudgetOdemeler tablosu - Fatura eşleştirme
             ("BudgetOdemeler", "FaturaId", "INTEGER", null),
             ("BudgetOdemeler", "FaturaIleKapatildi", "BOOLEAN", "FALSE"),
+
+            // Personeller tablosu - Muhasebe entegrasyonu
+            ("Personeller", "MuhasebeHesapId", "INTEGER", null),
 
             // Personeller tablosu - Sıralama ve diğer alanlar
             ("Personeller", "SiralamaNo", "INTEGER", "0"),
@@ -1204,6 +1325,165 @@ public static class DbInitializer
         }
 
         await connection.CloseAsync();
+    }
+
+    private static async Task EnsureAracSasePlakaMigrationAsync(NpgsqlConnection connection, HashSet<string> existingTables)
+    {
+        if (!existingTables.Contains("Araclar"))
+        {
+            return;
+        }
+
+        var legacyPlakaExists = await ColumnExistsAsync(connection, "Araclar", "Plaka");
+        var aktifPlakaExists = await ColumnExistsAsync(connection, "Araclar", "AktifPlaka");
+        var aracPlakalarExists = existingTables.Contains("AracPlakalar") || await TableExistsAsync(connection, "AracPlakalar");
+
+        if (!legacyPlakaExists && aktifPlakaExists && aracPlakalarExists)
+        {
+            await EnsureMigrationHistoryEntryAsync(connection, AracSasePlakaMigrationId);
+            return;
+        }
+
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        try
+        {
+            await ExecuteNonQueryAsync(connection, transaction, @"
+                CREATE TABLE IF NOT EXISTS ""__EFMigrationsHistory"" (
+                    ""MigrationId"" character varying(150) NOT NULL,
+                    ""ProductVersion"" character varying(32) NOT NULL,
+                    CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY (""MigrationId"")
+                );");
+
+            await ExecuteNonQueryAsync(connection, transaction, @"
+                ALTER TABLE ""Araclar"" ADD COLUMN IF NOT EXISTS ""AktifPlaka"" character varying(15);
+                ALTER TABLE ""Araclar"" ADD COLUMN IF NOT EXISTS ""SatisaAcik"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE ""Araclar"" ADD COLUMN IF NOT EXISTS ""SatisFiyati"" numeric(18,2);
+                ALTER TABLE ""Araclar"" ADD COLUMN IF NOT EXISTS ""SatisaAcilmaTarihi"" timestamp without time zone;
+                ALTER TABLE ""Araclar"" ADD COLUMN IF NOT EXISTS ""SatisAciklamasi"" text;");
+
+            if (legacyPlakaExists)
+            {
+                await ExecuteNonQueryAsync(connection, transaction, @"
+                    UPDATE ""Araclar""
+                    SET ""SaseNo"" = ""Plaka""
+                    WHERE (""SaseNo"" IS NULL OR BTRIM(""SaseNo"") = '')
+                      AND ""Plaka"" IS NOT NULL
+                      AND BTRIM(""Plaka"") <> '';
+
+                    UPDATE ""Araclar""
+                    SET ""AktifPlaka"" = ""Plaka""
+                    WHERE (""AktifPlaka"" IS NULL OR BTRIM(""AktifPlaka"") = '')
+                      AND ""Plaka"" IS NOT NULL
+                      AND BTRIM(""Plaka"") <> '';");
+            }
+
+            await ExecuteNonQueryAsync(connection, transaction, @"
+                CREATE TABLE IF NOT EXISTS ""AracPlakalar"" (
+                    ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
+                    ""AracId"" integer NOT NULL,
+                    ""Plaka"" character varying(15) NOT NULL,
+                    ""GirisTarihi"" timestamp without time zone NOT NULL,
+                    ""CikisTarihi"" timestamp without time zone,
+                    ""IslemTipi"" integer NOT NULL,
+                    ""Aciklama"" character varying(500),
+                    ""IslemTutari"" numeric(18,2),
+                    ""CariId"" integer,
+                    ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    ""UpdatedAt"" timestamp without time zone,
+                    ""IsDeleted"" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT ""PK_AracPlakalar"" PRIMARY KEY (""Id""),
+                    CONSTRAINT ""FK_AracPlakalar_Araclar_AracId"" FOREIGN KEY (""AracId"") REFERENCES ""Araclar"" (""Id"") ON DELETE CASCADE,
+                    CONSTRAINT ""FK_AracPlakalar_Cariler_CariId"" FOREIGN KEY (""CariId"") REFERENCES ""Cariler"" (""Id"") ON DELETE SET NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS ""IX_AracPlakalar_AracId"" ON ""AracPlakalar"" (""AracId"");
+                CREATE INDEX IF NOT EXISTS ""IX_AracPlakalar_CariId"" ON ""AracPlakalar"" (""CariId"");
+                CREATE INDEX IF NOT EXISTS ""IX_AracPlakalar_Plaka_CikisTarihi""
+                    ON ""AracPlakalar"" (""Plaka"", ""CikisTarihi"")
+                    WHERE ""CikisTarihi"" IS NULL AND ""IsDeleted"" = false;");
+
+            existingTables.Add("AracPlakalar");
+
+            if (legacyPlakaExists)
+            {
+                await ExecuteNonQueryAsync(connection, transaction, @"
+                    INSERT INTO ""AracPlakalar"" (""AracId"", ""Plaka"", ""GirisTarihi"", ""IslemTipi"", ""Aciklama"", ""CreatedAt"", ""IsDeleted"")
+                    SELECT a.""Id"", a.""Plaka"", COALESCE(a.""CreatedAt"", CURRENT_TIMESTAMP), 1, 'Mevcut kayıttan aktarıldı', CURRENT_TIMESTAMP, false
+                    FROM ""Araclar"" a
+                    WHERE a.""Plaka"" IS NOT NULL
+                      AND BTRIM(a.""Plaka"") <> ''
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM ""AracPlakalar"" ap
+                          WHERE ap.""AracId"" = a.""Id""
+                            AND ap.""Plaka"" = a.""Plaka""
+                            AND ap.""IsDeleted"" = false
+                      );
+
+                    DROP INDEX IF EXISTS ""IX_Araclar_Plaka"";
+                    ALTER TABLE ""Araclar"" DROP COLUMN IF EXISTS ""Plaka"";");
+            }
+
+            await ExecuteNonQueryAsync(connection, transaction, @"
+                INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+                VALUES ('20260326224724_AracSasePlakaYapisi', '10.0.5')
+                ON CONFLICT (""MigrationId"") DO NOTHING;");
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    private static async Task<bool> TableExistsAsync(NpgsqlConnection connection, string tableName)
+    {
+        await using var command = new NpgsqlCommand(@"
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = @tableName
+            );", connection);
+        command.Parameters.AddWithValue("tableName", tableName);
+        return (bool)(await command.ExecuteScalarAsync() ?? false);
+    }
+
+    private static async Task<bool> ColumnExistsAsync(NpgsqlConnection connection, string tableName, string columnName)
+    {
+        await using var command = new NpgsqlCommand(@"
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = @tableName
+                  AND column_name = @columnName
+            );", connection);
+        command.Parameters.AddWithValue("tableName", tableName);
+        command.Parameters.AddWithValue("columnName", columnName);
+        return (bool)(await command.ExecuteScalarAsync() ?? false);
+    }
+
+    private static async Task EnsureMigrationHistoryEntryAsync(NpgsqlConnection connection, string migrationId)
+    {
+        await ExecuteNonQueryAsync(connection, null, @"
+            CREATE TABLE IF NOT EXISTS ""__EFMigrationsHistory"" (
+                ""MigrationId"" character varying(150) NOT NULL,
+                ""ProductVersion"" character varying(32) NOT NULL,
+                CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY (""MigrationId"")
+            );
+
+            INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+            VALUES ('20260326224724_AracSasePlakaYapisi', '10.0.5')
+            ON CONFLICT (""MigrationId"") DO NOTHING;");
+    }
+
+    private static async Task ExecuteNonQueryAsync(NpgsqlConnection connection, NpgsqlTransaction? transaction, string sql)
+    {
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        await command.ExecuteNonQueryAsync();
     }
 
     /// <summary>

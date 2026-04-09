@@ -227,25 +227,42 @@
                     @if (importResult != null)
                     {
                         <div class="row g-2 mb-3">
-                            <div class="col-4">
+                            <div class="col-md-3 col-6">
                                 <div class="card bg-success text-white text-center py-2">
                                     <h4 class="mb-0">@importResult.ImportedCount</h4>
                                     <small>Eklenen</small>
                                 </div>
                             </div>
-                            <div class="col-4">
+                            <div class="col-md-3 col-6">
                                 <div class="card bg-warning text-dark text-center py-2">
                                     <h4 class="mb-0">@importResult.UpdatedCount</h4>
                                     <small>Güncellenen</small>
                                 </div>
                             </div>
-                            <div class="col-4">
+                            <div class="col-md-3 col-6">
+                                <div class="card bg-secondary text-white text-center py-2">
+                                    <h4 class="mb-0">@importResult.SkippedCount</h4>
+                                    <small>Atlanan</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-6">
                                 <div class="card bg-danger text-white text-center py-2">
                                     <h4 class="mb-0">@importResult.ErrorCount</h4>
                                     <small>Hata</small>
                                 </div>
                             </div>
                         </div>
+
+                        @if (importResult.SkippedRecords.Any())
+                        {
+                            <div class="alert alert-warning py-2 mb-2" style="max-height: 200px; overflow-y: auto;">
+                                <div class="fw-bold mb-1">Daha önce kayıtlı veya yinelenen plakalar</div>
+                                @foreach (var skipped in importResult.SkippedRecords.Take(30))
+                                {
+                                    <div><small>@skipped</small></div>
+                                }
+                            </div>
+                        }
                         
                         @if (importResult.Errors.Any())
                         {

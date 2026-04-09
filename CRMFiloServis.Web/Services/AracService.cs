@@ -37,6 +37,7 @@ public class AracService : IAracService
             if (aktifPlaka != null && arac.AktifPlaka != aktifPlaka.Plaka)
             {
                 arac.AktifPlaka = aktifPlaka.Plaka;
+                arac.Plaka = aktifPlaka.Plaka;
             }
         }
         
@@ -61,6 +62,7 @@ public class AracService : IAracService
             if (aktifPlaka != null && arac.AktifPlaka != aktifPlaka.Plaka)
             {
                 arac.AktifPlaka = aktifPlaka.Plaka;
+                arac.Plaka = aktifPlaka.Plaka;
             }
         }
         
@@ -93,6 +95,7 @@ public class AracService : IAracService
             if (aktifPlaka != null)
             {
                 arac.AktifPlaka = aktifPlaka.Plaka;
+                arac.Plaka = aktifPlaka.Plaka;
             }
         }
         
@@ -130,8 +133,11 @@ public class AracService : IAracService
     {
         // Aktif plaka kontrolü (CikisTarihi null veya gelecek tarihli)
         return await _context.AracPlakalar
+            .Include(ap => ap.Arac)
             .AnyAsync(ap => ap.Plaka == plaka && 
                            !ap.IsDeleted &&
+                           ap.Arac != null &&
+                           !ap.Arac.IsDeleted &&
                            (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today) && 
                            (!haricAracPlakaId.HasValue || ap.Id != haricAracPlakaId.Value));
     }
@@ -172,6 +178,7 @@ public class AracService : IAracService
             
             // Araç oluştur
             arac.AktifPlaka = plaka;
+            arac.Plaka = plaka;
             arac.CreatedAt = DateTime.UtcNow;
             _context.Araclar.Add(arac);
 
@@ -262,9 +269,19 @@ public class AracService : IAracService
 
     public async Task DeleteAsync(int id)
     {
-        var arac = await _context.Araclar.FindAsync(id);
+        var arac = await _context.Araclar
+            .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
+            .FirstOrDefaultAsync(a => a.Id == id);
+
         if (arac != null)
         {
+            foreach (var aktifPlaka in arac.PlakaGecmisi.Where(p => p.CikisTarihi == null || p.CikisTarihi > DateTime.Today))
+            {
+                aktifPlaka.CikisTarihi = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc);
+                aktifPlaka.UpdatedAt = DateTime.UtcNow;
+            }
+
+            arac.AktifPlaka = null;
             arac.IsDeleted = true;
             arac.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
@@ -738,6 +755,18 @@ public class AracService : IAracService
             }
 
             var mevcutSaseNolar = await _context.Araclar.Where(a => !a.IsDeleted).Select(a => a.SaseNo.ToUpper()).ToListAsync();
+            var aktifPlakalar = await _context.AracPlakalar
+                .Include(ap => ap.Arac)
+                .Where(ap => !ap.IsDeleted &&
+                             ap.Arac != null &&
+                             !ap.Arac.IsDeleted &&
+                             (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today))
+                .Select(ap => new { ap.Plaka, ap.AracId })
+                .ToListAsync();
+            var aktifPlakaAracMap = aktifPlakalar
+                .GroupBy(ap => ap.Plaka.ToUpperInvariant(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().AracId, StringComparer.OrdinalIgnoreCase);
+            var excelPlakaSaseMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             
             for (int row = 2; row <= lastRow; row++)
             {
@@ -752,7 +781,7 @@ public class AracService : IAracService
                     if (saseNo.StartsWith("*") || saseNo.StartsWith("AÇIKLAMA") || saseNo.Length < 5)
                         continue;
 
-                    var plaka = GetCellValue(ws, row, kolonlar, "PLAKA")?.ToUpper();
+                    var plaka = GetCellValue(ws, row, kolonlar, "PLAKA")?.Trim().ToUpperInvariant();
                     var marka = GetCellValue(ws, row, kolonlar, "MARKA");
                     var model = GetCellValue(ws, row, kolonlar, "MODEL");
                     var modelYiliStr = GetCellValue(ws, row, kolonlar, "MODEL YILI");
@@ -782,6 +811,29 @@ public class AracService : IAracService
 
                     // İşlemin güncelleme mi yeni kayıt mı olduğunu baştan belirle
                     var isUpdate = mevcutSaseNolar.Contains(saseNo);
+                    var mevcutAracOzet = isUpdate
+                        ? await _context.Araclar
+                            .Where(a => a.SaseNo.ToUpper() == saseNo && !a.IsDeleted)
+                            .Select(a => new { a.Id, a.AktifPlaka })
+                            .FirstOrDefaultAsync()
+                        : null;
+
+                    if (!string.IsNullOrWhiteSpace(plaka))
+                    {
+                        if (excelPlakaSaseMap.TryGetValue(plaka, out var oncekiSaseNo) && !string.Equals(oncekiSaseNo, saseNo, StringComparison.OrdinalIgnoreCase))
+                        {
+                            result.SkippedRecords.Add($"Satır {row} ({saseNo} / {plaka}): Aynı plaka Excel içinde daha önce {oncekiSaseNo} için işlendi, bu kayıt atlandı.");
+                            result.SkippedCount++;
+                            continue;
+                        }
+
+                        if (aktifPlakaAracMap.TryGetValue(plaka, out var plakaSahibiAracId) && (!isUpdate || mevcutAracOzet == null || plakaSahibiAracId != mevcutAracOzet.Id))
+                        {
+                            result.SkippedRecords.Add($"Satır {row} ({saseNo} / {plaka}): Plaka sistemde başka bir araçta aktif olduğu için kayıt atlandı.");
+                            result.SkippedCount++;
+                            continue;
+                        }
+                    }
 
                     // ExecutionStrategy ile transaction sarmalama (NpgsqlRetryingExecutionStrategy uyumluluğu)
                     var strategy = _context.Database.CreateExecutionStrategy();
@@ -815,7 +867,13 @@ public class AracService : IAracService
                             if (!string.IsNullOrWhiteSpace(plaka) && !string.Equals(mevcutArac.AktifPlaka, plaka, StringComparison.OrdinalIgnoreCase))
                             {
                                 var plakaKullanimda = await _context.AracPlakalar
-                                    .AnyAsync(ap => ap.Plaka == plaka && !ap.IsDeleted && (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today) && ap.AracId != mevcutArac.Id);
+                                    .Include(ap => ap.Arac)
+                                    .AnyAsync(ap => ap.Plaka == plaka &&
+                                                    !ap.IsDeleted &&
+                                                    ap.Arac != null &&
+                                                    !ap.Arac.IsDeleted &&
+                                                    (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today) &&
+                                                    ap.AracId != mevcutArac.Id);
 
                                 if (plakaKullanimda)
                                     throw new InvalidOperationException($"Plaka başka bir araçta aktif: {plaka}");
@@ -826,6 +884,7 @@ public class AracService : IAracService
                                 }
 
                                 mevcutArac.AktifPlaka = plaka;
+                                mevcutArac.Plaka = plaka;
                                 mevcutArac.PlakaGecmisi.Add(new AracPlaka
                                 {
                                     Plaka = plaka,
@@ -846,7 +905,12 @@ public class AracService : IAracService
                         if (!string.IsNullOrWhiteSpace(plaka))
                         {
                             var plakaKullanimda = await _context.AracPlakalar
-                                .AnyAsync(ap => ap.Plaka == plaka && !ap.IsDeleted && (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today));
+                                .Include(ap => ap.Arac)
+                                .AnyAsync(ap => ap.Plaka == plaka &&
+                                                !ap.IsDeleted &&
+                                                ap.Arac != null &&
+                                                !ap.Arac.IsDeleted &&
+                                                (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today));
 
                             if (plakaKullanimda)
                                 throw new InvalidOperationException($"Plaka başka bir araçta aktif: {plaka}");
@@ -875,6 +939,7 @@ public class AracService : IAracService
                         if (!string.IsNullOrWhiteSpace(plaka))
                         {
                             yeniArac.AktifPlaka = plaka;
+                            yeniArac.Plaka = plaka;
                             yeniArac.PlakaGecmisi.Add(new AracPlaka
                             {
                                 Plaka = plaka,
@@ -892,10 +957,28 @@ public class AracService : IAracService
                     }); // ExecutionStrategy lambda sonu
 
                     // İşlem başarılı - sayaç güncelle
+                    if (!string.IsNullOrWhiteSpace(plaka))
+                    {
+                        excelPlakaSaseMap[plaka] = saseNo;
+                        if (isUpdate && mevcutAracOzet != null && !string.IsNullOrWhiteSpace(mevcutAracOzet.AktifPlaka) && !string.Equals(mevcutAracOzet.AktifPlaka, plaka, StringComparison.OrdinalIgnoreCase))
+                        {
+                            aktifPlakaAracMap.Remove(mevcutAracOzet.AktifPlaka.ToUpper());
+                        }
+
+                        if (isUpdate && mevcutAracOzet != null)
+                            aktifPlakaAracMap[plaka] = mevcutAracOzet.Id;
+                    }
+
                     if (isUpdate)
                         result.UpdatedCount++;
                     else
                     {
+                        if (!string.IsNullOrWhiteSpace(plaka) && mevcutSaseNolar.Count >= 0)
+                        {
+                            // Yeni kayıtta araç id SaveChanges sonrası set edilir; aynı import içinde plaka tekrarını önlemek için işaretliyoruz.
+                            aktifPlakaAracMap[plaka] = int.MinValue;
+                        }
+
                         mevcutSaseNolar.Add(saseNo); // Yeni eklenen şase numarasını listeye ekle
                         result.ImportedCount++;
                     }

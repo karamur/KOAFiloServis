@@ -1,4 +1,6 @@
-﻿namespace CRMFiloServis.Shared.Entities;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace CRMFiloServis.Shared.Entities;
 
 /// <summary>
 /// Araç bilgileri - Şase numarasına göre tekil
@@ -8,6 +10,14 @@ public class Arac : BaseEntity
     // Şase numarası - Tekil (Unique)
     public string SaseNo { get; set; } = string.Empty;
     
+    // Eski kod ile uyumluluk için korunan, veritabanına map edilmeyen alan
+    [NotMapped]
+    public string Plaka
+    {
+        get => AktifPlaka ?? string.Empty;
+        set => AktifPlaka = string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
+    }
+
     // Aktif plaka - Otomatik hesaplanır
     public string? AktifPlaka { get; set; }
     
