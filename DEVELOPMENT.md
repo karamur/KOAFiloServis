@@ -63,6 +63,26 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 **Durum:** ✅ Tamamlandı
 
+### Kayıt 098 - Login Sayfası Lisans Süresi Kontrolü ve Aktivasyonu
+**Talep:** Lisans süresi dolduğunda kullanıcının sisteme giriş yapamaması, lisans anahtarı girmesi istenmesi.
+
+**Yapılanlar:**
+- `Login.razor` içinde `OnInitializedAsync` başlangıcında lisans geçerlilik kontrolü eklendi.
+- Lisans süresi dolmuşsa `lisansSuresiDoldu = true` yapılarak normal giriş formu yerine lisans süresi doldu kartı gösterilir hale getirildi.
+- Lisans süresi doldu kartında makine kodu görüntüleme ve panoya kopyalama aksiyonu eklendi.
+- Yeni lisans anahtarı giriş alanı ve `Lisansı Aktive Et` butonu eklendi.
+- `GirisYapAsync` içinde kimlik doğrulama öncesi ek lisans kontrolü eklendi; süresi dolmuşsa giriş engellenir.
+- `LisansAktiveEtAsync` metodu ile login sayfasından ayrılmadan lisans aktivasyonu yapılabilir hale getirildi.
+- Aktivasyon başarılı olduğunda lisans kartı gizlenir ve normal giriş formu gösterilir.
+- `MakineKoduKopyala` metodu ile `IJSRuntime` üzerinden clipboard API kullanımı eklendi.
+- Lisans kartı için `.license-expired-card`, `.license-expired-icon`, `.license-detail-box`, `.license-machine-code`, `.license-key-input` CSS stilleri eklendi.
+- `LisansService` cache davranışı doğrulandı; süresi dolmuş lisanslar cache'ten dönmediği onaylandı.
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Login.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
 ### Kayıt 096 - Bütçe Analiz Hedef / Gerçekleşen Karşılaştırma
 **Talep:** Yol haritasındaki açık başlıklardan `Bütçe Analiz - Hedef/Gerçekleşen karşılaştırma` adımına başlanması.
 
