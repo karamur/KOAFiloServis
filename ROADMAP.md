@@ -2,6 +2,13 @@
 
 ## ?? Mevcut Durum Analizi
 
+### Son Güncellemeler
+- ✅ `EBYS Belge Yönetimi` menü gruplaması tamamlandı.
+- ✅ `Destek` ve `Entegrasyon` bağlantıları `Ayarlar` altına taşındı.
+- ✅ Global hata yakalama için `ters-giden-bir-sey` rapor ekranı eklendi.
+- ✅ `Gelen Faturalar` sayfasında firma bazlı `Excel / XML / XML+PDF` import akışı iyileştirildi; import butonu artık yalnızca firma ve uygun dosya seçildiğinde aktif oluyor.
+- 🟡 Filo sahiplik kurallarının (`Özmal / Kiralık / Komisyon`) servis, puantaj, tahakkuk ve raporlara tam yayılımı devam ediyor.
+
 ### ? Tamamlanan Modüller (Faz 1 - MVP)
 | Modül | Durum | Açıklama |
 |-------|-------|----------|

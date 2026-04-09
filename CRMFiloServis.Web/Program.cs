@@ -148,6 +148,7 @@ builder.Services.AddScoped<IBelgeUyariService, BelgeUyariService>();
 builder.Services.AddScoped<IDashboardGrafikService, DashboardGrafikService>();
 builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<IToastService, ToastService>();
+builder.Services.AddScoped<AppIssueStateService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
 builder.Services.AddScoped<ITekrarlayanOdemeService, TekrarlayanOdemeService>(); // Kredi/Taksit Ynetimi

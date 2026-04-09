@@ -21,7 +21,12 @@
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <CRMFiloServis.Web.Components.Shared.AppRouteTracker />
+    <CRMFiloServis.Web.Components.Shared.AppErrorBoundary>
+        <ChildContent>
+            <Routes @rendermode="InteractiveServer" />
+        </ChildContent>
+    </CRMFiloServis.Web.Components.Shared.AppErrorBoundary>
     <ReconnectModal />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
@@ -91,6 +96,10 @@
             }, function(err) {
                 console.error('Clipboard copy failed:', err);
             });
+        }
+
+        function goBackInHistory() {
+            window.history.back();
         }
     </script>
     <!-- Bootstrap JS for dropdowns -->

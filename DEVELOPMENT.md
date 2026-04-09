@@ -41,6 +41,45 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 102 - Menü Düzeni, Global Hata Sayfası ve Gelen Fatura Import İyileştirmesi
+**Talep:**
+- EBYS ekranlarının ayrı bir belge yönetimi başlığı altında toplanması
+- Destek ve entegrasyon bağlantılarının ayarlar altına taşınması
+- Programın hata anında kırılmak yerine rapor ekranı göstermesi ve önceki sayfaya dönebilmesi
+- Gelen faturalar ekranında firma bazlı `Excel / XML / XML+PDF` aktarım butonunun çalışmasının düzeltilmesi
+- İşletim kurallarının dosyaya kaydedilmesi
+
+**Yapılanlar:**
+- `NavMenu.razor` güncellendi
+  - `EBYS Belge Yönetimi` başlığı oluşturuldu
+  - `Destek` ve `Entegrasyon` menüleri `Ayarlar` altına taşındı
+- Global hata yönetimi eklendi
+  - `AppIssueStateService`
+  - `AppRouteTracker`
+  - `AppErrorBoundary`
+  - `Error.razor` artık `ters-giden-bir-sey` rapor ekranı olarak çalışıyor
+- `GelenFaturalar.razor` import modalı iyileştirildi
+  - import butonu yalnızca firma ve uygun dosya seçildiğinde aktif oluyor
+  - `InputFile` bileşeni aktarım tipine göre yeniden oluşturuluyor
+  - `XML + PDF` seçiminde dosya sayısı bilgisi gösteriliyor
+- İşletim kural dosyası oluşturuldu:
+  - `docs/filo-servis-isletim-kurallari.md`
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor`
+- `CRMFiloServis.Web/Components/App.razor`
+- `CRMFiloServis.Web/Components/Pages/Error.razor`
+- `CRMFiloServis.Web/Components/Pages/EFatura/GelenFaturalar.razor`
+- `CRMFiloServis.Web/Program.cs`
+- `CRMFiloServis.Web/Services/AppIssueStateService.cs`
+- `CRMFiloServis.Web/Components/Shared/AppRouteTracker.razor`
+- `CRMFiloServis.Web/Components/Shared/AppErrorBoundary.cs`
+- `docs/filo-servis-isletim-kurallari.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
 ### Kayıt 101 - AI Asistan Floating Widget ve İhale Örnek Veri Oluşturma
 **Talep:** AI Asistan'ın her sayfada erişilebilir olması ve İhale Hazırlık modülüne test verisi oluşturma özelliği eklenmesi.
 
@@ -806,6 +845,7 @@ Taslak → Gönderildi → İşlemde → Bitti → Onaylandı
 - Destek modülünde `Destek Ayarları` sol menüden kaldırıldı; ilgili erişimler destek sayfalarının sağ üst aksiyon alanına taşındı.
 - `DestekTalebiList.razor` yeni talep formundaki cari seçimi gerçek cari verisine bağlandı ve seçilen cari müşteri bilgilerini otomatik doldurur hale getirildi.
 - `AIAsistan.razor` ve `OllamaAIChatService` içinde 404/model bulunamadı senaryoları iyileştirildi; yüklü model yoksa daha yönlendirici hata mesajı gösteriliyor ve uygun model otomatik seçiliyor.
+- `Cari` / `CariHatirlatma` ilişkisi için navigation ve `ApplicationDbContext` konfigürasyonu eklendi; `Model.Validation[10622]` query filter uyarısı giderildi.
 
 **Durum:** 🔄 Devam Ediyor
 

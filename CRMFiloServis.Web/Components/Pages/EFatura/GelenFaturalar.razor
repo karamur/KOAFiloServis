@@ -532,15 +532,15 @@
                             <label class="form-label">Dosya Seç *</label>
                             @if (importTipi == "excel")
                             {
-                                <InputFile class="form-control" OnChange="DosyaSecildi" accept=".xlsx,.xls" />
+                                <InputFile @key="importTipi" class="form-control" OnChange="DosyaSecildi" accept=".xlsx,.xls" />
                             }
                             else if (importTipi == "xml")
                             {
-                                <InputFile class="form-control" OnChange="XmlDosyalariSecildi" accept=".xml,.xlm" multiple />
+                                <InputFile @key="importTipi" class="form-control" OnChange="XmlDosyalariSecildi" accept=".xml,.xlm" multiple />
                             }
                             else
                             {
-                                <InputFile class="form-control" OnChange="XmlPdfDosyalariSecildi" accept=".xml,.xlm,.pdf" multiple />
+                                <InputFile @key="importTipi" class="form-control" OnChange="XmlPdfDosyalariSecildi" accept=".xml,.xlm,.pdf" multiple />
                             }
                         </div>
                     </div>
@@ -558,6 +558,10 @@
                             <i class="bi bi-file-earmark-pdf me-1"></i>
                             XML ve PDF dosyalarını birlikte seçin. PDF dosyaları aynı isimli XML ile eşleştirilecektir.
                             <br/><small class="text-muted">Örn: ABC123.xml ve ABC123.pdf birlikte yüklenirse PDF otomatik eşleşir.</small>
+                            @if (importXmlPdfFiles?.Any() == true)
+                            {
+                                <br /><small class="text-success fw-semibold">Seçilen dosya sayısı: @importXmlPdfFiles.Count</small>
+                            }
                         </div>
                     }
                     else
@@ -642,7 +646,7 @@
                         </button>
                     }
                     <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
-                    <button type="button" class="btn btn-primary" @onclick="ImportYap" disabled="@(isImporting)">
+                    <button type="button" class="btn btn-primary" @onclick="ImportYap" disabled="@(isImporting || !ImportIcinHazirMi())">
                         @if (isImporting)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -1286,6 +1290,20 @@
     {
         importFile = e.File;
         importResult = null;
+    }
+
+    private bool ImportIcinHazirMi()
+    {
+        if (importFirmaId == 0)
+            return false;
+
+        return importTipi switch
+        {
+            "excel" => importFile != null,
+            "xml" => importXmlFiles?.Any() == true,
+            "xmlpdf" => importXmlPdfFiles?.Any() == true,
+            _ => false
+        };
     }
 
     private void XmlDosyalariSecildi(InputFileChangeEventArgs e)

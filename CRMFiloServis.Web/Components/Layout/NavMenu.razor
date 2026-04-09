@@ -36,30 +36,46 @@
                     <i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i> Belge Uyarilari
                 </NavLink>
             </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="ebys">
-                    <i class="bi bi-folder2-open me-2 text-info"></i> EBYS Belge Merkezi
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="ebys/gelen">
-                    <i class="bi bi-inbox me-2 text-primary"></i> Gelen Evraklar
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="ebys/giden">
-                    <i class="bi bi-send me-2 text-success"></i> Giden Evraklar
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="ebys/takip">
-                    <i class="bi bi-kanban me-2 text-warning"></i> Evrak Takip
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="ebys/kategoriler">
-                    <i class="bi bi-folder2 me-2 text-secondary"></i> Evrak Kategorileri
-                </NavLink>
+        }
+
+        <!-- EBYS BELGE YONETIMI -->
+        @if (HasYetki("belgeuyari.oku"))
+        {
+            <div class="nav-section">
+                <div class="nav-section-header" @onclick="() => ToggleSection(15)" style="cursor: pointer;">
+                    <span><i class="bi bi-folder2-open me-2"></i>EBYS BELGE YONETIMI</span>
+                    <i class="bi @(expandedSections.Length > 15 && expandedSections[15] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </div>
+                @if (expandedSections.Length > 15 && expandedSections[15])
+                {
+                    <div class="nav-section-content">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="ebys">
+                                <i class="bi bi-folder2-open me-2 text-info"></i> EBYS Belge Merkezi
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="ebys/gelen">
+                                <i class="bi bi-inbox me-2 text-primary"></i> Gelen Evraklar
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="ebys/giden">
+                                <i class="bi bi-send me-2 text-success"></i> Giden Evraklar
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="ebys/takip">
+                                <i class="bi bi-kanban me-2 text-warning"></i> Evrak Takip
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="ebys/kategoriler">
+                                <i class="bi bi-folder2 me-2 text-secondary"></i> Evrak Kategorileri
+                            </NavLink>
+                        </div>
+                    </div>
+                }
             </div>
         }
 
@@ -131,56 +147,6 @@
             </div>
         }
 
-        <!-- DESTEK -->
-        @if (HasYetki("destektalebi.oku") || HasYetki("destektalebi.yaz"))
-        {
-            <div class="nav-section">
-                <div class="nav-section-header" @onclick="() => ToggleSection(15)" style="cursor: pointer;">
-                    <span><i class="bi bi-headset me-2"></i>DESTEK</span>
-                    <i class="bi @(expandedSections.Length > 15 && expandedSections[15] ? "bi-chevron-up" : "bi-chevron-down")"></i>
-                </div>
-                @if (expandedSections.Length > 15 && expandedSections[15])
-                {
-                    <div class="nav-section-content">
-                        @if (HasYetki("destektalebi.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri/talep-giris">
-                                    <i class="bi bi-plus-circle me-2 text-success"></i> Yeni Talep
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri/taleplerim">
-                                    <i class="bi bi-ticket-detailed me-2 text-info"></i> Taleplerim
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("destektalebi.yaz"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri">
-                                    <i class="bi bi-ticket-detailed-fill me-2 text-primary"></i> Tüm Talepler
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri/yonetim">
-                                    <i class="bi bi-kanban me-2 text-warning"></i> Talep Yönetimi
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("destektalebi.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri/bilgi-bankasi">
-                                    <i class="bi bi-book-fill me-2 text-info"></i> Bilgi Bankası
-                                </NavLink>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        }
-
         <!-- CARI MODULU -->
         @if (HasMenuYetki("menu.cari"))
         {
@@ -234,35 +200,6 @@
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="cari/risk-analizi">
                                     <i class="bi bi-shield-exclamation me-2 text-danger"></i> Risk Analizi
-                                </NavLink>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        }
-
-        <!-- ENTEGRASYON -->
-        @if (HasMenuYetki("menu.cari"))
-        {
-            <div class="nav-section">
-                <div class="nav-section-header" @onclick="() => ToggleSection(14)" style="cursor: pointer;">
-                    <span><i class="bi bi-plug-fill me-2"></i>ENTEGRASYON</span>
-                    <i class="bi @(expandedSections.Length > 14 && expandedSections[14] ? "bi-chevron-up" : "bi-chevron-down")"></i>
-                </div>
-                @if (expandedSections.Length > 14 && expandedSections[14])
-                {
-                    <div class="nav-section-content">
-                        @if (HasYetki("kesilenfatura.oku") || HasYetki("veritabani.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="faturalar/luca-portal">
-                                    <i class="bi bi-cloud-download me-2 text-info"></i> Luca Portal
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/luca-portal">
-                                    <i class="bi bi-gear me-2 text-secondary"></i> Luca Ayarları
                                 </NavLink>
                             </div>
                         }
@@ -638,11 +575,11 @@
         @if (HasMenuYetki("menu.fatura"))
         {
             <div class="nav-section">
-                <div class="nav-section-header" @onclick="() => ToggleSection(11)" style="cursor: pointer;">
+                <div class="nav-section-header" @onclick="() => ToggleSection(14)" style="cursor: pointer;">
                     <span><i class="bi bi-briefcase me-2"></i>İHALE HAZIRLIK</span>
-                    <i class="bi @(expandedSections.Length > 11 && expandedSections[11] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <i class="bi @(expandedSections.Length > 14 && expandedSections[14] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
-                @if (expandedSections.Length > 11 && expandedSections[11])
+                @if (expandedSections.Length > 14 && expandedSections[14])
                 {
                     <div class="nav-section-content">
                         <div class="nav-item px-3">
@@ -1047,6 +984,70 @@
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="ayarlar/guncelleme">
                                     <i class="bi bi-cloud-arrow-down me-2 text-success"></i> Uygulama Guncelleme
+                                </NavLink>
+                            </div>
+                        }
+                        @if (HasYetki("destektalebi.oku") || HasYetki("destektalebi.yaz"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-uppercase small text-muted fw-bold">
+                                <i class="bi bi-headset me-2"></i>Destek
+                            </div>
+                            @if (HasYetki("destektalebi.oku"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="destek-talepleri/talep-giris">
+                                        <i class="bi bi-plus-circle me-2 text-success"></i> Yeni Talep
+                                    </NavLink>
+                                </div>
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="destek-talepleri/taleplerim">
+                                        <i class="bi bi-ticket-detailed me-2 text-info"></i> Taleplerim
+                                    </NavLink>
+                                </div>
+                            }
+                            @if (HasYetki("destektalebi.yaz"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="destek-talepleri">
+                                        <i class="bi bi-ticket-detailed-fill me-2 text-primary"></i> Tüm Talepler
+                                    </NavLink>
+                                </div>
+                            }
+                            @if (HasYetki("destektalebi.oku"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="destek-talepleri/bilgi-bankasi">
+                                        <i class="bi bi-book-fill me-2 text-info"></i> Bilgi Bankası
+                                    </NavLink>
+                                </div>
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="ai-asistan">
+                                        <i class="bi bi-robot me-2 text-primary"></i> AI Asistan
+                                    </NavLink>
+                                </div>
+                            }
+                            @if (HasYetki("destektalebi.yaz"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="destek-talepleri/yonetim">
+                                        <i class="bi bi-kanban me-2 text-warning"></i> Talep Yönetimi
+                                    </NavLink>
+                                </div>
+                            }
+                        }
+                        @if (HasYetki("kesilenfatura.oku") || HasYetki("veritabani.oku"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-uppercase small text-muted fw-bold">
+                                <i class="bi bi-plug-fill me-2"></i>Entegrasyon
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="faturalar/luca-portal">
+                                    <i class="bi bi-cloud-download me-2 text-info"></i> Luca Portal
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/luca-portal">
+                                    <i class="bi bi-gear me-2 text-secondary"></i> Luca Ayarları
                                 </NavLink>
                             </div>
                         }
