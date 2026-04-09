@@ -131,6 +131,56 @@
             </div>
         }
 
+        <!-- DESTEK -->
+        @if (HasYetki("destektalebi.oku") || HasYetki("destektalebi.yaz"))
+        {
+            <div class="nav-section">
+                <div class="nav-section-header" @onclick="() => ToggleSection(15)" style="cursor: pointer;">
+                    <span><i class="bi bi-headset me-2"></i>DESTEK</span>
+                    <i class="bi @(expandedSections.Length > 15 && expandedSections[15] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </div>
+                @if (expandedSections.Length > 15 && expandedSections[15])
+                {
+                    <div class="nav-section-content">
+                        @if (HasYetki("destektalebi.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="destek-talepleri/talep-giris">
+                                    <i class="bi bi-plus-circle me-2 text-success"></i> Yeni Talep
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="destek-talepleri/taleplerim">
+                                    <i class="bi bi-ticket-detailed me-2 text-info"></i> Taleplerim
+                                </NavLink>
+                            </div>
+                        }
+                        @if (HasYetki("destektalebi.yaz"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="destek-talepleri">
+                                    <i class="bi bi-ticket-detailed-fill me-2 text-primary"></i> Tüm Talepler
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="destek-talepleri/yonetim">
+                                    <i class="bi bi-kanban me-2 text-warning"></i> Talep Yönetimi
+                                </NavLink>
+                            </div>
+                        }
+                        @if (HasYetki("destektalebi.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="destek-talepleri/bilgi-bankasi">
+                                    <i class="bi bi-book-fill me-2 text-info"></i> Bilgi Bankası
+                                </NavLink>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
         <!-- CARI MODULU -->
         @if (HasMenuYetki("menu.cari"))
         {
@@ -947,40 +997,6 @@
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="ayarlar/roller">
                                     <i class="bi bi-shield-check me-2 text-danger"></i> Rol Yonetimi
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("destektalebi.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri/talep-giris">
-                                    <i class="bi bi-plus-circle me-2 text-success"></i> Yeni Talep
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri/taleplerim">
-                                    <i class="bi bi-ticket-detailed me-2 text-info"></i> Taleplerim
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("destektalebi.yaz"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri">
-                                    <i class="bi bi-ticket-detailed-fill me-2 text-primary"></i> Tüm Talepler
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri/yonetim">
-                                    <i class="bi bi-kanban me-2 text-warning"></i> Talep Yönetimi
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("destektalebi.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="destek-talepleri/bilgi-bankasi">
-                                    <i class="bi bi-book-fill me-2 text-info"></i> Bilgi Bankası
                                 </NavLink>
                             </div>
                         }
