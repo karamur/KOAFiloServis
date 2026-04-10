@@ -243,6 +243,7 @@ builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>(); // 
 builder.Services.AddScoped<IBildirimService, BildirimService>(); // Bildirim Sistemi Servisi
 builder.Services.AddScoped<ISmsService, SmsService>(); // SMS Gönderim Servisi
 builder.Services.AddScoped<IWebhookService, WebhookService>(); // Webhook Sistemi Servisi
+builder.Services.AddScoped<TestDataSeeder>(); // Test/Demo Veri Oluşturma Servisi
 builder.Services.AddHttpClient("SMS"); // SMS provider'lar için HttpClient
 builder.Services.AddHttpClient("Webhook"); // Webhook gönderimi için HttpClient
 builder.Services.AddHostedService<AutoBackupService>();

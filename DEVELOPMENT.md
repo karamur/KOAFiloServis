@@ -42,7 +42,7 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 ## Handoff Notu
 
 ### Son Durum
-- Son tamamlanan geliştirme: `Kayıt 134 - Harita Entegrasyonu (Leaflet.js)`
+- Son tamamlanan geliştirme: `Kayıt 135 - Test Data Seeding (Demo Veri Oluşturma)`
 - Git durumu: commit edilecek
 - Branch: `main`
 
@@ -52,12 +52,10 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 3. `Multi-tenant mimari (FAZ 4.1)`
 
 ### Kısa Teknik Özet
-- Leaflet.js harita kütüphanesi entegre edildi
-- HaritaGosterici.razor bileşeni oluşturuldu
-- Güzergah entity'sine koordinat alanları eklendi (BaslangicLat/Lng, BitisLat/Lng, RotaRengi)
-- GuzergahList'e harita/liste görünüm seçeneği eklendi
-- GuzergahForm'a haritadan koordinat seçme özelliği eklendi
-- FAZ 3.1 Entegrasyonlar bölümü tamamlandı
+- TestDataSeeder servisi oluşturuldu (demo veri oluşturma/temizleme)
+- DemoVeri.razor yönetim sayfası eklendi
+- [TEST] etiketleme sistemi ile kolay temizleme
+- FAZ 7.5 Örnek Veri & Test bölümü tamamlandı
 
 ### Not
 - Yarın devam ederken önce `ROADMAP.md` ve bu dosyadaki son kayıtlar referans alınmalı.
@@ -180,6 +178,60 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 - `CRMFiloServis.Web/Components/Pages/Guzergahlar/GuzergahList.razor` (güncellendi)
 - `CRMFiloServis.Web/Components/Pages/Guzergahlar/GuzergahForm.razor` (güncellendi)
 - `CRMFiloServis.Web/Data/Migrations/GuzergahKoordinatMigrationHelper.cs` (yeni)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 135 - Test Data Seeding (Demo Veri Oluşturma)
+**Talep:**
+- Demo ve test amaçlı örnek veri oluşturma sistemi
+- FAZ 7.5 kapsamında Örnek Veri & Test
+
+**Yapılanlar:**
+- TestDataSeeder.cs Servisi (500+ satır):
+  - `SeedAllAsync(bool silinenleriTemizle)` - Ana seed metodu
+  - `TemizleAsync()` - [TEST] etiketli kayıtları temizleme
+  - `SeedCarilerAsync()` - 10 müşteri + 5 tedarikçi
+  - `SeedSoforlerAsync()` - 15 şoför (TC, ehliyet, maaş bilgileri)
+  - `SeedAraclarAsync()` - 12 araç (plaka, şase, km, sahiplik tipi)
+  - `SeedGuzergahlarAsync()` - 8 güzergah (İstanbul koordinatları ile)
+  - `SeedFaturalarAsync()` - 45 fatura (30 satış + 15 alış)
+  - `SeedServisCalismalarıAsync()` - Son 30 gün sefer kayıtları
+  - `TestDataResult` DTO (sayılar ve mesajlar)
+- [TEST] Etiketleme Sistemi:
+  - Tüm demo veriler `[TEST]` prefix ile işaretleniyor
+  - Notlar alanına veya Unvan/Ad alanına ekleniyor
+  - Toplu temizleme ile kolay silinebilir
+- İstanbul Koordinat Verisi:
+  - 12 gerçek nokta (Kadıköy, Beşiktaş, Ataşehir, Taksim, vb.)
+  - Güzergahlar için başlangıç/bitiş koordinatları
+  - Renkli rota tanımları (#FF0000, #00FF00, vb.)
+- DemoVeri.razor Yönetim Sayfası:
+  - Demo veri oluştur butonu
+  - Mevcut veriyi temizle seçeneği
+  - Demo veriyi sil butonu
+  - İstatistik kartları (Cari, Şoför, Araç, Güzergah, Fatura, Sefer sayıları)
+  - Sonuç mesajları listesi
+- Program.cs Servisi Kaydı:
+  - `builder.Services.AddScoped<TestDataSeeder>();`
+- NavMenu.razor Linki:
+  - Ayarlar > Demo Veri menü öğesi
+
+**Entity Uyumluluk Düzeltmeleri:**
+- Cari: Unvan, Notlar alanları
+- Sofor: TcKimlikNo, EhliyetGecerlilikTarihi, NetMaas, PersonelGorev
+- Arac: SaseNo, AktifPlaka, Marka/Model string, KmDurumu, AracSahiplikTipi
+- Guzergah: CariId (zorunlu), BirimFiyat, Notlar
+- Fatura: FaturaTipi.SatisFaturasi/AlisFaturasi, FaturaDurum.Beklemede/Odendi
+- ServisCalisma: CalismaTarihi, ServisTuru, Fiyat, Notlar
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Data/TestDataSeeder.cs` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/DemoVeri.razor` (yeni)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
 - `CRMFiloServis.Web/Program.cs` (güncellendi)
 - `ROADMAP.md`
 
