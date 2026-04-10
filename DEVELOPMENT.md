@@ -42,12 +42,12 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 ## Handoff Notu
 
 ### Son Durum
-- Son tamamlanan geliştirme: `Kayıt 135 - Test Data Seeding (Demo Veri Oluşturma)`
+- Son tamamlanan geliştirme: `Kayıt 136 - Araç Takip Sistemi (GPS Entegrasyonu)`
 - Git durumu: commit edilecek
 - Branch: `main`
 
 ### Yarın Devam İçin Önerilen Başlangıç
-1. `Araç takip sistemi entegrasyonu` veya
+1. `Mobil uygulama (MAUI Blazor)` veya
 2. `Mobil uygulama (MAUI Blazor)` veya
 3. `Multi-tenant mimari (FAZ 4.1)`
 
@@ -231,6 +231,93 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 **Etkilenen Dosyalar:**
 - `CRMFiloServis.Web/Data/TestDataSeeder.cs` (yeni)
 - `CRMFiloServis.Web/Components/Pages/Ayarlar/DemoVeri.razor` (yeni)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 136 - Araç Takip Sistemi (GPS Entegrasyonu)
+**Talep:**
+- Araçların gerçek zamanlı GPS takibi
+- Konum geçmişi ve raporlama
+- FAZ 3.1 kapsamında Araç Takip Sistemi Entegrasyonu
+
+**Yapılanlar:**
+- AracTakip.cs Entity'leri (5 yeni entity):
+  - `AracTakipCihaz` - GPS cihaz tanımları (IMEI, marka, model, SIM)
+  - `AracKonum` - GPS koordinat kayıtları (lat/lng, hız, yön, kontak durumu)
+  - `AracBolge` - Geofence bölge tanımları (daire/çokgen)
+  - `AracBolgeAtama` - Bölge-Araç atamaları
+  - `AracTakipAlarm` - Alarm kayıtları (hız aşımı, bölge giriş/çıkış)
+  - `KonumOlayTipi`, `BolgeTipi`, `AlarmTipi` enum'ları
+- IAracTakipService Interface:
+  - Cihaz CRUD (Create, Read, Update, Delete)
+  - Konum yönetimi (son konum, geçmiş, toplu kayıt)
+  - Bölge (Geofence) yönetimi
+  - Alarm yönetimi (okundu/işlendi işaretleme)
+  - İstatistik ve raporlama
+  - API entegrasyonu (test bağlantısı, senkronizasyon)
+  - `AracKonumDto`, `AracTakipDurum`, `AracTakipIstatistik`, `DurakNoktasi` DTO'ları
+- AracTakipService Implementasyonu (600+ satır):
+  - Haversine formülü ile mesafe hesaplama
+  - Araç durum belirleme (Hareket/Bekliyor/Park/Çevrimdışı)
+  - Otomatik alarm kontrolü (hız aşımı, bölge)
+  - Durak noktası analizi
+  - İstatistik hesaplama (toplam mesafe, süre, ortalama hız)
+- AracTakipCanli.razor (Canlı Takip Sayfası):
+  - Sol panel: Araç listesi (durum badge'leri, hız, yakıt)
+  - Sağ panel: Leaflet.js harita (tüm araçlar)
+  - Otomatik yenileme (30 saniye)
+  - Araç seçimi ile haritada yakınlaştırma
+  - Özet kartlar (hareket/bekliyor/park/çevrimdışı)
+  - Okunmamış alarm bildirimi
+- TakipCihazYonetimi.razor (Cihaz Yönetim Sayfası):
+  - Cihaz listesi (araç, IMEI, marka, SIM, son iletişim)
+  - Yeni cihaz ekleme modal'ı
+  - Cihaz düzenleme ve silme
+  - Durum göstergeleri (aktif/pasif, batarya, sinyal)
+- KonumGecmisi.razor (Geçmiş Sayfa):
+  - Tarih aralığı filtresi (bugün/7 gün/30 gün)
+  - İstatistik kartları (mesafe, süre, max hız, durak sayısı)
+  - Durak noktaları listesi
+  - Alarm listesi
+  - Harita üzerinde rota çizimi
+  - Başlangıç/bitiş marker'ları
+- leaflet-interop.js Güncellemeleri:
+  - `clearMarkers()` - Marker temizleme
+  - `clearRoute()` - Rota temizleme
+  - `destroyMap()` - Harita kaldırma
+  - `setView()` - Görünüm ayarlama
+  - `drawRoute()` - Çoklu nokta rota çizimi
+  - `addCircle()` - Daire bölge çizimi
+  - `addPolygon()` - Çokgen bölge çizimi
+  - `addVehicleMarker()` - Yön oklu araç marker'ı
+- ApplicationDbContext DbSet'ler:
+  - `AracTakipCihazlar`, `AracKonumlar`, `AracBolgeler`, `AracBolgeAtamalar`, `AracTakipAlarmlar`
+- NavMenu.razor Linkleri:
+  - Filo Servis > Canlı Araç Takip
+  - Ayarlar > Entegrasyon > Araç Takip Cihazları
+
+**Teknik Özellikler:**
+- Gerçek zamanlı konum takibi (SignalR hazır altyapı)
+- Haversine formülü ile hassas mesafe hesaplama
+- Geofence desteği (daire ve çokgen bölgeler)
+- Otomatik alarm oluşturma (hız aşımı 120 km/s)
+- Durak analizi (min 5 dakika bekleme)
+- GPS cihaz marka desteği (Teltonika, Queclink, Concox, Meitrack, Coban)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/AracTakip.cs` (yeni)
+- `CRMFiloServis.Web/Services/Interfaces/IAracTakipService.cs` (yeni)
+- `CRMFiloServis.Web/Services/AracTakipService.cs` (yeni)
+- `CRMFiloServis.Web/Components/Pages/AracTakip/AracTakipCanli.razor` (yeni)
+- `CRMFiloServis.Web/Components/Pages/AracTakip/TakipCihazYonetimi.razor` (yeni)
+- `CRMFiloServis.Web/Components/Pages/AracTakip/KonumGecmisi.razor` (yeni)
+- `CRMFiloServis.Web/wwwroot/js/leaflet-interop.js` (güncellendi)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (güncellendi)
 - `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
 - `CRMFiloServis.Web/Program.cs` (güncellendi)
 - `ROADMAP.md`

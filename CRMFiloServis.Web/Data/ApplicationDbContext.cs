@@ -219,6 +219,13 @@ public class ApplicationDbContext : DbContext
     // Bildirim Ayarları Modülü
     public DbSet<BildirimAyar> BildirimAyarlari { get; set; }
 
+    // Araç Takip (GPS) Modülü
+    public DbSet<AracTakipCihaz> AracTakipCihazlar { get; set; }
+    public DbSet<AracKonum> AracKonumlar { get; set; }
+    public DbSet<AracBolge> AracBolgeler { get; set; }
+    public DbSet<AracBolgeAtama> AracBolgeAtamalar { get; set; }
+    public DbSet<AracTakipAlarm> AracTakipAlarmlar { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
