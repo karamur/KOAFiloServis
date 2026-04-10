@@ -22,10 +22,11 @@ public class AracService : IAracService
     public async Task<List<Arac>> GetAllAsync()
     {
         var araclar = await _context.Araclar
+            .AsNoTracking()
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
             .Where(a => !a.IsDeleted)
             .ToListAsync();
-            
+
         // Aktif plakaları güncelle (CikisTarihi null veya gelecek tarihli olanlar)
         foreach (var arac in araclar)
         {
@@ -33,20 +34,21 @@ public class AracService : IAracService
                 .Where(p => p.CikisTarihi == null || p.CikisTarihi > DateTime.Today)
                 .OrderByDescending(p => p.GirisTarihi)
                 .FirstOrDefault();
-            
+
             if (aktifPlaka != null && arac.AktifPlaka != aktifPlaka.Plaka)
             {
                 arac.AktifPlaka = aktifPlaka.Plaka;
                 arac.Plaka = aktifPlaka.Plaka;
             }
         }
-        
+
         return araclar.OrderBy(a => a.AktifPlaka ?? a.SaseNo).ToList();
     }
 
     public async Task<List<Arac>> GetActiveAsync()
     {
         var araclar = await _context.Araclar
+            .AsNoTracking()
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
             .Where(a => a.Aktif && !a.IsDeleted)
             .ToListAsync();

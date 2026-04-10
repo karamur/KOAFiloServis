@@ -17,6 +17,7 @@ public class CariService : ICariService
     public async Task<List<Cari>> GetAllAsync()
     {
         var cariler = await _context.Cariler
+            .AsNoTracking()
             .Include(c => c.MuhasebeHesap)
             .Where(c => !c.IsDeleted)
             .OrderBy(c => c.Unvan)
@@ -33,59 +34,20 @@ public class CariService : ICariService
     public async Task<List<Cari>> GetAllWithBakiyeAsync()
     {
         var cariler = await _context.Cariler
+            .AsNoTracking()
             .Include(c => c.MuhasebeHesap)
             .Where(c => !c.IsDeleted)
             .OrderBy(c => c.Unvan)
             .ToListAsync();
 
+        // Toplu bakiye hesaplama (N+1 sorunu çözümü)
+        var cariIds = cariler.Select(c => c.Id).ToList();
+        var bakiyeVerileri = await GetBulkBakiyeVerileriAsync(cariIds);
+
         foreach (var cari in cariler)
         {
             await FillMuhasebeBilgisiAsync(cari);
-
-            // Her cari icin borc/alacak hesapla
-            var gelenFaturalar = await _context.Faturalar
-                .Where(f => f.CariId == cari.Id && f.FaturaYonu == FaturaYonu.Gelen)
-                .SumAsync(f => (decimal?)f.GenelToplam) ?? 0;
-
-            // Giden faturalar (Satis) = Alacagimiz
-            var gidenFaturalar = await _context.Faturalar
-                .Where(f => f.CariId == cari.Id && f.FaturaYonu == FaturaYonu.Giden)
-                .SumAsync(f => (decimal?)f.GenelToplam) ?? 0;
-
-            // Banka hareketlerinden odeme/tahsilat
-            var odemeler = await _context.BankaKasaHareketleri
-                .Where(h => h.CariId == cari.Id && h.HareketTipi == HareketTipi.Cikis)
-                .SumAsync(h => (decimal?)h.Tutar) ?? 0;
-
-            var tahsilatlar = await _context.BankaKasaHareketleri
-                .Where(h => h.CariId == cari.Id && h.HareketTipi == HareketTipi.Giris)
-                .SumAsync(h => (decimal?)h.Tutar) ?? 0;
-
-            // Musteri icin: Giden fatura = Alacak, Tahsilat = Borc azaltir
-            // Tedarikci icin: Gelen fatura = Borc, Odeme = Borc azaltir
-            // Personel icin: Maas = Borc, Odeme = Borc azaltir
-            if (cari.CariTipi == CariTipi.Musteri)
-            {
-                cari.Alacak = gidenFaturalar; // Musteriye kesilen fatura (alacak)
-                cari.Borc = tahsilatlar; // Musteriden alinan odeme (borc azaltir)
-            }
-            else if (cari.CariTipi == CariTipi.Tedarikci)
-            {
-                cari.Borc = gelenFaturalar; // Tedarikci faturasi (borc)
-                cari.Alacak = odemeler; // Tedarikci odemesi (alacak)
-            }
-            else if (cari.CariTipi == CariTipi.Personel)
-            {
-                // Personel icin: Maas bordrosu = Borc (personele borcumuz)
-                // Odeme yapildiginda = Alacak (borcumuz azalir)
-                cari.Borc = gelenFaturalar; // Personel maas bordrosu gibi
-                cari.Alacak = odemeler; // Personele yapilan odeme
-            }
-            else // MusteriTedarikci
-            {
-                cari.Alacak = gidenFaturalar + odemeler;
-                cari.Borc = gelenFaturalar + tahsilatlar;
-            }
+            ApplyBakiyeFromBulkData(cari, bakiyeVerileri);
         }
 
         return cariler;
@@ -101,6 +63,7 @@ public class CariService : ICariService
     public async Task<PagedResult<Cari>> GetPagedAsync(CariFilterParams filter)
     {
         var query = _context.Cariler
+            .AsNoTracking()
             .Include(c => c.MuhasebeHesap)
             .Where(c => !c.IsDeleted)
             .AsQueryable();
@@ -138,11 +101,14 @@ public class CariService : ICariService
             .Take(filter.PageSize)
             .ToListAsync();
 
-        // Bakiye hesaplamaları
+        // Toplu bakiye hesaplama (N+1 sorunu çözümü)
+        var cariIds = items.Select(c => c.Id).ToList();
+        var bakiyeVerileri = await GetBulkBakiyeVerileriAsync(cariIds);
+
         foreach (var cari in items)
         {
             await FillMuhasebeBilgisiAsync(cari);
-            await CalculateBakiyeAsync(cari);
+            ApplyBakiyeFromBulkData(cari, bakiyeVerileri);
         }
 
         // Durum filtresi (bakiye hesaplaması sonrası)
@@ -160,6 +126,100 @@ public class CariService : ICariService
         }
 
         return new PagedResult<Cari>(items, totalCount, filter.PageNumber, filter.PageSize);
+    }
+
+    /// <summary>
+    /// Toplu bakiye verilerini tek sorguda çeker (N+1 sorunu çözümü)
+    /// </summary>
+    private async Task<BulkBakiyeData> GetBulkBakiyeVerileriAsync(List<int> cariIds)
+    {
+        if (!cariIds.Any())
+            return new BulkBakiyeData();
+
+        // Fatura toplamları - tek sorgu ile tüm carilerin fatura verilerini al
+        var faturaTotals = await _context.Faturalar
+            .AsNoTracking()
+            .Where(f => cariIds.Contains(f.CariId))
+            .GroupBy(f => new { f.CariId, f.FaturaYonu })
+            .Select(g => new
+            {
+                g.Key.CariId,
+                g.Key.FaturaYonu,
+                Toplam = g.Sum(f => f.GenelToplam)
+            })
+            .ToListAsync();
+
+        // Banka hareket toplamları - tek sorgu ile tüm carilerin hareket verilerini al
+        var hareketTotals = await _context.BankaKasaHareketleri
+            .AsNoTracking()
+            .Where(h => h.CariId.HasValue && cariIds.Contains(h.CariId.Value))
+            .GroupBy(h => new { CariId = h.CariId!.Value, h.HareketTipi })
+            .Select(g => new
+            {
+                g.Key.CariId,
+                g.Key.HareketTipi,
+                Toplam = g.Sum(h => h.Tutar)
+            })
+            .ToListAsync();
+
+        return new BulkBakiyeData
+        {
+            GelenFaturalar = faturaTotals
+                .Where(f => f.FaturaYonu == FaturaYonu.Gelen)
+                .ToDictionary(f => f.CariId, f => f.Toplam),
+            GidenFaturalar = faturaTotals
+                .Where(f => f.FaturaYonu == FaturaYonu.Giden)
+                .ToDictionary(f => f.CariId, f => f.Toplam),
+            Odemeler = hareketTotals
+                .Where(h => h.HareketTipi == HareketTipi.Cikis)
+                .ToDictionary(h => h.CariId, h => h.Toplam),
+            Tahsilatlar = hareketTotals
+                .Where(h => h.HareketTipi == HareketTipi.Giris)
+                .ToDictionary(h => h.CariId, h => h.Toplam)
+        };
+    }
+
+    /// <summary>
+    /// Toplu veri kullanarak cari bakiyesini hesaplar
+    /// </summary>
+    private static void ApplyBakiyeFromBulkData(Cari cari, BulkBakiyeData data)
+    {
+        var gelenFaturalar = data.GelenFaturalar.GetValueOrDefault(cari.Id, 0);
+        var gidenFaturalar = data.GidenFaturalar.GetValueOrDefault(cari.Id, 0);
+        var odemeler = data.Odemeler.GetValueOrDefault(cari.Id, 0);
+        var tahsilatlar = data.Tahsilatlar.GetValueOrDefault(cari.Id, 0);
+
+        if (cari.CariTipi == CariTipi.Musteri)
+        {
+            cari.Alacak = gidenFaturalar;
+            cari.Borc = tahsilatlar;
+        }
+        else if (cari.CariTipi == CariTipi.Tedarikci)
+        {
+            cari.Borc = gelenFaturalar;
+            cari.Alacak = odemeler;
+        }
+        else if (cari.CariTipi == CariTipi.Personel)
+        {
+            cari.Borc = gelenFaturalar;
+            cari.Alacak = odemeler;
+        }
+        else // MusteriTedarikci
+        {
+            cari.Alacak = gidenFaturalar + odemeler;
+            cari.Borc = gelenFaturalar + tahsilatlar;
+        }
+    }
+
+    /// <summary>
+    /// Toplu bakiye verisi için yardımcı sınıf
+    /// </summary>
+    private class BulkBakiyeData
+    {
+        public Dictionary<int, decimal> GelenFaturalar { get; set; } = new();
+        public Dictionary<int, decimal> GidenFaturalar { get; set; } = new();
+        public Dictionary<int, decimal> Odemeler { get; set; } = new();
+        public Dictionary<int, decimal> Tahsilatlar { get; set; } = new();
     }
 
     private async Task CalculateBakiyeAsync(Cari cari)

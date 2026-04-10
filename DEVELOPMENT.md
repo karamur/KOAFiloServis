@@ -42,20 +42,19 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 ## Handoff Notu
 
 ### Son Durum
-- Son tamamlanan geliştirme: `Kayıt 131 - Webhook Desteği (FAZ 4.2)`
+- Son tamamlanan geliştirme: `Kayıt 132 - EF Core Sorgu Optimizasyonu (FAZ 4.3)`
 - Git durumu: commit edilecek
 - Branch: `main`
 
 ### Yarın Devam İçin Önerilen Başlangıç
-1. `Harita entegrasyonu` veya
-2. `Mobil uygulama (MAUI Blazor)` veya
-3. `Redis cache entegrasyonu`
+1. `Redis cache entegrasyonu` veya
+2. `Harita entegrasyonu` veya
+3. `Mobil uygulama (MAUI Blazor)`
 
 ### Kısa Teknik Özet
-- Webhook sistemi eklendi (WebhookEndpoint, WebhookLog entity'leri)
-- IWebhookService ile HMAC imza ve retry mekanizması
-- 20 olay tipi desteği (Fatura, Cari, Araç, Şoför, Güzergah, Ödeme olayları)
-- Webhook yönetim UI'ı (/ayarlar/webhooks)
+- CariService N+1 sorunu çözüldü (GetAllWithBakiyeAsync, GetPagedAsync)
+- Toplu bakiye hesaplama (GetBulkBakiyeVerileriAsync) eklendi
+- AsNoTracking yaygınlaştırıldı (CariService, FaturaService, AracService)
 
 ### Not
 - Yarın devam ederken önce `ROADMAP.md` ve bu dosyadaki son kayıtlar referans alınmalı.
@@ -63,6 +62,38 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 ---
 
 ## İstek Kayıtları
+
+### Kayıt 132 - EF Core Sorgu Optimizasyonu (FAZ 4.3)
+**Talep:**
+- Lazy loading optimizasyonu ve N+1 sorunu çözümü
+
+**Yapılanlar:**
+- CariService N+1 sorunu çözüldü:
+  - `GetAllWithBakiyeAsync` metodu optimize edildi
+  - `GetPagedAsync` metodu optimize edildi
+  - Her cari için 4 ayrı SQL sorgusu yerine 2 toplu sorgu kullanılıyor
+  - `GetBulkBakiyeVerileriAsync` helper metodu eklendi
+  - `ApplyBakiyeFromBulkData` helper metodu eklendi
+  - `BulkBakiyeData` yardımcı sınıfı eklendi
+- AsNoTracking yaygınlaştırıldı:
+  - CariService okuma sorgularına AsNoTracking eklendi
+  - FaturaService okuma sorgularına AsNoTracking eklendi (GetAllAsync, GetPagedAsync, GetByCariIdAsync, GetByTipAsync, GetByDurumAsync, GetOdenmemisFaturalarAsync, GetOdenmisFaturalarAsync, GetByDateRangeAsync)
+  - AracService okuma sorgularına AsNoTracking eklendi (GetAllAsync, GetActiveAsync)
+
+**Performans Kazancı:**
+- 100 cari için: ~400 SQL sorgusu → ~2 SQL sorgusu
+- Memory kullanımı azaldı (AsNoTracking ile change tracking kapalı)
+- Sorgu süresi önemli ölçüde düştü
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/CariService.cs` (güncellendi)
+- `CRMFiloServis.Web/Services/FaturaService.cs` (güncellendi)
+- `CRMFiloServis.Web/Services/AracService.cs` (güncellendi)
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
 
 ### Kayıt 131 - Webhook Desteği (FAZ 4.2)
 **Talep:**

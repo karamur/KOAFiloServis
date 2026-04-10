@@ -25,6 +25,7 @@ public class FaturaService : IFaturaService
     public async Task<List<Fatura>> GetAllAsync()
     {
         return await _context.Faturalar
+            .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
             .OrderByDescending(f => f.FaturaTarihi)
@@ -34,6 +35,7 @@ public class FaturaService : IFaturaService
     public async Task<PagedResult<Fatura>> GetPagedAsync(FaturaFilterParams filter)
     {
         var query = _context.Faturalar
+            .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
             .AsQueryable();
@@ -97,6 +99,7 @@ public class FaturaService : IFaturaService
     public async Task<List<Fatura>> GetByCariIdAsync(int cariId)
     {
         return await _context.Faturalar
+            .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
             .Where(f => f.CariId == cariId)
@@ -107,6 +110,7 @@ public class FaturaService : IFaturaService
     public async Task<List<Fatura>> GetByTipAsync(FaturaTipi tip)
     {
         return await _context.Faturalar
+            .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
             .Where(f => f.FaturaTipi == tip)
@@ -117,6 +121,7 @@ public class FaturaService : IFaturaService
     public async Task<List<Fatura>> GetByDurumAsync(FaturaDurum durum)
     {
         return await _context.Faturalar
+            .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
             .Where(f => f.Durum == durum)
@@ -127,6 +132,7 @@ public class FaturaService : IFaturaService
     public async Task<List<Fatura>> GetOdenmemisFaturalarAsync()
     {
         return await _context.Faturalar
+            .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
             .Where(f => f.Durum == FaturaDurum.Beklemede || f.Durum == FaturaDurum.KismiOdendi)
@@ -137,6 +143,7 @@ public class FaturaService : IFaturaService
     public async Task<List<Fatura>> GetOdenmisFaturalarAsync()
     {
         return await _context.Faturalar
+            .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
             .Where(f => f.Durum == FaturaDurum.Odendi)
@@ -147,6 +154,7 @@ public class FaturaService : IFaturaService
     public async Task<List<Fatura>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
     {
         return await _context.Faturalar
+            .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
             .Where(f => f.FaturaTarihi >= startDate && f.FaturaTarihi <= endDate)
