@@ -274,6 +274,47 @@ public class EbysEvrakService : IEbysEvrakService
         }
     }
 
+    public async Task<EbysEvrakDosya> DosyaGuncelleAsync(int dosyaId, IBrowserFile file, string? degisiklikNotu = null)
+    {
+        var dosya = await _context.EbysEvrakDosyalar.FindAsync(dosyaId)
+            ?? throw new InvalidOperationException("Dosya bulunamadı");
+
+        // Eski fiziksel dosyayı sil
+        var eskiFizikselYol = Path.Combine(_environment.WebRootPath, dosya.DosyaYolu.TrimStart('/'));
+        if (File.Exists(eskiFizikselYol))
+        {
+            File.Delete(eskiFizikselYol);
+        }
+
+        // Yeni dosyayı kaydet
+        var klasor = Path.Combine(_environment.WebRootPath, "uploads", "ebys", dosya.EvrakId.ToString());
+        if (!Directory.Exists(klasor))
+            Directory.CreateDirectory(klasor);
+
+        var benzersizAd = $"{Guid.NewGuid()}_{file.Name}";
+        var yeniYol = Path.Combine(klasor, benzersizAd);
+
+        await using var stream = file.OpenReadStream(50 * 1024 * 1024); // Max 50MB
+        await using var fileStream = new FileStream(yeniYol, FileMode.Create);
+        await stream.CopyToAsync(fileStream);
+
+        // Dosya bilgilerini güncelle
+        dosya.DosyaAdi = file.Name;
+        dosya.DosyaYolu = $"/uploads/ebys/{dosya.EvrakId}/{benzersizAd}";
+        dosya.DosyaTipi = Path.GetExtension(file.Name).TrimStart('.');
+        dosya.DosyaBoyutu = file.Size;
+        dosya.SonDegisiklikNotu = degisiklikNotu;
+        dosya.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        await HareketEkleAsync(dosya.EvrakId, 1, EbysHareketTipi.Guncellendi, 
+            $"Dosya güncellendi (v{dosya.VersiyonNo}): {file.Name}" + 
+            (!string.IsNullOrEmpty(degisiklikNotu) ? $" - {degisiklikNotu}" : ""));
+
+        return dosya;
+    }
+
     #endregion
 
     #region Atama İşlemleri

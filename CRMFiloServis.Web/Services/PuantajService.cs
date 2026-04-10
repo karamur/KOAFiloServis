@@ -1,4 +1,4 @@
-using CRMFiloServis.Shared.Entities;
+ï»¿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
@@ -53,6 +53,9 @@ public class PuantajService : IPuantajService
 
         if (mevcut != null)
         {
+            if (mevcut.OnayDurumu == PersonelPuantajOnayDurumu.Onaylandi)
+                throw new InvalidOperationException("OnaylanmÄ±ÅŸ puantaj kaydÄ± gÃ¼ncellenemez.");
+
             mevcut.CalisilanGun = puantaj.CalisilanGun;
             mevcut.FazlaMesaiSaat = puantaj.FazlaMesaiSaat;
             mevcut.IzinGunu = puantaj.IzinGunu;
@@ -68,6 +71,10 @@ public class PuantajService : IPuantajService
             mevcut.DigerKesinti = puantaj.DigerKesinti;
             mevcut.NetOdeme = puantaj.NetOdeme;
             mevcut.BankaHesapNo = puantaj.BankaHesapNo;
+            mevcut.OnayDurumu = puantaj.OnayDurumu;
+            mevcut.OnaylayanKullanici = puantaj.OnaylayanKullanici;
+            mevcut.OnayTarihi = puantaj.OnayTarihi;
+            mevcut.OnayNotu = puantaj.OnayNotu;
             mevcut.UpdatedAt = DateTime.UtcNow;
             await context.SaveChangesAsync();
             return mevcut;
@@ -79,6 +86,57 @@ public class PuantajService : IPuantajService
             await context.SaveChangesAsync();
             return puantaj;
         }
+    }
+
+    public async Task<PersonelPuantaj> OnayaGonderAsync(int id, string? not = null)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var puantaj = await context.PersonelPuantajlar.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+        if (puantaj == null)
+            throw new InvalidOperationException("Puantaj bulunamadÄ±.");
+
+        if (puantaj.OnayDurumu == PersonelPuantajOnayDurumu.Onaylandi)
+            throw new InvalidOperationException("OnaylanmÄ±ÅŸ puantaj tekrar onaya gÃ¶nderilemez.");
+
+        puantaj.OnayDurumu = PersonelPuantajOnayDurumu.OnayBekliyor;
+        puantaj.OnaylayanKullanici = null;
+        puantaj.OnayTarihi = null;
+        puantaj.OnayNotu = not;
+        puantaj.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        return puantaj;
+    }
+
+    public async Task<PersonelPuantaj> OnaylaAsync(int id, string onaylayanKullanici, string? not = null)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var puantaj = await context.PersonelPuantajlar.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+        if (puantaj == null)
+            throw new InvalidOperationException("Puantaj bulunamadÄ±.");
+
+        puantaj.OnayDurumu = PersonelPuantajOnayDurumu.Onaylandi;
+        puantaj.OnaylayanKullanici = onaylayanKullanici;
+        puantaj.OnayTarihi = DateTime.UtcNow;
+        puantaj.OnayNotu = not;
+        puantaj.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        return puantaj;
+    }
+
+    public async Task<PersonelPuantaj> ReddetAsync(int id, string onaylayanKullanici, string? not = null)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var puantaj = await context.PersonelPuantajlar.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+        if (puantaj == null)
+            throw new InvalidOperationException("Puantaj bulunamadÄ±.");
+
+        puantaj.OnayDurumu = PersonelPuantajOnayDurumu.Reddedildi;
+        puantaj.OnaylayanKullanici = onaylayanKullanici;
+        puantaj.OnayTarihi = DateTime.UtcNow;
+        puantaj.OnayNotu = not;
+        puantaj.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        return puantaj;
     }
 
     public async Task DeletePuantajAsync(int id)
@@ -105,6 +163,10 @@ public class PuantajService : IPuantajService
     public async Task<GunlukPuantaj> SaveGunlukPuantajAsync(GunlukPuantaj gunluk)
     {
         using var context = await _contextFactory.CreateDbContextAsync();
+
+        var puantaj = await context.PersonelPuantajlar.FirstOrDefaultAsync(p => p.Id == gunluk.PersonelPuantajId && !p.IsDeleted);
+        if (puantaj?.OnayDurumu == PersonelPuantajOnayDurumu.Onaylandi)
+            throw new InvalidOperationException("OnaylanmÄ±ÅŸ puantajÄ±n gÃ¼nlÃ¼k kayÄ±tlarÄ± deÄŸiÅŸtirilemez.");
 
         if (gunluk.Id > 0)
         {
@@ -142,7 +204,7 @@ public class PuantajService : IPuantajService
                 {
                     PersonelPuantajId = puantajId,
                     Tarih = tarih,
-                    Calisti = tarih.DayOfWeek != DayOfWeek.Sunday, // Pazar çalýþmasýz
+                    Calisti = tarih.DayOfWeek != DayOfWeek.Sunday, // Pazar Ã§alÄ±ÅŸmasÄ±z
                     CreatedAt = DateTime.UtcNow
                 };
                 context.GunlukPuantajlar.Add(gunluk);
@@ -156,23 +218,23 @@ public class PuantajService : IPuantajService
     {
         using var context = await _contextFactory.CreateDbContextAsync();
         var puantaj = await context.PersonelPuantajlar.FindAsync(puantajId);
-        if (puantaj == null) throw new Exception("Puantaj bulunamadý");
+        if (puantaj == null) throw new Exception("Puantaj bulunamadÄ±");
 
-        // Toplam brüt gelir
+        // Toplam brÃ¼t gelir
         var toplamBrut = puantaj.BrutMaas + puantaj.YemekUcreti + puantaj.YolUcreti + 
                         puantaj.Prim + puantaj.DigerOdeme;
 
         // SGK kesintisi (%14)
         puantaj.SgkKesinti = toplamBrut * 0.14m;
 
-        // Gelir vergisi (basit hesaplama - gerçekte dilimli)
+        // Gelir vergisi (basit hesaplama - gerÃ§ekte dilimli)
         var gelirVergisiMatrahi = toplamBrut - puantaj.SgkKesinti;
         puantaj.GelirVergisi = gelirVergisiMatrahi * 0.15m;
 
         // Damga vergisi (%0.759)
         puantaj.DamgaVergisi = toplamBrut * 0.00759m;
 
-        // Net ödeme
+        // Net Ã¶deme
         puantaj.NetOdeme = toplamBrut - puantaj.SgkKesinti - puantaj.GelirVergisi - 
                           puantaj.DamgaVergisi - puantaj.DigerKesinti;
 
@@ -201,8 +263,8 @@ public class PuantajService : IPuantajService
         using var package = new ExcelPackage();
         var worksheet = package.Workbook.Worksheets.Add($"{ay:00}-{yil} Puantaj");
 
-        // Baþlýk
-        worksheet.Cells["A1"].Value = "PUANTAJ LÝSTESÝ";
+        // BaÅŸlÄ±k
+        worksheet.Cells["A1"].Value = "PUANTAJ LÄ°STESÄ°";
         worksheet.Cells["A1:P1"].Merge = true;
         worksheet.Cells["A1"].Style.Font.Size = 16;
         worksheet.Cells["A1"].Style.Font.Bold = true;
@@ -212,24 +274,24 @@ public class PuantajService : IPuantajService
         worksheet.Cells["A2:P2"].Merge = true;
         worksheet.Cells["A2"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
 
-        // Kolon baþlýklarý
+        // Kolon baÅŸlÄ±klarÄ±
         int row = 4;
-        worksheet.Cells[row, 1].Value = "Sýra";
+        worksheet.Cells[row, 1].Value = "SÄ±ra";
         worksheet.Cells[row, 2].Value = "Ad Soyad";
-        worksheet.Cells[row, 3].Value = "Çalýþýlan Gün";
+        worksheet.Cells[row, 3].Value = "Ã‡alÄ±ÅŸÄ±lan GÃ¼n";
         worksheet.Cells[row, 4].Value = "Fazla Mesai";
-        worksheet.Cells[row, 5].Value = "Ýzin";
-        worksheet.Cells[row, 6].Value = "Brüt Maaþ";
+        worksheet.Cells[row, 5].Value = "Ä°zin";
+        worksheet.Cells[row, 6].Value = "BrÃ¼t MaaÅŸ";
         worksheet.Cells[row, 7].Value = "Yemek";
         worksheet.Cells[row, 8].Value = "Yol";
         worksheet.Cells[row, 9].Value = "Prim";
-        worksheet.Cells[row, 10].Value = "Diðer";
-        worksheet.Cells[row, 11].Value = "Toplam Brüt";
+        worksheet.Cells[row, 10].Value = "DiÄŸer";
+        worksheet.Cells[row, 11].Value = "Toplam BrÃ¼t";
         worksheet.Cells[row, 12].Value = "SGK Kesinti";
         worksheet.Cells[row, 13].Value = "Gelir Vergisi";
         worksheet.Cells[row, 14].Value = "Damga Vergisi";
-        worksheet.Cells[row, 15].Value = "Diðer Kesinti";
-        worksheet.Cells[row, 16].Value = "Net Ödeme";
+        worksheet.Cells[row, 15].Value = "DiÄŸer Kesinti";
+        worksheet.Cells[row, 16].Value = "Net Ã–deme";
 
         worksheet.Cells[row, 1, row, 16].Style.Font.Bold = true;
         worksheet.Cells[row, 1, row, 16].Style.Fill.PatternType = ExcelFillStyle.Solid;
@@ -259,7 +321,7 @@ public class PuantajService : IPuantajService
             worksheet.Cells[row, 15].Value = p.DigerKesinti;
             worksheet.Cells[row, 16].Value = p.NetOdeme;
 
-            // Para birimi formatý
+            // Para birimi formatÄ±
             for (int col = 6; col <= 16; col++)
             {
                 worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
@@ -268,7 +330,7 @@ public class PuantajService : IPuantajService
             row++;
         }
 
-        // Toplam satýrý
+        // Toplam satÄ±rÄ±
         worksheet.Cells[row, 1].Value = "TOPLAM";
         worksheet.Cells[row, 1, row, 5].Merge = true;
         worksheet.Cells[row, 6].Formula = $"SUM(F5:F{row-1})";
@@ -292,7 +354,7 @@ public class PuantajService : IPuantajService
             worksheet.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
         }
 
-        // Otomatik geniþlik
+        // Otomatik geniÅŸlik
         worksheet.Cells.AutoFitColumns();
 
         return package.GetAsByteArray();
@@ -303,20 +365,20 @@ public class PuantajService : IPuantajService
         var puantajlar = await GetAylikPuantajAsync(firmaId, yil, ay);
 
         using var package = new ExcelPackage();
-        var worksheet = package.Workbook.Worksheets.Add("Vakýfbank Ödeme");
+        var worksheet = package.Workbook.Worksheets.Add("VakÄ±fbank Ã–deme");
 
-        // Baþlýk
-        worksheet.Cells["A1"].Value = "VakýfBank Toplu Ödeme Listesi";
+        // BaÅŸlÄ±k
+        worksheet.Cells["A1"].Value = "VakÄ±fBank Toplu Ã–deme Listesi";
         worksheet.Cells["A1:E1"].Merge = true;
         worksheet.Cells["A1"].Style.Font.Size = 14;
         worksheet.Cells["A1"].Style.Font.Bold = true;
 
-        // Kolon baþlýklarý (VakýfBank formatý)
-        worksheet.Cells["A3"].Value = "Sýra";
-        worksheet.Cells["B3"].Value = "Alýcý Adý Soyadý";
+        // Kolon baÅŸlÄ±klarÄ± (VakÄ±fBank formatÄ±)
+        worksheet.Cells["A3"].Value = "SÄ±ra";
+        worksheet.Cells["B3"].Value = "AlÄ±cÄ± AdÄ± SoyadÄ±";
         worksheet.Cells["C3"].Value = "IBAN";
         worksheet.Cells["D3"].Value = "Tutar";
-        worksheet.Cells["E3"].Value = "Açýklama";
+        worksheet.Cells["E3"].Value = "AÃ§Ä±klama";
 
         worksheet.Cells["A3:E3"].Style.Font.Bold = true;
         worksheet.Cells["A3:E3"].Style.Fill.PatternType = ExcelFillStyle.Solid;
@@ -331,7 +393,7 @@ public class PuantajService : IPuantajService
             worksheet.Cells[row, 2].Value = $"{p.Personel?.Ad} {p.Personel?.Soyad}";
             worksheet.Cells[row, 3].Value = p.BankaHesapNo;
             worksheet.Cells[row, 4].Value = p.NetOdeme;
-            worksheet.Cells[row, 5].Value = $"{GetAyAdi(ay)} {yil} Maaþ Ödemesi";
+            worksheet.Cells[row, 5].Value = $"{GetAyAdi(ay)} {yil} MaaÅŸ Ã–demesi";
 
             worksheet.Cells[row, 4].Style.Numberformat.Format = "#,##0.00";
             row++;
@@ -373,9 +435,9 @@ public class PuantajService : IPuantajService
 
     private string GetAyAdi(int ay) => ay switch
     {
-        1 => "Ocak", 2 => "Þubat", 3 => "Mart", 4 => "Nisan",
-        5 => "Mayýs", 6 => "Haziran", 7 => "Temmuz", 8 => "Aðustos",
-        9 => "Eylül", 10 => "Ekim", 11 => "Kasým", 12 => "Aralýk",
+        1 => "Ocak", 2 => "Åžubat", 3 => "Mart", 4 => "Nisan",
+        5 => "MayÄ±s", 6 => "Haziran", 7 => "Temmuz", 8 => "AÄŸustos",
+        9 => "EylÃ¼l", 10 => "Ekim", 11 => "KasÄ±m", 12 => "AralÄ±k",
         _ => ""
     };
 }

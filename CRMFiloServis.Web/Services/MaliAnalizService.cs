@@ -73,7 +73,7 @@ public class MaliAnalizService : IMaliAnalizService
 
         // Özmal araçları getir
         var ozmalAraclar = await _context.Araclar
-            .Where(a => a.SahiplikTipi == AracSahiplikTipi.Ozmal && a.Aktif)
+            .Where(a => a.SahiplikTipi == AracSahiplikTipi.Ozmal && a.Aktif && !a.IsDeleted)
             .ToListAsync();
 
         foreach (var arac in ozmalAraclar)
@@ -94,6 +94,7 @@ public class MaliAnalizService : IMaliAnalizService
                 .Where(s => s.AracId == arac.Id && 
                            s.CalismaTarihi >= ayBaslangic && 
                            s.CalismaTarihi <= ayBitis &&
+                           !s.IsDeleted &&
                            s.Durum == CalismaDurum.Tamamlandi)
                 .ToListAsync();
 
@@ -129,7 +130,8 @@ public class MaliAnalizService : IMaliAnalizService
                 .Include(m => m.MasrafKalemi)
                 .Where(m => m.AracId == arac.Id &&
                            m.MasrafTarihi >= ayBaslangic &&
-                           m.MasrafTarihi <= ayBitis)
+                           m.MasrafTarihi <= ayBitis &&
+                           !m.IsDeleted)
                 .ToListAsync();
 
             foreach (var masraf in masraflar)
@@ -169,8 +171,19 @@ public class MaliAnalizService : IMaliAnalizService
                        s.Arac.KiralikCariId.HasValue &&
                        s.CalismaTarihi >= ayBaslangic &&
                        s.CalismaTarihi <= ayBitis &&
+                       !s.IsDeleted &&
+                       !s.Arac.IsDeleted &&
                        s.Durum == CalismaDurum.Tamamlandi)
             .ToListAsync();
+
+        var kiralikMasrafToplamlari = await _context.AracMasraflari
+            .Where(m => !m.IsDeleted &&
+                       m.MasrafTarihi >= ayBaslangic &&
+                       m.MasrafTarihi <= ayBitis &&
+                       kiralikCalismalar.Select(c => c.AracId).Contains(m.AracId))
+            .GroupBy(m => m.AracId)
+            .Select(g => new { AracId = g.Key, Toplam = g.Sum(m => m.Tutar) })
+            .ToDictionaryAsync(x => x.AracId, x => x.Toplam);
 
         // Firma bazında grupla
         var firmaGruplari = kiralikCalismalar
@@ -204,6 +217,8 @@ public class MaliAnalizService : IMaliAnalizService
 
                 // Güzergah bazında grupla
                 var guzergahGruplari = aracGrup.GroupBy(c => c.GuzergahId).ToList();
+                var toplamAracMasrafi = kiralikMasrafToplamlari.GetValueOrDefault(aracGrup.Key);
+                var toplamAracSeferi = aracGrup.Count();
 
                 foreach (var guzergahGrup in guzergahGruplari)
                 {
@@ -212,6 +227,7 @@ public class MaliAnalizService : IMaliAnalizService
                     var birimFiyat = guzergah?.BirimFiyat ?? 0;
                     var seferGeliri = guzergahGrup.Sum(c => c.Fiyat ?? birimFiyat);
                     var kiraBedeli = seferSayisi * (arac?.SeferBasinaKiraBedeli ?? 0);
+                    var masrafPayi = toplamAracSeferi > 0 ? (toplamAracMasrafi * seferSayisi / toplamAracSeferi) : 0;
 
                     aracDetay.GuzergahDetaylari.Add(new KiralikGuzergahDetay
                     {
@@ -221,7 +237,7 @@ public class MaliAnalizService : IMaliAnalizService
                         BirimFiyat = birimFiyat,
                         KiraBedeli = arac?.SeferBasinaKiraBedeli ?? 0,
                         MusteridenAlinacak = seferGeliri,
-                        FirmayaOdenecek = kiraBedeli
+                        FirmayaOdenecek = kiraBedeli + masrafPayi
                     });
                 }
 
@@ -246,10 +262,12 @@ public class MaliAnalizService : IMaliAnalizService
                 .ThenInclude(a => a.KomisyoncuCari)
             .Include(s => s.Guzergah)
                 .ThenInclude(g => g.Cari)
-            .Where(s => s.Arac.KomisyonVar &&
+            .Where(s => s.Arac.SahiplikTipi == AracSahiplikTipi.Komisyon &&
                        s.Arac.KomisyoncuCariId.HasValue &&
                        s.CalismaTarihi >= ayBaslangic &&
                        s.CalismaTarihi <= ayBitis &&
+                       !s.IsDeleted &&
+                       !s.Arac.IsDeleted &&
                        s.Durum == CalismaDurum.Tamamlandi)
             .ToListAsync();
 
@@ -333,7 +351,7 @@ public class MaliAnalizService : IMaliAnalizService
         }
 
         // Araç Checklist
-        var araclar = await _context.Araclar.Where(a => a.Aktif).ToListAsync();
+        var araclar = await _context.Araclar.Where(a => a.Aktif && !a.IsDeleted).ToListAsync();
         foreach (var arac in araclar)
         {
             var aracChecklist = new AracChecklistOzet
@@ -375,7 +393,7 @@ public class MaliAnalizService : IMaliAnalizService
         // Güzergah Checklist
         var guzergahlar = await _context.Guzergahlar
             .Include(g => g.Cari)
-            .Where(g => g.Aktif)
+            .Where(g => g.Aktif && !g.IsDeleted)
             .ToListAsync();
 
         var ayBaslangic = new DateTime(yil, ay, 1);
@@ -439,13 +457,14 @@ public class MaliAnalizService : IMaliAnalizService
                 .Include(s => s.Guzergah)
                 .Where(s => s.CalismaTarihi >= ayBaslangic &&
                            s.CalismaTarihi <= ayBitis &&
+                           !s.IsDeleted &&
                            s.Durum == CalismaDurum.Tamamlandi)
                 .SumAsync(s => s.Fiyat ?? s.Guzergah.BirimFiyat);
 
-            var gider = await _context.AracMasraflari
-                .Where(m => m.MasrafTarihi >= ayBaslangic &&
-                           m.MasrafTarihi <= ayBitis)
-                .SumAsync(m => m.Tutar);
+            var ozmal = await GetOzmalSegmentAnalizAsync(ayBaslangic, ayBitis);
+            var kiralik = await GetKiralikSegmentAnalizAsync(ayBaslangic, ayBitis);
+            var komisyon = await GetKomisyonSegmentAnalizAsync(ayBaslangic, ayBitis);
+            var gider = ozmal.Gider + kiralik.Gider + komisyon.Gider;
 
             trend.Add(new GrafikVeri
             {
@@ -465,7 +484,7 @@ public class MaliAnalizService : IMaliAnalizService
         var analiz = new SegmentAnaliz { SegmentAdi = "Özmal Araçlar" };
 
         var ozmalAracIds = await _context.Araclar
-            .Where(a => a.SahiplikTipi == AracSahiplikTipi.Ozmal)
+            .Where(a => a.SahiplikTipi == AracSahiplikTipi.Ozmal && !a.IsDeleted)
             .Select(a => a.Id)
             .ToListAsync();
 
@@ -475,6 +494,7 @@ public class MaliAnalizService : IMaliAnalizService
             .Where(s => ozmalAracIds.Contains(s.AracId) &&
                        s.CalismaTarihi >= baslangic &&
                        s.CalismaTarihi <= bitis &&
+                       !s.IsDeleted &&
                        s.Durum == CalismaDurum.Tamamlandi)
             .SumAsync(s => s.Fiyat ?? s.Guzergah.BirimFiyat);
 
@@ -482,13 +502,15 @@ public class MaliAnalizService : IMaliAnalizService
         analiz.Gider = await _context.AracMasraflari
             .Where(m => ozmalAracIds.Contains(m.AracId) &&
                        m.MasrafTarihi >= baslangic &&
-                       m.MasrafTarihi <= bitis)
+                       m.MasrafTarihi <= bitis &&
+                       !m.IsDeleted)
             .SumAsync(m => m.Tutar);
 
         analiz.SeferSayisi = await _context.ServisCalismalari
             .Where(s => ozmalAracIds.Contains(s.AracId) &&
                        s.CalismaTarihi >= baslangic &&
                        s.CalismaTarihi <= bitis &&
+                       !s.IsDeleted &&
                        s.Durum == CalismaDurum.Tamamlandi)
             .CountAsync();
 
@@ -507,11 +529,20 @@ public class MaliAnalizService : IMaliAnalizService
             .Where(s => s.Arac.SahiplikTipi == AracSahiplikTipi.Kiralik &&
                        s.CalismaTarihi >= baslangic &&
                        s.CalismaTarihi <= bitis &&
+                       !s.IsDeleted &&
+                       !s.Arac.IsDeleted &&
                        s.Durum == CalismaDurum.Tamamlandi)
             .ToListAsync();
 
         analiz.Gelir = kiralikCalismalar.Sum(s => s.Fiyat ?? s.Guzergah.BirimFiyat);
-        analiz.Gider = kiralikCalismalar.Sum(s => s.Arac.SeferBasinaKiraBedeli ?? 0);
+        var kiralikAracMasraflari = await _context.AracMasraflari
+            .Where(m => !m.IsDeleted &&
+                       m.MasrafTarihi >= baslangic &&
+                       m.MasrafTarihi <= bitis &&
+                       kiralikCalismalar.Select(s => s.AracId).Distinct().Contains(m.AracId))
+            .SumAsync(m => m.Tutar);
+
+        analiz.Gider = kiralikCalismalar.Sum(s => s.Arac.SeferBasinaKiraBedeli ?? 0) + kiralikAracMasraflari;
         analiz.SeferSayisi = kiralikCalismalar.Count;
         analiz.AracSayisi = kiralikCalismalar.Select(s => s.AracId).Distinct().Count();
 
@@ -525,9 +556,11 @@ public class MaliAnalizService : IMaliAnalizService
         var komisyonluCalismalar = await _context.ServisCalismalari
             .Include(s => s.Arac)
             .Include(s => s.Guzergah)
-            .Where(s => s.Arac.KomisyonVar &&
+            .Where(s => s.Arac.SahiplikTipi == AracSahiplikTipi.Komisyon &&
                        s.CalismaTarihi >= baslangic &&
                        s.CalismaTarihi <= bitis &&
+                       !s.IsDeleted &&
+                       !s.Arac.IsDeleted &&
                        s.Durum == CalismaDurum.Tamamlandi)
             .ToListAsync();
 
@@ -555,7 +588,11 @@ public class MaliAnalizService : IMaliAnalizService
     {
         var masraflar = await _context.AracMasraflari
             .Include(m => m.MasrafKalemi)
-            .Where(m => m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis)
+            .Include(m => m.Arac)
+            .Where(m => !m.IsDeleted &&
+                       m.MasrafTarihi >= baslangic &&
+                       m.MasrafTarihi <= bitis &&
+                       m.Arac.SahiplikTipi != AracSahiplikTipi.Komisyon)
             .ToListAsync();
 
         var gruplar = masraflar
@@ -569,7 +606,39 @@ public class MaliAnalizService : IMaliAnalizService
             .Take(5)
             .ToList();
 
-        return gruplar;
+        var kiralikKiraGideri = await _context.ServisCalismalari
+            .Include(s => s.Arac)
+            .Where(s => !s.IsDeleted &&
+                       !s.Arac.IsDeleted &&
+                       s.Arac.SahiplikTipi == AracSahiplikTipi.Kiralik &&
+                       s.CalismaTarihi >= baslangic &&
+                       s.CalismaTarihi <= bitis &&
+                       s.Durum == CalismaDurum.Tamamlandi)
+            .SumAsync(s => s.Arac.SeferBasinaKiraBedeli ?? 0);
+
+        var komisyonGideri = await _context.ServisCalismalari
+            .Include(s => s.Arac)
+            .Include(s => s.Guzergah)
+            .Where(s => !s.IsDeleted &&
+                       !s.Arac.IsDeleted &&
+                       s.Arac.SahiplikTipi == AracSahiplikTipi.Komisyon &&
+                       s.CalismaTarihi >= baslangic &&
+                       s.CalismaTarihi <= bitis &&
+                       s.Durum == CalismaDurum.Tamamlandi)
+            .ToListAsync();
+
+        if (kiralikKiraGideri > 0)
+        {
+            gruplar.Add(new GrafikVeri { Etiket = "Kiralık Kira Gideri", Deger = kiralikKiraGideri });
+        }
+
+        var toplamKomisyonGideri = komisyonGideri.Sum(c => HesaplaKomisyonTutari(c.Arac, c.Fiyat ?? c.Guzergah.BirimFiyat));
+        if (toplamKomisyonGideri > 0)
+        {
+            gruplar.Add(new GrafikVeri { Etiket = "Komisyon Ödemesi", Deger = toplamKomisyonGideri });
+        }
+
+        return gruplar.OrderByDescending(g => g.Deger).Take(5).ToList();
     }
 
     private async Task<List<GrafikVeri>> GetEnKarliGuzergahlarAsync(DateTime baslangic, DateTime bitis, int adet)
@@ -602,11 +671,17 @@ public class MaliAnalizService : IMaliAnalizService
             .Include(s => s.Guzergah)
             .Where(s => s.CalismaTarihi >= baslangic &&
                        s.CalismaTarihi <= bitis &&
+                       !s.IsDeleted &&
+                       !s.Arac.IsDeleted &&
                        s.Durum == CalismaDurum.Tamamlandi)
             .ToListAsync();
 
         var masraflar = await _context.AracMasraflari
-            .Where(m => m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis)
+            .Include(m => m.Arac)
+            .Where(m => !m.IsDeleted &&
+                       m.MasrafTarihi >= baslangic &&
+                       m.MasrafTarihi <= bitis &&
+                       m.Arac.SahiplikTipi != AracSahiplikTipi.Komisyon)
             .GroupBy(m => m.AracId)
             .Select(g => new { AracId = g.Key, Toplam = g.Sum(m => m.Tutar) })
             .ToListAsync();
@@ -616,12 +691,19 @@ public class MaliAnalizService : IMaliAnalizService
             .Select(g => 
             {
                 var gelir = g.Sum(s => s.Fiyat ?? s.Guzergah?.BirimFiyat ?? 0);
-                var gider = masraflar.FirstOrDefault(m => m.AracId == g.Key)?.Toplam ?? 0;
+                var ilkArac = g.First().Arac;
+                var masrafGideri = masraflar.FirstOrDefault(m => m.AracId == g.Key)?.Toplam ?? 0;
+                var gider = ilkArac?.SahiplikTipi switch
+                {
+                    AracSahiplikTipi.Kiralik => g.Sum(s => s.Arac?.SeferBasinaKiraBedeli ?? 0) + masrafGideri,
+                    AracSahiplikTipi.Komisyon => g.Sum(s => HesaplaKomisyonTutari(s.Arac, s.Fiyat ?? s.Guzergah?.BirimFiyat ?? 0)),
+                    _ => masrafGideri
+                };
                 return new GrafikVeri
                 {
-                    Etiket = g.First().Arac?.AktifPlaka ?? g.First().Arac?.SaseNo ?? "Bilinmeyen",
+                    Etiket = ilkArac?.AktifPlaka ?? ilkArac?.SaseNo ?? "Bilinmeyen",
                     Deger = gelir - gider,
-                    EkBilgi = $"Gelir: {gelir:N0}?"
+                    EkBilgi = $"Gelir: {gelir:N0}₺, Gider: {gider:N0}₺"
                 };
             })
             .OrderByDescending(g => g.Deger)
@@ -644,6 +726,19 @@ public class MaliAnalizService : IMaliAnalizService
             return "Uyari";
         else
             return "Tamam";
+    }
+
+    private static decimal HesaplaKomisyonTutari(Arac? arac, decimal seferGeliri)
+    {
+        if (arac == null)
+            return 0;
+
+        return arac.KomisyonHesaplamaTipi switch
+        {
+            KomisyonHesaplamaTipi.YuzdeOrani => seferGeliri * (arac.KomisyonOrani ?? 0) / 100,
+            KomisyonHesaplamaTipi.SabitTutar => arac.SabitKomisyonTutari ?? 0,
+            _ => 0
+        };
     }
 
     #endregion

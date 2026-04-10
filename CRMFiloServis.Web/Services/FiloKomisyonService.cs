@@ -52,6 +52,7 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<FiloGuzergahEslestirme> CreateEslestirmeAsync(FiloGuzergahEslestirme eslestirme)
     {
+        await UygulaSahiplikKurallariAsync(eslestirme);
         _context.FiloGuzergahEslestirmeleri.Add(eslestirme);
         await _context.SaveChangesAsync();
         return eslestirme;
@@ -59,6 +60,7 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<FiloGuzergahEslestirme> UpdateEslestirmeAsync(FiloGuzergahEslestirme eslestirme)
     {
+        await UygulaSahiplikKurallariAsync(eslestirme);
         var existing = await _context.FiloGuzergahEslestirmeleri.FindAsync(eslestirme.Id);
         if (existing != null)
         {
@@ -117,7 +119,7 @@ public class FiloKomisyonService : IFiloKomisyonService
 
                 if (!varMi)
                 {
-                    yeniKavitlar.Add(new FiloGunlukPuantaj
+                    var yeniPuantaj = new FiloGunlukPuantaj
                     {
                         FirmaId = firmaId,
                         Tarih = currentDate,
@@ -128,9 +130,12 @@ public class FiloKomisyonService : IFiloKomisyonService
                         SoforId = eslestirme.SoforId,
                         Durum = isWeekend ? OperasyonDurumu.Gitmedi_Mazeretli : OperasyonDurumu.Gitti,
                         PuantajCarpani = isWeekend ? 0m : 1.0m,
-                        TahakkukEdenKurumUcreti = isWeekend ? 0m : eslestirme.KurumaKesilecekUcret,
-                        TahakkukEdenTaseronUcreti = isWeekend ? 0m : eslestirme.TaseronaOdenenUcret
-                    });
+                        TahakkukEdenKurumUcreti = 0m,
+                        TahakkukEdenTaseronUcreti = 0m
+                    };
+
+                    await UygulaPuantajKurallariAsync(yeniPuantaj, eslestirme);
+                    yeniKavitlar.Add(yeniPuantaj);
                 }
             }
         }
@@ -178,6 +183,7 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<FiloGunlukPuantaj> CreatePuantajAsync(FiloGunlukPuantaj puantaj)
     {
+        await UygulaPuantajKurallariAsync(puantaj);
         _context.FiloGunlukPuantajlar.Add(puantaj);
         await _context.SaveChangesAsync();
         return puantaj;
@@ -198,6 +204,8 @@ public class FiloKomisyonService : IFiloKomisyonService
             existing.ArizaYaptiMi = puantaj.ArizaYaptiMi;
             existing.ArizaAciklamasi = puantaj.ArizaAciklamasi;
             existing.Notlar = puantaj.Notlar;
+
+            await UygulaPuantajKurallariAsync(existing);
             existing.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -267,5 +275,46 @@ public class FiloKomisyonService : IFiloKomisyonService
             .Where(g => !g.IsDeleted && g.Aktif)
             .OrderBy(g => g.GuzergahAdi)
             .ToListAsync();
+    }
+
+    private async Task UygulaSahiplikKurallariAsync(FiloGuzergahEslestirme eslestirme)
+    {
+        var arac = await _context.Araclar
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == eslestirme.AracId && !a.IsDeleted);
+
+        if (arac == null)
+            throw new InvalidOperationException("Eşleştirme için seçilen araç bulunamadı.");
+
+        if (arac.SahiplikTipi is AracSahiplikTipi.Ozmal or AracSahiplikTipi.Kiralik)
+        {
+            eslestirme.TaseronaOdenenUcret = 0;
+        }
+    }
+
+    private async Task UygulaPuantajKurallariAsync(FiloGunlukPuantaj puantaj, FiloGuzergahEslestirme? eslestirme = null)
+    {
+        eslestirme ??= puantaj.FiloGuzergahEslestirmeId.HasValue
+            ? await _context.FiloGuzergahEslestirmeleri
+                .Include(e => e.Arac)
+                .FirstOrDefaultAsync(e => e.Id == puantaj.FiloGuzergahEslestirmeId.Value && !e.IsDeleted)
+            : null;
+
+        if (eslestirme?.Arac == null)
+            return;
+
+        if (puantaj.Durum is OperasyonDurumu.Gitmedi_Mazeretli or OperasyonDurumu.Gitmedi_Mazeretsiz or OperasyonDurumu.Iptal_KurumTarafindan)
+        {
+            puantaj.TahakkukEdenKurumUcreti = 0;
+            puantaj.TahakkukEdenTaseronUcreti = 0;
+            return;
+        }
+
+        var puantajCarpani = puantaj.PuantajCarpani < 0 ? 0 : puantaj.PuantajCarpani;
+        puantaj.TahakkukEdenKurumUcreti = Math.Round(eslestirme.KurumaKesilecekUcret * puantajCarpani, 2, MidpointRounding.AwayFromZero);
+
+        puantaj.TahakkukEdenTaseronUcreti = eslestirme.Arac.SahiplikTipi == AracSahiplikTipi.Komisyon
+            ? Math.Round(eslestirme.TaseronaOdenenUcret * puantajCarpani, 2, MidpointRounding.AwayFromZero)
+            : 0;
     }
 }

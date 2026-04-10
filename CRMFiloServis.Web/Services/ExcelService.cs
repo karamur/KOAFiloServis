@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+ï»¿using ClosedXML.Excel;
 using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Models;
 
@@ -14,7 +14,7 @@ public class ExcelService : IExcelService
         // Header ve data ekle
         worksheet.Cell(1, 1).InsertTable(data);
 
-        // Stil ayarlarý
+        // Stil ayarlarÄ±
         worksheet.Columns().AdjustToContents();
 
         using var stream = new MemoryStream();
@@ -22,13 +22,108 @@ public class ExcelService : IExcelService
         return stream.ToArray();
     }
 
+    public byte[] ExportSoforPerformansRaporu(SoforPerformansOzet data)
+    {
+        var headers = new[] { "DÃ¶nem", "Sefer SayÄ±sÄ±", "Ã‡alÄ±ÅŸÄ±lan GÃ¼n", "Toplam KazanÃ§", "Ort. GÃ¼nlÃ¼k KazanÃ§" };
+        var rows = data.AylikPerformans
+            .Select(a => new object[]
+            {
+                a.AyAdi,
+                a.SeferSayisi,
+                a.CalistigiGun,
+                a.ToplamKazanc,
+                a.CalistigiGun > 0 ? a.ToplamKazanc / a.CalistigiGun : 0m
+            })
+            .ToList();
+
+        return CreateExcel(headers, rows, string.IsNullOrWhiteSpace(data.SoforAdi) ? "ÅžofÃ¶r Performans" : data.SoforAdi);
+    }
+
+    public byte[] ExportSoforKarsilastirmaRaporu(List<SoforKarsilastirmaOzeti> data)
+    {
+        var headers = new[] { "SÄ±ra", "ÅžofÃ¶r AdÄ±", "Sefer SayÄ±sÄ±", "Ã‡alÄ±ÅŸtÄ±ÄŸÄ± GÃ¼n", "Toplam KazanÃ§", "ArÄ±za OranÄ± %" };
+        var rows = data
+            .Select((k, i) => new object[]
+            {
+                i + 1,
+                k.SoforAdi,
+                k.SeferSayisi,
+                k.CalistigiGun,
+                k.ToplamKazanc,
+                k.ArizaOrani
+            })
+            .ToList();
+
+        return CreateExcel(headers, rows, "ÅžofÃ¶r KarÅŸÄ±laÅŸtÄ±rma");
+    }
+
+    public byte[] ExportAracKarlilikRaporu(AracKarlilikOzet data)
+    {
+        var headers = new[]
+        {
+            "Plaka", "Marka", "Model", "Sahiplik", "Sefer SayÄ±sÄ±", "Toplam Gelir", "Toplam Masraf",
+            "Kira Bedeli", "Komisyon", "Toplam Gider", "Net Kar", "Kar MarjÄ± %", "ArÄ±za SayÄ±sÄ±", "ArÄ±za OranÄ± %"
+        };
+
+        var rows = new List<object[]>
+        {
+            new object[]
+            {
+                data.Plaka,
+                data.Marka ?? string.Empty,
+                data.Model ?? string.Empty,
+                data.SahiplikTipi,
+                data.ToplamSeferSayisi,
+                data.ToplamGelir,
+                data.ToplamMasraf,
+                data.KiraBedeli,
+                data.KomisyonTutari,
+                data.ToplamGider,
+                data.NetKar,
+                data.KarMarji,
+                data.ArizaSayisi,
+                data.ArizaOrani
+            }
+        };
+
+        return CreateExcel(headers, rows, "AraÃ§ KarlÄ±lÄ±k");
+    }
+
+    public byte[] ExportAracKarlilikKarsilastirmaRaporu(List<AracKarsilastirmaOzeti> data)
+    {
+        var headers = new[]
+        {
+            "SÄ±ra", "Plaka", "Marka/Model", "Sahiplik", "Sefer SayÄ±sÄ±", "Toplam Gelir",
+            "Toplam Gider", "Net Kar", "Kar MarjÄ± %", "ArÄ±za SayÄ±sÄ±", "ArÄ±za OranÄ± %"
+        };
+
+        var rows = data
+            .Select(k => new object[]
+            {
+                k.KarlilikSirasi,
+                k.Plaka,
+                k.MarkaModel ?? string.Empty,
+                k.SahiplikTipi,
+                k.SeferSayisi,
+                k.ToplamGelir,
+                k.ToplamGider,
+                k.NetKar,
+                k.KarMarji,
+                k.ArizaSayisi,
+                k.ArizaOrani
+            })
+            .ToList();
+
+        return CreateExcel(headers, rows, "AraÃ§ KarÅŸÄ±laÅŸtÄ±rma");
+    }
+
     public byte[] ExportServisCalismaRaporu(List<ServisCalismaRaporItem> data)
     {
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Servis Çalýþma Raporu");
+        var worksheet = workbook.Worksheets.Add("Servis Ã‡alÄ±ÅŸma Raporu");
 
-        // Baþlýklar
-        var headers = new[] { "Firma", "Güzergah", "Plaka", "Þoför", "Servis Türü", "Birim Fiyat", "Çalýþýlan Gün", "Toplam Tutar" };
+        // BaÅŸlÄ±klar
+        var headers = new[] { "Firma", "GÃ¼zergah", "Plaka", "ÅžofÃ¶r", "Servis TÃ¼rÃ¼", "Birim Fiyat", "Ã‡alÄ±ÅŸÄ±lan GÃ¼n", "Toplam Tutar" };
         for (int i = 0; i < headers.Length; i++)
         {
             worksheet.Cell(1, i + 1).Value = headers[i];
@@ -55,7 +150,7 @@ public class ExcelService : IExcelService
             row++;
         }
 
-        // Toplam satýrý
+        // Toplam satÄ±rÄ±
         worksheet.Cell(row, 6).Value = "TOPLAM:";
         worksheet.Cell(row, 6).Style.Font.Bold = true;
         worksheet.Cell(row, 7).FormulaA1 = $"SUM(G2:G{row - 1})";
@@ -63,7 +158,7 @@ public class ExcelService : IExcelService
         worksheet.Cell(row, 7).Style.Font.Bold = true;
         worksheet.Cell(row, 8).Style.Font.Bold = true;
 
-        // Para formatý
+        // Para formatÄ±
         worksheet.Column(6).Style.NumberFormat.Format = "#,##0.00 ?";
         worksheet.Column(8).Style.NumberFormat.Format = "#,##0.00 ?";
 
@@ -77,10 +172,10 @@ public class ExcelService : IExcelService
     public byte[] ExportFaturaOdemeRaporu(List<FaturaOdemeRaporItem> data)
     {
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Fatura Ödeme Raporu");
+        var worksheet = workbook.Worksheets.Add("Fatura Ã–deme Raporu");
 
-        // Baþlýklar
-        var headers = new[] { "Fatura No", "Fatura Tarihi", "Vade Tarihi", "Cari", "Fatura Tipi", "Durum", "Genel Toplam", "Ödenen", "Kalan", "Vade Günü" };
+        // BaÅŸlÄ±klar
+        var headers = new[] { "Fatura No", "Fatura Tarihi", "Vade Tarihi", "Cari", "Fatura Tipi", "Durum", "Genel Toplam", "Ã–denen", "Kalan", "Vade GÃ¼nÃ¼" };
         for (int i = 0; i < headers.Length; i++)
         {
             worksheet.Cell(1, i + 1).Value = headers[i];
@@ -106,7 +201,7 @@ public class ExcelService : IExcelService
             worksheet.Cell(row, 9).Value = item.KalanTutar;
             worksheet.Cell(row, 10).Value = item.VadeGunu;
 
-            // Gecikmiþ ödemeleri kýrmýzý yap
+            // GecikmiÅŸ Ã¶demeleri kÄ±rmÄ±zÄ± yap
             if (item.VadeGunu < 0 && item.KalanTutar > 0)
             {
                 worksheet.Row(row).Style.Fill.BackgroundColor = XLColor.LightPink;
@@ -114,14 +209,14 @@ public class ExcelService : IExcelService
             row++;
         }
 
-        // Toplam satýrý
+        // Toplam satÄ±rÄ±
         worksheet.Cell(row, 6).Value = "TOPLAM:";
         worksheet.Cell(row, 6).Style.Font.Bold = true;
         worksheet.Cell(row, 7).FormulaA1 = $"SUM(G2:G{row - 1})";
         worksheet.Cell(row, 8).FormulaA1 = $"SUM(H2:H{row - 1})";
         worksheet.Cell(row, 9).FormulaA1 = $"SUM(I2:I{row - 1})";
 
-        // Para formatý
+        // Para formatÄ±
         worksheet.Column(7).Style.NumberFormat.Format = "#,##0.00 ?";
         worksheet.Column(8).Style.NumberFormat.Format = "#,##0.00 ?";
         worksheet.Column(9).Style.NumberFormat.Format = "#,##0.00 ?";
@@ -136,10 +231,10 @@ public class ExcelService : IExcelService
     public byte[] ExportAracMasrafRaporu(List<AracMasrafRaporItem> data)
     {
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Araç Masraf Raporu");
+        var worksheet = workbook.Worksheets.Add("AraÃ§ Masraf Raporu");
 
-        // Baþlýklar
-        var headers = new[] { "Tarih", "Plaka", "Masraf Kalemi", "Kategori", "Güzergah", "Tutar", "Belge No", "Açýklama", "Arýza Kaynaklý" };
+        // BaÅŸlÄ±klar
+        var headers = new[] { "Tarih", "Plaka", "Masraf Kalemi", "Kategori", "GÃ¼zergah", "Tutar", "Belge No", "AÃ§Ä±klama", "ArÄ±za KaynaklÄ±" };
         for (int i = 0; i < headers.Length; i++)
         {
             worksheet.Cell(1, i + 1).Value = headers[i];
@@ -162,17 +257,17 @@ public class ExcelService : IExcelService
             worksheet.Cell(row, 6).Value = item.Tutar;
             worksheet.Cell(row, 7).Value = item.BelgeNo ?? "-";
             worksheet.Cell(row, 8).Value = item.Aciklama ?? "-";
-            worksheet.Cell(row, 9).Value = item.ArizaKaynakli ? "Evet" : "Hayýr";
+            worksheet.Cell(row, 9).Value = item.ArizaKaynakli ? "Evet" : "HayÄ±r";
             row++;
         }
 
-        // Toplam satýrý
+        // Toplam satÄ±rÄ±
         worksheet.Cell(row, 5).Value = "TOPLAM:";
         worksheet.Cell(row, 5).Style.Font.Bold = true;
         worksheet.Cell(row, 6).FormulaA1 = $"SUM(F2:F{row - 1})";
         worksheet.Cell(row, 6).Style.Font.Bold = true;
 
-        // Para formatý
+        // Para formatÄ±
         worksheet.Column(6).Style.NumberFormat.Format = "#,##0.00 ?";
 
         worksheet.Columns().AdjustToContents();
@@ -187,7 +282,7 @@ public class ExcelService : IExcelService
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Cariler");
 
-        var headers = new[] { "Cari Kodu", "Ünvan", "Tip", "Vergi Dairesi", "Vergi No", "Telefon", "Email", "Yetkili" };
+        var headers = new[] { "Cari Kodu", "Ãœnvan", "Tip", "Vergi Dairesi", "Vergi No", "Telefon", "Email", "Yetkili" };
         for (int i = 0; i < headers.Length; i++)
         {
             worksheet.Cell(1, i + 1).Value = headers[i];
@@ -221,9 +316,9 @@ public class ExcelService : IExcelService
     public byte[] ExportAraclar(List<Arac> data)
     {
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Araçlar");
+        var worksheet = workbook.Worksheets.Add("AraÃ§lar");
 
-        var headers = new[] { "Plaka", "Marka", "Model", "Yýl", "Tip", "Sahiplik", "Koltuk", "Muayene", "Kasko", "Trafik Sig.", "Durum" };
+        var headers = new[] { "Plaka", "Marka", "Model", "YÄ±l", "Tip", "Sahiplik", "Koltuk", "Muayene", "Kasko", "Trafik Sig.", "Durum" };
         for (int i = 0; i < headers.Length; i++)
         {
             worksheet.Cell(1, i + 1).Value = headers[i];
@@ -262,7 +357,7 @@ public class ExcelService : IExcelService
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Personel");
 
-        var headers = new[] { "Kod", "Ad Soyad", "Görev", "TC Kimlik", "Telefon", "Email", "Ýþe Baþlama", "Ehliyet Bitiþ", "SRC Bitiþ", "Net Maaþ", "Durum" };
+        var headers = new[] { "Kod", "Ad Soyad", "GÃ¶rev", "TC Kimlik", "Telefon", "Email", "Ä°ÅŸe BaÅŸlama", "Ehliyet BitiÅŸ", "SRC BitiÅŸ", "Net MaaÅŸ", "Durum" };
         for (int i = 0; i < headers.Length; i++)
         {
             worksheet.Cell(1, i + 1).Value = headers[i];
@@ -300,9 +395,9 @@ public class ExcelService : IExcelService
     public byte[] ExportBelgeUyarilari(List<BelgeUyari> data)
     {
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Belge Uyarýlarý");
+        var worksheet = workbook.Worksheets.Add("Belge UyarÄ±larÄ±");
 
-        var headers = new[] { "Ad / Plaka", "Belge Türü", "Bitiþ Tarihi", "Kalan Gün", "Durum" };
+        var headers = new[] { "Ad / Plaka", "Belge TÃ¼rÃ¼", "BitiÅŸ Tarihi", "Kalan GÃ¼n", "Durum" };
         for (int i = 0; i < headers.Length; i++)
         {
             worksheet.Cell(1, i + 1).Value = headers[i];
@@ -321,9 +416,9 @@ public class ExcelService : IExcelService
             worksheet.Cell(row, 4).Value = item.KalanGun;
             worksheet.Cell(row, 5).Value = item.Seviye switch
             {
-                BelgeUyariSeviye.Kritik => "Süresi Geçmiþ",
-                BelgeUyariSeviye.Acil => "Acil (7 gün)",
-                BelgeUyariSeviye.Uyari => "Uyarý (30 gün)",
+                BelgeUyariSeviye.Kritik => "SÃ¼resi GeÃ§miÅŸ",
+                BelgeUyariSeviye.Acil => "Acil (7 gÃ¼n)",
+                BelgeUyariSeviye.Uyari => "UyarÄ± (30 gÃ¼n)",
                 _ => "Bilgi"
             };
 
@@ -345,9 +440,9 @@ public class ExcelService : IExcelService
     public byte[] ExportAracPerformans(List<AracPerformansData> data, int yil, int ay)
     {
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add($"Araç Performans {ay:D2}-{yil}");
+        var worksheet = workbook.Worksheets.Add($"AraÃ§ Performans {ay:D2}-{yil}");
 
-        var headers = new[] { "Plaka", "Sefer Sayýsý", "Toplam Ciro", "Toplam Masraf", "Net Kar" };
+        var headers = new[] { "Plaka", "Sefer SayÄ±sÄ±", "Toplam Ciro", "Toplam Masraf", "Net Kar" };
         for (int i = 0; i < headers.Length; i++)
         {
             worksheet.Cell(1, i + 1).Value = headers[i];
@@ -374,7 +469,7 @@ public class ExcelService : IExcelService
             row++;
         }
 
-        // Toplam satýrý
+        // Toplam satÄ±rÄ±
         worksheet.Cell(row, 1).Value = "TOPLAM";
         worksheet.Cell(row, 1).Style.Font.Bold = true;
         worksheet.Cell(row, 2).FormulaA1 = $"SUM(B2:B{row - 1})";
@@ -396,9 +491,9 @@ public class ExcelService : IExcelService
     public byte[] ExportCariPerformans(List<CariPerformansData> data, int yil, int ay)
     {
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add($"Müþteri Performans {ay:D2}-{yil}");
+        var worksheet = workbook.Worksheets.Add($"MÃ¼ÅŸteri Performans {ay:D2}-{yil}");
 
-        var headers = new[] { "Müþteri", "Fatura Sayýsý", "Toplam Ciro", "Ödenen Tutar", "Kalan Bakiye" };
+        var headers = new[] { "MÃ¼ÅŸteri", "Fatura SayÄ±sÄ±", "Toplam Ciro", "Ã–denen Tutar", "Kalan Bakiye" };
         for (int i = 0; i < headers.Length; i++)
         {
             worksheet.Cell(1, i + 1).Value = headers[i];
@@ -423,7 +518,7 @@ public class ExcelService : IExcelService
             row++;
         }
 
-        // Toplam satýrý
+        // Toplam satÄ±rÄ±
         worksheet.Cell(row, 1).Value = "TOPLAM";
         worksheet.Cell(row, 1).Style.Font.Bold = true;
         worksheet.Cell(row, 2).FormulaA1 = $"SUM(B2:B{row - 1})";

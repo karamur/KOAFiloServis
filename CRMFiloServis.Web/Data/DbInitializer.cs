@@ -132,6 +132,9 @@ AfterMigrationHandling:
 
         // Destek Talebi seed verilerini ekle
         await SeedDestekTalebiVerileriAsync(context);
+
+        // EBYS örnek veri ve test senaryoları
+        await SeedEbysOrnekVerileriAsync(context);
     }
 
     private static string GetDefaultConnectionString(ApplicationDbContext context, IConfiguration configuration)
@@ -633,6 +636,9 @@ AfterMigrationHandling:
 
         // Destek Talebi seed verilerini ekle
         await SeedDestekTalebiVerileriAsync(context);
+
+        // EBYS örnek veri ve test senaryoları
+        await SeedEbysOrnekVerileriAsync(context);
     }
 
     private static async Task EnsureDestekModuluTablesAsync(ApplicationDbContext context, string dbProvider, IConfiguration? configuration)
@@ -1192,6 +1198,240 @@ AfterMigrationHandling:
         catch (Exception ex)
         {
             Console.WriteLine($"Seed hatasi: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// EBYS modülü için örnek veriler ve test senaryoları
+    /// Evrak kategorileri, gelen/giden evraklar, özlük evrak tanımları
+    /// </summary>
+    private static async Task SeedEbysOrnekVerileriAsync(ApplicationDbContext context)
+    {
+        try
+        {
+            // ========== 1. EBYS Evrak Kategorileri ==========
+            if (!await context.EbysEvrakKategoriler.AnyAsync())
+            {
+                var kategoriler = new List<EbysEvrakKategori>
+                {
+                    new() { KategoriAdi = "Resmi Yazışmalar", Aciklama = "Kurumlar arası resmi yazışmalar", SiraNo = 1, Aktif = true, Renk = "#0d6efd", Ikon = "bi-envelope-paper", CreatedAt = DateTime.UtcNow },
+                    new() { KategoriAdi = "Sözleşmeler", Aciklama = "İş sözleşmeleri, hizmet sözleşmeleri", SiraNo = 2, Aktif = true, Renk = "#198754", Ikon = "bi-file-earmark-text", CreatedAt = DateTime.UtcNow },
+                    new() { KategoriAdi = "Faturalar / Mali Belgeler", Aciklama = "Faturalar, dekontlar, mali belgeler", SiraNo = 3, Aktif = true, Renk = "#ffc107", Ikon = "bi-receipt", CreatedAt = DateTime.UtcNow },
+                    new() { KategoriAdi = "Raporlar", Aciklama = "Faaliyet raporları, denetim raporları", SiraNo = 4, Aktif = true, Renk = "#6f42c1", Ikon = "bi-file-earmark-bar-graph", CreatedAt = DateTime.UtcNow },
+                    new() { KategoriAdi = "Dilekçeler / Başvurular", Aciklama = "Dilekçeler ve başvuru evrakları", SiraNo = 5, Aktif = true, Renk = "#17a2b8", Ikon = "bi-file-earmark-person", CreatedAt = DateTime.UtcNow },
+                    new() { KategoriAdi = "İhale Belgeleri", Aciklama = "İhale dosyaları, şartnameler, teklifler", SiraNo = 6, Aktif = true, Renk = "#dc3545", Ikon = "bi-briefcase", CreatedAt = DateTime.UtcNow },
+                    new() { KategoriAdi = "SGK / Vergi Belgeleri", Aciklama = "SGK bildirgeleri, vergi beyannameleri", SiraNo = 7, Aktif = true, Renk = "#fd7e14", Ikon = "bi-building", CreatedAt = DateTime.UtcNow },
+                    new() { KategoriAdi = "Araç Belgeleri", Aciklama = "Ruhsat, sigorta, muayene belgeleri", SiraNo = 8, Aktif = true, Renk = "#20c997", Ikon = "bi-truck", CreatedAt = DateTime.UtcNow },
+                    new() { KategoriAdi = "Personel Belgeleri", Aciklama = "Personel özlük dosyası belgeleri", SiraNo = 9, Aktif = true, Renk = "#6610f2", Ikon = "bi-person-badge", CreatedAt = DateTime.UtcNow },
+                    new() { KategoriAdi = "Diğer", Aciklama = "Sınıflandırılmamış belgeler", SiraNo = 99, Aktif = true, Renk = "#6c757d", Ikon = "bi-folder", CreatedAt = DateTime.UtcNow }
+                };
+                context.EbysEvrakKategoriler.AddRange(kategoriler);
+                await context.SaveChangesAsync();
+                Console.WriteLine("EBYS evrak kategorileri eklendi.");
+            }
+
+            // ========== 2. Özlük Evrak Tanımları ==========
+            if (!await context.OzlukEvrakTanimlari.AnyAsync())
+            {
+                var evrakTanimlari = new List<OzlukEvrakTanim>
+                {
+                    // Kimlik Belgeleri
+                    new() { EvrakAdi = "Nüfus Cüzdanı Fotokopisi", Aciklama = "Kimlik kartı veya nüfus cüzdanı fotokopisi", Kategori = OzlukEvrakKategori.KimlikBelgeleri, Zorunlu = true, SiraNo = 1, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "İkametgah Belgesi", Aciklama = "Yerleşim yeri belgesi (e-Devlet)", Kategori = OzlukEvrakKategori.KimlikBelgeleri, Zorunlu = true, SiraNo = 2, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "Vesikalık Fotoğraf", Aciklama = "2 adet vesikalık fotoğraf", Kategori = OzlukEvrakKategori.KimlikBelgeleri, Zorunlu = true, SiraNo = 3, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "Sabıka Kaydı", Aciklama = "Adli sicil kaydı (e-Devlet)", Kategori = OzlukEvrakKategori.KimlikBelgeleri, Zorunlu = true, SiraNo = 4, Aktif = true, CreatedAt = DateTime.UtcNow },
+
+                    // Eğitim Belgeleri
+                    new() { EvrakAdi = "Diploma Fotokopisi", Aciklama = "Son mezuniyet belgesi", Kategori = OzlukEvrakKategori.EgitimBelgeleri, Zorunlu = false, SiraNo = 1, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "Sertifika / Kurs Belgeleri", Aciklama = "Mesleki sertifikalar ve kurs belgeleri", Kategori = OzlukEvrakKategori.EgitimBelgeleri, Zorunlu = false, SiraNo = 2, Aktif = true, CreatedAt = DateTime.UtcNow },
+
+                    // Sağlık Belgeleri
+                    new() { EvrakAdi = "Sağlık Raporu", Aciklama = "İşe giriş sağlık raporu", Kategori = OzlukEvrakKategori.SaglikBelgeleri, Zorunlu = true, SiraNo = 1, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "Kan Grubu Belgesi", Aciklama = "Kan grubu kartı veya belgesi", Kategori = OzlukEvrakKategori.SaglikBelgeleri, Zorunlu = false, SiraNo = 2, Aktif = true, CreatedAt = DateTime.UtcNow },
+
+                    // Şoför Belgeleri
+                    new() { EvrakAdi = "Ehliyet Fotokopisi", Aciklama = "Sürücü belgesi fotokopisi", Kategori = OzlukEvrakKategori.SoforBelgeleri, Zorunlu = true, SiraNo = 1, Aktif = true, GecerliGorevler = "1", CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "SRC Belgesi", Aciklama = "Mesleki yeterlilik belgesi", Kategori = OzlukEvrakKategori.SoforBelgeleri, Zorunlu = true, SiraNo = 2, Aktif = true, GecerliGorevler = "1", CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "Psikoteknik Belgesi", Aciklama = "Psikoteknik değerlendirme raporu", Kategori = OzlukEvrakKategori.SoforBelgeleri, Zorunlu = true, SiraNo = 3, Aktif = true, GecerliGorevler = "1", CreatedAt = DateTime.UtcNow },
+
+                    // SGK Belgeleri
+                    new() { EvrakAdi = "SGK İşe Giriş Bildirgesi", Aciklama = "SGK'ya işe giriş bildirgesi", Kategori = OzlukEvrakKategori.SGKBelgeleri, Zorunlu = true, SiraNo = 1, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "SGK Hizmet Dökümü", Aciklama = "SGK hizmet dökümü (e-Devlet)", Kategori = OzlukEvrakKategori.SGKBelgeleri, Zorunlu = false, SiraNo = 2, Aktif = true, CreatedAt = DateTime.UtcNow },
+
+                    // İşe Giriş Belgeleri
+                    new() { EvrakAdi = "İş Başvuru Formu", Aciklama = "Doldurulmuş iş başvuru formu", Kategori = OzlukEvrakKategori.IseGirisBelgeleri, Zorunlu = true, SiraNo = 1, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "İş Sözleşmesi", Aciklama = "İmzalı iş sözleşmesi", Kategori = OzlukEvrakKategori.IseGirisBelgeleri, Zorunlu = true, SiraNo = 2, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "İşe Giriş Bildirgesi", Aciklama = "İşe giriş bildirgesi fotokopisi", Kategori = OzlukEvrakKategori.IseGirisBelgeleri, Zorunlu = true, SiraNo = 3, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "IBAN Bilgi Formu", Aciklama = "Maaş ödemesi için banka hesap bilgileri", Kategori = OzlukEvrakKategori.IseGirisBelgeleri, Zorunlu = true, SiraNo = 4, Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "Acil Durum İletişim Formu", Aciklama = "Acil durum iletişim bilgileri formu", Kategori = OzlukEvrakKategori.IseGirisBelgeleri, Zorunlu = false, SiraNo = 5, Aktif = true, CreatedAt = DateTime.UtcNow }
+                };
+                context.OzlukEvrakTanimlari.AddRange(evrakTanimlari);
+                await context.SaveChangesAsync();
+                Console.WriteLine("Özlük evrak tanımları eklendi.");
+            }
+
+            // ========== 3. Örnek EBYS Gelen Evraklar ==========
+            if (!await context.EbysEvraklar.AnyAsync())
+            {
+                // Kategori ID'lerini al
+                var resmiYazismaKat = await context.EbysEvrakKategoriler.FirstOrDefaultAsync(k => k.KategoriAdi == "Resmi Yazışmalar");
+                var sozlesmeKat = await context.EbysEvrakKategoriler.FirstOrDefaultAsync(k => k.KategoriAdi == "Sözleşmeler");
+                var faturaKat = await context.EbysEvrakKategoriler.FirstOrDefaultAsync(k => k.KategoriAdi == "Faturalar / Mali Belgeler");
+                var sgkKat = await context.EbysEvrakKategoriler.FirstOrDefaultAsync(k => k.KategoriAdi == "SGK / Vergi Belgeleri");
+                var ihaleKat = await context.EbysEvrakKategoriler.FirstOrDefaultAsync(k => k.KategoriAdi == "İhale Belgeleri");
+
+                var ornekEvraklar = new List<EbysEvrak>
+                {
+                    // Gelen Evraklar
+                    new()
+                    {
+                        EvrakNo = "GE-2025-00001",
+                        Yon = EvrakYonu.Gelen,
+                        EvrakTarihi = DateTime.Today.AddDays(-30),
+                        KayitTarihi = DateTime.Today.AddDays(-29),
+                        Konu = "2025 Yılı Personel Servis Hizmeti İhale Daveti",
+                        Ozet = "Belediye tarafından gönderilen personel servis hizmeti ihale daveti",
+                        GonderenKurum = "Belediye Başkanlığı",
+                        GelisNo = "BEL-2025-1234",
+                        GelisTarihi = DateTime.Today.AddDays(-30),
+                        KategoriId = ihaleKat?.Id,
+                        Oncelik = EvrakOncelik.Yuksek,
+                        Gizlilik = EvrakGizlilik.Normal,
+                        Durum = EbysEvrakDurum.Isleniyor,
+                        CevapGerekli = true,
+                        CevapSuresi = DateTime.Today.AddDays(15),
+                        Aciklama = "İhale şartnamesine göre teklif hazırlanacak",
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    new()
+                    {
+                        EvrakNo = "GE-2025-00002",
+                        Yon = EvrakYonu.Gelen,
+                        EvrakTarihi = DateTime.Today.AddDays(-25),
+                        KayitTarihi = DateTime.Today.AddDays(-24),
+                        Konu = "SGK Denetim Bildirimi",
+                        Ozet = "SGK müfettişi tarafından yapılacak denetim hakkında bildirim",
+                        GonderenKurum = "Sosyal Güvenlik Kurumu",
+                        GelisNo = "SGK-2025-56789",
+                        GelisTarihi = DateTime.Today.AddDays(-25),
+                        KategoriId = sgkKat?.Id,
+                        Oncelik = EvrakOncelik.Acil,
+                        Gizlilik = EvrakGizlilik.Gizli,
+                        Durum = EbysEvrakDurum.Tamamlandi,
+                        CevapGerekli = false,
+                        Aciklama = "Denetim 15 gün sonra yapılacak, belgeler hazırlandı",
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    new()
+                    {
+                        EvrakNo = "GE-2025-00003",
+                        Yon = EvrakYonu.Gelen,
+                        EvrakTarihi = DateTime.Today.AddDays(-20),
+                        KayitTarihi = DateTime.Today.AddDays(-19),
+                        Konu = "Sözleşme Yenileme Talebi",
+                        Ozet = "Mevcut servis sözleşmesinin yenilenmesi talebi",
+                        GonderenKurum = "ABC Sanayi A.Ş.",
+                        GelisNo = "ABC-2025-0123",
+                        GelisTarihi = DateTime.Today.AddDays(-20),
+                        KategoriId = sozlesmeKat?.Id,
+                        Oncelik = EvrakOncelik.Normal,
+                        Gizlilik = EvrakGizlilik.Normal,
+                        Durum = EbysEvrakDurum.CevapBekliyor,
+                        CevapGerekli = true,
+                        CevapSuresi = DateTime.Today.AddDays(10),
+                        Aciklama = "Yeni fiyat teklifi hazırlanıyor",
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    new()
+                    {
+                        EvrakNo = "GE-2025-00004",
+                        Yon = EvrakYonu.Gelen,
+                        EvrakTarihi = DateTime.Today.AddDays(-15),
+                        KayitTarihi = DateTime.Today.AddDays(-14),
+                        Konu = "Araç Muayene Hatırlatması",
+                        Ozet = "Araç muayene süresi dolmak üzere hatırlatma",
+                        GonderenKurum = "TÜVTÜRK",
+                        GelisNo = "TUV-2025-9876",
+                        GelisTarihi = DateTime.Today.AddDays(-15),
+                        KategoriId = resmiYazismaKat?.Id,
+                        Oncelik = EvrakOncelik.Normal,
+                        Gizlilik = EvrakGizlilik.Normal,
+                        Durum = EbysEvrakDurum.Beklemede,
+                        CevapGerekli = false,
+                        Aciklama = "5 aracın muayenesi yapılacak",
+                        CreatedAt = DateTime.UtcNow
+                    },
+
+                    // Giden Evraklar
+                    new()
+                    {
+                        EvrakNo = "GI-2025-00001",
+                        Yon = EvrakYonu.Giden,
+                        EvrakTarihi = DateTime.Today.AddDays(-28),
+                        KayitTarihi = DateTime.Today.AddDays(-28),
+                        Konu = "2025 Yılı Personel Servis Hizmeti Teklif",
+                        Ozet = "Belediye ihalesine verilen fiyat teklifi",
+                        AliciKurum = "Belediye Başkanlığı",
+                        GidisNo = "TEK-2025-0001",
+                        GonderimTarihi = DateTime.Today.AddDays(-28),
+                        GonderimYontemi = GonderimYontemi.KEP,
+                        KategoriId = ihaleKat?.Id,
+                        Oncelik = EvrakOncelik.Yuksek,
+                        Gizlilik = EvrakGizlilik.Normal,
+                        Durum = EbysEvrakDurum.Tamamlandi,
+                        Aciklama = "Teklif KEP ile gönderildi",
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    new()
+                    {
+                        EvrakNo = "GI-2025-00002",
+                        Yon = EvrakYonu.Giden,
+                        EvrakTarihi = DateTime.Today.AddDays(-10),
+                        KayitTarihi = DateTime.Today.AddDays(-10),
+                        Konu = "Aylık Fatura Gönderimi - Ocak 2025",
+                        Ozet = "Ocak 2025 dönemi servis hizmeti faturası",
+                        AliciKurum = "XYZ Holding A.Ş.",
+                        GidisNo = "FAT-2025-0015",
+                        GonderimTarihi = DateTime.Today.AddDays(-10),
+                        GonderimYontemi = GonderimYontemi.Email,
+                        KategoriId = faturaKat?.Id,
+                        Oncelik = EvrakOncelik.Normal,
+                        Gizlilik = EvrakGizlilik.Normal,
+                        Durum = EbysEvrakDurum.Tamamlandi,
+                        Aciklama = "E-fatura olarak gönderildi",
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    new()
+                    {
+                        EvrakNo = "GI-2025-00003",
+                        Yon = EvrakYonu.Giden,
+                        EvrakTarihi = DateTime.Today.AddDays(-5),
+                        KayitTarihi = DateTime.Today.AddDays(-5),
+                        Konu = "Sözleşme Yenileme Cevabı",
+                        Ozet = "ABC Sanayi sözleşme yenileme talebine cevap",
+                        AliciKurum = "ABC Sanayi A.Ş.",
+                        GidisNo = "CVP-2025-0003",
+                        GonderimTarihi = DateTime.Today.AddDays(-5),
+                        GonderimYontemi = GonderimYontemi.Elden,
+                        KategoriId = sozlesmeKat?.Id,
+                        Oncelik = EvrakOncelik.Normal,
+                        Gizlilik = EvrakGizlilik.Normal,
+                        Durum = EbysEvrakDurum.Tamamlandi,
+                        Aciklama = "Yeni sözleşme şartları ile teklif iletildi",
+                        CreatedAt = DateTime.UtcNow
+                    }
+                };
+
+                context.EbysEvraklar.AddRange(ornekEvraklar);
+                await context.SaveChangesAsync();
+                Console.WriteLine("EBYS örnek evraklar eklendi.");
+            }
+
+            Console.WriteLine("EBYS örnek veri kontrolü tamamlandı.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"EBYS örnek veri ekleme hatası: {ex.Message}");
         }
     }
 

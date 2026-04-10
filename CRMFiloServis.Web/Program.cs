@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.DataProtection.Repositories;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
@@ -110,6 +111,19 @@ builder.Services.AddScoped<ApplicationDbContext>(sp =>
 builder.Services.AddScoped<AppAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => 
     sp.GetRequiredService<AppAuthenticationStateProvider>());
+builder.Services.AddScoped<IUserStore<Kullanici>, KullaniciUserStore>();
+builder.Services.AddScoped<IPasswordHasher<Kullanici>, KullaniciPasswordHasher>();
+builder.Services.AddIdentityCore<Kullanici>(options =>
+{
+    options.Password.RequireDigit = false;
+    options.Password.RequireLowercase = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequiredLength = 6;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.User.RequireUniqueEmail = false;
+})
+    .AddUserStore<KullaniciUserStore>();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();
 var dataProtectionKeysRoot = new DirectoryInfo(AppStoragePaths.GetDataProtectionKeysRoot(builder.Environment.ContentRootPath));
@@ -199,6 +213,11 @@ builder.Services.AddHostedService<CariHatirlatmaBackgroundService>(); // Cari Ha
 builder.Services.AddScoped<IFaturaSablonService, FaturaSablonService>(); // Fatura Şablon Yönetimi Servisi
 builder.Services.AddScoped<IDestekTalebiService, DestekTalebiService>(); // Destek Talebi (Ticket) Servisi - osTicket benzeri
 builder.Services.AddScoped<IEbysEvrakService, EbysEvrakService>(); // EBYS Gelen/Giden Evrak Servisi
+builder.Services.AddScoped<IBelgeVersiyonService, BelgeVersiyonService>(); // EBYS Belge Versiyon Yönetimi Servisi
+builder.Services.AddScoped<IEbysBelgeAramaService, EbysBelgeAramaService>(); // EBYS Gelişmiş Belge Arama Servisi
+builder.Services.AddScoped<IEbysAIService, EbysAIService>(); // EBYS AI Servisi (OCR, Belge Sınıflandırma)
+builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>(); // EBYS Semantic Search (Akıllı Belge Arama) Servisi
+builder.Services.AddScoped<IBildirimService, BildirimService>(); // Bildirim Sistemi Servisi
 builder.Services.AddHostedService<AutoBackupService>();
 builder.Services.AddHttpContextAccessor();
 
@@ -237,6 +256,12 @@ await RunScopedAsync(app, async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.SoforMaasMigrationHelper.ApplySoforMaasAlanlariAsync(context);
+});
+
+await RunScopedAsync(app, async services =>
+{
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    await CRMFiloServis.Web.Data.Migrations.PersonelPuantajOnayMigrationHelper.ApplyPersonelPuantajOnayAsync(context);
 });
 
 await RunScopedAsync(app, async services =>

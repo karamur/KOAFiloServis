@@ -1,7 +1,9 @@
 ﻿@page "/personel/maas"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
+@using CRMFiloServis.Web.Services.Interfaces
 @inject IPersonelMaasIzinService PersonelService
+@inject IPersonelFinansService PersonelFinansService
 @inject ISoforService SoforService
 @implements IDisposable
 @rendermode InteractiveServer
@@ -231,6 +233,57 @@
                                     <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.IcraTakibi" />
                                 </div>
                             </div>
+
+                            <div class="mt-3 border rounded p-3 bg-light-subtle">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0 text-dark"><i class="bi bi-wallet2 me-2"></i>Açık Avans Mahsubu</h6>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="AcikAvanslariMaasaMahsupEt"
+                                            disabled="@(isMahsupUygulaniyor || !acikAvanslar.Any() || MahsupEdilebilirTutar <= 0 || duzenlenenMaas.OdemeDurum == MaasOdemeDurum.Odendi)">
+                                        @if (isMahsupUygulaniyor)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                        }
+                                        <i class="bi bi-arrow-down-circle me-1"></i>Maaşa Mahsup Et
+                                    </button>
+                                </div>
+
+                                <div class="small text-muted mb-2">
+                                    Açık Avans: <strong>@ToplamAcikAvans.ToString("N2") ₺</strong> |
+                                    Mahsup Edilebilir: <strong>@MahsupEdilebilirTutar.ToString("N2") ₺</strong>
+                                </div>
+
+                                @if (acikAvanslar.Any())
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Tarih</th>
+                                                    <th class="text-end">Tutar</th>
+                                                    <th class="text-end">Mahsup</th>
+                                                    <th class="text-end">Kalan</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var avans in acikAvanslar)
+                                                {
+                                                    <tr>
+                                                        <td>@avans.AvansTarihi.ToString("dd.MM.yyyy")</td>
+                                                        <td class="text-end">@avans.Tutar.ToString("N2") ₺</td>
+                                                        <td class="text-end">@avans.MahsupEdilen.ToString("N2") ₺</td>
+                                                        <td class="text-end text-danger"><strong>@avans.Kalan.ToString("N2") ₺</strong></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="small text-muted">Bu personel için açık avans bulunmuyor.</div>
+                                }
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <h6 class="text-info">Hesaplanan</h6>
@@ -321,6 +374,8 @@
     private MaasRaporOzet? maasRapor;
     private PersonelMaas? duzenlenenMaas;
     private bool isLoading = false;
+    private List<PersonelAvans> acikAvanslar = new();
+    private bool isMahsupUygulaniyor = false;
 
     // Ödeme modal state
     private bool odemeOnayModal = false;
@@ -362,11 +417,13 @@
     private async Task DuzenleAc(int maasId)
     {
         duzenlenenMaas = await PersonelService.GetMaasByIdAsync(maasId);
+        await AcikAvanslariYukleAsync();
     }
 
     private void ModalKapat()
     {
         duzenlenenMaas = null;
+        acikAvanslar.Clear();
     }
 
     private async Task MaasKaydet()
@@ -374,9 +431,60 @@
         if (duzenlenenMaas != null)
         {
             await PersonelService.UpdateMaasAsync(duzenlenenMaas);
+            await AcikAvanslariYukleAsync();
             ModalKapat();
             await YenileData();
             BildirimGoster("Maaş bilgileri güncellendi.", true);
+        }
+    }
+
+    private decimal ToplamAcikAvans => acikAvanslar.Sum(a => a.Kalan);
+
+    private decimal MahsupEdilebilirTutar => duzenlenenMaas == null
+        ? 0
+        : Math.Max(0, duzenlenenMaas.OdenecekTutar);
+
+    private async Task AcikAvanslariYukleAsync()
+    {
+        if (duzenlenenMaas == null)
+        {
+            acikAvanslar.Clear();
+            return;
+        }
+
+        var avanslar = await PersonelFinansService.GetAvanslarAsync(personelId: duzenlenenMaas.SoforId);
+        acikAvanslar = avanslar
+            .Where(a => a.Durum != AvansDurum.IptalEdildi && a.Kalan > 0)
+            .OrderBy(a => a.AvansTarihi)
+            .ToList();
+    }
+
+    private async Task AcikAvanslariMaasaMahsupEt()
+    {
+        if (duzenlenenMaas == null || isMahsupUygulaniyor)
+            return;
+
+        isMahsupUygulaniyor = true;
+        try
+        {
+            var mahsupTutar = await PersonelFinansService.MaasaAcikAvansMahsupEtAsync(
+                duzenlenenMaas.Id,
+                DateTime.Today,
+                $"{secilenAy:D2}/{secilenYil} dönemi maaş mahsubu");
+
+            duzenlenenMaas = await PersonelService.GetMaasByIdAsync(duzenlenenMaas.Id);
+            await AcikAvanslariYukleAsync();
+            await YenileData();
+
+            BildirimGoster($"Açık avanslardan {mahsupTutar:N2} ₺ maaşa mahsup edildi.", true);
+        }
+        catch (Exception ex)
+        {
+            BildirimGoster($"Mahsup sırasında hata: {ex.Message}", false);
+        }
+        finally
+        {
+            isMahsupUygulaniyor = false;
         }
     }
 

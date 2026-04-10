@@ -1,4 +1,5 @@
-﻿using CRMFiloServis.Web.Models;
+﻿using CRMFiloServis.Shared.Entities;
+using CRMFiloServis.Web.Models;
 
 namespace CRMFiloServis.Web.Services;
 
@@ -10,7 +11,8 @@ public interface IRaporService
         int? aracId = null,
         int? soforId = null,
         int? guzergahId = null,
-        int? cariId = null);
+        int? cariId = null,
+        AracSahiplikTipi? sahiplikTipi = null);
 
     Task<List<FaturaOdemeRaporItem>> GetFaturaOdemeRaporuAsync(
         DateTime? startDate = null,
@@ -21,7 +23,8 @@ public interface IRaporService
     Task<List<AracMasrafRaporItem>> GetAracMasrafRaporuAsync(
         DateTime startDate,
         DateTime endDate,
-        int? aracId = null);
+        int? aracId = null,
+        AracSahiplikTipi? sahiplikTipi = null);
 
     Task<CariEkstre> GetCariEkstreAsync(
         int cariId,
@@ -32,11 +35,13 @@ public interface IRaporService
     Task<SoforPerformansOzet> GetSoforPerformansAsync(
         int soforId,
         DateTime startDate,
-        DateTime endDate);
+        DateTime endDate,
+        AracSahiplikTipi? sahiplikTipi = null);
 
     Task<List<SoforKarsilastirmaOzeti>> GetSoforKarsilastirmaAsync(
         DateTime startDate,
-        DateTime endDate);
+        DateTime endDate,
+        AracSahiplikTipi? sahiplikTipi = null);
 
     // Araç Karlılık Raporu
     Task<AracKarlilikOzet> GetAracKarlilikAsync(
@@ -46,7 +51,8 @@ public interface IRaporService
 
     Task<List<AracKarsilastirmaOzeti>> GetAracKarsilastirmaAsync(
         DateTime startDate,
-        DateTime endDate);
+        DateTime endDate,
+        AracSahiplikTipi? sahiplikTipi = null);
 
     // Cari Bakiye Yaşlandırma Raporu
     Task<CariYaslandirmaRapor> GetCariYaslandirmaAsync(

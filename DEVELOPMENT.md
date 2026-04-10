@@ -41,6 +41,171 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 127 - Puantaj Onay Sistemi
+**Talep:**
+- Personel puantaj modülüne onay sürecinin eklenmesi
+
+**Yapılanlar:**
+- `PersonelPuantaj` entity'sine onay alanları eklendi
+- `PersonelPuantajOnayMigrationHelper` oluşturuldu
+- `IPuantajService` ve `PuantajService` içine:
+  - `OnayaGonderAsync`
+  - `OnaylaAsync`
+  - `ReddetAsync`
+  akışları eklendi
+- `CalismaPuantaji.razor` içinde:
+  - onay özeti kartları
+  - toplu onaya gönderme
+  - satır bazlı onaya gönder / onayla / reddet butonları
+  - onay durumu rozeti
+  eklendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/PersonelPuantaj.cs`
+- `CRMFiloServis.Web/Services/Interfaces/IPuantajService.cs`
+- `CRMFiloServis.Web/Services/PuantajService.cs`
+- `CRMFiloServis.Web/Components/Pages/Personel/CalismaPuantaji.razor`
+- `CRMFiloServis.Web/Data/Migrations/PersonelPuantajOnayMigrationHelper.cs`
+- `CRMFiloServis.Web/Program.cs`
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 126 - Maaşa Mahsup (Masraf/Ödeme)
+**Talep:**
+- Personel finans tarafındaki açık avansların maaşa kesinti olarak mahsup edilmesi
+
+**Yapılanlar:**
+- `IPersonelFinansService` içine `MaasaAcikAvansMahsupEtAsync` eklendi
+- `PersonelFinansService` içinde:
+  - açık avansları bulma
+  - maaşın ödenebilir tutarı kadar mahsup etme
+  - `PersonelAvansMahsup` kaydı oluşturma
+  - maaş üzerindeki `Avans` kesintisini güncelleme
+  akışı eklendi
+- `MaasYonetimi.razor` içinde açık avans listesi ve mahsup butonu eklendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IPersonelFinansService.cs`
+- `CRMFiloServis.Web/Services/PersonelFinansService.cs`
+- `CRMFiloServis.Web/Components/Pages/Personel/MaasYonetimi.razor`
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 125 - ASP.NET Core Identity Entegrasyonu
+**Talep:**
+- Kullanıcı yönetimi altyapısının gerçek `ASP.NET Core Identity` omurgasına bağlanması
+
+**Yapılanlar:**
+- `KullaniciUserStore` eklendi ve mevcut `Kullanici` tablosu `IUserPasswordStore` üzerinden Identity'ye bağlandı
+- `KullaniciPasswordHasher` eklendi
+  - yeni parolalar Identity formatında hashleniyor
+  - eski SHA tabanlı parolalar doğrulanabiliyor
+  - başarılı girişte otomatik rehash yapılabiliyor
+- `Program.cs` içinde:
+  - `IUserStore<Kullanici>`
+  - `IPasswordHasher<Kullanici>`
+  - `AddIdentityCore<Kullanici>().AddUserStore<KullaniciUserStore>()`
+  kaydı eklendi
+- `KullaniciService` içinde giriş ve parola değiştirme akışları `UserManager<Kullanici>` ile çalışacak şekilde güncellendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Program.cs`
+- `CRMFiloServis.Web/Services/KullaniciService.cs`
+- `CRMFiloServis.Web/Services/KullaniciPasswordHasher.cs`
+- `CRMFiloServis.Web/Services/KullaniciUserStore.cs`
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 124 - Kullanıcı Kayıt/Giriş
+**Talep:**
+- Kullanıcı yönetimi fazında self-servis kayıt/giriş akışının tamamlanması
+
+**Yapılanlar:**
+- `IKullaniciService` içine `KayitOlAsync` eklendi
+- `KullaniciService` içinde:
+  - lisans kullanıcı limit kontrolü
+  - varsayılan `Kullanici` rolü ile kayıt
+  - benzersiz kullanıcı adı ve e-posta kontrolü
+  akışı eklendi
+- `Register.razor` sayfası oluşturuldu
+- `Login.razor` içine kayıt ekranına yönlendiren link eklendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IKullaniciService.cs`
+- `CRMFiloServis.Web/Services/KullaniciService.cs`
+- `CRMFiloServis.Web/Components/Pages/Login.razor`
+- `CRMFiloServis.Web/Components/Pages/Register.razor`
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 123 - Şifre Sıfırlama
+**Talep:**
+- Login ekranındaki `Şifremi Unuttum` akışının gerçek şifre sıfırlama özelliğine dönüştürülmesi
+
+**Yapılanlar:**
+- `IKullaniciService` içine `SifremiUnuttumAsync` eklendi
+- `KullaniciService` içinde:
+  - kullanıcı adı/e-posta ile kullanıcı bulma
+  - geçici şifre üretme
+  - şifreyi güncelleme ve kilidi kaldırma
+  - geçici şifreyi e-posta ile gönderme
+  - e-posta başarısızsa eski şifre hash'ine geri dönme
+  akışı eklendi
+- `Login.razor` içinde açılır şifre sıfırlama paneli eklendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IKullaniciService.cs`
+- `CRMFiloServis.Web/Services/KullaniciService.cs`
+- `CRMFiloServis.Web/Components/Pages/Login.razor`
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 122 - Excel Export İyileştirme
+**Talep:**
+- FAZ 2.3 kapsamındaki mevcut Excel export yapısının iyileştirilmesi
+- Rapor sayfalarındaki dağınık export mantığının ortak servis yapısına taşınması
+
+**Yapılanlar:**
+- `IExcelService` arayüzüne yeni export imzaları eklendi:
+  - `ExportSoforPerformansRaporu`
+  - `ExportSoforKarsilastirmaRaporu`
+  - `ExportAracKarlilikRaporu`
+  - `ExportAracKarlilikKarsilastirmaRaporu`
+- `ExcelService` içinde şoför performans ve araç karlılık için servis tabanlı export üretimi eklendi
+- `SoforPerformansRapor.razor` generic `ExportToExcel` yerine yeni servis metodlarını kullanacak şekilde güncellendi
+- `AracKarlilikRapor.razor` generic `ExportToExcel` yerine yeni servis metodlarını kullanacak şekilde güncellendi
+- `downloadFile` çağrıları tutarlı hale getirildi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IExcelService.cs`
+- `CRMFiloServis.Web/Services/ExcelService.cs`
+- `CRMFiloServis.Web/Components/Pages/Raporlar/SoforPerformansRapor.razor`
+- `CRMFiloServis.Web/Components/Pages/Raporlar/AracKarlilikRapor.razor`
+- `ROADMAP.md`
+
+**Doğrulama:**
+- `run_build` başarılı
+- `get_tests` ile ilgili Excel testi aranmış, eşleşen test bulunmamış
+
+**Durum:** ✅ Tamamlandı
+
+---
+
 ### Kayıt 102 - Menü Düzeni, Global Hata Sayfası ve Gelen Fatura Import İyileştirmesi
 **Talep:**
 - EBYS ekranlarının ayrı bir belge yönetimi başlığı altında toplanması
@@ -93,6 +258,761 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 **Etkilenen Dosyalar:**
 - `CRMFiloServis.Web/Services/AracMasrafService.cs`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 104 - Mali Analiz Servisinde Sahiplik Kurallarının Yaygınlaştırılması
+**Talep:** `Özmal / Kiralık / Komisyon` sahiplik kurallarının mali analiz ve segment raporlarına uygulanması.
+
+**Yapılanlar:**
+- `MaliAnalizService` içinde `IsDeleted` kayıtları analizlerden çıkarıldı.
+- `Komisyon` segmenti artık `KomisyonVar` yerine doğrudan `AracSahiplikTipi.Komisyon` ile hesaplanıyor.
+- `Kiralık` segmentte firma üzerindeki araç masrafları da gider hesabına dahil edildi.
+- `Yıllık trend`, `gider dağılımı` ve `araç bazlı kârlılık` hesapları sahiplik mantığına göre hizalandı.
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/MaliAnalizService.cs`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 105 - Puantaj ve Eşleştirme Servisinde Sahiplik Kurallarının Uygulanması
+**Talep:** `Özmal / Kiralık / Komisyon` sahiplik kurallarının günlük operasyon puantajı ve eşleştirme şablonlarına uygulanması.
+
+**Yapılanlar:**
+- `FiloKomisyonService` içinde eşleştirme kaydetme/güncelleme sırasında sahiplik kuralları uygulanmaya başlandı.
+- `Özmal` ve `Kiralık` araçlarda `TaseronaOdenenUcret` otomatik olarak `0` yapılıyor.
+- `Komisyon` araçlarda günlük puantaj tahakkuku şablon ücreti ve puantaj çarpanına göre otomatik hesaplanıyor.
+- `Mazeretli / mazeretsiz / kurum iptali` durumlarında tahakkuklar sıfırlanıyor.
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/FiloKomisyonService.cs`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 106 - Eşleştirme ve Operasyon Puantajı UI Tarafında Sahiplik Kuralları
+**Talep:** Sahiplik kuralının kullanıcı ekranlarında görünür ve zorlayıcı hale getirilmesi.
+
+**Yapılanlar:**
+- `EslestirmeTanimlari.razor` içinde sahiplik badge'i eklendi.
+- Araç seçimine göre `Taşerona/Şoföre Ödenen` alanı yalnızca `Komisyon` araçlarda aktif bırakıldı.
+- Eşleştirme modalına sahiplik tipine göre açıklayıcı uyarı kutuları eklendi.
+- `OperasyonPuantaji.razor` içinde satırlarda araç sahiplik badge'i gösterilmeye başlandı.
+- Günlük puantaj modalında `Kurum Tarafından İptal` durumu eklendi.
+- `Özmal` ve `Kiralık` araçlarda taşeron hakediş alanı pasifleştirildi ve UI tarafında sıfırlama uygulandı.
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Filo/EslestirmeTanimlari.razor`
+- `CRMFiloServis.Web/Components/Pages/Filo/OperasyonPuantaji.razor`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 107 - Komisyonculuk İş Atamalarında Sahiplik Kuralları
+**Talep:** `Özmal / Kiralık / Komisyon` düzeninin komisyonculuk iş atama akışına uygulanması.
+
+**Yapılanlar:**
+- `FiloOperasyonService` içinde `CreateIsAtamaAsync` ve `UpdateIsAtamaAsync` öncesine sahiplik kuralı normalizasyonu eklendi.
+- `Özmal` araç atamalarında firma şoförü zorunlu hale getirildi ve dış kaynak alanları temizleniyor.
+- `Kiralık` araç atamalarında firma şoförü zorunlu hale getirildi, kiralık cari varsayılanlanıyor ve kira bedeli araç kartından alınabiliyor.
+- `Komisyon` araç atamalarında komisyoncu cari zorunlu hale getirildi, iç şoför kaldırılıyor ve dış kaynak alanları buna göre düzenleniyor.
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/FiloOperasyonService.cs`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 108 - Komisyonculuk Atama UI Tamamlama
+**Talep:** Komisyonculuk iş atama ekranında sahiplik kurallarını kullanıcıya görünür ve yönetilebilir hale getirmek.
+
+**Yapılanlar:**
+- `KomisyonculukForm.razor` içine iş atama yönetim bölümü eklendi.
+- Atama modalında araç seçimine göre sahiplik kuralı uyarısı ve otomatik atama tipi gösterimi eklendi.
+- Bitiş tarihi, tedarikçi ödeme durumu ve ödeme tarihi alanları UI üzerinden yönetilebilir hale getirildi.
+- Atama listesinde sahiplik tipi, atama tipi ve ödeme durumu görünür hale getirildi.
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/FiloOperasyon/KomisyonculukForm.razor`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 109 - Mali Analiz Trend Sekmesinde Aylık/Yıllık Karşılaştırma
+**Talep:** Açık kalan `Aylık/Yıllık karşılaştırmalı raporlar` ihtiyacının mali analiz dashboard'ında tamamlanması.
+
+**Yapılanlar:**
+- `MaliAnalizDashboard.razor` içindeki `Trend Karşılaştırma` sekmesi genişletildi.
+- Seçili yıl ve önceki yıl için toplam net kar kartları eklendi.
+- Aynı ayın geçen yıl ile net kar, gelir ve gider karşılaştırması eklendi.
+- 12 aylık net kar fark ve değişim oranı tablosu eklendi.
+- Mevcut yıllık trend grafiği korunarak karşılaştırma akışıyla birlikte çalışır hale getirildi.
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Raporlar/MaliAnalizDashboard.razor`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 110 - EBYS Belge Versiyon Kontrolü Sistemi
+**Talep:** ROADMAP'te açık kalan `EBYS - Versiyon kontrolü` başlığının tamamlanması.
+
+**Yapılanlar:**
+
+**Entity Katmanı:**
+- `BelgeVersiyon.cs` dosyası oluşturuldu (3 versiyon entity + 1 DTO):
+  - `EbysEvrakDosyaVersiyon` - EBYS evrak dosyası versiyonları
+  - `AracEvrakDosyaVersiyon` - Araç evrak dosyası versiyonları
+  - `PersonelOzlukEvrakVersiyon` - Personel özlük evrak versiyonları
+  - `BelgeVersiyonKarsilastirma` - Versiyon karşılaştırma DTO
+- `EbysEvrakDosya` entity'sine eklendi: `VersiyonNo`, `SonDegisiklikNotu`, `Versiyonlar` collection
+- `AracEvrakDosya` entity'sine eklendi: `VersiyonNo`, `SonDegisiklikNotu`, `Versiyonlar` collection
+- `PersonelOzlukEvrak` entity'sine eklendi: `VersiyonNo`, `SonDegisiklikNotu`, `DosyaAdi`, `DosyaTipi`, `DosyaBoyutu`, `Versiyonlar` collection
+
+**Veritabanı:**
+- `ApplicationDbContext.cs` - 3 yeni DbSet eklendi:
+  - `EbysEvrakDosyaVersiyonlari`
+  - `AracEvrakDosyaVersiyonlari`
+  - `PersonelOzlukEvrakVersiyonlari`
+
+**Servis Katmanı:**
+- `IBelgeVersiyonService.cs` interface oluşturuldu - 9 metod
+- `BelgeVersiyonService.cs` implementasyonu yazıldı:
+  - `ArsivleEbysEvrakDosyaAsync` - Dosya güncellemesinde eski versiyonu arşivleme
+  - `ArsivleAracEvrakDosyaAsync` - Araç evrak versiyonlama
+  - `ArsivlePersonelOzlukEvrakAsync` - Personel özlük versiyonlama
+  - `GeriYukleEbysVersiyonAsync` - Eski versiyonu aktif yapma
+  - `GeriYukleAracVersiyonAsync` - Araç evrak geri yükleme
+  - `GeriYuklePersonelOzlukVersiyonAsync` - Personel özlük geri yükleme
+  - `GetEbysEvrakDosyaVersiyonlariAsync` - Versiyon geçmişi listesi
+  - `GetAracEvrakDosyaVersiyonlariAsync` - Araç evrak versiyon listesi
+  - `GetPersonelOzlukEvrakVersiyonlariAsync` - Personel özlük versiyon listesi
+  - `KarsilastirEbysVersiyonlarAsync` - İki versiyon karşılaştırma
+- `IEbysEvrakService.cs` interface'e `DosyaGuncelleAsync` eklendi
+- `EbysEvrakService.cs` - Dosya güncelleme ve versiyonlama implementasyonu
+
+**Program.cs:**
+- `IBelgeVersiyonService` / `BelgeVersiyonService` Scoped olarak kaydedildi
+
+**UI Katmanı (EvrakDetay.razor):**
+- Dosya listesinde versiyon numarası badge'i (v2, v3 vb.)
+- `Versiyon Geçmişi` butonu ve modal'ı
+- Versiyon geçmişi listesi (mevcut ve önceki versiyonlar)
+- `Dosya Güncelle` butonu ve modal'ı
+- Yeni dosya yükleme ve değişiklik notu girişi
+- `Geri Yükle` butonu ile eski versiyonu aktif yapma
+- Geri yükleme onay diyaloğu
+
+**Özellikler:**
+- Her dosya güncellemesinde önceki versiyon otomatik arşivleniyor
+- Versiyon numarası her güncellemede artıyor (v1 → v2 → v3)
+- Geri yükleme işlemi mevcut versiyonu da arşivliyor
+- Değişiklik notu ile her versiyon için açıklama kaydı
+- 3 farklı belge tipini destekliyor: EBYS Evrak, Araç Evrak, Personel Özlük
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/BelgeVersiyon.cs` (YENİ)
+- `CRMFiloServis.Shared/Entities/EbysEvrak.cs` (güncellendi)
+- `CRMFiloServis.Shared/Entities/AracEvrak.cs` (güncellendi)
+- `CRMFiloServis.Shared/Entities/PersonelOzlukEvrak.cs` (güncellendi)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (güncellendi)
+- `CRMFiloServis.Web/Services/Interfaces/IBelgeVersiyonService.cs` (YENİ)
+- `CRMFiloServis.Web/Services/BelgeVersiyonService.cs` (YENİ)
+- `CRMFiloServis.Web/Services/Interfaces/IEbysEvrakService.cs` (güncellendi)
+- `CRMFiloServis.Web/Services/EbysEvrakService.cs` (güncellendi)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Pages/EBYS/EvrakDetay.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 111 - EBYS Gelişmiş Belge Arama Sistemi
+**Talep:** ROADMAP'te açık kalan `EBYS - Belge arama (içerik + metadata)` başlığının tamamlanması.
+
+**Yapılanlar:**
+
+**Entity Katmanı (EbysBelgeArama.cs):**
+- Arama filtreleri:
+  - `EbysGelismisAramaFiltre` - Tüm arama parametrelerini içeren filtre DTO
+- Arama sonuçları:
+  - `EbysAramaSonuc` - Sayfalı arama sonuçları (sonuçlar, istatistikler, süre)
+  - `EbysAramaSonucItem` - Tekil sonuç öğesi (kaynak, belge adı, kategori, durum, risk vb.)
+- İstatistikler:
+  - `EbysAramaIstatistik` - Kaynak ve kategori bazlı sayımlar
+- Kullanıcı verileri:
+  - `EbysAramaGecmisi` - Kullanıcı arama geçmişi
+  - `EbysKayitliArama` - Kaydedilmiş arama filtreleri
+  - `EbysAramaOnerisi` - Arama önerileri
+- Enum'lar:
+  - `EbysAramaTipi` - Arama türü (tümü, belge adı, dosya adı, açıklama, kategori, ilgili kayıt)
+  - `EbysAramaKaynak` - Arama kaynağı (Personel Özlük, Araç Evrak, Gelen Evrak, Giden Evrak)
+  - `EbysTarihAlani` - Tarih filtre alanı
+  - `EbysAramaSiralama` - Sıralama seçenekleri
+  - `EbysOneriTipi` - Öneri tipleri
+
+**Servis Katmanı:**
+- `IEbysBelgeAramaService.cs` interface - 15+ metod
+- `EbysBelgeAramaService.cs` implementasyonu:
+  - `AraAsync` - Ana gelişmiş arama metodu (4 kaynakta paralel arama)
+  - `HizliAraAsync` - Basit metin araması
+  - `KaynaktaAraAsync` - Tek kaynakta arama
+  - `AraPersonelOzlukAsync` - Personel özlük evraklarında arama
+  - `AraAracEvrakAsync` - Araç evraklarında arama
+  - `AraGelenEvrakAsync` / `AraGidenEvrakAsync` - EBYS evraklarında arama
+  - `GetAramaOnerileriAsync` - Arama önerileri
+  - `GetPopulerAramalarAsync` - Popüler aramalar
+  - `GetIlgiliAramalarAsync` - İlgili aramalar
+  - `GetAramaGecmisiAsync` - Kullanıcı arama geçmişi
+  - `KaydetAramaGecmisiAsync` - Arama geçmişi kaydetme
+  - `TemizleAramaGecmisiAsync` - Geçmiş temizleme
+  - `GetKayitliAramalarAsync` - Kaydedilmiş aramalar
+  - `AramaKaydetAsync` - Arama kaydetme
+  - `GetGenelIstatistiklerAsync` - Genel istatistikler
+  - `GetTumKategorilerAsync` - Tüm kategoriler
+
+**Veritabanı (ApplicationDbContext.cs):**
+- `EbysAramaGecmisleri` DbSet
+- `EbysKayitliAramalar` DbSet
+
+**Program.cs:**
+- `IEbysBelgeAramaService` / `EbysBelgeAramaService` Scoped olarak kaydedildi
+
+**UI Katmanı (BelgeArama.razor):**
+- Hızlı arama kutusu (autocomplete önerileri)
+- Gelişmiş filtre paneli (collapsible):
+  - Kaynak seçimi (checkbox)
+  - Tarih aralığı ve alan seçimi
+  - Kategori seçimi
+  - Durum filtreleri
+  - Dosya filtreleri
+  - Sıralama seçenekleri
+- Sonuç istatistik kartları (kaynak bazlı)
+- Sayfalı sonuç listesi:
+  - Kaynak badge'i (renk kodlu)
+  - Belge adı, kategori, ilgili kayıt
+  - Durum ve risk göstergeleri
+  - Dosya bilgileri
+  - Detay linki
+- Sayfalama kontrolü
+- Yükleniyor göstergesi
+
+**NavMenu Güncellemesi:**
+- EBYS Belge Yönetimi altına "Belge Arama" linki eklendi
+
+**Özellikler:**
+- 4 farklı kaynakta arama (Personel Özlük, Araç Evrak, Gelen/Giden Evrak)
+- Paralel arama ile yüksek performans
+- Alaka skoru hesaplama ve sıralama
+- Metin eşleştirme (belge adı, dosya adı, açıklama, kategori, ilgili kayıt)
+- Tarih bazlı filtreleme
+- Durum ve risk filtreleri
+- Süresi dolmuş/yaklaşan evrak vurgulama
+- Arama geçmişi ve kaydedilmiş aramalar desteği
+- Kategori bazlı istatistikler
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/EbysBelgeArama.cs` (YENİ)
+- `CRMFiloServis.Web/Services/Interfaces/IEbysBelgeAramaService.cs` (YENİ)
+- `CRMFiloServis.Web/Services/EbysBelgeAramaService.cs` (YENİ)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (güncellendi)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Pages/EBYS/BelgeArama.razor` (YENİ)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 112 - EBYS AI Entegrasyonu (OCR ve Belge Sınıflandırma)
+**Talep:** ROADMAP'te açık kalan `EBYS AI entegrasyonu (OCR, otomatik sınıflandırma)` başlığının tamamlanması.
+
+**Yapılanlar:**
+
+**Interface Katmanı (IEbysAIService.cs):**
+- OCR işlemleri:
+  - `MetinCikarAsync(Stream, dosyaAdi)` - Belge içeriğinden metin çıkarma (stream)
+  - `MetinCikarAsync(dosyaYolu)` - Dosya yolundan metin çıkarma
+- Belge sınıflandırma:
+  - `BelgeSiniflandirAsync(metin, belgeGrubu)` - AI ile otomatik kategori tahmini
+- Belge analizi:
+  - `BelgeOzetiOlusturAsync(metin, maxKarakter)` - AI ile belge özeti
+  - `AnahtarKelimelerCikarAsync(metin, maxKelime)` - Anahtar kelime çıkarma
+  - `BelgeBenzerligiHesaplaAsync(metin1, metin2)` - İki belge benzerlik skoru
+  - `OneriGetirAsync(metin, belgeGrubu)` - Belge için öneri ve tahminler
+- Durum kontrolü:
+  - `DurumKontrolAsync()` - Ollama ve OCR durumu
+
+**DTO'lar:**
+- `OcrSonuc` - OCR işlem sonucu (metin, güven skoru, sayfa sayısı, süre)
+- `OcrDetayBilgi` - OCR detayları (karakter, kelime, satır sayısı)
+- `OcrSayfaBilgi` - Sayfa bazlı OCR bilgisi
+- `BelgeSiniflandirmaSonuc` - Sınıflandırma sonucu (kategori, güven, alternatifler)
+- `KategoriTahmin` - Kategori tahmin detayı
+- `BelgeOneriSonuc` - Belge önerileri (konu, öncelik, vade tarihi)
+- `AIDurumBilgi` - AI servis durum bilgisi (Ollama, OCR aktif mi)
+
+**Enum'lar:**
+- `BelgeTipi` - Belge grubu (EbysEvrak, PersonelOzluk, AracEvrak, Genel)
+
+**Servis Katmanı (EbysAIService.cs):**
+- OCR İşlemleri:
+  - Tesseract OCR entegrasyonu (offline çalışabilir)
+  - PDF metin çıkarma (doğrudan + OCR yedek)
+  - Görsel dosya OCR (JPG, PNG, BMP, TIFF)
+  - Güven skoru hesaplama (Türkçe kelime yoğunluğu)
+- Belge Sınıflandırma:
+  - Ollama AI ile kategori tahmini
+  - Belge tipine göre kategori setleri:
+    - EbysEvrak: resmi_yazi, sozlesme, fatura, dilekce, rapor, duyuru
+    - PersonelOzluk: kimlik, egitim, saglik, sofor, sgk
+    - AracEvrak: ruhsat, sigorta, muayene, bakim
+  - JSON format prompt ve parse
+- Belge Analizi:
+  - AI ile özet oluşturma
+  - Anahtar kelime çıkarma
+  - Jaccard benzerlik hesaplama (stop words filtrelemeli)
+  - Belge öneri sistemi (konu, öncelik, vade tahmini)
+- Durum Kontrolü:
+  - Ollama bağlantı kontrolü
+  - Tesseract versiyon kontrolü
+
+**UI Katmanı (EbysAIPanel.razor):**
+- Genişletilebilir/daraltılabilir AI panel
+- Dosya yükleme (PDF, JPG, PNG, BMP, TIFF - max 10MB)
+- Belge grubu seçimi
+- Manuel metin girişi seçeneği
+- OCR sonuç kartı (güven skoru, kelime/satır sayısı, süre)
+- Sınıflandırma sonuç kartı (tahmin edilen kategori, güven, açıklama)
+- Belge özeti kartı
+- Anahtar kelimeler badge listesi
+- Yükleniyor animasyonu ve durum mesajları
+- Event callback'leri (kategori seçimi, özet oluşturma, metin çıkarma)
+
+**Evrak Detay Entegrasyonu (EvrakDetay.razor):**
+- Sağ kolona AI Panel eklendi
+- Kategori önerisi evrak özetine uygulanabiliyor
+- AI özeti evrak özet alanına aktarılabiliyor
+
+**Konfigürasyon (appsettings.json):**
+```json
+"Ocr": {
+  "Enabled": true,
+  "TesseractPath": "tesseract",
+  "TessDataPath": ""
+}
+```
+
+**Program.cs:**
+- `IEbysAIService` / `EbysAIService` Scoped olarak kaydedildi
+
+**Özellikler:**
+- Tesseract OCR ile offline çalışabilirlik
+- Ollama AI ile internetsiz belge analizi
+- Türkçe + İngilizce OCR desteği
+- 4 farklı belge grubunu destekliyor
+- AI kategori önerisi ve güven skoru
+- Otomatik anahtar kelime çıkarma
+- Belge özeti oluşturma
+- Jaccard benzerlik algoritması
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IEbysAIService.cs` (YENİ)
+- `CRMFiloServis.Web/Services/EbysAIService.cs` (YENİ)
+- `CRMFiloServis.Web/Components/Shared/EbysAIPanel.razor` (YENİ)
+- `CRMFiloServis.Web/Components/Pages/EBYS/EvrakDetay.razor` (güncellendi)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
+- `CRMFiloServis.Web/appsettings.json` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 113 - EBYS Semantic Search (Akıllı Belge Arama) Sistemi
+**Talep:** ROADMAP'te açık kalan `Akıllı belge arama (semantic search)` başlığının tamamlanması.
+
+**Yapılanlar:**
+
+**OllamaService Embedding Desteği (OllamaService.cs):**
+- Embedding metodları eklendi:
+  - `EmbeddingOlusturAsync(metin)` - Tekil metin için vektör oluşturma
+  - `TopluEmbeddingOlusturAsync(metinler)` - Toplu embedding işlemi
+- `EmbeddingModelAdi` property - Kullanılan embedding modeli (nomic-embed-text)
+- DTO'lar:
+  - `OllamaEmbeddingRequest` - Embedding API isteği
+  - `OllamaEmbeddingResponse` - Embedding API yanıtı
+
+**Entity Katmanı (EbysBelgeArama.cs):**
+- `EbysBelgeEmbedding` entity oluşturuldu:
+  - `BelgeId`, `BelgeTipi`, `BelgeKodu`, `BelgeAdi`
+  - `EmbeddingJson` - Vektör verisi JSON olarak saklanır
+  - `Embedding` property - JSON↔float[] otomatik dönüşüm
+  - `EmbeddingBoyutu` property - Vektör boyutu
+  - `BelgeIcerigi` - Orijinal metin içeriği
+  - `OlusturmaTarihi`, `GuncellemeTarihi`
+- `SemanticAramaSonuc` DTO oluşturuldu:
+  - Sonuç özellikleri: `BelgeId`, `BelgeTipi`, `BelgeAdi`, `BelgeKodu`
+  - `BenzerlikSkoru` - Cosine similarity (0-1)
+  - `Onizleme` - Metin önizlemesi
+
+**Interface Katmanı (ISemanticSearchService.cs):**
+- Embedding oluşturma:
+  - `EmbeddingOlusturVeKaydetAsync(belgeId, belgeTipi, icerik)` - Tek belge indeksleme
+  - `TumBelgeleriIndeksleAsync(belgeTipi?)` - Toplu indeksleme
+- Semantic arama:
+  - `SemanticAraAsync(sorgu, maksimumSonuc, minimumSkor)` - Vektör tabanlı arama
+- Yardımcı:
+  - `IndekslemeDurumuGetirAsync()` - İndekslenen belge sayıları
+  - `EmbeddingSilAsync(belgeId, belgeTipi)` - Embedding silme
+
+**Servis Katmanı (SemanticSearchService.cs):**
+- Embedding oluşturma:
+  - Ollama `/api/embeddings` API entegrasyonu
+  - `nomic-embed-text` modeli kullanımı
+  - JSON formatında vektör depolama
+- Semantic arama algoritması:
+  - Cosine Similarity hesaplama
+  - Benzerlik skoru eşik filtreleme
+  - Sonuç sıralama (en yüksek skor önce)
+- Toplu indeksleme:
+  - 4 belge kaynağı desteği:
+    - PersonelOzlukEvrak (EvrakTanim)
+    - AracEvrak (EvrakKategorisi)
+    - EbysEvrak (Yon - Gelen/Giden)
+    - EbysBelge (Baslik)
+  - Paralel işleme desteği
+- Durum takibi:
+  - Belge tipine göre indekslenmiş sayı raporlama
+
+**UI Katmanı (BelgeArama.razor):**
+- "AI Akıllı Arama" toggle switch
+- Semantic arama modu aktifleştirildiğinde:
+  - Klasik arama yerine vektör tabanlı arama
+  - Benzerlik skoru gösterimi
+  - Minimum skor filtresi (varsayılan 0.5)
+- "Indeksi Yenile" butonu - Tüm belgeleri yeniden indeksler
+- Semantic sonuç listesi:
+  - Belge tipi rozeti
+  - Benzerlik skoru yüzdesi
+  - Belge adı ve kodu
+  - Önizleme metni
+
+**Konfigürasyon (appsettings.json):**
+```json
+"Ollama": {
+  "BaseUrl": "http://localhost:11434",
+  "Model": "llama2",
+  "EmbeddingModel": "nomic-embed-text"
+}
+```
+
+**Program.cs:**
+- `ISemanticSearchService` / `SemanticSearchService` Scoped olarak kaydedildi
+
+**ApplicationDbContext.cs:**
+- `EbysBelgeEmbeddingler` DbSet eklendi
+
+**Özellikler:**
+- Ollama embedding API ile vektör oluşturma
+- Cosine Similarity algoritması ile benzerlik hesaplama
+- JSON formatında vektör depolama (EF Core uyumlu)
+- 4 farklı belge kaynağını destekliyor
+- Minimum benzerlik skoru filtreleme
+- Toplu indeksleme ve güncelleme
+- UI toggle ile kolay aktivasyon
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/OllamaService.cs` (güncellendi - embedding metodları)
+- `CRMFiloServis.Web/Services/Interfaces/IOllamaService.cs` (güncellendi - interface)
+- `CRMFiloServis.Shared/Entities/EbysBelgeArama.cs` (güncellendi - EbysBelgeEmbedding entity)
+- `CRMFiloServis.Web/Services/Interfaces/ISemanticSearchService.cs` (YENİ)
+- `CRMFiloServis.Web/Services/SemanticSearchService.cs` (YENİ)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (güncellendi - DbSet)
+- `CRMFiloServis.Web/Program.cs` (güncellendi - DI)
+- `CRMFiloServis.Web/appsettings.json` (güncellendi - EmbeddingModel)
+- `CRMFiloServis.Web/Components/Pages/EBYS/BelgeArama.razor` (güncellendi - semantic search UI)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 114 - EBYS Örnek Veri ve Test Senaryoları
+**Talep:** ROADMAP'te açık kalan `EBYS - Örnek veri ve test senaryoları` başlığının tamamlanması.
+
+**Yapılanlar:**
+
+**DbInitializer.cs Güncellemeleri:**
+- `SeedEbysOrnekVerileriAsync()` metodu eklendi - EBYS modülü için kapsamlı örnek veri oluşturma
+- `InitializeAsync` metodlarından yeni seed metodu çağrılıyor
+
+**1. EBYS Evrak Kategorileri (10 kategori):**
+- Resmi Yazışmalar (mavi, bi-envelope-paper)
+- Sözleşmeler (yeşil, bi-file-earmark-text)
+- Faturalar / Mali Belgeler (sarı, bi-receipt)
+- Raporlar (mor, bi-file-earmark-bar-graph)
+- Dilekçeler / Başvurular (turkuaz, bi-file-earmark-person)
+- İhale Belgeleri (kırmızı, bi-briefcase)
+- SGK / Vergi Belgeleri (turuncu, bi-building)
+- Araç Belgeleri (teal, bi-truck)
+- Personel Belgeleri (indigo, bi-person-badge)
+- Diğer (gri, bi-folder)
+
+**2. Özlük Evrak Tanımları (19 evrak tipi):**
+
+*Kimlik Belgeleri:*
+- Nüfus Cüzdanı Fotokopisi (zorunlu)
+- İkametgah Belgesi (zorunlu)
+- Vesikalık Fotoğraf (zorunlu)
+- Sabıka Kaydı (zorunlu)
+
+*Eğitim Belgeleri:*
+- Diploma Fotokopisi (opsiyonel)
+- Sertifika / Kurs Belgeleri (opsiyonel)
+
+*Sağlık Belgeleri:*
+- Sağlık Raporu (zorunlu)
+- Kan Grubu Belgesi (opsiyonel)
+
+*Şoför Belgeleri (GecerliGorevler: "1" - Şoför):*
+- Ehliyet Fotokopisi (zorunlu)
+- SRC Belgesi (zorunlu)
+- Psikoteknik Belgesi (zorunlu)
+
+*SGK Belgeleri:*
+- SGK İşe Giriş Bildirgesi (zorunlu)
+- SGK Hizmet Dökümü (opsiyonel)
+
+*İşe Giriş Belgeleri:*
+- İş Başvuru Formu (zorunlu)
+- İş Sözleşmesi (zorunlu)
+- İşe Giriş Bildirgesi (zorunlu)
+- IBAN Bilgi Formu (zorunlu)
+- Acil Durum İletişim Formu (opsiyonel)
+
+**3. Örnek EBYS Evrakları (7 evrak):**
+
+*Gelen Evraklar (4 adet):*
+- GE-2025-00001: Personel Servis Hizmeti İhale Daveti (Belediye, İhale, Yüksek öncelik, İşleniyor)
+- GE-2025-00002: SGK Denetim Bildirimi (SGK, Gizli, Acil öncelik, Tamamlandı)
+- GE-2025-00003: Sözleşme Yenileme Talebi (ABC Sanayi, Sözleşme, Cevap Bekliyor)
+- GE-2025-00004: Araç Muayene Hatırlatması (TÜVTÜRK, Resmi Yazışma, Beklemede)
+
+*Giden Evraklar (3 adet):*
+- GI-2025-00001: Personel Servis Hizmeti Teklif (KEP ile gönderildi, Tamamlandı)
+- GI-2025-00002: Aylık Fatura Gönderimi - Ocak 2025 (E-mail ile gönderildi, Tamamlandı)
+- GI-2025-00003: Sözleşme Yenileme Cevabı (Elden teslim, Tamamlandı)
+
+**Özellikler:**
+- ✅ Evrak kategorileri: 10 farklı kategori (renk kodlu, ikonlu)
+- ✅ Özlük evrak tanımları: 19 evrak tipi (7 kategori, zorunlu/opsiyonel)
+- ✅ Şoför görevine özel evraklar (GecerliGorevler filtreleme)
+- ✅ Gelen evraklar: 4 örnek (farklı durumlar, öncelikler, gizlilik seviyeleri)
+- ✅ Giden evraklar: 3 örnek (farklı gönderim yöntemleri)
+- ✅ Cevap süresi takibi (CevapSuresi, CevapGerekli)
+- ✅ Gerçekçi tarih ve belge numaraları
+
+**Test Senaryoları Destekli:**
+- Evrak arama testi (farklı kategorilerde evrak mevcut)
+- Özlük checklist testi (zorunlu ve opsiyonel evraklar)
+- Evrak durumu takip testi (Beklemede, İşleniyor, Cevap Bekliyor, Tamamlandı)
+- Öncelik filtresi testi (Düşük, Normal, Yüksek, Acil)
+- Gizlilik seviyesi testi (Normal, Gizli)
+- Gönderim yöntemi testi (KEP, Email, Elden)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Data/DbInitializer.cs` (güncellendi - SeedEbysOrnekVerileriAsync eklendi)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 115 - Filo Sahiplik Kurallarının Raporlara Yayılması
+**Talep:** Filo sahiplik kurallarının (Özmal/Kiralık/Komisyon) rapor servislerine ve rapor UI sayfalarına eklenmesi.
+
+**Yapılanlar:**
+
+**IRaporService.cs Güncellemeleri:**
+- `GetServisCalismaRaporuAsync` metoduna `AracSahiplikTipi? sahiplikTipi` parametresi eklendi
+- `GetAracMasrafRaporuAsync` metoduna `AracSahiplikTipi? sahiplikTipi` parametresi eklendi
+- `GetSoforPerformansAsync` metoduna `AracSahiplikTipi? sahiplikTipi` parametresi eklendi
+- `GetSoforKarsilastirmaAsync` metoduna `AracSahiplikTipi? sahiplikTipi` parametresi eklendi
+- `GetAracKarsilastirmaAsync` metoduna `AracSahiplikTipi? sahiplikTipi` parametresi eklendi
+
+**RaporService.cs Güncellemeleri:**
+- Tüm rapor metodlarına sahiplik filtreleme eklendi
+- LINQ sorgularında `Where(s => s.Arac.SahiplikTipi == sahiplikTipi.Value)` kullanıldı
+- Araç, servis çalışması ve masraf sorgularında filtreleme uygulandı
+
+**UI Sayfaları Güncellemeleri:**
+
+1. **ServisCalismaRapor.razor:**
+   - Sahiplik dropdown filtresi eklendi (Tümü, Özmal, Kiralık, Komisyon)
+   - `secilenSahiplikTipi` değişkeni eklendi
+   - `RaporGetir()` metodu sahiplik parametresi ile güncellendi
+   - `Enum.TryParse` ile string-to-enum dönüşümü
+
+2. **AracKarlilikRapor.razor:**
+   - Sahiplik dropdown filtresi eklendi
+   - `seciliSahiplikTipi` değişkeni eklendi
+   - `filtreliAraclar` computed property ile araç listesi filtreleme
+   - `SahiplikDegisti()` metodu ile araç seçimi sıfırlama
+
+3. **SoforPerformansRapor.razor:**
+   - Sahiplik dropdown filtresi eklendi
+   - `secilenSahiplikTipi` değişkeni eklendi
+   - `GetSahiplikTipi()` helper metodu eklendi
+   - Performans ve karşılaştırma servis çağrıları güncellendi
+
+4. **AracMasrafRapor.razor:**
+   - Sahiplik dropdown filtresi eklendi
+   - `seciliSahiplikTipi` değişkeni eklendi
+   - `filtreliAraclar` computed property eklendi
+   - `SahiplikDegisti()` metodu eklendi
+   - `RaporGetir()` sahiplik parametresi ile güncellendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IRaporService.cs` (güncellendi)
+- `CRMFiloServis.Web/Services/RaporService.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/Pages/Raporlar/ServisCalismaRapor.razor` (güncellendi)
+- `CRMFiloServis.Web/Components/Pages/Raporlar/AracKarlilikRapor.razor` (güncellendi)
+- `CRMFiloServis.Web/Components/Pages/Raporlar/SoforPerformansRapor.razor` (güncellendi)
+- `CRMFiloServis.Web/Components/Pages/Raporlar/AracMasrafRapor.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 116 - Kullanıcı Profil Sayfası
+**Talep:** ROADMAP'te belirtilen Kullanıcı Yönetimi & Yetkilendirme modülünden "Kullanıcı profil sayfası" özelliğinin eklenmesi.
+
+**Mevcut Durum Analizi:**
+- Proje özel kimlik doğrulama sistemi kullanıyor (ASP.NET Core Identity değil)
+- `Kullanici` entity: Id, KullaniciAdi, SifreHash, AdSoyad, Email, Telefon, RolId, Tema, KompaktMod
+- `KullaniciService`: Login, Logout, CRUD işlemleri, şifre sıfırlama
+- `AppAuthenticationStateProvider`: Claims tabanlı kimlik doğrulama
+- Login ve KullaniciYonetimi sayfaları mevcut
+
+**Eksik Özellik:**
+- Kullanıcının kendi profilini görüntüleyip düzenleyebileceği sayfa yoktu
+
+**Yapılanlar:**
+
+**Profil.razor Sayfası (YENİ):**
+- `/ayarlar/profil` route'u ile erişilebilir
+- 3 ana bölüm:
+  1. **Profil Bilgileri:** Ad Soyad, E-posta, Telefon düzenleme
+  2. **Şifre Değiştirme:** Mevcut şifre, yeni şifre, tekrar alanları
+  3. **Tercihler:** Tema seçimi (Açık/Koyu/Sistem), Kompakt mod toggle
+
+**Profil Özellikleri:**
+- Aktif kullanıcı bilgilerini AuthenticationStateProvider'dan alır
+- Avatar ikonu kullanıcı adının baş harflerini gösterir
+- Kullanıcı adı, oluşturulma tarihi ve rol bilgisi görüntülenir
+- Form doğrulama (Required, Email, Phone attributes)
+- Şifre göster/gizle toggle butonları
+- Responsive tasarım (card-based layout)
+- Düzenleme modları ayrı (bilgi düzenleme, şifre değiştirme)
+
+**NavMenu.razor Güncellemesi:**
+- Ayarlar bölümüne "Profilim" linki eklendi
+- `bi-person-circle` ikonu ile
+- Kullanıcı Yönetimi'nden önce yerleştirildi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/Profil.razor` (YENİ)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 117 - Bildirim Sistemi (Vade ve Belge Süresi Uyarıları)
+**Talep:** ROADMAP FAZ 2.2 - Bildirim Sistemi implementasyonu. Vade yaklaşan fatura bildirimleri, ehliyet/muayene/sigorta bitiş uyarıları ve uygulama içi bildirimler.
+
+**Mevcut Durum Analizi:**
+- `Bildirim` entity mevcut (CRMEntities.cs içinde)
+- `BildirimTipi` enum mevcut ama sınırlı (Bilgi, Uyari, Hata, Basari, Sistem)
+- Fatura entity: `VadeTarihi` alanı mevcut
+- Araç entity: `TrafikSigortaBitisTarihi`, `KaskoBitisTarihi`, `MuayeneBitisTarihi` alanları mevcut
+- Şoför entity: `EhliyetGecerlilikTarihi`, `SrcBelgesiGecerlilikTarihi`, `PsikoteknikGecerlilikTarihi`, `SaglikRaporuGecerlilikTarihi` alanları mevcut
+
+**Yapılanlar:**
+
+**1. Entity Güncellemeleri (CRMEntities.cs):**
+- `BildirimTipi` enum genişletildi:
+  - FaturaVade=8, EhliyetBitis=9, SrcBelgesi=10, Psikoteknik=11
+  - SaglikRaporu=12, TrafikSigorta=13, Kasko=14, Muayene=15
+  - DestekTalebi=16, Sistem=17
+- `BildirimAyar` entity eklendi:
+  - KullaniciId, BildirimTipi, Aktif, UyariGunSayisi
+  - Kullanıcı bazlı bildirim tercihleri
+
+**2. IBildirimService Interface (YENİ):**
+- DTO'lar: BildirimOzet, BildirimDashboardDto
+- CRUD: GetKullaniciBildirimlerAsync, GetOkunmamisSayisi, Okundu İşaretle, Sil
+- Tarama: TaraVeBildirimOlusturAsync, VadeYaklasanFaturalariTaraAsync, SuresiDolanBelgeleriTaraAsync
+- Ayarlar: GetKullaniciAyarlarAsync, AyarKaydetAsync
+- Dashboard: GetDashboardOzetAsync
+
+**3. BildirimService Implementation (YENİ):**
+- **VadeYaklasanFaturalariTaraAsync:** Ödenmemiş faturaları tarar, vade yaklaşanları bildirim olarak kaydeder
+- **SuresiDolanBelgeleriTaraAsync:** 
+  - Araçlar: Trafik Sigortası, Kasko, Muayene bitiş tarihleri
+  - Şoförler: Ehliyet, SRC, Psikoteknik, Sağlık Raporu geçerlilik tarihleri
+- Öncelik hesaplama: Kalan güne göre Acil/Yüksek/Orta/Düşük
+- Mükerrer bildirim engelleme (EntityId + BildirimTipi kontrolü)
+- Dashboard istatistikleri (tip bazlı sayımlar)
+
+**4. BildirimPanel.razor (Navbar Dropdown - YENİ):**
+- Navbar'da zil ikonu ile bildirim göstergesi
+- Okunmamış sayı badge'i
+- Dropdown panel: Son 10 bildirim listesi
+- 60 saniye otomatik yenileme (Timer)
+- Bildirim tıklama: Okundu işaretle + ilgili sayfaya yönlendir
+- Tip bazlı ikon ve renk kodlaması
+
+**5. Bildirimler.razor (Yönetim Sayfası - YENİ):**
+- `/ayarlar/bildirimler` route'u
+- **Sol Panel:** Bildirim listesi
+  - Filtreler: Tümü/Okunmamış/Okunmuş, Bildirim tipi
+  - Sayfalama ve toplu işlemler
+- **Sağ Panel:** 
+  - Dashboard özet kartları (tip bazlı sayımlar)
+  - Bildirim ayarları (her tip için toggle + uyarı gün sayısı)
+  - "Yeniden Tara" butonu ile manuel tarama tetikleme
+
+**6. NavMenu.razor Güncellemesi:**
+- Ayarlar bölümüne "Bildirimlerim" linki eklendi
+- `bi-bell` ikonu ile
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/CRMEntities.cs` (güncellendi - BildirimTipi extended, BildirimAyar added)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (güncellendi - BildirimAyarlari DbSet)
+- `CRMFiloServis.Web/Services/Interfaces/IBildirimService.cs` (YENİ)
+- `CRMFiloServis.Web/Services/BildirimService.cs` (YENİ)
+- `CRMFiloServis.Web/Components/Shared/BildirimPanel.razor` (YENİ)
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/Bildirimler.razor` (YENİ)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi)
+- `CRMFiloServis.Web/Program.cs` (güncellendi - IBildirimService DI)
+
+**Özellikler:**
+- ✅ Vade yaklaşan fatura bildirimleri
+- ✅ Ehliyet/SRC/Psikoteknik/Sağlık Raporu bitiş uyarıları
+- ✅ Trafik Sigortası/Kasko/Muayene bitiş uyarıları
+- ✅ Uygulama içi bildirimler (navbar dropdown)
+- ✅ Kullanıcı bazlı bildirim ayarları
+- ✅ Otomatik tarama ve bildirim oluşturma
+- ✅ Dashboard istatistikleri
+- ✅ Öncelik hesaplama (kalan güne göre)
 
 **Durum:** ✅ Tamamlandı
 
@@ -3032,3 +3952,176 @@ Her yeni kullanıcı talebinde aşağıdaki 3 başlık mutlaka güncellenmelidir
 - `İstek Kayıtları`
 - `Yapılanlar`
 - `Yapılması Gerekenler`
+
+---
+
+### Kayıt 120 - Fatura PDF Oluşturma ve E-posta Gönderimi
+**Talep:** FAZ 2.3 - Doküman Yönetimi kapsamında Fatura PDF oluşturma özelliğinin FaturaDetay sayfasına entegrasyonu.
+
+**Yapılanlar:**
+
+**1. FaturaDetay.razor UI Entegrasyonu:**
+- `@inject IFaturaSablonService FaturaSablonService` eklendi
+- `@inject IJSRuntime JS` eklendi
+- Header bölümüne PDF İndir ve E-posta Gönder butonları eklendi
+- İşlem durumu göstergesi (islemMesaji, islemBasarili) eklendi
+- E-posta gönderimi için modal popup eklendi:
+  - E-posta adresi input alanı
+  - Fatura no ve tutar bilgisi (GenelToplam)
+  - Gönderim onay/iptal butonları
+  - Yükleniyor spinner
+
+**2. Kod Tarafı (@code section):**
+- State değişkenleri: `pdfYukleniyor`, `emailGonderiliyor`, `emailModalGoster`, `emailAdresi`
+- `PdfIndir()` metodu:
+  - `FaturaSablonService.FaturaPdfOlusturAsync()` çağrısı
+  - `FaturaPdfResult.PdfData` byte array'i Base64'e dönüşüm
+  - `JS.InvokeVoidAsync("downloadFile")` ile tarayıcıya indirme
+- `EmailModalAc()` / `EmailModalKapat()` modal yönetimi
+- `EmailGonder()` metodu:
+  - `FaturaYazdirRequest` DTO hazırlama
+  - `FaturaSablonService.FaturaEmailGonderAsync()` çağrısı
+  - bool dönüş değerine göre başarı/hata mesajı
+
+**Kullanılan Model Yapısı:**
+```csharp
+FaturaPdfResult:
+  - Basarili (bool)
+  - Mesaj (string?)
+  - PdfData (byte[]?)
+  - DosyaAdi (string?)
+  - Base64Data (string?)
+
+FaturaYazdirRequest:
+  - FaturaId (int)
+  - SablonId (int?)
+  - EmailGonder (bool)
+  - EmailAdresi (string?)
+  - EmailKonu (string?)
+  - EmailMesaj (string?)
+```
+
+**Özellikler:**
+- ✅ PDF indirme (JavaScript interop ile downloadFile)
+- ✅ E-posta ile PDF gönderimi
+- ✅ Yükleniyor durumu göstergesi
+- ✅ İşlem sonucu mesajı (alert)
+- ✅ Responsive modal tasarımı
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Faturalar/FaturaDetay.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 119 - E-posta Bildirimleri (Kullanıcı Bazlı Otomatik Gönderim)
+**Talep:** FAZ 2.2 - Bildirim Sistemi kapsamında e-posta bildirimleri özelliğinin tamamlanması. Kullanıcı bazlı e-posta tercihleri, test e-postası ve günlük otomatik gönderim.
+
+**Yapılanlar:**
+
+**1. IBildirimService Interface Güncellendi:**
+- `EpostaBildirimGonderAsync()` metodu eklendi - Tüm kullanıcılara bildirim e-postası gönderir
+- `TestEpostaGonderAsync(int kullaniciId)` metodu eklendi - Test amaçlı örnek e-posta gönderir
+
+**2. BildirimService Implementasyonu Genişletildi:**
+- `IEmailService` dependency injection eklendi
+- `EpostaBildirimGonderAsync()`: 
+  - `BildirimAyarlari` tablosundan `EpostaAlsin=true` olan kullanıcıları sorgular
+  - Her kullanıcının tercihlerine göre uyarıları toplar (fatura vade, araç/şoför belge süreleri)
+  - `IEmailService.SendBelgeUyariEmailAsync` ile HTML formatında e-posta gönderir
+  - `EpostaBildirimLog` tablosuna gönderim kaydı oluşturur (24 saat mükerrer gönderim engeli)
+- `TestEpostaGonderAsync()`:
+  - 3 örnek `BelgeUyariEmail` oluşturur (Fatura, Ehliyet, Trafik Sigortası)
+  - Kullanıcının e-posta adresine test e-postası gönderir
+- `GetBelgeTipiAdi()` helper metodu: BildirimTipi enum → Türkçe string dönüşümü
+
+**3. EpostaBildirimLog Entity Eklendi (CRMEntities.cs):**
+- `KullaniciId`: Gönderilen kullanıcı
+- `EpostaAdresi`: Gönderilen e-posta adresi
+- `UyariSayisi`: E-postadaki uyarı sayısı
+- `GonderimTarihi`: Gönderim tarihi
+- `Basarili`: Gönderim başarı durumu
+- `HataMesaji`: Varsa hata mesajı
+
+**4. ApplicationDbContext Güncellendi:**
+- `DbSet<EpostaBildirimLog> EpostaBildirimLoglari` eklendi
+
+**5. Bildirimler.razor E-posta Ayarları UI:**
+- "E-posta Bildirimleri" bölümü eklendi
+- `EpostaAlsin` checkbox toggle
+- `EpostaAdresi` input alanı (EpostaAlsin=true olduğunda görünür)
+- "Test E-postası Gönder" butonu
+- Bilgi alertı: "E-posta bildirimleri her gün sabah 09:00'da otomatik olarak gönderilir"
+- `testGonderiliyor` state değişkeni (loading durumu)
+
+**6. BelgeUyariBackgroundService Entegrasyonu:**
+- `KontrolVeGonderAsync()` metodu güncellendi
+- `IBildirimService` scope'dan resolve ediliyor
+- `bildirimService.TaraVeBildirimOlusturAsync()` çağrılıyor (uygulama içi bildirimler)
+- `bildirimService.EpostaBildirimGonderAsync()` çağrılıyor (kullanıcı bazlı e-postalar)
+- Mevcut admin e-posta mantığı korunuyor
+
+**Mevcut Altyapı Kullanımı:**
+- `EmailService.cs` içindeki `SendBelgeUyariEmailAsync` metodu (HTML şablonlu e-posta)
+- `BildirimAyar` entity'sindeki `EpostaAlsin` ve `EpostaAdresi` alanları
+- `BildirimTipi` enum (FaturaVade, EhliyetBitis, TrafikSigorta, Kasko, Muayene, SrcBelgesi, vb.)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Services/Interfaces/IBildirimService.cs` (güncellendi - 2 yeni metod)
+- `CRMFiloServis.Web/Services/BildirimService.cs` (güncellendi - IEmailService entegrasyonu, e-posta metodları)
+- `CRMFiloServis.Shared/Entities/CRMEntities.cs` (güncellendi - EpostaBildirimLog entity)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (güncellendi - EpostaBildirimLoglari DbSet)
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/Bildirimler.razor` (güncellendi - e-posta ayarları UI)
+- `CRMFiloServis.Web/Services/BelgeUyariBackgroundService.cs` (güncellendi - IBildirimService entegrasyonu)
+
+**Özellikler:**
+- ✅ Kullanıcı bazlı e-posta tercihleri (EpostaAlsin, EpostaAdresi)
+- ✅ Test e-postası gönderme
+- ✅ Günlük otomatik e-posta gönderimi (BelgeUyariBackgroundService üzerinden)
+- ✅ 24 saat mükerrer gönderim engeli (EpostaBildirimLog kontrolü)
+- ✅ HTML formatında profesyonel e-posta şablonu
+- ✅ Bildirim tipine göre uyarı filtreleme
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 118 - Rol Tabanlı Yetkilendirme (Sayfa Seviyesi Yetki Kontrolü)
+**Talep:** FAZ 2.1 - Kullanıcı Yönetimi & Yetkilendirme kapsamında sayfa seviyesinde rol tabanlı yetki kontrolü eklenmesi.
+
+**Yapılanlar:**
+- **YetkiKontrol.razor bileşeni oluşturuldu** (`/Components/Shared/YetkiKontrol.razor`):
+  - `Yetki` parametresi: Tek yetki kodu kontrolü (örn: `kullanici.oku`)
+  - `Yetkiler[]` parametresi: Çoklu yetki kontrolü (OR mantığı - herhangi biri yeterliyse geçer)
+  - `Rol` parametresi: Tek rol kontrolü
+  - `Roller[]` parametresi: Çoklu rol kontrolü (OR mantığı)
+  - `Yetkili` RenderFragment: Yetkili kullanıcıya gösterilecek içerik
+  - `Yetkisiz` RenderFragment: Yetkisiz kullanıcıya gösterilecek opsiyonel içerik
+  - `YetkisizYonlendir` parametresi: Otomatik yönlendirme URL'si
+  - Admin rolü her zaman yetkili kabul edilir
+  - `KullaniciService.GetKullaniciYetkileriAsync` ile dinamik yetki kontrolü
+- **KullaniciYonetimi.razor güncellendi**:
+  - Sayfa içeriği `<YetkiKontrol Yetki="kullanici.oku">` ile sarmalandı
+  - Yetkisiz kullanıcılara bilgilendirme mesajı gösteriliyor
+- **RolYonetimi.razor güncellendi**:
+  - Sayfa içeriği `<YetkiKontrol Yetki="rol.oku">` ile sarmalandı
+  - Yetkisiz kullanıcılara bilgilendirme mesajı gösteriliyor
+
+**Mevcut Yetkilendirme Altyapısı:**
+Projede zaten kapsamlı bir rol/yetki sistemi mevcuttu:
+- `Kullanici` entity'si (RolId ile Rol bağlantısı)
+- `Rol` entity'si (yetkiler collection'ı)
+- `RolYetki` entity'si (yetki tanımları)
+- `SistemRolleri` statik sınıfı (Admin, Muhasebeci, Operasyon, SatisTemsilcisi, Sofor, Kullanici)
+- `Yetkiler` statik sınıfı (tüm yetki kodları)
+- `NavMenu.razor` içinde `HasYetki/HasMenuYetki` kontrolleri (menü görünürlüğü)
+- `KullaniciService.GetKullaniciYetkileriAsync` ve `YetkiVarMiAsync` metodları
+- `AppAuthenticationStateProvider` (claims-based auth, Role claim)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Shared/YetkiKontrol.razor` (YENİ)
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/KullaniciYonetimi.razor` (güncellendi)
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/RolYonetimi.razor` (güncellendi)
+
+**Durum:** ✅ Tamamlandı

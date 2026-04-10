@@ -843,17 +843,130 @@
         }
         else if (aktifSekme == "trend")
         {
+            <div class="row mb-4 g-3">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body text-center">
+                            <small>@secilenYil Net Kar</small>
+                            <h4 class="mb-0">@FormatPara(SeciliYilToplamNetKar)</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-secondary text-white h-100">
+                        <div class="card-body text-center">
+                            <small>@(secilenYil - 1) Net Kar</small>
+                            <h4 class="mb-0">@FormatPara(OncekiYilToplamNetKar)</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card @(YillikNetKarFarki >= 0 ? "bg-success" : "bg-danger") text-white h-100">
+                        <div class="card-body text-center">
+                            <small>Yıllık Fark</small>
+                            <h4 class="mb-0">@FormatPara(YillikNetKarFarki)</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white h-100">
+                        <div class="card-body text-center">
+                            <small>Değişim Oranı</small>
+                            <h4 class="mb-0">%@YillikNetKarDegisimOrani.ToString("N1")</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (secilenAy > 0 && dashboard != null && trendAyniAyGecenYil != null)
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-calendar-range me-2"></i>Aynı Ay Karşılaştırması - @GetAyAdi(secilenAy)</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="border rounded p-3 h-100">
+                                    <small class="text-muted">@secilenYil</small>
+                                    <h5 class="text-primary mb-1">@FormatPara(dashboard.NetKar)</h5>
+                                    <div class="small text-muted">Gelir: @FormatPara(dashboard.ToplamGelir)</div>
+                                    <div class="small text-muted">Gider: @FormatPara(dashboard.ToplamGider)</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-3 h-100">
+                                    <small class="text-muted">@(secilenYil - 1)</small>
+                                    <h5 class="text-secondary mb-1">@FormatPara(trendAyniAyGecenYil.NetKar)</h5>
+                                    <div class="small text-muted">Gelir: @FormatPara(trendAyniAyGecenYil.ToplamGelir)</div>
+                                    <div class="small text-muted">Gider: @FormatPara(trendAyniAyGecenYil.ToplamGider)</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-3 h-100">
+                                    <small class="text-muted">Fark</small>
+                                    <h5 class="@(AyniAyNetKarFarki >= 0 ? "text-success" : "text-danger") mb-1">@FormatPara(AyniAyNetKarFarki)</h5>
+                                    <div class="small text-muted">Değişim: %@AyniAyNetKarDegisimOrani.ToString("N1")</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-table me-2"></i>Aylık Karşılaştırma Tablosu (@secilenYil / @(secilenYil - 1))</h6>
+                </div>
+                <div class="card-body p-0">
+                    @if (trendSeciliYil.Any() || trendOncekiYil.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Ay</th>
+                                        <th class="text-end">@secilenYil Net</th>
+                                        <th class="text-end">@(secilenYil - 1) Net</th>
+                                        <th class="text-end">Fark</th>
+                                        <th class="text-end">Değişim %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var satir in GetTrendKarsilastirmaSatirlari())
+                                    {
+                                        <tr>
+                                            <td>@satir.AyEtiketi</td>
+                                            <td class="text-end">@FormatPara(satir.BuYilNetKar)</td>
+                                            <td class="text-end text-muted">@FormatPara(satir.GecenYilNetKar)</td>
+                                            <td class="text-end @(satir.Fark >= 0 ? "text-success" : "text-danger") fw-bold">@FormatPara(satir.Fark)</td>
+                                            <td class="text-end">%@satir.DegisimOrani.ToString("N1")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">
+                            <p>Karşılaştırma verisi bulunmuyor</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
             <div class="card mb-4">
                 <div class="card-header">
                     <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>@secilenYil Yıllık Kar Trendi</h6>
                 </div>
                 <div class="card-body">
-                    @if (dashboard?.AylikTrend?.Any() == true)
+                    @if (trendSeciliYil.Any())
                     {
-                        var maxDeger = dashboard.AylikTrend.Max(x => Math.Abs(x.Deger));
+                        var maxDeger = trendSeciliYil.Max(x => Math.Abs(x.Deger));
 
                         <div class="d-flex align-items-end justify-content-between" style="height: 200px;">
-                            @foreach (var item in dashboard.AylikTrend)
+                            @foreach (var item in trendSeciliYil)
                             {
                                 var yukseklik = maxDeger > 0 ? (double)(Math.Abs(item.Deger) / maxDeger) * 100 : 0;
                                 var renk = item.Deger >= 0 ? "bg-success" : "bg-danger";
@@ -863,8 +976,8 @@
                                         <small class="@(item.Deger >= 0 ? "text-success" : "text-danger")">
                                             @(item.Deger >= 0 ? "" : "-")@Math.Abs(item.Deger).ToString("N0")
                                         </small>
-                                        <div style="width: 80%; height: @(yukseklik * 1.5)px; min-height: 10px;" 
-                                             class="@renk rounded-top mt-1" 
+                                        <div style="width: 80%; height: @(yukseklik * 1.5)px; min-height: 10px;"
+                                             class="@renk rounded-top mt-1"
                                              title="@item.EkBilgi">
                                         </div>
                                     </div>
@@ -889,8 +1002,11 @@
     private int secilenYil = DateTime.Today.Year;
     private int secilenAy = DateTime.Today.Month;
     private Models.MaliAnalizDashboard? dashboard;
+    private Models.MaliAnalizDashboard? trendAyniAyGecenYil;
     private GelirGiderRapor? gelirGiderRapor;
     private BilancoRapor? bilancoRapor;
+    private List<Models.GrafikVeri> trendSeciliYil = new();
+    private List<Models.GrafikVeri> trendOncekiYil = new();
     private bool isLoading = false;
     
     private string aktifSekme = "genel";
@@ -919,6 +1035,22 @@
             if (aktifSekme == "genel")
             {
                 dashboard = await MaliAnalizService.GetDashboardAsync(secilenYil, secilenAy > 0 ? secilenAy : DateTime.Today.Month);
+            }
+            if (aktifSekme == "trend")
+            {
+                trendSeciliYil = await MaliAnalizService.GetYillikTrendAsync(secilenYil);
+                trendOncekiYil = await MaliAnalizService.GetYillikTrendAsync(secilenYil - 1);
+
+                if (secilenAy > 0)
+                {
+                    dashboard = await MaliAnalizService.GetDashboardAsync(secilenYil, secilenAy);
+                    trendAyniAyGecenYil = await MaliAnalizService.GetDashboardAsync(secilenYil - 1, secilenAy);
+                }
+                else
+                {
+                    dashboard = null;
+                    trendAyniAyGecenYil = null;
+                }
             }
             if (aktifSekme == "dupont" || aktifSekme == "dikeyyatay" || aktifSekme == "nakitakis")
             {
@@ -982,6 +1114,41 @@
         KisaVadeliBorcOrani = bilancoRapor.ToplamPasif > 0 ? (kisaVadeliBorclar / bilancoRapor.ToplamPasif) : 0;
     }
 
+    private decimal SeciliYilToplamNetKar => trendSeciliYil.Sum(x => x.Deger);
+    private decimal OncekiYilToplamNetKar => trendOncekiYil.Sum(x => x.Deger);
+    private decimal YillikNetKarFarki => SeciliYilToplamNetKar - OncekiYilToplamNetKar;
+    private decimal YillikNetKarDegisimOrani => OncekiYilToplamNetKar != 0 ? (YillikNetKarFarki / Math.Abs(OncekiYilToplamNetKar)) * 100 : 0;
+    private decimal AyniAyNetKarFarki => (dashboard?.NetKar ?? 0) - (trendAyniAyGecenYil?.NetKar ?? 0);
+    private decimal AyniAyNetKarDegisimOrani => trendAyniAyGecenYil?.NetKar is not null and not 0
+        ? (AyniAyNetKarFarki / Math.Abs(trendAyniAyGecenYil.NetKar)) * 100
+        : 0;
+
+    private List<TrendKarsilastirmaSatiri> GetTrendKarsilastirmaSatirlari()
+    {
+        var aylar = Enumerable.Range(1, 12)
+            .Select(i => new DateTime(secilenYil, i, 1).ToString("MMM"))
+            .ToList();
+
+        return aylar.Select(ay =>
+        {
+            var buYil = trendSeciliYil.FirstOrDefault(x => x.Etiket == ay)?.Deger ?? 0;
+            var gecenYil = trendOncekiYil.FirstOrDefault(x => x.Etiket == ay)?.Deger ?? 0;
+            var fark = buYil - gecenYil;
+            var degisim = gecenYil != 0 ? (fark / Math.Abs(gecenYil)) * 100 : 0;
+
+            return new TrendKarsilastirmaSatiri
+            {
+                AyEtiketi = ay,
+                BuYilNetKar = buYil,
+                GecenYilNetKar = gecenYil,
+                Fark = fark,
+                DegisimOrani = degisim
+            };
+        }).ToList();
+    }
+
+    private string GetAyAdi(int ay) => new DateTime(secilenYil, ay, 1).ToString("MMMM");
+
     private string FormatPara(decimal tutar) => tutar.ToString("N0") + " TL";
 
     private SWOTModel SWOTAnalizi = new SWOTModel
@@ -998,5 +1165,14 @@
         public List<string> Zayif { get; set; } = new List<string>();
         public List<string> Firsat { get; set; } = new List<string>();
         public List<string> Tehtid { get; set; } = new List<string>();
+    }
+
+    private sealed class TrendKarsilastirmaSatiri
+    {
+        public string AyEtiketi { get; set; } = string.Empty;
+        public decimal BuYilNetKar { get; set; }
+        public decimal GecenYilNetKar { get; set; }
+        public decimal Fark { get; set; }
+        public decimal DegisimOrani { get; set; }
     }
 }

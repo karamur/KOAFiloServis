@@ -9,7 +9,10 @@ public interface IOllamaService
     Task<string> RaporYorumlaAsync(string prompt);
     Task<string> AnalizYapAsync(string prompt, string sistemPrompt);
     Task<bool> BaglantiKontrolAsync();
+    Task<float[]?> EmbeddingOlusturAsync(string metin);
+    Task<List<float[]>?> TopluEmbeddingOlusturAsync(IEnumerable<string> metinler);
     string ModelAdi { get; }
+    string EmbeddingModelAdi { get; }
 }
 
 public class OllamaService : IOllamaService
@@ -18,9 +21,11 @@ public class OllamaService : IOllamaService
     private readonly IConfiguration _configuration;
     private readonly ILogger<OllamaService> _logger;
     private readonly string _model;
+    private readonly string _embeddingModel;
     private readonly string _baseUrl;
 
     public string ModelAdi => _model;
+    public string EmbeddingModelAdi => _embeddingModel;
 
     public OllamaService(
         IHttpClientFactory httpClientFactory,
@@ -32,6 +37,7 @@ public class OllamaService : IOllamaService
         _logger = logger;
         _baseUrl = configuration["Ollama:BaseUrl"] ?? "http://localhost:11434";
         _model = configuration["Ollama:Model"] ?? "llama3.2";
+        _embeddingModel = configuration["Ollama:EmbeddingModel"] ?? "nomic-embed-text";
         _httpClient.BaseAddress = new Uri(_baseUrl);
         _httpClient.Timeout = TimeSpan.FromMinutes(3);
     }
@@ -171,6 +177,71 @@ Emoji kullanma. Tutarları TL olarak göster.
                     return $"AI analiz hatası: {ex.Message}";
                 }
             }
+
+    /// <summary>
+    /// Metin için embedding vektörü oluşturur (Semantic Search için)
+    /// </summary>
+    public async Task<float[]?> EmbeddingOlusturAsync(string metin)
+    {
+        if (string.IsNullOrWhiteSpace(metin))
+            return null;
+
+        try
+        {
+            var request = new OllamaEmbeddingRequest
+            {
+                Model = _embeddingModel,
+                Prompt = metin.Trim()
+            };
+
+            var json = JsonSerializer.Serialize(request, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync("/api/embeddings", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Ollama Embedding API hatası: {Status} - {Body}", response.StatusCode, errorBody);
+                return null;
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<OllamaEmbeddingResponse>(responseBody, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
+            return result?.Embedding;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Embedding oluşturma hatası: {Metin}", metin.Length > 100 ? metin[..100] + "..." : metin);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Birden fazla metin için toplu embedding oluşturur
+    /// </summary>
+    public async Task<List<float[]>?> TopluEmbeddingOlusturAsync(IEnumerable<string> metinler)
+    {
+        var sonuclar = new List<float[]>();
+
+        foreach (var metin in metinler)
+        {
+            var embedding = await EmbeddingOlusturAsync(metin);
+            if (embedding != null)
+            {
+                sonuclar.Add(embedding);
+            }
+        }
+
+        return sonuclar.Count > 0 ? sonuclar : null;
+    }
 }
 
 // Ollama API Request/Response modelleri
@@ -217,4 +288,20 @@ public class OllamaGenerateResponse
 
     [JsonPropertyName("total_duration")]
     public long? TotalDuration { get; set; }
+}
+
+// Ollama Embedding API modelleri
+public class OllamaEmbeddingRequest
+{
+    [JsonPropertyName("model")]
+    public string Model { get; set; } = "";
+
+    [JsonPropertyName("prompt")]
+    public string Prompt { get; set; } = "";
+}
+
+public class OllamaEmbeddingResponse
+{
+    [JsonPropertyName("embedding")]
+    public float[]? Embedding { get; set; }
 }

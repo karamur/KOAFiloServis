@@ -204,6 +204,7 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<KomisyonculukIsAtama> CreateIsAtamaAsync(KomisyonculukIsAtama atama)
     {
+        await UygulaAtamaKurallariAsync(atama);
         atama.CreatedAt = DateTime.UtcNow;
         _context.KomisyonculukIsAtamalar.Add(atama);
         await _context.SaveChangesAsync();
@@ -212,6 +213,7 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<KomisyonculukIsAtama> UpdateIsAtamaAsync(KomisyonculukIsAtama atama)
     {
+        await UygulaAtamaKurallariAsync(atama);
         var existing = await _context.KomisyonculukIsAtamalar.FindAsync(atama.Id);
         if (existing == null)
             throw new InvalidOperationException("İş ataması bulunamadı.");
@@ -248,6 +250,63 @@ public class FiloOperasyonService : IFiloOperasyonService
             atama.IsDeleted = true;
             atama.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+        }
+    }
+
+    private async Task UygulaAtamaKurallariAsync(KomisyonculukIsAtama atama)
+    {
+        if (!atama.AracId.HasValue)
+            return;
+
+        var arac = await _context.Araclar
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == atama.AracId.Value && !a.IsDeleted);
+
+        if (arac == null)
+            throw new InvalidOperationException("Atama için seçilen araç bulunamadı.");
+
+        switch (arac.SahiplikTipi)
+        {
+            case AracSahiplikTipi.Ozmal:
+                if (!atama.SoforId.HasValue)
+                    throw new InvalidOperationException("Özmal araç atamalarında firma şoförü seçilmelidir.");
+
+                atama.AtamaTipi = AracAtamaTipi.OzmalSoforlu;
+                atama.TedarikciCariId = null;
+                atama.DisAracPlaka = null;
+                atama.DisSoforAdSoyad = null;
+                atama.DisSoforTelefon = null;
+                atama.AracKiraBedeli = 0;
+                break;
+
+            case AracSahiplikTipi.Kiralik:
+                if (!atama.SoforId.HasValue)
+                    throw new InvalidOperationException("Kiralık araç atamalarında firma şoförü seçilmelidir.");
+
+                atama.AtamaTipi = AracAtamaTipi.KiralikKendiSofor;
+                atama.TedarikciCariId ??= arac.KiralikCariId;
+                atama.DisAracPlaka = null;
+                atama.DisSoforAdSoyad = null;
+                atama.DisSoforTelefon = null;
+
+                if (atama.AracKiraBedeli <= 0)
+                    atama.AracKiraBedeli = arac.SeferBasinaKiraBedeli ?? arac.GunlukKiraBedeli ?? 0;
+                break;
+
+            case AracSahiplikTipi.Komisyon:
+                atama.AtamaTipi = AracAtamaTipi.KiralikDisSofor;
+                atama.SoforId = null;
+                atama.TedarikciCariId ??= arac.KomisyoncuCariId;
+
+                if (!atama.TedarikciCariId.HasValue)
+                    throw new InvalidOperationException("Komisyon araç atamalarında komisyoncu cari tanımlı olmalıdır.");
+
+                atama.DisAracPlaka ??= arac.AktifPlaka ?? arac.SaseNo;
+
+                if (string.IsNullOrWhiteSpace(atama.DisSoforAdSoyad))
+                    atama.DisSoforAdSoyad = "Komisyon Şoförü";
+
+                break;
         }
     }
 

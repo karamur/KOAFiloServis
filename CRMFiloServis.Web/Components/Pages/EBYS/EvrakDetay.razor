@@ -199,12 +199,25 @@ else
                                                 {
                                                     <span class="badge bg-success ms-2">Asıl Nüsha</span>
                                                 }
+                                                @if (dosya.VersiyonNo > 1)
+                                                {
+                                                    <span class="badge bg-info ms-2">v@dosya.VersiyonNo</span>
+                                                }
                                             </small>
                                         </div>
                                         <div class="btn-group btn-group-sm">
+                                            @if (dosya.VersiyonNo > 1)
+                                            {
+                                                <button class="btn btn-outline-secondary" @onclick="() => VersiyonGecmisiAc(dosya.Id)" title="Versiyon Geçmişi">
+                                                    <i class="bi bi-clock-history"></i>
+                                                </button>
+                                            }
                                             <a href="@dosya.DosyaYolu" target="_blank" class="btn btn-outline-primary" title="İndir">
                                                 <i class="bi bi-download"></i>
                                             </a>
+                                            <button class="btn btn-outline-warning" @onclick="() => DosyaGuncelleAc(dosya.Id)" title="Güncelle">
+                                                <i class="bi bi-arrow-repeat"></i>
+                                            </button>
                                             <button class="btn btn-outline-danger" @onclick="() => DosyaSilAsync(dosya.Id)" title="Sil">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -337,6 +350,14 @@ else
                         </div>
                     </div>
                 }
+
+                @* AI Belge Analizi Paneli *@
+                <div class="mt-3">
+                    <EbysAIPanel 
+                        Expanded="@showAIPanel"
+                        OnKategoriSecildi="OnAIKategoriSecildi"
+                        OnOzetOlusturuldu="OnAIOzetOlusturuldu" />
+                </div>
             </div>
         </div>
     </div>
@@ -378,8 +399,142 @@ else
     </div>
 }
 
+@* Dosya Güncelleme Modal *@
+@if (showGuncellemeModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>Dosya Güncelle</h5>
+                    <button type="button" class="btn-close" @onclick="() => showGuncellemeModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Mevcut dosya versiyon geçmişine arşivlenecek ve yeni dosya ile değiştirilecektir.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Yeni Dosya Seçin</label>
+                        <InputFile OnChange="OnGuncellemeDosyaSecildi" class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" />
+                        <small class="text-muted">Maksimum 50MB</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Değişiklik Notu</label>
+                        <textarea class="form-control" rows="2" @bind="degisiklikNotu" placeholder="Bu güncelleme için not ekleyin..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showGuncellemeModal = false">İptal</button>
+                    <button type="button" class="btn btn-warning" @onclick="DosyaGuncelleAsync" disabled="@(guncellemeDosyasi == null || isUploading)">
+                        @if (isUploading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Güncelle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Versiyon Geçmişi Modal *@
+@if (showVersiyonModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-clock-history me-2"></i>Versiyon Geçmişi</h5>
+                    <button type="button" class="btn-close" @onclick="() => showVersiyonModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    @if (versiyonListesi.Any())
+                    {
+                        @* Mevcut Versiyon *@
+                        @if (mevcutDosya != null)
+                        {
+                            <div class="card border-primary mb-3">
+                                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-star-fill me-2"></i>Mevcut Versiyon (v@mevcutDosya.VersiyonNo)</span>
+                                    <span class="badge bg-light text-primary">Aktif</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>@mevcutDosya.DosyaAdi</strong>
+                                            <p class="text-muted small mb-0">@FormatDosyaBoyutu(mevcutDosya.DosyaBoyutu)</p>
+                                        </div>
+                                        <div class="col-md-6 text-end">
+                                            <a href="@mevcutDosya.DosyaYolu" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-download me-1"></i>İndir
+                                            </a>
+                                        </div>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(mevcutDosya.SonDegisiklikNotu))
+                                    {
+                                        <hr class="my-2"/>
+                                        <small class="text-muted"><i class="bi bi-chat-left-text me-1"></i>@mevcutDosya.SonDegisiklikNotu</small>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @* Önceki Versiyonlar *@
+                        <h6 class="text-muted mb-3"><i class="bi bi-archive me-2"></i>Önceki Versiyonlar</h6>
+                        <div class="list-group">
+                            @foreach (var v in versiyonListesi.OrderByDescending(x => x.VersiyonNo))
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">
+                                                <span class="badge bg-secondary me-2">v@v.VersiyonNo</span>
+                                                @v.DosyaAdi
+                                            </h6>
+                                            <small class="text-muted d-block">
+                                                @FormatDosyaBoyutu(v.DosyaBoyutu) • @v.OlusturmaTarihi.ToString("dd.MM.yyyy HH:mm")
+                                                @if (v.OlusturanKullanici != null)
+                                                {
+                                                    <span>• @v.OlusturanKullanici.AdSoyad</span>
+                                                }
+                                            </small>
+                                            @if (!string.IsNullOrEmpty(v.DegisiklikNotu))
+                                            {
+                                                <small class="text-muted"><i class="bi bi-chat-left-text me-1"></i>@v.DegisiklikNotu</small>
+                                            }
+                                        </div>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="@v.DosyaYolu" target="_blank" class="btn btn-outline-primary" title="İndir">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            <button class="btn btn-outline-warning" @onclick="() => VersiyonGeriYukleAsync(v.Id)" title="Geri Yükle">
+                                                <i class="bi bi-arrow-counterclockwise"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted text-center">Versiyon geçmişi bulunmuyor</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showVersiyonModal = false">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int Id { get; set; }
+
+    [Inject] private IBelgeVersiyonService VersiyonService { get; set; } = default!;
 
     private EbysEvrak? evrak;
     private List<Kullanici> kullanicilar = new();
@@ -389,9 +544,44 @@ else
     private bool asilNusha;
     private bool isUploading;
 
+    // Versiyon Modal değişkenleri
+    private bool showVersiyonModal;
+    private bool showGuncellemeModal;
+    private int? seciliDosyaId;
+    private EbysEvrakDosya? mevcutDosya;
+    private List<EbysEvrakDosyaVersiyon> versiyonListesi = new();
+    private IBrowserFile? guncellemeDosyasi;
+    private string? degisiklikNotu;
+
+    // AI Panel değişkenleri
+    private bool showAIPanel = false;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadDataAsync();
+    }
+
+    // AI Panel Metodları
+    private async Task OnAIKategoriSecildi(string kategori)
+    {
+        // AI'nın tahmin ettiği kategoriyi evrak özetine ekle
+        if (evrak != null)
+        {
+            evrak.Ozet = $"[AI Kategori: {kategori}] {evrak.Ozet ?? ""}".Trim();
+            ToastService.ShowInfo($"Kategori önerisi alındı: {kategori}");
+        }
+        await Task.CompletedTask;
+    }
+
+    private async Task OnAIOzetOlusturuldu(string ozet)
+    {
+        // AI'nın oluşturduğu özeti evrak özetine ekle
+        if (evrak != null && string.IsNullOrWhiteSpace(evrak.Ozet))
+        {
+            evrak.Ozet = ozet;
+            ToastService.ShowInfo("AI özeti uygulandı");
+        }
+        await Task.CompletedTask;
     }
 
     private async Task LoadDataAsync()
@@ -492,6 +682,70 @@ else
         {
             await EvrakService.DosyaSilAsync(dosyaId);
             ToastService.ShowSuccess("Dosya silindi");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    // Versiyon Yönetimi Metodları
+    private void DosyaGuncelleAc(int dosyaId)
+    {
+        seciliDosyaId = dosyaId;
+        guncellemeDosyasi = null;
+        degisiklikNotu = null;
+        showGuncellemeModal = true;
+    }
+
+    private void OnGuncellemeDosyaSecildi(InputFileChangeEventArgs e)
+    {
+        guncellemeDosyasi = e.File;
+    }
+
+    private async Task DosyaGuncelleAsync()
+    {
+        if (guncellemeDosyasi == null || seciliDosyaId == null) return;
+
+        isUploading = true;
+        try
+        {
+            // Önce mevcut versiyonu arşivle
+            await VersiyonService.ArsivleEbysEvrakDosyaAsync(seciliDosyaId.Value, degisiklikNotu);
+
+            // Yeni dosyayı yükle (mevcut dosyanın üzerine)
+            await EvrakService.DosyaGuncelleAsync(seciliDosyaId.Value, guncellemeDosyasi, degisiklikNotu);
+
+            ToastService.ShowSuccess("Dosya güncellendi ve önceki versiyon arşivlendi");
+            showGuncellemeModal = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private async Task VersiyonGecmisiAc(int dosyaId)
+    {
+        seciliDosyaId = dosyaId;
+        mevcutDosya = evrak?.Dosyalar?.FirstOrDefault(d => d.Id == dosyaId);
+        versiyonListesi = await VersiyonService.GetEbysEvrakDosyaVersiyonlariAsync(dosyaId);
+        showVersiyonModal = true;
+    }
+
+    private async Task VersiyonGeriYukleAsync(int versiyonId)
+    {
+        try
+        {
+            await VersiyonService.GeriYukleEbysVersiyonAsync(versiyonId, "Kullanıcı tarafından geri yüklendi");
+            ToastService.ShowSuccess("Versiyon geri yüklendi");
+            showVersiyonModal = false;
             await LoadDataAsync();
         }
         catch (Exception ex)

@@ -217,8 +217,9 @@
                     <span class="badge bg-success me-1">X</span> Gitti
                     <span class="badge bg-warning text-dark ms-2 me-1">R</span> İzinli/Tatil
                     <span class="badge bg-danger ms-2 me-1">D</span> Devamsız
-                    <span class="badge bg-purple ms-2 me-1" style="background-color: purple;">T</span> Taksi Tutuldu (Araç bozuldu vs.)
+                                        <span class="badge bg-purple ms-2 me-1" style="background-color: purple;">T</span> Taksi Tutuldu (Araç bozuldu vs.)
                     <span class="badge ms-2 me-1" style="background-color: darkred;">A</span> Arıza Yaptı
+                                        <span class="badge bg-secondary ms-2 me-1">İ</span> Kurum İptali
                 </div>
             </div>
         </div>
@@ -235,6 +236,12 @@
                     <button type="button" class="btn-close" @onclick="() => isCellModalOpen = false"></button>
                 </div>
                 <div class="modal-body">
+                    @if (currentCell.Arac != null)
+                    {
+                        <div class="alert @GetSahiplikAlertClass(currentCell.Arac.SahiplikTipi) py-2">
+                            <strong>@GetSahiplikText(currentCell.Arac.SahiplikTipi)</strong> kuralı: @GetSahiplikAciklama(currentCell.Arac.SahiplikTipi)
+                        </div>
+                    }
                     <div class="mb-3">
                         <label class="form-label">Çalışma Durumu</label>
                         <select class="form-select text-dark fw-bold" @bind="currentCell.Durum" @bind:after="AutoFixPuantaj">
@@ -243,11 +250,12 @@
                             <option value="3">Mazeretsiz Devamsızlık</option>
                             <option value="4">Taksi İle Gidildi (Araç Bozuk)</option>
                             <option value="5">Arızalandı / Yolda Kaldı</option>
+                            <option value="6">Kurum Tarafından İptal</option>
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Günlük Çarpan (1 = Tam, 0 = Yok, 0.5 = Yarım)</label>
-                        <input type="number" step="0.5" class="form-control" @bind="currentCell.PuantajCarpani" />
+                        <input type="number" step="0.5" class="form-control" @bind="currentCell.PuantajCarpani" @bind:after="AutoFixPuantaj" />
                     </div>
                     <hr />
                     <div class="row g-2 mb-3">
@@ -257,7 +265,11 @@
                         </div>
                         <div class="col-6">
                             <label class="form-label text-danger">Taşerona Ödenecek ₺</label>
-                            <input type="number" step="0.01" class="form-control text-danger fw-bold" @bind="currentCell.TahakkukEdenTaseronUcreti" />
+                            <input type="number" step="0.01" class="form-control text-danger fw-bold" @bind="currentCell.TahakkukEdenTaseronUcreti" disabled="@(!CurrentCellKomisyonMu())" />
+                            @if (!CurrentCellKomisyonMu())
+                            {
+                                <small class="text-muted">Özmal ve kiralık araçlarda bu alan otomatik `0` olarak tutulur.</small>
+                            }
                         </div>
                     </div>
                     @if (currentCell.Durum == OperasyonDurumu.Taksiyle_Gidildi)
@@ -380,6 +392,7 @@
     {
         if (mevcutSecim == null) return;
         currentCell = mevcutSecim;
+        AutoFixPuantaj();
         isCellModalOpen = true;
     }
 
@@ -425,4 +438,38 @@
             isSaving = false;
         }
     }
+
+    private bool CurrentCellKomisyonMu() => currentCell?.Arac?.SahiplikTipi == AracSahiplikTipi.Komisyon;
+
+    private static string GetSahiplikText(AracSahiplikTipi sahiplikTipi) => sahiplikTipi switch
+    {
+        AracSahiplikTipi.Ozmal => "Özmal",
+        AracSahiplikTipi.Kiralik => "Kiralık",
+        AracSahiplikTipi.Komisyon => "Komisyon",
+        _ => "Diğer"
+    };
+
+    private static string GetSahiplikBadge(AracSahiplikTipi sahiplikTipi) => sahiplikTipi switch
+    {
+        AracSahiplikTipi.Ozmal => "bg-success",
+        AracSahiplikTipi.Kiralik => "bg-warning text-dark",
+        AracSahiplikTipi.Komisyon => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string GetSahiplikAlertClass(AracSahiplikTipi sahiplikTipi) => sahiplikTipi switch
+    {
+        AracSahiplikTipi.Ozmal => "alert-success",
+        AracSahiplikTipi.Kiralik => "alert-warning",
+        AracSahiplikTipi.Komisyon => "alert-info",
+        _ => "alert-secondary"
+    };
+
+    private static string GetSahiplikAciklama(AracSahiplikTipi sahiplikTipi) => sahiplikTipi switch
+    {
+        AracSahiplikTipi.Ozmal => "Plaka, şoför ve araç firmaya aittir. Araç hakedişi oluşmaz.",
+        AracSahiplikTipi.Kiralik => "Plaka kiralık yapıdadır ancak operasyon firma tarafından yönetilir. Araç hakedişi otomatik sıfırlanır.",
+        AracSahiplikTipi.Komisyon => "Plaka, şoför, araç ve masraflar komisyoncuya aittir. Araç hakedişi aktif olarak kullanılır.",
+        _ => "Ek kural tanımlanmamış."
+    };
 }

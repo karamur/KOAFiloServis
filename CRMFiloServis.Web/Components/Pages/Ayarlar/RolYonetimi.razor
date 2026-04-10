@@ -1,11 +1,15 @@
 ﻿@page "/ayarlar/roller"
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Shared.Entities
+@using YetkilerClass = CRMFiloServis.Shared.Entities.Yetkiler
 @inject IKullaniciService KullaniciService
 @inject IToastService ToastService
 @rendermode InteractiveServer
 
 <PageTitle>Rol Yonetimi - CRM Filo Servis</PageTitle>
+
+<CRMFiloServis.Web.Components.Shared.YetkiKontrol Yetki="@YetkilerClass.RolYonetimiOku" GerekliYetkiAdi="Rol Yönetimi">
+    <Yetkili>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -1077,3 +1081,6 @@
         }
     }
 }
+
+    </Yetkili>
+</CRMFiloServis.Web.Components.Shared.YetkiKontrol>

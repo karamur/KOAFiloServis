@@ -21,7 +21,8 @@ public class RaporService : IRaporService
         int? aracId = null,
         int? soforId = null,
         int? guzergahId = null,
-        int? cariId = null)
+        int? cariId = null,
+        AracSahiplikTipi? sahiplikTipi = null)
     {
         var query = _context.ServisCalismalari
             .Include(s => s.Arac)
@@ -42,6 +43,10 @@ public class RaporService : IRaporService
 
         if (cariId.HasValue)
             query = query.Where(s => s.Guzergah.CariId == cariId.Value);
+
+        // Sahiplik tipi filtreleme
+        if (sahiplikTipi.HasValue)
+            query = query.Where(s => s.Arac.SahiplikTipi == sahiplikTipi.Value);
 
         var data = await query.ToListAsync();
 
@@ -113,7 +118,8 @@ public class RaporService : IRaporService
     public async Task<List<AracMasrafRaporItem>> GetAracMasrafRaporuAsync(
         DateTime startDate,
         DateTime endDate,
-        int? aracId = null)
+        int? aracId = null,
+        AracSahiplikTipi? sahiplikTipi = null)
     {
         var query = _context.AracMasraflari
             .Include(m => m.Arac)
@@ -123,6 +129,10 @@ public class RaporService : IRaporService
 
         if (aracId.HasValue)
             query = query.Where(m => m.AracId == aracId.Value);
+
+        // Sahiplik tipi filtreleme
+        if (sahiplikTipi.HasValue)
+            query = query.Where(m => m.Arac.SahiplikTipi == sahiplikTipi.Value);
 
         var data = await query.OrderByDescending(m => m.MasrafTarihi).ToListAsync();
 
@@ -224,21 +234,26 @@ public class RaporService : IRaporService
     public async Task<SoforPerformansOzet> GetSoforPerformansAsync(
         int soforId,
         DateTime startDate,
-        DateTime endDate)
+        DateTime endDate,
+        AracSahiplikTipi? sahiplikTipi = null)
     {
         var sofor = await _context.Soforler.FindAsync(soforId);
         if (sofor == null)
             throw new ArgumentException("Şoför bulunamadı", nameof(soforId));
 
-        var calismalar = await _context.ServisCalismalari
+        var query = _context.ServisCalismalari
             .Include(s => s.Arac)
             .Include(s => s.Guzergah)
                 .ThenInclude(g => g.Cari)
             .Where(s => s.SoforId == soforId)
             .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate)
-            .Where(s => s.Durum == CalismaDurum.Tamamlandi)
-            .AsNoTracking()
-            .ToListAsync();
+            .Where(s => s.Durum == CalismaDurum.Tamamlandi);
+
+        // Sahiplik tipi filtreleme
+        if (sahiplikTipi.HasValue)
+            query = query.Where(s => s.Arac.SahiplikTipi == sahiplikTipi.Value);
+
+        var calismalar = await query.AsNoTracking().ToListAsync();
 
         var ozet = new SoforPerformansOzet
         {
@@ -301,15 +316,21 @@ public class RaporService : IRaporService
 
     public async Task<List<SoforKarsilastirmaOzeti>> GetSoforKarsilastirmaAsync(
         DateTime startDate,
-        DateTime endDate)
+        DateTime endDate,
+        AracSahiplikTipi? sahiplikTipi = null)
     {
-        var calismalar = await _context.ServisCalismalari
+        var query = _context.ServisCalismalari
             .Include(s => s.Sofor)
+            .Include(s => s.Arac)
             .Include(s => s.Guzergah)
             .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate)
-            .Where(s => s.Durum == CalismaDurum.Tamamlandi)
-            .AsNoTracking()
-            .ToListAsync();
+            .Where(s => s.Durum == CalismaDurum.Tamamlandi);
+
+        // Sahiplik tipi filtreleme
+        if (sahiplikTipi.HasValue)
+            query = query.Where(s => s.Arac.SahiplikTipi == sahiplikTipi.Value);
+
+        var calismalar = await query.AsNoTracking().ToListAsync();
 
         return calismalar
             .GroupBy(c => new { c.SoforId, c.Sofor.TamAd })
@@ -470,28 +491,43 @@ public class RaporService : IRaporService
 
     public async Task<List<AracKarsilastirmaOzeti>> GetAracKarsilastirmaAsync(
         DateTime startDate,
-        DateTime endDate)
+        DateTime endDate,
+        AracSahiplikTipi? sahiplikTipi = null)
     {
         // Tüm aktif araçları getir
-        var araclar = await _context.Araclar
-            .Where(a => a.Aktif && !a.IsDeleted)
-            .AsNoTracking()
-            .ToListAsync();
+        var araclarQuery = _context.Araclar
+            .Where(a => a.Aktif && !a.IsDeleted);
+
+        // Sahiplik tipi filtreleme
+        if (sahiplikTipi.HasValue)
+            araclarQuery = araclarQuery.Where(a => a.SahiplikTipi == sahiplikTipi.Value);
+
+        var araclar = await araclarQuery.AsNoTracking().ToListAsync();
 
         // Servis çalışmalarını getir
-        var calismalar = await _context.ServisCalismalari
+        var calismaQuery = _context.ServisCalismalari
             .Include(s => s.Guzergah)
+            .Include(s => s.Arac)
             .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate)
-            .Where(s => s.Durum == CalismaDurum.Tamamlandi)
-            .AsNoTracking()
-            .ToListAsync();
+            .Where(s => s.Durum == CalismaDurum.Tamamlandi);
+
+        // Sahiplik tipi filtreleme
+        if (sahiplikTipi.HasValue)
+            calismaQuery = calismaQuery.Where(s => s.Arac.SahiplikTipi == sahiplikTipi.Value);
+
+        var calismalar = await calismaQuery.AsNoTracking().ToListAsync();
 
         // Masrafları getir
-        var masraflar = await _context.AracMasraflari
+        var masrafQuery = _context.AracMasraflari
+            .Include(m => m.Arac)
             .Where(m => m.MasrafTarihi >= startDate && m.MasrafTarihi <= endDate)
-            .Where(m => !m.IsDeleted)
-            .AsNoTracking()
-            .ToListAsync();
+            .Where(m => !m.IsDeleted);
+
+        // Sahiplik tipi filtreleme
+        if (sahiplikTipi.HasValue)
+            masrafQuery = masrafQuery.Where(m => m.Arac.SahiplikTipi == sahiplikTipi.Value);
+
+        var masraflar = await masrafQuery.AsNoTracking().ToListAsync();
 
         var aySayisi = ((endDate.Year - startDate.Year) * 12) + endDate.Month - startDate.Month + 1;
 

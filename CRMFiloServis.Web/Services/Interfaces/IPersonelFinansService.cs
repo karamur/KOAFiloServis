@@ -14,6 +14,7 @@ public interface IPersonelFinansService
     
     // Avans Mahsup
     Task<PersonelAvansMahsup> MahsupEtAvansAsync(int avansId, PersonelAvansMahsup mahsup);
+    Task<decimal> MaasaAcikAvansMahsupEtAsync(int maasId, DateTime? mahsupTarihi = null, string? aciklama = null);
     Task<List<PersonelAvansMahsup>> GetAvansMahsuplasmalarAsync(int avansId);
     Task DeleteMahsupAsync(int mahsupId);
     

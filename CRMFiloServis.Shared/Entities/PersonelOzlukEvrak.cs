@@ -11,11 +11,29 @@ public class PersonelOzlukEvrak : BaseEntity
     public bool Tamamlandi { get; set; }
     public DateTime? TamamlanmaTarihi { get; set; }
     public string? DosyaYolu { get; set; }
+    public string? DosyaAdi { get; set; }
+    public string? DosyaTipi { get; set; }
+    public long? DosyaBoyutu { get; set; }
     public string? Aciklama { get; set; }
+
+    /// <summary>
+    /// Mevcut versiyon numarası (1'den başlar)
+    /// </summary>
+    public int VersiyonNo { get; set; } = 1;
+
+    /// <summary>
+    /// Son değişiklik notu
+    /// </summary>
+    public string? SonDegisiklikNotu { get; set; }
 
     // Navigation
     public virtual Sofor Sofor { get; set; } = null!;
     public virtual OzlukEvrakTanim EvrakTanim { get; set; } = null!;
+
+    /// <summary>
+    /// Versiyon geçmişi - önceki versiyonlar
+    /// </summary>
+    public virtual ICollection<PersonelOzlukEvrakVersiyon> Versiyonlar { get; set; } = new List<PersonelOzlukEvrakVersiyon>();
 }
 
 /// <summary>

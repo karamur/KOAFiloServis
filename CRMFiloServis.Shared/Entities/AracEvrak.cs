@@ -1,4 +1,4 @@
-namespace CRMFiloServis.Shared.Entities;
+﻿namespace CRMFiloServis.Shared.Entities;
 
 /// <summary>
 /// Arac Evrak/Belge Yonetimi - Ruhsat, Sigorta, Muayene vb.
@@ -42,8 +42,23 @@ public class AracEvrakDosya : BaseEntity
     public long DosyaBoyutu { get; set; }
     public string? Aciklama { get; set; }
 
+    /// <summary>
+    /// Mevcut versiyon numarası (1'den başlar)
+    /// </summary>
+    public int VersiyonNo { get; set; } = 1;
+
+    /// <summary>
+    /// Son değişiklik notu
+    /// </summary>
+    public string? SonDegisiklikNotu { get; set; }
+
     // Navigation
     public virtual AracEvrak? AracEvrak { get; set; }
+
+    /// <summary>
+    /// Versiyon geçmişi - önceki versiyonlar
+    /// </summary>
+    public virtual ICollection<AracEvrakDosyaVersiyon> Versiyonlar { get; set; } = new List<AracEvrakDosyaVersiyon>();
 }
 
 public enum EvrakDurum

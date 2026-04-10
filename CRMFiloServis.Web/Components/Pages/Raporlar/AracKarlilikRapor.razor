@@ -19,25 +19,34 @@
     <div class="card mb-4">
         <div class="card-body">
             <div class="row g-3 align-items-end">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Başlangıç Tarihi</label>
                     <input type="date" class="form-control" @bind="baslangicTarihi" />
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Bitiş Tarihi</label>
                     <input type="date" class="form-control" @bind="bitisTarihi" />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Araç Seçimi</label>
                     <select class="form-select" @bind="seciliAracId">
                         <option value="0">-- Tüm Araçlar (Karşılaştırma) --</option>
-                        @foreach (var arac in araclar)
+                        @foreach (var arac in filtreliAraclar)
                         {
                             <option value="@arac.Id">@arac.AktifPlaka - @arac.Marka @arac.Model</option>
                         }
                     </select>
                 </div>
                 <div class="col-md-2">
+                    <label class="form-label">Sahiplik Tipi</label>
+                    <select class="form-select" @bind="seciliSahiplikTipi" @bind:after="SahiplikDegisti">
+                        <option value="">Tümü</option>
+                        <option value="Ozmal">Özmal</option>
+                        <option value="Kiralik">Kiralık</option>
+                        <option value="Komisyon">Komisyon</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <button class="btn btn-primary w-100" @onclick="RaporGetir">
                         <i class="bi bi-search me-1"></i>Rapor Getir
                     </button>
@@ -401,14 +410,33 @@
     private DateTime baslangicTarihi = new DateTime(DateTime.Today.Year, 1, 1);
     private DateTime bitisTarihi = DateTime.Today;
     private int seciliAracId = 0;
+    private string seciliSahiplikTipi = "";
     private bool yukleniyor = false;
 
     private AracKarlilikOzet? aracOzet;
     private List<AracKarsilastirmaOzeti>? karsilastirmaListesi;
 
+    // Sahiplik tipine göre filtrelenmiş araçlar
+    private IEnumerable<Arac> filtreliAraclar => string.IsNullOrEmpty(seciliSahiplikTipi) 
+        ? araclar 
+        : araclar.Where(a => a.SahiplikTipi.ToString() == seciliSahiplikTipi);
+
     protected override async Task OnInitializedAsync()
     {
         araclar = await AracService.GetAllAsync();
+    }
+
+    private void SahiplikDegisti()
+    {
+        // Eğer seçili araç, yeni sahiplik tipine uygun değilse sıfırla
+        if (seciliAracId > 0 && !string.IsNullOrEmpty(seciliSahiplikTipi))
+        {
+            var seciliArac = araclar.FirstOrDefault(a => a.Id == seciliAracId);
+            if (seciliArac != null && seciliArac.SahiplikTipi.ToString() != seciliSahiplikTipi)
+            {
+                seciliAracId = 0;
+            }
+        }
     }
 
     private async Task RaporGetir()
@@ -420,13 +448,17 @@
 
         try
         {
+            AracSahiplikTipi? sahiplikTipi = null;
+            if (!string.IsNullOrEmpty(seciliSahiplikTipi) && Enum.TryParse<AracSahiplikTipi>(seciliSahiplikTipi, out var parsed))
+                sahiplikTipi = parsed;
+
             if (seciliAracId > 0)
             {
                 aracOzet = await RaporService.GetAracKarlilikAsync(seciliAracId, baslangicTarihi, bitisTarihi);
             }
             else
             {
-                karsilastirmaListesi = await RaporService.GetAracKarsilastirmaAsync(baslangicTarihi, bitisTarihi);
+                karsilastirmaListesi = await RaporService.GetAracKarsilastirmaAsync(baslangicTarihi, bitisTarihi, sahiplikTipi);
             }
         }
         catch (Exception ex)
@@ -485,53 +517,17 @@
     {
         if (aracOzet == null) return;
 
-        var exportData = new List<Dictionary<string, object>>
-        {
-            new()
-            {
-                ["Plaka"] = aracOzet.Plaka,
-                ["Marka"] = aracOzet.Marka ?? "",
-                ["Model"] = aracOzet.Model ?? "",
-                ["Sahiplik"] = aracOzet.SahiplikTipi,
-                ["Sefer Sayısı"] = aracOzet.ToplamSeferSayisi,
-                ["Toplam Gelir"] = aracOzet.ToplamGelir,
-                ["Toplam Masraf"] = aracOzet.ToplamMasraf,
-                ["Kira Bedeli"] = aracOzet.KiraBedeli,
-                ["Komisyon"] = aracOzet.KomisyonTutari,
-                ["Toplam Gider"] = aracOzet.ToplamGider,
-                ["Net Kar"] = aracOzet.NetKar,
-                ["Kar Marjı %"] = aracOzet.KarMarji,
-                ["Arıza Sayısı"] = aracOzet.ArizaSayisi,
-                ["Arıza Oranı %"] = aracOzet.ArizaOrani
-            }
-        };
-
         var fileName = $"AracKarlilik_{aracOzet.Plaka}_{baslangicTarihi:yyyyMMdd}_{bitisTarihi:yyyyMMdd}.xlsx";
-        var bytes = ExcelService.ExportToExcel(exportData, "Araç Karlılık");
-        await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(bytes));
+        var bytes = ExcelService.ExportAracKarlilikRaporu(aracOzet);
+        await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(bytes), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
     private async Task ExcelExportKarsilastirma()
     {
         if (karsilastirmaListesi == null || !karsilastirmaListesi.Any()) return;
 
-        var exportData = karsilastirmaListesi.Select(k => new Dictionary<string, object>
-        {
-            ["Sıra"] = k.KarlilikSirasi,
-            ["Plaka"] = k.Plaka,
-            ["Marka/Model"] = k.MarkaModel ?? "",
-            ["Sahiplik"] = k.SahiplikTipi,
-            ["Sefer Sayısı"] = k.SeferSayisi,
-            ["Toplam Gelir"] = k.ToplamGelir,
-            ["Toplam Gider"] = k.ToplamGider,
-            ["Net Kar"] = k.NetKar,
-            ["Kar Marjı %"] = k.KarMarji,
-            ["Arıza Sayısı"] = k.ArizaSayisi,
-            ["Arıza Oranı %"] = k.ArizaOrani
-        }).ToList();
-
         var fileName = $"AracKarsilastirma_{baslangicTarihi:yyyyMMdd}_{bitisTarihi:yyyyMMdd}.xlsx";
-        var bytes = ExcelService.ExportToExcel(exportData, "Araç Karşılaştırma");
-        await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(bytes));
+        var bytes = ExcelService.ExportAracKarlilikKarsilastirmaRaporu(karsilastirmaListesi);
+        await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(bytes), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 }

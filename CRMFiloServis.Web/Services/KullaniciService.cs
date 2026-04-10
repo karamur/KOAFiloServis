@@ -1,7 +1,6 @@
-﻿using System.Security.Cryptography;
-using System.Text;
-using CRMFiloServis.Shared.Entities;
+﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace CRMFiloServis.Web.Services;
@@ -11,15 +10,24 @@ public class KullaniciService : IKullaniciService
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly AppAuthenticationStateProvider _authProvider;
     private readonly ILogger<KullaniciService> _logger;
+    private readonly IEmailService _emailService;
+    private readonly ILisansService _lisansService;
+    private readonly UserManager<Kullanici> _userManager;
 
     public KullaniciService(
         IDbContextFactory<ApplicationDbContext> contextFactory,
         AppAuthenticationStateProvider authProvider,
-        ILogger<KullaniciService> logger)
+        ILogger<KullaniciService> logger,
+        IEmailService emailService,
+        ILisansService lisansService,
+        UserManager<Kullanici> userManager)
     {
         _contextFactory = contextFactory;
         _authProvider = authProvider;
         _logger = logger;
+        _emailService = emailService;
+        _lisansService = lisansService;
+        _userManager = userManager;
     }
 
     #region CRUD
@@ -58,12 +66,47 @@ public class KullaniciService : IKullaniciService
         if (await context.Kullanicilar.AnyAsync(k => k.KullaniciAdi == kullanici.KullaniciAdi))
             throw new Exception("Bu kullanici adi zaten kayitli!");
 
-        kullanici.SifreHash = HashPassword(sifre);
         kullanici.CreatedAt = DateTime.UtcNow;
 
-        context.Kullanicilar.Add(kullanici);
-        await context.SaveChangesAsync();
+        var result = await _userManager.CreateAsync(kullanici, sifre);
+        if (!result.Succeeded)
+            throw new Exception(string.Join("; ", result.Errors.Select(e => e.Description)));
+
         return kullanici;
+    }
+
+    public async Task<Kullanici> KayitOlAsync(Kullanici kullanici, string sifre)
+    {
+        if (!await _lisansService.KullanicLimitiKontrolAsync())
+            throw new Exception("Lisans kullanıcı limitine ulaşıldı.");
+
+        using var context = await _contextFactory.CreateDbContextAsync();
+
+        var kullaniciAdi = (kullanici.KullaniciAdi ?? string.Empty).Trim();
+        var email = (kullanici.Email ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(kullaniciAdi) || string.IsNullOrWhiteSpace(kullanici.AdSoyad))
+            throw new Exception("Kullanıcı adı ve ad soyad zorunludur.");
+
+        if (string.IsNullOrWhiteSpace(email))
+            throw new Exception("E-posta adresi zorunludur.");
+
+        if (await context.Kullanicilar.AnyAsync(k => !k.IsDeleted && k.KullaniciAdi == kullaniciAdi))
+            throw new Exception("Bu kullanıcı adı zaten kayıtlı!");
+
+        if (await context.Kullanicilar.AnyAsync(k => !k.IsDeleted && k.Email != null && k.Email.ToUpper() == email.ToUpper()))
+            throw new Exception("Bu e-posta adresi zaten kayıtlı!");
+
+        var defaultRole = await context.Roller.FirstOrDefaultAsync(r => r.RolAdi == SistemRolleri.Kullanici);
+        if (defaultRole == null)
+            throw new Exception("Varsayılan kullanıcı rolü bulunamadı.");
+
+        kullanici.KullaniciAdi = kullaniciAdi;
+        kullanici.Email = email;
+        kullanici.RolId = defaultRole.Id;
+        kullanici.Aktif = true;
+
+        return await CreateAsync(kullanici, sifre);
     }
 
     public async Task<Kullanici> UpdateAsync(Kullanici kullanici)
@@ -113,6 +156,69 @@ public class KullaniciService : IKullaniciService
         await context.SaveChangesAsync();
     }
 
+    public async Task<bool> SifremiUnuttumAsync(string kullaniciAdiVeyaEmail)
+    {
+        var giris = (kullaniciAdiVeyaEmail ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(giris))
+            return false;
+
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var normalized = giris.ToUpperInvariant();
+
+        var kullanici = await context.Kullanicilar
+            .Include(k => k.Rol)
+            .FirstOrDefaultAsync(k => !k.IsDeleted &&
+                                      (k.KullaniciAdi.ToUpper() == normalized ||
+                                       (k.Email != null && k.Email.ToUpper() == normalized)));
+
+        if (kullanici == null || !kullanici.Aktif || string.IsNullOrWhiteSpace(kullanici.Email))
+            return false;
+
+        var eskiHash = kullanici.SifreHash;
+        var eskiKilitli = kullanici.Kilitli;
+        var eskiBasarisizGiris = kullanici.BasarisizGirisSayisi;
+        var geciciSifre = GenerateTemporaryPassword();
+
+        try
+        {
+            kullanici.SifreHash = HashPassword(kullanici, geciciSifre);
+            kullanici.Kilitli = false;
+            kullanici.BasarisizGirisSayisi = 0;
+            kullanici.UpdatedAt = DateTime.UtcNow;
+            context.Kullanicilar.Update(kullanici);
+            await context.SaveChangesAsync();
+
+            var subject = "Koa Filo Servis - Geçici Şifre";
+            var body = $@"
+<p>Merhaba {kullanici.AdSoyad},</p>
+<p>Hesabınız için geçici şifre oluşturuldu.</p>
+<p><strong>Kullanıcı Adı:</strong> {kullanici.KullaniciAdi}<br />
+<strong>Geçici Şifre:</strong> {geciciSifre}</p>
+<p>Giriş yaptıktan sonra lütfen profil ekranından şifrenizi değiştirin.</p>
+<p>Bu işlem size ait değilse sistem yöneticiniz ile iletişime geçin.</p>";
+
+            var emailSent = await _emailService.SendEmailAsync(kullanici.Email, subject, body, true);
+            if (!emailSent)
+            {
+                kullanici.SifreHash = eskiHash;
+                kullanici.Kilitli = eskiKilitli;
+                kullanici.BasarisizGirisSayisi = eskiBasarisizGiris;
+                kullanici.UpdatedAt = DateTime.UtcNow;
+                context.Kullanicilar.Update(kullanici);
+                await context.SaveChangesAsync();
+                return false;
+            }
+
+            _logger.LogInformation("Sifre sifirlama e-postasi gonderildi: {KullaniciAdi}", kullanici.KullaniciAdi);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Sifre sifirlama islemi basarisiz: {Giris}", giris);
+            return false;
+        }
+    }
+
     #endregion
 
     #region Giris/Cikis
@@ -143,7 +249,8 @@ public class KullaniciService : IKullaniciService
             return new KullaniciGirisSonuc { Basarili = false, Mesaj = "Kullanici kilitli. Yoneticiye basvurun." };
         }
 
-        if (!VerifyPassword(sifre, kullanici.SifreHash))
+        var parolaDogru = await _userManager.CheckPasswordAsync(kullanici, sifre);
+        if (!parolaDogru)
         {
             kullanici.BasarisizGirisSayisi++;
             if (kullanici.BasarisizGirisSayisi >= 5)
@@ -161,6 +268,7 @@ public class KullaniciService : IKullaniciService
         // Basarili giris
         kullanici.SonGirisTarihi = DateTime.UtcNow;
         kullanici.BasarisizGirisSayisi = 0;
+
         context.Kullanicilar.Update(kullanici);
         await context.SaveChangesAsync();
 
@@ -199,10 +307,10 @@ public class KullaniciService : IKullaniciService
         var kullanici = await context.Kullanicilar.FindAsync(kullaniciId);
         if (kullanici == null) throw new Exception("Kullanici bulunamadi");
 
-        if (!VerifyPassword(eskiSifre, kullanici.SifreHash))
-            throw new Exception("Mevcut sifre hatali");
+        var result = await _userManager.ChangePasswordAsync(kullanici, eskiSifre, yeniSifre);
+        if (!result.Succeeded)
+            throw new Exception(result.Errors.FirstOrDefault()?.Description ?? "Mevcut sifre hatali");
 
-        kullanici.SifreHash = HashPassword(yeniSifre);
         kullanici.UpdatedAt = DateTime.UtcNow;
         context.Kullanicilar.Update(kullanici);
         await context.SaveChangesAsync();
@@ -214,7 +322,7 @@ public class KullaniciService : IKullaniciService
         var kullanici = await context.Kullanicilar.FindAsync(kullaniciId);
         if (kullanici == null) throw new Exception("Kullanici bulunamadi");
 
-        kullanici.SifreHash = HashPassword(yeniSifre);
+        kullanici.SifreHash = HashPassword(kullanici, yeniSifre);
         kullanici.Kilitli = false;
         kullanici.BasarisizGirisSayisi = 0;
         kullanici.UpdatedAt = DateTime.UtcNow;
@@ -445,7 +553,7 @@ public class KullaniciService : IKullaniciService
                 adminUser = new Kullanici
                 {
                     KullaniciAdi = "admin",
-                    SifreHash = HashPassword("admin123"),
+                    SifreHash = HashPassword(new Kullanici { KullaniciAdi = "admin", AdSoyad = "Sistem Yoneticisi" }, "admin123"),
                     AdSoyad = "Sistem Yoneticisi",
                     RolId = adminRol.Id,
                     Aktif = true,
@@ -458,10 +566,9 @@ public class KullaniciService : IKullaniciService
             {
                 // Admin varsa sifresinin dogru oldugundan emin ol
                 // ve kilitli/pasif ise duzelt
-                var dogruHash = HashPassword("admin123");
-                if (adminUser.SifreHash != dogruHash || !adminUser.Aktif || adminUser.Kilitli)
+                if (!await _userManager.CheckPasswordAsync(adminUser, "admin123") || !adminUser.Aktif || adminUser.Kilitli)
                 {
-                    adminUser.SifreHash = dogruHash;
+                    adminUser.SifreHash = HashPassword(adminUser, "admin123");
                     adminUser.Aktif = true;
                     adminUser.Kilitli = false;
                     adminUser.BasarisizGirisSayisi = 0;
@@ -482,7 +589,7 @@ public class KullaniciService : IKullaniciService
                 testUser = new Kullanici
                 {
                     KullaniciAdi = "test",
-                    SifreHash = HashPassword("test123"),
+                    SifreHash = HashPassword(new Kullanici { KullaniciAdi = "test", AdSoyad = "Test Kullanici" }, "test123"),
                     AdSoyad = "Test Kullanici",
                     RolId = adminRol.Id,
                     Aktif = true,
@@ -494,10 +601,9 @@ public class KullaniciService : IKullaniciService
             else
             {
                 // Test kullanici sifresi/durumu duzelt
-                var dogruHash = HashPassword("test123");
-                if (testUser.SifreHash != dogruHash || !testUser.Aktif || testUser.Kilitli)
+                if (!await _userManager.CheckPasswordAsync(testUser, "test123") || !testUser.Aktif || testUser.Kilitli)
                 {
-                    testUser.SifreHash = dogruHash;
+                    testUser.SifreHash = HashPassword(testUser, "test123");
                     testUser.Aktif = true;
                     testUser.Kilitli = false;
                     testUser.BasarisizGirisSayisi = 0;
@@ -513,16 +619,22 @@ public class KullaniciService : IKullaniciService
 
     #region Helpers
 
-    private string HashPassword(string password)
+    private string HashPassword(Kullanici kullanici, string password)
     {
-        using var sha = SHA256.Create();
-        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(password + "CRMFiloServisSalt"));
-        return Convert.ToBase64String(bytes);
+        return _userManager.PasswordHasher.HashPassword(kullanici, password);
     }
 
-    private bool VerifyPassword(string password, string hash)
+    private static string GenerateTemporaryPassword()
     {
-        return HashPassword(password) == hash;
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+        var bytes = new byte[10];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
+
+        var passwordChars = bytes
+            .Select(b => chars[b % chars.Length])
+            .ToArray();
+
+        return new string(passwordChars);
     }
 
     #endregion

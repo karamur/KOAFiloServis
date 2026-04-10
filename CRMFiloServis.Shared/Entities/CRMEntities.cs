@@ -44,7 +44,17 @@ public enum BildirimTipi
     BelgeSuresi = 4,
     OdemeBildirimi = 5,
     Hatirlatici = 6,
-    Mesaj = 7
+    Mesaj = 7,
+    FaturaVade = 8,
+    EhliyetBitis = 9,
+    SrcBelgesi = 10,
+    Psikoteknik = 11,
+    SaglikRaporu = 12,
+    TrafikSigorta = 13,
+    Kasko = 14,
+    Muayene = 15,
+    DestekTalebi = 16,
+    Sistem = 17
 }
 
 public enum BildirimOncelik
@@ -53,6 +63,54 @@ public enum BildirimOncelik
     Normal = 1,
     Yuksek = 2,
     Kritik = 3
+}
+
+/// <summary>
+/// Bildirim ayarları - Kullanıcı bazlı bildirim tercihleri
+/// </summary>
+public class BildirimAyar : BaseEntity
+{
+    public int KullaniciId { get; set; }
+    public virtual Kullanici? Kullanici { get; set; }
+
+    // Hangi bildirimleri alsın?
+    public bool FaturaVadeUyarisi { get; set; } = true;
+    public bool EhliyetBitisUyarisi { get; set; } = true;
+    public bool SrcBelgesiUyarisi { get; set; } = true;
+    public bool PsikoteknikUyarisi { get; set; } = true;
+    public bool SaglikRaporuUyarisi { get; set; } = true;
+    public bool TrafikSigortaUyarisi { get; set; } = true;
+    public bool KaskoUyarisi { get; set; } = true;
+    public bool MuayeneUyarisi { get; set; } = true;
+    public bool DestekTalebiUyarisi { get; set; } = true;
+    public bool SistemBildirimleri { get; set; } = true;
+
+    // E-posta tercihleri
+    public bool EpostaAlsin { get; set; } = false;
+    public string? EpostaAdresi { get; set; }
+
+    // Kaç gün önceden uyarı verilsin?
+    public int VadeUyariGunSayisi { get; set; } = 7;
+    public int BelgeUyariGunSayisi { get; set; } = 30;
+}
+
+/// <summary>
+/// E-posta bildirim gönderim logu - tekrar gönderimi önlemek için
+/// </summary>
+public class EpostaBildirimLog : BaseEntity
+{
+    public int KullaniciId { get; set; }
+    public virtual Kullanici? Kullanici { get; set; }
+
+    [StringLength(200)]
+    public string EpostaAdresi { get; set; } = string.Empty;
+
+    public int UyariSayisi { get; set; }
+    public DateTime GonderimTarihi { get; set; }
+    public bool Basarili { get; set; } = true;
+
+    [StringLength(500)]
+    public string? HataMesaji { get; set; }
 }
 
 #endregion

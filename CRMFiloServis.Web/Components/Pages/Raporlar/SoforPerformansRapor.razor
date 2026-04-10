@@ -46,6 +46,17 @@
                         </select>
                     </div>
                 </div>
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label class="form-label">Sahiplik Tipi</label>
+                        <select class="form-select" @bind="secilenSahiplikTipi">
+                            <option value="">Tümü</option>
+                            <option value="Ozmal">Özmal</option>
+                            <option value="Kiralik">Kiralık</option>
+                            <option value="Komisyon">Komisyon</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">&nbsp;</label>
@@ -396,10 +407,11 @@
     private List<Sofor> soforler = new();
     private SoforPerformansOzet? performansOzet;
     private List<SoforKarsilastirmaOzeti>? karsilastirma;
-    
+
     private DateTime baslangicTarihi = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
     private DateTime bitisTarihi = DateTime.Today;
     private int secilenSoforId = 0;
+    private string secilenSahiplikTipi = "";
     private bool isLoading = false;
     private bool chartRendered = false;
 
@@ -408,10 +420,17 @@
         soforler = await SoforService.GetActiveByGorevAsync(PersonelGorev.Sofor);
     }
 
+    private AracSahiplikTipi? GetSahiplikTipi()
+    {
+        if (!string.IsNullOrEmpty(secilenSahiplikTipi) && Enum.TryParse<AracSahiplikTipi>(secilenSahiplikTipi, out var parsed))
+            return parsed;
+        return null;
+    }
+
     private async Task RaporGetir()
     {
         if (secilenSoforId == 0) return;
-        
+
         isLoading = true;
         karsilastirma = null;
         chartRendered = false;
@@ -419,7 +438,7 @@
 
         try
         {
-            performansOzet = await RaporService.GetSoforPerformansAsync(secilenSoforId, baslangicTarihi, bitisTarihi);
+            performansOzet = await RaporService.GetSoforPerformansAsync(secilenSoforId, baslangicTarihi, bitisTarihi, GetSahiplikTipi());
         }
         finally
         {
@@ -437,7 +456,7 @@
 
         try
         {
-            karsilastirma = await RaporService.GetSoforKarsilastirmaAsync(baslangicTarihi, bitisTarihi);
+            karsilastirma = await RaporService.GetSoforKarsilastirmaAsync(baslangicTarihi, bitisTarihi, GetSahiplikTipi());
         }
         finally
         {
@@ -492,31 +511,12 @@
 
             if (karsilastirma != null && karsilastirma.Any())
             {
-                var exportData = karsilastirma.Select((k, i) => new
-                {
-                    Sira = i + 1,
-                    SoforAdi = k.SoforAdi,
-                    SeferSayisi = k.SeferSayisi,
-                    CalistigiGun = k.CalistigiGun,
-                    ToplamKazanc = k.ToplamKazanc,
-                    ArizaOrani = $"%{k.ArizaOrani:F1}"
-                }).ToList();
-
-                excelData = ExcelService.ExportToExcel(exportData, "Şoför Karşılaştırma");
+                excelData = ExcelService.ExportSoforKarsilastirmaRaporu(karsilastirma);
                 fileName = $"Sofor_Karsilastirma_{baslangicTarihi:yyyyMMdd}_{bitisTarihi:yyyyMMdd}.xlsx";
             }
             else if (performansOzet != null)
             {
-                var exportData = performansOzet.AylikPerformans.Select(a => new
-                {
-                    Donem = a.AyAdi,
-                    SeferSayisi = a.SeferSayisi,
-                    CalistigiGun = a.CalistigiGun,
-                    ToplamKazanc = a.ToplamKazanc,
-                    OrtalamaGunluk = a.CalistigiGun > 0 ? a.ToplamKazanc / a.CalistigiGun : 0
-                }).ToList();
-
-                excelData = ExcelService.ExportToExcel(exportData, performansOzet.SoforAdi);
+                excelData = ExcelService.ExportSoforPerformansRaporu(performansOzet);
                 fileName = $"Sofor_Performans_{performansOzet.SoforAdi.Replace(" ", "_")}_{baslangicTarihi:yyyyMMdd}_{bitisTarihi:yyyyMMdd}.xlsx";
             }
             else
@@ -524,7 +524,7 @@
                 return;
             }
 
-            await JS.InvokeVoidAsync("downloadFile", excelData, fileName, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(excelData), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         }
         catch
         {

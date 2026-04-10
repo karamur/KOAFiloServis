@@ -1,9 +1,9 @@
-using System.ComponentModel.DataAnnotations;
+ï»¿using System.ComponentModel.DataAnnotations;
 
 namespace CRMFiloServis.Shared.Entities;
 
 /// <summary>
-/// Personel puantaj kaydı
+/// Personel puantaj kaydÄ±
 /// </summary>
 public class PersonelPuantaj : BaseEntity
 {
@@ -21,7 +21,7 @@ public class PersonelPuantaj : BaseEntity
     public int Ay { get; set; }
 
     /// <summary>
-    /// Çalışılan gün sayısı
+    /// Ã‡alÄ±ÅŸÄ±lan gÃ¼n sayÄ±sÄ±
     /// </summary>
     public int CalisilanGun { get; set; }
 
@@ -31,27 +31,27 @@ public class PersonelPuantaj : BaseEntity
     public decimal FazlaMesaiSaat { get; set; }
 
     /// <summary>
-    /// İzin günü
+    /// Ä°zin gÃ¼nÃ¼
     /// </summary>
     public int IzinGunu { get; set; }
 
     /// <summary>
-    /// Mazeret/Rapor günü
+    /// Mazeret/Rapor gÃ¼nÃ¼
     /// </summary>
     public int MazeretGunu { get; set; }
 
     /// <summary>
-    /// Brüt maaş
+    /// BrÃ¼t maaÅŸ
     /// </summary>
     public decimal BrutMaas { get; set; }
 
     /// <summary>
-    /// Yemek ücreti
+    /// Yemek Ã¼creti
     /// </summary>
     public decimal YemekUcreti { get; set; }
 
     /// <summary>
-    /// Yol ücreti
+    /// Yol Ã¼creti
     /// </summary>
     public decimal YolUcreti { get; set; }
 
@@ -61,7 +61,7 @@ public class PersonelPuantaj : BaseEntity
     public decimal Prim { get; set; }
 
     /// <summary>
-    /// Diğer ödeme
+    /// DiÄŸer Ã¶deme
     /// </summary>
     public decimal DigerOdeme { get; set; }
 
@@ -81,27 +81,47 @@ public class PersonelPuantaj : BaseEntity
     public decimal DamgaVergisi { get; set; }
 
     /// <summary>
-    /// Diğer kesintiler
+    /// DiÄŸer kesintiler
     /// </summary>
     public decimal DigerKesinti { get; set; }
 
     /// <summary>
-    /// Net ödeme
+    /// Net Ã¶deme
     /// </summary>
     public decimal NetOdeme { get; set; }
 
     /// <summary>
-    /// Ödeme tarihi
+    /// Ã–deme tarihi
     /// </summary>
     public DateTime? OdemeTarihi { get; set; }
 
     /// <summary>
-    /// Ödeme durumu
+    /// Ã–deme durumu
     /// </summary>
     public bool Odendi { get; set; }
 
     /// <summary>
-    /// Banka hesap numarası (IBAN)
+    /// Puantaj onay durumu
+    /// </summary>
+    public PersonelPuantajOnayDurumu OnayDurumu { get; set; } = PersonelPuantajOnayDurumu.Taslak;
+
+    /// <summary>
+    /// Onaylayan kullanÄ±cÄ±
+    /// </summary>
+    public string? OnaylayanKullanici { get; set; }
+
+    /// <summary>
+    /// Onay tarihi
+    /// </summary>
+    public DateTime? OnayTarihi { get; set; }
+
+    /// <summary>
+    /// Onay / red notu
+    /// </summary>
+    public string? OnayNotu { get; set; }
+
+    /// <summary>
+    /// Banka hesap numarasÄ± (IBAN)
     /// </summary>
     public string? BankaHesapNo { get; set; }
 
@@ -113,7 +133,7 @@ public class PersonelPuantaj : BaseEntity
 }
 
 /// <summary>
-/// Günlük puantaj detayı
+/// GÃ¼nlÃ¼k puantaj detayÄ±
 /// </summary>
 public class GunlukPuantaj : BaseEntity
 {
@@ -124,7 +144,7 @@ public class GunlukPuantaj : BaseEntity
     public DateTime Tarih { get; set; }
 
     /// <summary>
-    /// Çalıştı mı?
+    /// Ã‡alÄ±ÅŸtÄ± mÄ±?
     /// </summary>
     public bool Calisti { get; set; }
 
@@ -134,7 +154,7 @@ public class GunlukPuantaj : BaseEntity
     public decimal? FazlaMesaiSaat { get; set; }
 
     /// <summary>
-    /// İzinli mi?
+    /// Ä°zinli mi?
     /// </summary>
     public bool Izinli { get; set; }
 
@@ -144,7 +164,7 @@ public class GunlukPuantaj : BaseEntity
     public bool Mazeret { get; set; }
 
     /// <summary>
-    /// Çalıştığı güzergah/sefer
+    /// Ã‡alÄ±ÅŸtÄ±ÄŸÄ± gÃ¼zergah/sefer
     /// </summary>
     public int? ServisCalismaId { get; set; }
 
@@ -153,4 +173,12 @@ public class GunlukPuantaj : BaseEntity
     // Navigation
     public virtual PersonelPuantaj? PersonelPuantaj { get; set; }
     public virtual ServisCalisma? ServisCalisma { get; set; }
+}
+
+public enum PersonelPuantajOnayDurumu
+{
+    Taslak = 0,
+    OnayBekliyor = 1,
+    Onaylandi = 2,
+    Reddedildi = 3
 }

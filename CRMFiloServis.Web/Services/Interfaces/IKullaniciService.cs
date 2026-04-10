@@ -9,6 +9,7 @@ public interface IKullaniciService
     Task<Kullanici?> GetByIdAsync(int id);
     Task<Kullanici?> GetByKullaniciAdiAsync(string kullaniciAdi);
     Task<Kullanici> CreateAsync(Kullanici kullanici, string sifre);
+    Task<Kullanici> KayitOlAsync(Kullanici kullanici, string sifre);
     Task<Kullanici> UpdateAsync(Kullanici kullanici);
     Task<Kullanici> ToggleAktifAsync(int id);
     Task DeleteAsync(int id);
@@ -21,6 +22,7 @@ public interface IKullaniciService
     // Sifre
     Task SifreDegistirAsync(int kullaniciId, string eskiSifre, string yeniSifre);
     Task SifreSifirlaAsync(int kullaniciId, string yeniSifre);
+    Task<bool> SifremiUnuttumAsync(string kullaniciAdiVeyaEmail);
     
     // Yetki
     Task<bool> YetkiVarMiAsync(int kullaniciId, string yetkiKodu);

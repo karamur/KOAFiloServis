@@ -1,4 +1,4 @@
-@page "/rapor/servis-calisma"
+ï»¿@page "/rapor/servis-calisma"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Web.Models
@@ -12,10 +12,10 @@
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
-<PageTitle>Servis Çalýþma Raporu</PageTitle>
+<PageTitle>Servis Ã‡alÄ±ÅŸma Raporu</PageTitle>
 
 <div class="container-fluid">
-    <h3 class="mb-3"><i class="bi bi-file-earmark-bar-graph me-2"></i>Servis Çalýþma Raporu</h3>
+    <h3 class="mb-3"><i class="bi bi-file-earmark-bar-graph me-2"></i>Servis Ã‡alÄ±ÅŸma Raporu</h3>
 
     <div class="card mb-3">
         <div class="card-header">
@@ -25,13 +25,13 @@
             <div class="row">
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label class="form-label">Baþlangýç Tarihi</label>
+                        <label class="form-label">BaÅŸlangÄ±Ã§ Tarihi</label>
                         <input type="date" class="form-control" @bind="baslangicTarihi" />
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label class="form-label">Bitiþ Tarihi</label>
+                        <label class="form-label">BitiÅŸ Tarihi</label>
                         <input type="date" class="form-control" @bind="bitisTarihi" />
                     </div>
                 </div>
@@ -39,7 +39,7 @@
                     <div class="mb-3">
                         <label class="form-label">Firma</label>
                         <select class="form-select" @bind="secilenCariId">
-                            <option value="0">Tümü</option>
+                            <option value="0">TÃ¼mÃ¼</option>
                             @foreach (var cari in cariler)
                             {
                                 <option value="@cari.Id">@cari.Unvan</option>
@@ -49,9 +49,9 @@
                 </div>
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label class="form-label">Araç</label>
+                        <label class="form-label">AraÃ§</label>
                         <select class="form-select" @bind="secilenAracId">
-                            <option value="0">Tümü</option>
+                            <option value="0">TÃ¼mÃ¼</option>
                             @foreach (var arac in araclar)
                             {
                                 <option value="@arac.Id">@arac.AktifPlaka</option>
@@ -61,13 +61,24 @@
                 </div>
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label class="form-label">Þoför</label>
+                        <label class="form-label">ÅžofÃ¶r</label>
                         <select class="form-select" @bind="secilenSoforId">
-                            <option value="0">Tümü</option>
+                            <option value="0">TÃ¼mÃ¼</option>
                             @foreach (var sofor in soforler)
                             {
                                 <option value="@sofor.Id">@sofor.TamAd</option>
                             }
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label class="form-label">Sahiplik</label>
+                        <select class="form-select" @bind="secilenSahiplikTipi">
+                            <option value="">TÃ¼mÃ¼</option>
+                            <option value="Ozmal">Ã–zmal</option>
+                            <option value="Kiralik">KiralÄ±k</option>
+                            <option value="Komisyon">Komisyon</option>
                         </select>
                     </div>
                 </div>
@@ -92,7 +103,7 @@
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Yükleniyor...</span>
+                <span class="visually-hidden">YÃ¼kleniyor...</span>
             </div>
         </div>
     }
@@ -102,7 +113,7 @@
             <div class="col-md-3">
                 <div class="card bg-primary text-white">
                     <div class="card-body text-center">
-                        <h6>Toplam Çalýþýlan Gün</h6>
+                        <h6>Toplam Ã‡alÄ±ÅŸÄ±lan GÃ¼n</h6>
                         <h3>@raporData.Sum(r => r.CalisilanGun)</h3>
                     </div>
                 </div>
@@ -118,7 +129,7 @@
             <div class="col-md-3">
                 <div class="card bg-info text-white">
                     <div class="card-body text-center">
-                        <h6>Güzergah Sayýsý</h6>
+                        <h6>GÃ¼zergah SayÄ±sÄ±</h6>
                         <h3>@raporData.Select(r => r.GuzergahAdi).Distinct().Count()</h3>
                     </div>
                 </div>
@@ -126,7 +137,7 @@
             <div class="col-md-3">
                 <div class="card bg-warning text-dark">
                     <div class="card-body text-center">
-                        <h6>Araç Sayýsý</h6>
+                        <h6>AraÃ§ SayÄ±sÄ±</h6>
                         <h3>@raporData.Select(r => r.Plaka).Distinct().Count()</h3>
                     </div>
                 </div>
@@ -140,12 +151,12 @@
                         <thead class="table-dark">
                             <tr>
                                 <th>Firma</th>
-                                <th>Güzergah</th>
+                                <th>GÃ¼zergah</th>
                                 <th>Plaka</th>
-                                <th>Þoför</th>
-                                <th>Servis Türü</th>
+                                <th>ÅžofÃ¶r</th>
+                                <th>Servis TÃ¼rÃ¼</th>
                                 <th class="text-end">Birim Fiyat</th>
-                                <th class="text-center">Çalýþýlan Gün</th>
+                                <th class="text-center">Ã‡alÄ±ÅŸÄ±lan GÃ¼n</th>
                                 <th class="text-end">Toplam Tutar</th>
                             </tr>
                         </thead>
@@ -184,6 +195,7 @@
     private int secilenCariId = 0;
     private int secilenAracId = 0;
     private int secilenSoforId = 0;
+    private string secilenSahiplikTipi = "";
     private bool isLoading = false;
 
     private List<Cari> cariler = new();
@@ -203,13 +215,18 @@
         isLoading = true;
         try
         {
+            AracSahiplikTipi? sahiplikTipi = null;
+            if (!string.IsNullOrEmpty(secilenSahiplikTipi) && Enum.TryParse<AracSahiplikTipi>(secilenSahiplikTipi, out var parsed))
+                sahiplikTipi = parsed;
+
             raporData = await RaporService.GetServisCalismaRaporuAsync(
                 baslangicTarihi,
                 bitisTarihi,
                 secilenAracId > 0 ? secilenAracId : null,
                 secilenSoforId > 0 ? secilenSoforId : null,
                 null,
-                secilenCariId > 0 ? secilenCariId : null
+                secilenCariId > 0 ? secilenCariId : null,
+                sahiplikTipi
             );
         }
         finally

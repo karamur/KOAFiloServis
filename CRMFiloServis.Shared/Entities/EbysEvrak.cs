@@ -142,8 +142,23 @@ public class EbysEvrakDosya : BaseEntity
     public long DosyaBoyutu { get; set; }
     public string? Aciklama { get; set; }
     public bool AsilNusha { get; set; }
-    
+
+    /// <summary>
+    /// Mevcut versiyon numarası (1'den başlar)
+    /// </summary>
+    public int VersiyonNo { get; set; } = 1;
+
+    /// <summary>
+    /// Son değişiklik notu
+    /// </summary>
+    public string? SonDegisiklikNotu { get; set; }
+
     public virtual EbysEvrak? Evrak { get; set; }
+
+    /// <summary>
+    /// Versiyon geçmişi - önceki versiyonlar
+    /// </summary>
+    public virtual ICollection<EbysEvrakDosyaVersiyon> Versiyonlar { get; set; } = new List<EbysEvrakDosyaVersiyon>();
 }
 
 /// <summary>

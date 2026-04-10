@@ -111,6 +111,7 @@ public class ApplicationDbContext : DbContext
 
     // CRM Modulu
     public DbSet<Bildirim> Bildirimler { get; set; }
+    public DbSet<EpostaBildirimLog> EpostaBildirimLoglari { get; set; }
     public DbSet<Mesaj> Mesajlar { get; set; }
     public DbSet<EmailAyar> EmailAyarlari { get; set; }
     public DbSet<WhatsAppAyar> WhatsAppAyarlari { get; set; }
@@ -195,6 +196,21 @@ public class ApplicationDbContext : DbContext
     public DbSet<EbysEvrakDosya> EbysEvrakDosyalar { get; set; }
     public DbSet<EbysEvrakAtama> EbysEvrakAtamalar { get; set; }
     public DbSet<EbysEvrakHareket> EbysEvrakHareketler { get; set; }
+
+    // EBYS Belge Versiyon Modülü
+    public DbSet<EbysEvrakDosyaVersiyon> EbysEvrakDosyaVersiyonlar { get; set; }
+    public DbSet<AracEvrakDosyaVersiyon> AracEvrakDosyaVersiyonlar { get; set; }
+    public DbSet<PersonelOzlukEvrakVersiyon> PersonelOzlukEvrakVersiyonlar { get; set; }
+
+    // EBYS Belge Arama Modülü
+    public DbSet<EbysAramaGecmisi> EbysAramaGecmisleri { get; set; }
+    public DbSet<EbysKayitliArama> EbysKayitliAramalar { get; set; }
+
+    // EBYS Semantic Search Modülü
+    public DbSet<EbysBelgeEmbedding> EbysBelgeEmbeddingler { get; set; }
+
+    // Bildirim Ayarları Modülü
+    public DbSet<BildirimAyar> BildirimAyarlari { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

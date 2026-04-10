@@ -62,6 +62,25 @@ public class BelgeUyariBackgroundService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var emailService = scope.ServiceProvider.GetService<IEmailService>();
+        var bildirimService = scope.ServiceProvider.GetService<Interfaces.IBildirimService>();
+
+        // Önce bildirim servisini kullanarak kullanıcı bazlı e-posta gönder
+        if (bildirimService != null)
+        {
+            try
+            {
+                // Uygulama içi bildirimleri oluştur
+                await bildirimService.TaraVeBildirimOlusturAsync();
+
+                // Kullanıcı bazlı e-posta gönder (ayarlara göre)
+                var gonderimSayisi = await bildirimService.EpostaBildirimGonderAsync();
+                _logger.LogInformation("Kullanıcı bazlı {Sayi} e-posta bildirimi gönderildi", gonderimSayisi);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Kullanıcı bazlı bildirim gönderimi hatası");
+            }
+        }
 
         if (emailService == null)
         {

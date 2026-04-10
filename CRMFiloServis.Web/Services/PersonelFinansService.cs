@@ -166,6 +166,85 @@ public class PersonelFinansService : IPersonelFinansService
             .ToListAsync();
     }
 
+    public async Task<decimal> MaasaAcikAvansMahsupEtAsync(int maasId, DateTime? mahsupTarihi = null, string? aciklama = null)
+    {
+        var maas = await _context.PersonelMaaslari
+            .FirstOrDefaultAsync(m => m.Id == maasId && !m.IsDeleted);
+
+        if (maas == null)
+            throw new InvalidOperationException($"Maaş kaydı bulunamadı. Id: {maasId}");
+
+        if (maas.OdemeDurum == MaasOdemeDurum.Odendi)
+            throw new InvalidOperationException("Ödenmiş maaşa mahsup uygulanamaz.");
+
+        var mahsupEdilebilirTutar = Math.Max(0, maas.OdenecekTutar);
+        if (mahsupEdilebilirTutar <= 0)
+            throw new InvalidOperationException("Maaş üzerinde mahsup edilebilecek tutar bulunmuyor.");
+
+        var acikAvanslar = await _context.Set<PersonelAvans>()
+            .Where(a => !a.IsDeleted &&
+                        a.PersonelId == maas.SoforId &&
+                        a.Durum != AvansDurum.IptalEdildi &&
+                        a.MahsupEdilen < a.Tutar)
+            .OrderBy(a => a.AvansTarihi)
+            .ToListAsync();
+
+        if (!acikAvanslar.Any())
+            throw new InvalidOperationException("Mahsup edilecek açık avans bulunamadı.");
+
+        var toplamMahsup = 0m;
+        var islemTarihi = mahsupTarihi?.Date ?? DateTime.Today;
+
+        foreach (var avans in acikAvanslar)
+        {
+            var kalanKapasite = mahsupEdilebilirTutar - toplamMahsup;
+            if (kalanKapasite <= 0)
+                break;
+
+            var mahsupTutari = Math.Min(avans.Kalan, kalanKapasite);
+            if (mahsupTutari <= 0)
+                continue;
+
+            var mahsup = new PersonelAvansMahsup
+            {
+                AvansId = avans.Id,
+                MaasId = maas.Id,
+                MahsupTarihi = islemTarihi,
+                MahsupTutari = mahsupTutari,
+                Aciklama = aciklama,
+                MahsupSekli = MahsupSekli.MaastanKesinti,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Set<PersonelAvansMahsup>().Add(mahsup);
+
+            avans.MahsupEdilen += mahsupTutari;
+            avans.MahsupTarihi = islemTarihi;
+            avans.MahsupAciklamasi = aciklama;
+            avans.Durum = avans.Kalan <= 0 ? AvansDurum.TamamenMahsup : AvansDurum.KismenMahsup;
+            avans.UpdatedAt = DateTime.UtcNow;
+
+            toplamMahsup += mahsupTutari;
+        }
+
+        if (toplamMahsup <= 0)
+            throw new InvalidOperationException("Maaşa uygulanabilecek avans mahsubu bulunamadı.");
+
+        maas.Avans += toplamMahsup;
+        maas.UpdatedAt = DateTime.UtcNow;
+
+        if (!string.IsNullOrWhiteSpace(aciklama))
+        {
+            var yeniNot = $"{islemTarihi:dd.MM.yyyy} maaş mahsubu: {toplamMahsup:N2} ₺ - {aciklama}";
+            maas.Notlar = string.IsNullOrWhiteSpace(maas.Notlar)
+                ? yeniNot
+                : $"{maas.Notlar}{Environment.NewLine}{yeniNot}";
+        }
+
+        await _context.SaveChangesAsync();
+        return toplamMahsup;
+    }
+
     public async Task DeleteMahsupAsync(int mahsupId)
     {
         var mahsup = await _context.Set<PersonelAvansMahsup>()

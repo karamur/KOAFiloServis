@@ -1,4 +1,4 @@
-@page "/rapor/arac-masraf"
+ï»¿@page "/rapor/arac-masraf"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
 @using CRMFiloServis.Web.Models
@@ -9,10 +9,10 @@
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
-<PageTitle>Araç Masraf Raporu</PageTitle>
+<PageTitle>AraÃ§ Masraf Raporu</PageTitle>
 
 <div class="container-fluid">
-    <h3 class="mb-3"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Araç Masraf Raporu</h3>
+    <h3 class="mb-3"><i class="bi bi-file-earmark-spreadsheet me-2"></i>AraÃ§ Masraf Raporu</h3>
 
     <div class="card mb-3">
         <div class="card-header">
@@ -22,29 +22,40 @@
             <div class="row">
                 <div class="col-md-3">
                     <div class="mb-3">
-                        <label class="form-label">Baþlangýç Tarihi</label>
+                        <label class="form-label">BaÅŸlangÄ±Ã§ Tarihi</label>
                         <input type="date" class="form-control" @bind="baslangicTarihi" />
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="mb-3">
-                        <label class="form-label">Bitiþ Tarihi</label>
+                        <label class="form-label">BitiÅŸ Tarihi</label>
                         <input type="date" class="form-control" @bind="bitisTarihi" />
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="mb-3">
-                        <label class="form-label">Araç</label>
+                        <label class="form-label">AraÃ§</label>
                         <select class="form-select" @bind="secilenAracId">
-                            <option value="0">Tümü</option>
-                            @foreach (var arac in araclar)
+                            <option value="0">TÃ¼mÃ¼</option>
+                            @foreach (var arac in filtreliAraclar)
                             {
                                 <option value="@arac.Id">@arac.AktifPlaka - @arac.Marka @arac.Model</option>
                             }
                         </select>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label class="form-label">Sahiplik</label>
+                        <select class="form-select" @bind="secilenSahiplikTipi" @bind:after="SahiplikDegisti">
+                            <option value="">TÃ¼mÃ¼</option>
+                            <option value="Ozmal">Ã–zmal</option>
+                            <option value="Kiralik">KiralÄ±k</option>
+                            <option value="Komisyon">Komisyon</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
                     <div class="mb-3">
                         <label class="form-label">&nbsp;</label>
                         <div class="d-flex gap-2">
@@ -65,7 +76,7 @@
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Yükleniyor...</span>
+                <span class="visually-hidden">YÃ¼kleniyor...</span>
             </div>
         </div>
     }
@@ -75,7 +86,7 @@
             <div class="col-md-3">
                 <div class="card bg-primary text-white">
                     <div class="card-body text-center">
-                        <h6>Toplam Masraf Sayýsý</h6>
+                        <h6>Toplam Masraf SayÄ±sÄ±</h6>
                         <h3>@raporData.Count</h3>
                     </div>
                 </div>
@@ -83,7 +94,7 @@
             <div class="col-md-3">
                 <div class="card bg-danger text-white">
                     <div class="card-body text-center">
-                        <h6>Toplam Masraf Tutarý</h6>
+                        <h6>Toplam Masraf TutarÄ±</h6>
                         <h3>@raporData.Sum(r => r.Tutar).ToString("N2") ?</h3>
                     </div>
                 </div>
@@ -91,7 +102,7 @@
             <div class="col-md-3">
                 <div class="card bg-warning text-dark">
                     <div class="card-body text-center">
-                        <h6>Arýza Kaynaklý Masraf</h6>
+                        <h6>ArÄ±za KaynaklÄ± Masraf</h6>
                         <h3>@raporData.Where(r => r.ArizaKaynakli).Sum(r => r.Tutar).ToString("N2") ?</h3>
                     </div>
                 </div>
@@ -99,17 +110,17 @@
             <div class="col-md-3">
                 <div class="card bg-info text-white">
                     <div class="card-body text-center">
-                        <h6>Araç Sayýsý</h6>
+                        <h6>AraÃ§ SayÄ±sÄ±</h6>
                         <h3>@raporData.Select(r => r.Plaka).Distinct().Count()</h3>
                     </div>
                 </div>
             </div>
         </div>
 
-        @* Kategori bazlý özet *@
+        @* Kategori bazlÄ± Ã¶zet *@
         <div class="card mb-3">
             <div class="card-header">
-                <h6 class="mb-0">Kategori Özeti</h6>
+                <h6 class="mb-0">Kategori Ã–zeti</h6>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -136,10 +147,10 @@
                                 <th>Plaka</th>
                                 <th>Masraf Kalemi</th>
                                 <th>Kategori</th>
-                                <th>Güzergah</th>
+                                <th>GÃ¼zergah</th>
                                 <th class="text-end">Tutar</th>
                                 <th>Belge No</th>
-                                <th>Arýza</th>
+                                <th>ArÄ±za</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -180,14 +191,33 @@
     private DateTime baslangicTarihi = DateTime.Today.AddDays(-30);
     private DateTime bitisTarihi = DateTime.Today;
     private int secilenAracId = 0;
+    private string secilenSahiplikTipi = "";
     private bool isLoading = false;
 
     private List<Arac> araclar = new();
     private List<AracMasrafRaporItem>? raporData;
 
+    // Sahiplik tipine gÃ¶re filtrelenmiÅŸ araÃ§lar
+    private IEnumerable<Arac> filtreliAraclar => string.IsNullOrEmpty(secilenSahiplikTipi) 
+        ? araclar 
+        : araclar.Where(a => a.SahiplikTipi.ToString() == secilenSahiplikTipi);
+
     protected override async Task OnInitializedAsync()
     {
         araclar = await AracService.GetAllAsync();
+    }
+
+    private void SahiplikDegisti()
+    {
+        // EÄŸer seÃ§ili araÃ§, yeni sahiplik tipine uygun deÄŸilse sÄ±fÄ±rla
+        if (secilenAracId > 0 && !string.IsNullOrEmpty(secilenSahiplikTipi))
+        {
+            var seciliArac = araclar.FirstOrDefault(a => a.Id == secilenAracId);
+            if (seciliArac != null && seciliArac.SahiplikTipi.ToString() != secilenSahiplikTipi)
+            {
+                secilenAracId = 0;
+            }
+        }
     }
 
     private async Task RaporGetir()
@@ -195,10 +225,15 @@
         isLoading = true;
         try
         {
+            AracSahiplikTipi? sahiplikTipi = null;
+            if (!string.IsNullOrEmpty(secilenSahiplikTipi) && Enum.TryParse<AracSahiplikTipi>(secilenSahiplikTipi, out var parsed))
+                sahiplikTipi = parsed;
+
             raporData = await RaporService.GetAracMasrafRaporuAsync(
                 baslangicTarihi,
                 bitisTarihi,
-                secilenAracId > 0 ? secilenAracId : null
+                secilenAracId > 0 ? secilenAracId : null,
+                sahiplikTipi
             );
         }
         finally

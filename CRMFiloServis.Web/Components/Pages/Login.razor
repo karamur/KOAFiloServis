@@ -105,6 +105,11 @@
                         <span>Lisansi Aktive Et</span>
                     }
                 </button>
+
+                <div class="text-center mt-3">
+                    <span class="text-muted">Hesabiniz yok mu?</span>
+                    <a href="@GetRegisterUrl()" class="forgot-password ms-1">Kayit Ol</a>
+                </div>
             </div>
         }
         else
@@ -148,6 +153,28 @@
                     </div>
                     <a href="#" class="forgot-password" @onclick="SifremiUnuttum" @onclick:preventDefault>Sifremi Unuttum</a>
                 </div>
+
+                @if (showForgotPasswordPanel)
+                {
+                    <div class="alert alert-info">
+                        <div class="mb-2 fw-semibold">Şifre Sıfırlama</div>
+                        <div class="mb-2">
+                            <input type="text" class="form-control" placeholder="Kullanıcı adı veya e-posta"
+                                   @bind="forgotPasswordInput" @bind:event="oninput" />
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-primary" @onclick="SifreSifirlamaTalebiGonderAsync" disabled="@forgotPasswordLoading">
+                                @if (forgotPasswordLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Gönder
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="KapatSifrePaneli">Vazgeç</button>
+                        </div>
+                        <small class="d-block mt-2 text-muted">Eşleşen aktif kullanıcı ve kayıtlı e-posta varsa geçici şifre gönderilir.</small>
+                    </div>
+                }
 
                 <button class="btn btn-primary btn-login w-100" @onclick="GirisYapAsync" disabled="@isLoading">
                     @if (isLoading)
@@ -446,8 +473,11 @@
     private bool beniHatirla = false;
     private bool showPassword = false;
     private bool isLoading = false;
+    private bool forgotPasswordLoading = false;
+    private bool showForgotPasswordPanel = false;
     private string? errorMessage;
     private string? successMessage;
+    private string forgotPasswordInput = "";
     private CRMFiloServis.Shared.Entities.Lisans? lisans;
     private PortalProjectDefinition? selectedProject;
 
@@ -569,7 +599,57 @@
     private void SifremiUnuttum()
     {
         errorMessage = null;
-        successMessage = "Sifre sifirlama icin sistem yoneticisi ile iletisime gecin.";
+        successMessage = null;
+        forgotPasswordInput = kullaniciAdi;
+        showForgotPasswordPanel = true;
+    }
+
+    private void KapatSifrePaneli()
+    {
+        showForgotPasswordPanel = false;
+        forgotPasswordInput = string.Empty;
+    }
+
+    private async Task SifreSifirlamaTalebiGonderAsync()
+    {
+        if (forgotPasswordLoading)
+            return;
+
+        if (string.IsNullOrWhiteSpace(forgotPasswordInput))
+        {
+            errorMessage = "Kullanıcı adı veya e-posta girin.";
+            successMessage = null;
+            return;
+        }
+
+        forgotPasswordLoading = true;
+        errorMessage = null;
+        successMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await KullaniciService.SifremiUnuttumAsync(forgotPasswordInput);
+            if (result)
+            {
+                successMessage = "Geçici şifre e-posta adresinize gönderildi.";
+                showForgotPasswordPanel = false;
+                forgotPasswordInput = string.Empty;
+            }
+            else
+            {
+                errorMessage = "Şifre sıfırlama işlemi tamamlanamadı. Kullanıcı adı/e-posta veya e-posta ayarlarını kontrol edin.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Bir hata oluştu: " + ex.Message;
+        }
+        finally
+        {
+            forgotPasswordLoading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task HatirlananKullaniciAdiniYukleAsync()
@@ -662,6 +742,13 @@
         return decodedReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase)
             ? "/dashboard"
             : decodedReturnUrl;
+    }
+
+    private string GetRegisterUrl()
+    {
+        return string.IsNullOrWhiteSpace(Project)
+            ? "/register"
+            : $"/register?project={Uri.EscapeDataString(Project)}";
     }
 
     private async Task LisansAktiveEtAsync()

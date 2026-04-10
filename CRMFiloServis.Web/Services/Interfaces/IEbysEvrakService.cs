@@ -25,6 +25,7 @@ public interface IEbysEvrakService
     Task<EbysEvrakDosya> DosyaYukleAsync(int evrakId, IBrowserFile file, bool asilNusha = false);
     Task<EbysEvrakDosya?> GetDosyaAsync(int dosyaId);
     Task DosyaSilAsync(int dosyaId);
+    Task<EbysEvrakDosya> DosyaGuncelleAsync(int dosyaId, IBrowserFile file, string? degisiklikNotu = null);
     
     // Atama işlemleri
     Task<EbysEvrakAtama> AtamaYapAsync(EbysEvrakAtamaModel model);

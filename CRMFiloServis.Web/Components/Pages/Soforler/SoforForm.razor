@@ -4,10 +4,14 @@
 @page "/personel/{Id:int}"
 @using CRMFiloServis.Shared.Entities
 @using CRMFiloServis.Web.Services
+@using Microsoft.AspNetCore.Components.Forms
 @inject ISoforService SoforService
 @inject IMuhasebeService MuhasebeService
+@inject IPersonelOzlukService OzlukService
 @inject IToastService ToastService
 @inject NavigationManager Navigation
+@inject IWebHostEnvironment Env
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>@(IsEdit ? "Personel Düzenle" : "Yeni Personel")</PageTitle>
@@ -371,7 +375,189 @@
             </EditForm>
         </div>
     </div>
+
+    @* Özlük Belgeleri Bölümü - Sadece Düzenleme Modunda *@
+    @if (IsEdit)
+    {
+        <div class="card mt-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-folder-fill me-2"></i>Özlük Belgeleri</h5>
+                <a href="/ebys/ozluk-dosyasi/@Id" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>Tüm Evraklar (EBYS)
+                </a>
+            </div>
+            <div class="card-body">
+                @if (evrakDurumuYukleniyor)
+                {
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Yükleniyor...</span>
+                        </div>
+                    </div>
+                }
+                else if (evrakDurumu == null)
+                {
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Özlük evrak durumu yüklenemedi.
+                    </div>
+                }
+                else
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar @GetProgressBarClass(evrakDurumu.TamamlanmaYuzdesi)" 
+                                     role="progressbar" 
+                                     style="width: @evrakDurumu.TamamlanmaYuzdesi%"
+                                     aria-valuenow="@evrakDurumu.TamamlanmaYuzdesi" aria-valuemin="0" aria-valuemax="100">
+                                    %@evrakDurumu.TamamlanmaYuzdesi.ToString("F0")
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <span class="badge bg-success me-2">@evrakDurumu.TamamlananEvrak Tamamlanan</span>
+                            <span class="badge bg-danger">@evrakDurumu.EksikEvrak Eksik</span>
+                        </div>
+                    </div>
+
+                    @* Şoför Belgeleri (Ehliyet, SRC, Psikoteknik) - Hızlı Erişim *@
+                    @if (sofor.Gorev == PersonelGorev.Sofor)
+                    {
+                        <h6 class="text-primary mb-3"><i class="bi bi-card-checklist me-2"></i>Şoför Belgeleri (Hızlı Erişim)</h6>
+                        <div class="row g-3 mb-4">
+                            @foreach (var evrak in evrakDurumu.Evraklar.Where(e => e.Kategori == OzlukEvrakKategori.SoforBelgeleri))
+                            {
+                                <div class="col-md-4">
+                                    <div class="card h-100 @(evrak.Tamamlandi ? "border-success" : "border-warning")">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="card-title mb-1">@evrak.EvrakAdi</h6>
+                                                    @if (evrak.Tamamlandi)
+                                                    {
+                                                        <small class="text-success">
+                                                            <i class="bi bi-check-circle me-1"></i>
+                                                            @(evrak.TamamlanmaTarihi?.ToString("dd.MM.yyyy") ?? "Yüklendi")
+                                                        </small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="text-warning">
+                                                            <i class="bi bi-exclamation-circle me-1"></i>Eksik
+                                                        </small>
+                                                    }
+                                                </div>
+                                                <div>
+                                                    @if (evrak.Tamamlandi && !string.IsNullOrWhiteSpace(evrak.DosyaYolu))
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EvrakDosyaIndir(evrak)" title="İndir">
+                                                            <i class="bi bi-download"></i>
+                                                        </button>
+                                                    }
+                                                    <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => EvrakYukleModalAc(evrak)" title="Yükle">
+                                                        <i class="bi bi-upload"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @* Diğer Önemli Belgeler *@
+                    <h6 class="text-secondary mb-3"><i class="bi bi-file-earmark-text me-2"></i>Diğer Önemli Belgeler</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Belge</th>
+                                    <th>Kategori</th>
+                                    <th>Durum</th>
+                                    <th class="text-end">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var evrak in evrakDurumu.Evraklar.Where(e => e.Kategori != OzlukEvrakKategori.SoforBelgeleri).Take(10))
+                                {
+                                    <tr>
+                                        <td>
+                                            @evrak.EvrakAdi
+                                            @if (evrak.Zorunlu)
+                                            {
+                                                <span class="badge bg-danger ms-1">Zorunlu</span>
+                                            }
+                                        </td>
+                                        <td><span class="badge bg-secondary">@GetKategoriAdi(evrak.Kategori)</span></td>
+                                        <td>
+                                            @if (evrak.Tamamlandi)
+                                            {
+                                                <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Tamam</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-warning"><i class="bi bi-exclamation-circle-fill me-1"></i>Eksik</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-success" @onclick="() => EvrakYukleModalAc(evrak)" title="Yükle">
+                                                <i class="bi bi-upload"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 </div>
+
+@* Evrak Yükleme Modal *@
+@if (showEvrakYukleModal && seciliEvrakDetay != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-upload me-2"></i>@seciliEvrakDetay.EvrakAdi Yükle</h5>
+                    <button type="button" class="btn-close" @onclick="EvrakYukleModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>@sofor.TamAd</strong> için <strong>@seciliEvrakDetay.EvrakAdi</strong> belgesi yükleyin.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dosya Seçin *</label>
+                        <InputFile OnChange="OnEvrakDosyaSecildi" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+                        <small class="text-muted">PDF, JPG, PNG, DOC formatları desteklenir. Maks 10MB.</small>
+                    </div>
+                    @if (secilenEvrakDosya != null)
+                    {
+                        <div class="alert alert-success">
+                            <i class="bi bi-file-earmark-check me-2"></i>
+                            @secilenEvrakDosya.Name (@FormatDosyaBoyutu(secilenEvrakDosya.Size))
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="EvrakYukleModalKapat">İptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="EvrakDosyaYukle" disabled="@(secilenEvrakDosya == null || evrakYukleniyor)">
+                        @if (evrakYukleniyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-upload me-1"></i>Yükle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter]
@@ -382,9 +568,16 @@
     private decimal ToplamNetMaas => sofor.ResmiNetMaas + sofor.DigerMaas;
     private List<MuhasebeHesap> muhasebeHesaplari = new();
 
+    // Özlük Evrak Yönetimi
+    private PersonelOzlukEvrakDurum? evrakDurumu;
+    private bool evrakDurumuYukleniyor = false;
+    private bool showEvrakYukleModal = false;
+    private OzlukEvrakDetay? seciliEvrakDetay;
+    private IBrowserFile? secilenEvrakDosya;
+    private bool evrakYukleniyor = false;
+
     protected override async Task OnInitializedAsync()
     {
-        // Muhasebe hesaplarını yükle
         await HesaplariYukle();
 
         if (IsEdit)
@@ -393,6 +586,7 @@
             if (existing != null)
             {
                 sofor = existing;
+                await EvrakDurumuYukle();
             }
             else
             {
@@ -567,4 +761,146 @@
             _ => "Birim Ücret (₺)"
         };
     }
+
+    #region Özlük Evrak İşlemleri
+
+    private async Task EvrakDurumuYukle()
+    {
+        if (!IsEdit) return;
+        evrakDurumuYukleniyor = true;
+        try
+        {
+            evrakDurumu = await OzlukService.GetPersonelEvrakDurumuAsync(Id!.Value);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Evrak durumu yüklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            evrakDurumuYukleniyor = false;
+        }
+    }
+
+    private void EvrakYukleModalAc(OzlukEvrakDetay evrak)
+    {
+        seciliEvrakDetay = evrak;
+        secilenEvrakDosya = null;
+        showEvrakYukleModal = true;
+    }
+
+    private void EvrakYukleModalKapat()
+    {
+        showEvrakYukleModal = false;
+        seciliEvrakDetay = null;
+        secilenEvrakDosya = null;
+    }
+
+    private void OnEvrakDosyaSecildi(InputFileChangeEventArgs e)
+    {
+        secilenEvrakDosya = e.File;
+    }
+
+    private async Task EvrakDosyaYukle()
+    {
+        if (secilenEvrakDosya == null || seciliEvrakDetay == null) return;
+
+        evrakYukleniyor = true;
+        try
+        {
+            // Dosyayı kaydet
+            var uploadsPath = Path.Combine(Env.ContentRootPath, "uploads", "ozluk", Id!.Value.ToString());
+            if (!Directory.Exists(uploadsPath))
+                Directory.CreateDirectory(uploadsPath);
+
+            var dosyaAdi = $"{seciliEvrakDetay.EvrakTanimId}_{Guid.NewGuid()}{Path.GetExtension(secilenEvrakDosya.Name)}";
+            var dosyaYolu = Path.Combine(uploadsPath, dosyaAdi);
+
+            await using var stream = new FileStream(dosyaYolu, FileMode.Create);
+            await secilenEvrakDosya.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
+
+            // Veritabanına kaydet
+            var relativePath = $"uploads/ozluk/{Id}/{dosyaAdi}";
+            await OzlukService.EvrakDosyaYukle(Id!.Value, seciliEvrakDetay.EvrakTanimId, relativePath);
+
+            ToastService.ShowSuccess($"{seciliEvrakDetay.EvrakAdi} başarıyla yüklendi.");
+            EvrakYukleModalKapat();
+            await EvrakDurumuYukle();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Dosya yüklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            evrakYukleniyor = false;
+        }
+    }
+
+    private async Task EvrakDosyaIndir(OzlukEvrakDetay evrak)
+    {
+        if (string.IsNullOrWhiteSpace(evrak.DosyaYolu)) return;
+
+        try
+        {
+            var relativePath = evrak.DosyaYolu.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+            var dosyaYolu = Path.Combine(Env.ContentRootPath, relativePath);
+
+            if (!File.Exists(dosyaYolu))
+            {
+                ToastService.ShowWarning("Dosya bulunamadı.");
+                return;
+            }
+
+            var content = await File.ReadAllBytesAsync(dosyaYolu);
+            var fileName = Path.GetFileName(evrak.DosyaYolu);
+            var extension = Path.GetExtension(fileName).TrimStart('.').ToLower();
+            var mimeType = GetMimeType(extension);
+
+            await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(content), mimeType);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Dosya indirilirken hata: {ex.Message}");
+        }
+    }
+
+    private string GetProgressBarClass(decimal yuzde)
+    {
+        if (yuzde >= 80) return "bg-success";
+        if (yuzde >= 50) return "bg-warning";
+        return "bg-danger";
+    }
+
+    private string GetKategoriAdi(OzlukEvrakKategori kategori) => kategori switch
+    {
+        OzlukEvrakKategori.Genel => "Genel",
+        OzlukEvrakKategori.KimlikBelgeleri => "Kimlik",
+        OzlukEvrakKategori.EgitimBelgeleri => "Eğitim",
+        OzlukEvrakKategori.SaglikBelgeleri => "Sağlık",
+        OzlukEvrakKategori.SoforBelgeleri => "Şoför",
+        OzlukEvrakKategori.SGKBelgeleri => "SGK",
+        OzlukEvrakKategori.IseGirisBelgeleri => "İşe Giriş",
+        OzlukEvrakKategori.Diger => "Diğer",
+        _ => kategori.ToString()
+    };
+
+    private string FormatDosyaBoyutu(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+
+    private string GetMimeType(string extension) => extension.ToLower() switch
+    {
+        "pdf" => "application/pdf",
+        "jpg" or "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "doc" => "application/msword",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        _ => "application/octet-stream"
+    };
+
+    #endregion
 }
