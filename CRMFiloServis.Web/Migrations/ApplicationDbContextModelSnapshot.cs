@@ -94,7 +94,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Modul", "IslemTipi");
 
-                    b.ToTable("AktiviteLoglar");
+                    b.ToTable("AktiviteLoglar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Arac", b =>
@@ -227,7 +227,7 @@ namespace CRMFiloServis.Web.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("Araclar");
+                    b.ToTable("Araclar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracAlimSatim", b =>
@@ -357,7 +357,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "IslemTarihi");
 
-                    b.ToTable("AracAlimSatimlar");
+                    b.ToTable("AracAlimSatimlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracEvrak", b =>
@@ -427,7 +427,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "EvrakKategorisi");
 
-                    b.ToTable("AracEvraklari");
+                    b.ToTable("AracEvraklari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracEvrakDosya", b =>
@@ -475,7 +475,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracEvrakId");
 
-                    b.ToTable("AracEvrakDosyalari");
+                    b.ToTable("AracEvrakDosyalari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIlan", b =>
@@ -622,7 +622,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SatisPersoneliId");
 
-                    b.ToTable("AracIlanlari");
+                    b.ToTable("AracIlanlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIlanIcerik", b =>
@@ -683,7 +683,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "PlatformId");
 
-                    b.ToTable("AracIlanIcerikleri");
+                    b.ToTable("AracIlanIcerikleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIlanYayin", b =>
@@ -779,7 +779,7 @@ namespace CRMFiloServis.Web.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("AracIlanYayinlar");
+                    b.ToTable("AracIlanYayinlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIslem", b =>
@@ -859,7 +859,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "IslemTarihi");
 
-                    b.ToTable("AracIslemler");
+                    b.ToTable("AracIslemler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracMarka", b =>
@@ -898,7 +898,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("MarkaAdi")
                         .IsUnique();
 
-                    b.ToTable("AracMarkalari");
+                    b.ToTable("AracMarkalari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracMarkaModel", b =>
@@ -954,7 +954,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AracMarkaModeller");
+                    b.ToTable("AracMarkaModeller", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracMasraf", b =>
@@ -1027,7 +1027,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("AracMasraflari");
+                    b.ToTable("AracMasraflari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracModelTanim", b =>
@@ -1071,7 +1071,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MarkaId");
 
-                    b.ToTable("AracModelleri");
+                    b.ToTable("AracModelleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracOperasyonDurum", b =>
@@ -1161,7 +1161,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("AracId", "Yil", "Ay")
                         .IsUnique();
 
-                    b.ToTable("AracOperasyonDurumlari");
+                    b.ToTable("AracOperasyonDurumlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracPiyasaArastirma", b =>
@@ -1251,7 +1251,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PiyasaArastirmalar");
+                    b.ToTable("PiyasaArastirmalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracPlaka", b =>
@@ -1308,7 +1308,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("Plaka", "CikisTarihi")
                         .HasFilter("\"CikisTarihi\" IS NULL AND \"IsDeleted\" = false");
 
-                    b.ToTable("AracPlakalar");
+                    b.ToTable("AracPlakalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracSatis", b =>
@@ -1362,7 +1362,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SatisPersoneliId");
 
-                    b.ToTable("AracSatislari");
+                    b.ToTable("AracSatislari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AylikChecklist", b =>
@@ -1423,7 +1423,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Yil", "Ay", "ChecklistTipi", "SoforId", "AracId", "GuzergahId");
 
-                    b.ToTable("AylikChecklistler");
+                    b.ToTable("AylikChecklistler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AylikOdemeGerceklesen", b =>
@@ -1481,7 +1481,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("AylikOdemeGerceklesenler");
+                    b.ToTable("AylikOdemeGerceklesenler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AylikOdemePlani", b =>
@@ -1552,7 +1552,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MasrafKalemiId");
 
-                    b.ToTable("AylikOdemePlanlari");
+                    b.ToTable("AylikOdemePlanlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BankaHesap", b =>
@@ -1630,7 +1630,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("HesapKodu")
                         .IsUnique();
 
-                    b.ToTable("BankaHesaplari");
+                    b.ToTable("BankaHesaplari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BankaKasaHareket", b =>
@@ -1710,7 +1710,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("IslemNo")
                         .IsUnique();
 
-                    b.ToTable("BankaKasaHareketleri");
+                    b.ToTable("BankaKasaHareketleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Bildirim", b =>
@@ -1775,7 +1775,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId", "Okundu");
 
-                    b.ToTable("Bildirimler");
+                    b.ToTable("Bildirimler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Bordro", b =>
@@ -1841,7 +1841,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("Bordrolar");
+                    b.ToTable("Bordrolar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BordroAyar", b =>
@@ -1907,7 +1907,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("BordroAyarlar");
+                    b.ToTable("BordroAyarlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BordroDetay", b =>
@@ -1995,7 +1995,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersonelId");
 
-                    b.ToTable("BordroDetaylar");
+                    b.ToTable("BordroDetaylar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BordroOdeme", b =>
@@ -2050,7 +2050,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MuhasebeFisId");
 
-                    b.ToTable("BordroOdemeler");
+                    b.ToTable("BordroOdemeler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BudgetHedef", b =>
@@ -2093,7 +2093,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("BudgetHedefler");
+                    b.ToTable("BudgetHedefler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BudgetMasrafKalemi", b =>
@@ -2140,7 +2140,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KalemAdi");
 
-                    b.ToTable("BudgetMasrafKalemleri");
+                    b.ToTable("BudgetMasrafKalemleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BudgetOdeme", b =>
@@ -2255,7 +2255,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("OdemeYil", "OdemeAy", "MasrafKalemi");
 
-                    b.ToTable("BudgetOdemeler");
+                    b.ToTable("BudgetOdemeler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Cari", b =>
@@ -2364,7 +2364,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("Cariler");
+                    b.ToTable("Cariler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.CariHatirlatma", b =>
@@ -2435,7 +2435,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("CariHatirlatmalar");
+                    b.ToTable("CariHatirlatmalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.CariIletisimNot", b =>
@@ -2500,7 +2500,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("CariIletisimNotlar");
+                    b.ToTable("CariIletisimNotlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ChecklistKalem", b =>
@@ -2548,7 +2548,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AylikChecklistId");
 
-                    b.ToTable("ChecklistKalemleri");
+                    b.ToTable("ChecklistKalemleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DashboardWidget", b =>
@@ -2598,7 +2598,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("DashboardWidgetlar");
+                    b.ToTable("DashboardWidgetlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekAyar", b =>
@@ -2640,7 +2640,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("Anahtar")
                         .IsUnique();
 
-                    b.ToTable("DestekAyarlari");
+                    b.ToTable("DestekAyarlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekBilgiBankasi", b =>
@@ -2719,7 +2719,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("YazarKullaniciId");
 
-                    b.ToTable("DestekBilgiBankasiMakaleleri");
+                    b.ToTable("DestekBilgiBankasiMakaleleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekDepartman", b =>
@@ -2772,7 +2772,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstDepartmanId");
 
-                    b.ToTable("DestekDepartmanlari");
+                    b.ToTable("DestekDepartmanlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekDepartmanUye", b =>
@@ -2811,7 +2811,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("DepartmanId", "KullaniciId")
                         .IsUnique();
 
-                    b.ToTable("DestekDepartmanUyeleri");
+                    b.ToTable("DestekDepartmanUyeleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekHazirYanit", b =>
@@ -2868,7 +2868,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KategoriId");
 
-                    b.ToTable("DestekHazirYanitlari");
+                    b.ToTable("DestekHazirYanitlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekKategori", b =>
@@ -2924,7 +2924,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstKategoriId");
 
-                    b.ToTable("DestekKategorileri");
+                    b.ToTable("DestekKategorileri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekSla", b =>
@@ -2974,7 +2974,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Oncelik");
 
-                    b.ToTable("DestekSlaListesi");
+                    b.ToTable("DestekSlaListesi", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebi", b =>
@@ -3097,7 +3097,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("DepartmanId", "Durum");
 
-                    b.ToTable("DestekTalepleri");
+                    b.ToTable("DestekTalepleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebiAktivite", b =>
@@ -3145,7 +3145,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("DestekTalebiId", "CreatedAt");
 
-                    b.ToTable("DestekTalebiAktiviteleri");
+                    b.ToTable("DestekTalebiAktiviteleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebiEk", b =>
@@ -3205,7 +3205,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("YukleyenKullaniciId");
 
-                    b.ToTable("DestekTalebiEkleri");
+                    b.ToTable("DestekTalebiEkleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebiIliski", b =>
@@ -3241,7 +3241,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("AnaTalepId", "IliskiliTalepId")
                         .IsUnique();
 
-                    b.ToTable("DestekTalebiIliskileri");
+                    b.ToTable("DestekTalebiIliskileri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebiYanit", b =>
@@ -3293,7 +3293,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("DestekTalebiId", "CreatedAt");
 
-                    b.ToTable("DestekTalebiYanitlari");
+                    b.ToTable("DestekTalebiYanitlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrak", b =>
@@ -3413,7 +3413,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Yon", "Durum");
 
-                    b.ToTable("EbysEvraklar");
+                    b.ToTable("EbysEvraklar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakAtama", b =>
@@ -3470,7 +3470,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("EvrakId", "Durum");
 
-                    b.ToTable("EbysEvrakAtamalar");
+                    b.ToTable("EbysEvrakAtamalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakDosya", b =>
@@ -3521,7 +3521,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("EvrakId");
 
-                    b.ToTable("EbysEvrakDosyalar");
+                    b.ToTable("EbysEvrakDosyalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakHareket", b =>
@@ -3572,7 +3572,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("EvrakId", "IslemTarihi");
 
-                    b.ToTable("EbysEvrakHareketler");
+                    b.ToTable("EbysEvrakHareketler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakKategori", b =>
@@ -3619,7 +3619,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KategoriAdi");
 
-                    b.ToTable("EbysEvrakKategoriler");
+                    b.ToTable("EbysEvrakKategoriler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EmailAyar", b =>
@@ -3691,7 +3691,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("EmailAyarlari");
+                    b.ToTable("EmailAyarlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Fatura", b =>
@@ -3844,7 +3844,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KarsiFirmaId");
 
-                    b.ToTable("Faturalar");
+                    b.ToTable("Faturalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.FaturaKalem", b =>
@@ -3942,7 +3942,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MuhasebeHesapId");
 
-                    b.ToTable("FaturaKalemleri");
+                    b.ToTable("FaturaKalemleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.FaturaSablon", b =>
@@ -4163,7 +4163,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("FaturaSablonlari");
+                    b.ToTable("FaturaSablonlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.FiloGunlukPuantaj", b =>
@@ -4252,7 +4252,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("FiloGunlukPuantajlar");
+                    b.ToTable("FiloGunlukPuantajlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.FiloGuzergahEslestirme", b =>
@@ -4309,7 +4309,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("FiloGuzergahEslestirmeleri");
+                    b.ToTable("FiloGuzergahEslestirmeleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Firma", b =>
@@ -4398,7 +4398,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("FirmaKodu")
                         .IsUnique();
 
-                    b.ToTable("Firmalar");
+                    b.ToTable("Firmalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.GunlukPuantaj", b =>
@@ -4448,7 +4448,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("ServisCalismaId");
 
-                    b.ToTable("GunlukPuantajlar");
+                    b.ToTable("GunlukPuantajlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Guzergah", b =>
@@ -4535,7 +4535,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("VarsayilanSoforId");
 
-                    b.ToTable("Guzergahlar");
+                    b.ToTable("Guzergahlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Hatirlatici", b =>
@@ -4620,7 +4620,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId", "BaslangicTarihi");
 
-                    b.ToTable("Hatirlaticilar");
+                    b.ToTable("Hatirlaticilar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleGuzergahKalem", b =>
@@ -4799,7 +4799,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("IhaleGuzergahKalemleri");
+                    b.ToTable("IhaleGuzergahKalemleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleProje", b =>
@@ -4877,7 +4877,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("IhaleProjeleri");
+                    b.ToTable("IhaleProjeleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.IlanPlatformu", b =>
@@ -4955,7 +4955,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("PlatformAdi")
                         .IsUnique();
 
-                    b.ToTable("IlanPlatformlari");
+                    b.ToTable("IlanPlatformlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KiralamaArac", b =>
@@ -5039,7 +5039,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KiralayıcıCariId");
 
-                    b.ToTable("KiralamaAraclar");
+                    b.ToTable("KiralamaAraclar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KomisyonculukIs", b =>
@@ -5123,7 +5123,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MusteriCariId");
 
-                    b.ToTable("KomisyonculukIsler");
+                    b.ToTable("KomisyonculukIsler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KomisyonculukIsAtama", b =>
@@ -5221,7 +5221,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("VerilenIsFaturaId");
 
-                    b.ToTable("KomisyonculukIsAtamalar");
+                    b.ToTable("KomisyonculukIsAtamalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KostMerkezi", b =>
@@ -5264,7 +5264,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstKostMerkeziId");
 
-                    b.ToTable("KostMerkezleri");
+                    b.ToTable("KostMerkezleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Kullanici", b =>
@@ -5340,7 +5340,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("Kullanicilar");
+                    b.ToTable("Kullanicilar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KullaniciCari", b =>
@@ -5390,7 +5390,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("KullaniciCariler");
+                    b.ToTable("KullaniciCariler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KullaniciSonIslem", b =>
@@ -5436,7 +5436,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId", "SayfaYolu");
 
-                    b.ToTable("KullaniciSonIslemler");
+                    b.ToTable("KullaniciSonIslemler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KullaniciTercihi", b =>
@@ -5503,7 +5503,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("KullaniciId")
                         .IsUnique();
 
-                    b.ToTable("KullaniciTercihleri");
+                    b.ToTable("KullaniciTercihleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Lisans", b =>
@@ -5581,7 +5581,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("LisansAnahtari")
                         .IsUnique();
 
-                    b.ToTable("Lisanslar");
+                    b.ToTable("Lisanslar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MasrafKalemi", b =>
@@ -5625,7 +5625,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("MasrafKodu")
                         .IsUnique();
 
-                    b.ToTable("MasrafKalemleri");
+                    b.ToTable("MasrafKalemleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Mesaj", b =>
@@ -5691,7 +5691,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AliciId", "Okundu");
 
-                    b.ToTable("Mesajlar");
+                    b.ToTable("Mesajlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeAyar", b =>
@@ -5788,7 +5788,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MuhasebeAyarlari");
+                    b.ToTable("MuhasebeAyarlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeDonem", b =>
@@ -5831,7 +5831,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("Yil", "Ay")
                         .IsUnique();
 
-                    b.ToTable("MuhasebeDonemleri");
+                    b.ToTable("MuhasebeDonemleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeFis", b =>
@@ -5895,7 +5895,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("FisNo")
                         .IsUnique();
 
-                    b.ToTable("MuhasebeFisleri");
+                    b.ToTable("MuhasebeFisleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeFisKalem", b =>
@@ -5949,7 +5949,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("HesapId");
 
-                    b.ToTable("MuhasebeFisKalemleri");
+                    b.ToTable("MuhasebeFisKalemleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeHesap", b =>
@@ -6007,7 +6007,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstHesapId");
 
-                    b.ToTable("MuhasebeHesaplari");
+                    b.ToTable("MuhasebeHesaplari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeProje", b =>
@@ -6064,7 +6064,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("MuhasebeProjeler");
+                    b.ToTable("MuhasebeProjeler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MusteriKiralama", b =>
@@ -6139,7 +6139,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MusteriKiralamalar");
+                    b.ToTable("MusteriKiralamalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.OdemeEslestirme", b =>
@@ -6181,7 +6181,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FaturaId");
 
-                    b.ToTable("OdemeEslestirmeleri");
+                    b.ToTable("OdemeEslestirmeleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.OzlukEvrakTanim", b =>
@@ -6225,7 +6225,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OzlukEvrakTanimlari");
+                    b.ToTable("OzlukEvrakTanimlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelAvans", b =>
@@ -6291,7 +6291,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersonelId");
 
-                    b.ToTable("PersonelAvanslar");
+                    b.ToTable("PersonelAvanslar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelAvansMahsup", b =>
@@ -6340,7 +6340,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MaasId");
 
-                    b.ToTable("PersonelAvansMahsuplar");
+                    b.ToTable("PersonelAvansMahsuplar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelBorc", b =>
@@ -6413,7 +6413,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersonelId");
 
-                    b.ToTable("PersonelBorclar");
+                    b.ToTable("PersonelBorclar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelBorcOdeme", b =>
@@ -6462,7 +6462,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MuhasebeFisId");
 
-                    b.ToTable("PersonelBorcOdemeler");
+                    b.ToTable("PersonelBorcOdemeler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelFinansAyar", b =>
@@ -6521,7 +6521,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersoneleBorclarHesapId");
 
-                    b.ToTable("PersonelFinansAyarlar");
+                    b.ToTable("PersonelFinansAyarlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelIzin", b =>
@@ -6575,7 +6575,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("PersonelIzinleri");
+                    b.ToTable("PersonelIzinleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelIzinHakki", b =>
@@ -6618,7 +6618,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("SoforId", "Yil")
                         .IsUnique();
 
-                    b.ToTable("PersonelIzinHaklari");
+                    b.ToTable("PersonelIzinHaklari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelMaas", b =>
@@ -6740,7 +6740,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("SoforId", "Yil", "Ay")
                         .IsUnique();
 
-                    b.ToTable("PersonelMaaslari");
+                    b.ToTable("PersonelMaaslari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelOzlukEvrak", b =>
@@ -6784,7 +6784,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("PersonelOzlukEvraklar");
+                    b.ToTable("PersonelOzlukEvraklar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelPuantaj", b =>
@@ -6876,7 +6876,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersonelId");
 
-                    b.ToTable("PersonelPuantajlar");
+                    b.ToTable("PersonelPuantajlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PiyasaArastirmaIlan", b =>
@@ -7006,7 +7006,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("ArastirmaId");
 
-                    b.ToTable("PiyasaArastirmaIlanlar");
+                    b.ToTable("PiyasaArastirmaIlanlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PiyasaIlan", b =>
@@ -7082,7 +7082,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracIlanId");
 
-                    b.ToTable("PiyasaIlanlari");
+                    b.ToTable("PiyasaIlanlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PiyasaKaynak", b =>
@@ -7146,7 +7146,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PiyasaKaynaklar");
+                    b.ToTable("PiyasaKaynaklar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PlakaDonusum", b =>
@@ -7238,7 +7238,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "EskiPlaka");
 
-                    b.ToTable("PlakaDonusumler");
+                    b.ToTable("PlakaDonusumler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ProformaFatura", b =>
@@ -7354,7 +7354,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("ProformaNo")
                         .IsUnique();
 
-                    b.ToTable("ProformaFaturalar");
+                    b.ToTable("ProformaFaturalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ProformaFaturaKalem", b =>
@@ -7442,7 +7442,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("StokKartiId");
 
-                    b.ToTable("ProformaFaturaKalemler");
+                    b.ToTable("ProformaFaturaKalemler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PuantajEslestirmeOneri", b =>
@@ -7493,7 +7493,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("ExcelImportId", "Tip", "ExcelDeger");
 
-                    b.ToTable("PuantajEslestirmeOnerileri");
+                    b.ToTable("PuantajEslestirmeOnerileri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PuantajExcelImport", b =>
@@ -7560,7 +7560,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Yil", "Ay");
 
-                    b.ToTable("PuantajExcelImportlar");
+                    b.ToTable("PuantajExcelImportlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PuantajKayit", b =>
@@ -7908,7 +7908,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Yil", "Ay", "GuzergahId", "AracId");
 
-                    b.ToTable("PuantajKayitlar");
+                    b.ToTable("PuantajKayitlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Rol", b =>
@@ -7947,7 +7947,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("RolAdi")
                         .IsUnique();
 
-                    b.ToTable("Roller");
+                    b.ToTable("Roller", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.RolYetki", b =>
@@ -7983,7 +7983,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("RolId", "YetkiKodu")
                         .IsUnique();
 
-                    b.ToTable("RolYetkileri");
+                    b.ToTable("RolYetkileri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.SatisPersoneli", b =>
@@ -8044,7 +8044,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("PersonelKodu")
                         .IsUnique();
 
-                    b.ToTable("SatisPersonelleri");
+                    b.ToTable("SatisPersonelleri", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ServisCalisma", b =>
@@ -8115,7 +8115,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("ServisCalismalari");
+                    b.ToTable("ServisCalismalari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ServisCalismaKiralama", b =>
@@ -8215,7 +8215,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("ServisCalismaKiralamalar");
+                    b.ToTable("ServisCalismaKiralamalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ServisKaydi", b =>
@@ -8311,7 +8311,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "ServisTarihi");
 
-                    b.ToTable("ServisKayitlari");
+                    b.ToTable("ServisKayitlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ServisParca", b =>
@@ -8364,7 +8364,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("StokKartiId");
 
-                    b.ToTable("ServisParcalar");
+                    b.ToTable("ServisParcalar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Sofor", b =>
@@ -8590,7 +8590,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("StokKartiId", "IslemTarihi");
 
-                    b.ToTable("StokHareketler");
+                    b.ToTable("StokHareketler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.StokKarti", b =>
@@ -8694,7 +8694,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("VarsayilanTedarikciId");
 
-                    b.ToTable("StokKartlari");
+                    b.ToTable("StokKartlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.StokKategori", b =>
@@ -8743,7 +8743,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstKategoriId");
 
-                    b.ToTable("StokKategoriler");
+                    b.ToTable("StokKategoriler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.TekrarlayanOdeme", b =>
@@ -8820,7 +8820,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MasrafKalemi");
 
-                    b.ToTable("TekrarlayanOdemeler");
+                    b.ToTable("TekrarlayanOdemeler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppAyar", b =>
@@ -8866,7 +8866,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("WhatsAppAyarlari");
+                    b.ToTable("WhatsAppAyarlari", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppGrup", b =>
@@ -8896,7 +8896,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WhatsAppGruplar");
+                    b.ToTable("WhatsAppGruplar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppGrupUye", b =>
@@ -8930,7 +8930,7 @@ namespace CRMFiloServis.Web.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("WhatsAppGrupUyeler");
+                    b.ToTable("WhatsAppGrupUyeler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppKisi", b =>
@@ -8974,7 +8974,7 @@ namespace CRMFiloServis.Web.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("WhatsAppKisiler");
+                    b.ToTable("WhatsAppKisiler", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppMesaj", b =>
@@ -9027,7 +9027,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KisiId");
 
-                    b.ToTable("WhatsAppMesajlar");
+                    b.ToTable("WhatsAppMesajlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppSablon", b =>
@@ -9061,7 +9061,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WhatsAppSablonlar");
+                    b.ToTable("WhatsAppSablonlar", (string)null);
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Arac", b =>

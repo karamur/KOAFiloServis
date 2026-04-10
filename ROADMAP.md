@@ -3,6 +3,8 @@
 ## ?? Mevcut Durum Analizi
 
 ### Son Güncellemeler
+- ✅ `Multi-tenant Veri İzolasyonu (FAZ 4.1)` tamamlandı - 7 temel entity'ye (Cari, Sofor, Arac, Fatura, Guzergah, BankaHesap, BankaKasaHareket) SirketId eklendi, Global Query Filter ile şirket bazlı otomatik filtreleme, SuperAdmin bypass desteği.
+- ✅ `Şirket Yönetimi UI (FAZ 4.1)` tamamlandı - SirketYonetimi.razor sayfası, şirket CRUD, şirket geçişi, istatistik kartları, Admin/SuperAdmin yetki kontrolü.
 - ✅ `Mobil Uygulama API Endpoint'leri (FAZ 3.3)` tamamlandı - Sefer geçmişi, tekil sefer getirme, health check endpoint'leri MobileController'a eklendi.
 - ✅ `Mobil Uygulama Sayfaları (FAZ 3.3)` tamamlandı - SeferGecmisi.razor, SeferBitir.razor, Ayarlar.razor sayfaları ve IApiService/ApiService güncellemeleri.
 - ✅ `Araç Takip Sistemi (GPS Entegrasyonu - FAZ 3.1)` tamamlandı - AracTakipCihaz, AracKonum, AracBolge entity'leri, canlı araç takip haritası, konum geçmişi ve raporlama, GPS cihaz yönetimi, Geofence (bölge) desteği, otomatik alarm sistemi.
@@ -136,8 +138,8 @@
 ### 4.1 Çoklu Şirket Desteği
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Multi-tenant mimari | 🟢 Düşük | 5 gün | ⏳ |
-| Şirket bazlı veri izolasyonu | 🟢 Düşük | 3 gün | ⏳ |
+| Multi-tenant mimari | 🟢 Düşük | 5 gün | ✅ Tamamlandı (Entity+Servis+UI) |
+| Şirket bazlı veri izolasyonu | 🟢 Düşük | 3 gün | ✅ Tamamlandı (Global Query Filter) |
 | Şirketler arası transfer | 🟢 Düşük | 2 gün | ⏳ |
 
 ### 4.2 API & Entegrasyon
@@ -581,3 +583,14 @@ FAZ 8 (2-3 Hafta) - ✅ TAMAMLANDI
 ---
 
 *Son güncelleme: Haziran 2025*
+#if DEBUG
+#if WINDOWS
+    private const string ApiBaseUrl = "http://localhost:5190/"; // Windows masaüstü için localhost
+#elif ANDROID
+    private const string ApiBaseUrl = "http://10.0.2.2:5190/"; // Android emulator için host makinesi
+#else
+    private const string ApiBaseUrl = "http://10.0.0.2:5190/"; // Diğer platformlar / fiziksel cihaz
+#endif
+#else
+    private const string ApiBaseUrl = "https://api.koafiloservis.com/"; // Üretim ortamı
+#endif

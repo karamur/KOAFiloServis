@@ -910,6 +910,19 @@
                                 </NavLink>
                             </div>
                         }
+                        @if (IsSuperAdmin())
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/sirketler">
+                                    <i class="bi bi-buildings me-2 text-primary"></i> Şirket Yönetimi
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/sirket-transfer">
+                                    <i class="bi bi-arrow-left-right me-2 text-info"></i> Şirketler Arası Transfer
+                                </NavLink>
+                            </div>
+                        }
                         @if (HasYetki("veritabani.oku"))
                         {
                             <div class="nav-item px-3">
@@ -1163,11 +1176,21 @@
     {
         // Admin her seyi gorebilir
         if (isAdmin) return true;
-        
+
         // Yetkiler henuz yuklenmediyse gosterme
         if (!yetkilerYuklendi) return false;
-        
+
         return kullaniciYetkileri.Contains(yetkiKodu);
+    }
+
+    private bool IsSuperAdmin()
+    {
+        // SuperAdmin veya Admin rolü şirket yönetimine erişebilir
+        var aktifKullanici = AuthProvider.GetAktifKullanici();
+        if (aktifKullanici == null) return false;
+
+        var rolAdi = aktifKullanici.Rol?.RolAdi;
+        return rolAdi == "SuperAdmin" || rolAdi == "Admin";
     }
 
     private bool HasMenuYetki(string menuKodu)

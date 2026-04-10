@@ -7,6 +7,12 @@ namespace CRMFiloServis.Shared.Entities;
 /// </summary>
 public class Arac : BaseEntity
 {
+    /// <summary>
+    /// Multi-tenant: Şirket ID (null = sistem geneli)
+    /// </summary>
+    public int? SirketId { get; set; }
+    public virtual Sirket? Sirket { get; set; }
+
     // Şase numarası - Tekil (Unique)
     public string SaseNo { get; set; } = string.Empty;
     

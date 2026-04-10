@@ -162,6 +162,9 @@ else
 }
 builder.Services.AddScoped<ICacheService, CacheService>();
 
+// Multi-tenant Service
+builder.Services.AddScoped<ITenantService, TenantService>();
+
 // Application Services
 builder.Services.AddSingleton<IFirmaService, FirmaService>(); // Singleton - aktif firma state tutmak icin
 builder.Services.AddSingleton<ILisansService, LisansService>(); // Singleton - lisans cache

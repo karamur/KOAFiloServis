@@ -363,13 +363,16 @@
 
         try
         {
-            var photo = await MediaPicker.Default.PickPhotoAsync();
-            if (photo != null)
+            var photos = await MediaPicker.Default.PickPhotosAsync();
+            if (photos != null)
             {
-                using var stream = await photo.OpenReadAsync();
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream);
-                _model.Fotograflar.Add(Convert.ToBase64String(memoryStream.ToArray()));
+                foreach (var photo in photos.Take(5 - _model.Fotograflar.Count))
+                {
+                    using var stream = await photo.OpenReadAsync();
+                    using var memoryStream = new MemoryStream();
+                    await stream.CopyToAsync(memoryStream);
+                    _model.Fotograflar.Add(Convert.ToBase64String(memoryStream.ToArray()));
+                }
             }
         }
         catch (Exception ex)

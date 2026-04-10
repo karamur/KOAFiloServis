@@ -322,7 +322,8 @@
     {
         try
         {
-            var photo = await MediaPicker.Default.PickPhotoAsync();
+            var photos = await MediaPicker.Default.PickPhotosAsync();
+            var photo = photos?.FirstOrDefault();
             if (photo != null)
             {
                 using var stream = await photo.OpenReadAsync();

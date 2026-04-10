@@ -498,7 +498,7 @@
                             <label class="form-label">Firma *</label>
                             <select class="form-select @(importFirmaId == 0 ? "border-danger" : "")" 
                                     value="@importFirmaId" 
-                                    @onchange="@(e => importFirmaId = int.TryParse(e.Value?.ToString(), out var id) ? id : 0)">
+                                    @onchange="ImportFirmaDegisti">
                                 <option value="0">-- Firma Seçin --</option>
                                 @if (firmalar != null)
                                 {
@@ -532,15 +532,15 @@
                             <label class="form-label">Dosya Seç *</label>
                             @if (importTipi == "excel")
                             {
-                                <InputFile @key="importTipi" class="form-control" OnChange="DosyaSecildi" accept=".xlsx,.xls" />
+                                <InputFile @key="@($"{importFirmaId}_{importTipi}")" class="form-control" OnChange="DosyaSecildi" accept=".xlsx,.xls" />
                             }
                             else if (importTipi == "xml")
                             {
-                                <InputFile @key="importTipi" class="form-control" OnChange="XmlDosyalariSecildi" accept=".xml,.xlm" multiple />
+                                <InputFile @key="@($"{importFirmaId}_{importTipi}")" class="form-control" OnChange="XmlDosyalariSecildi" accept=".xml,.xlm" multiple />
                             }
                             else
                             {
-                                <InputFile @key="importTipi" class="form-control" OnChange="XmlPdfDosyalariSecildi" accept=".xml,.xlm,.pdf" multiple />
+                                <InputFile @key="@($"{importFirmaId}_{importTipi}")" class="form-control" OnChange="XmlPdfDosyalariSecildi" accept=".xml,.xlm,.pdf" multiple />
                             }
                         </div>
                     </div>
@@ -1315,6 +1315,16 @@
     private void XmlPdfDosyalariSecildi(InputFileChangeEventArgs e)
     {
         importXmlPdfFiles = e.GetMultipleFiles(1000); // XML + PDF
+        importResult = null;
+    }
+
+    private void ImportFirmaDegisti(ChangeEventArgs e)
+    {
+        importFirmaId = int.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        // Firma değiştiğinde dosya seçimlerini temizle
+        importFile = null;
+        importXmlFiles = null;
+        importXmlPdfFiles = null;
         importResult = null;
     }
 

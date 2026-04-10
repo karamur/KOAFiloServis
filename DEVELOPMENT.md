@@ -42,22 +42,22 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 ## Handoff Notu
 
 ### Son Durum
-- Son tamamlanan geliştirme: `Kayıt 141 - Mobil Uygulama Sayfaları ve API Endpoint'leri`
+- Son tamamlanan geliştirme: `Kayıt 145 - Multi-tenant Veri İzolasyonu (Global Query Filter)`
 - Git durumu: commit edilecek
 - Branch: `main`
 
 ### Yarım Devam İçin Önerilen Başlangıç
-1. `Multi-tenant mimari (FAZ 4.1)` - Çoklu şirket desteği
+1. EF Core Migration oluştur ve uygula
+2. `Şirketler arası transfer (FAZ 4.1)` - Veri transfer mekanizması
 
 ### Kısa Teknik Özet
-- Mobil uygulama sayfaları tamamlandı (SeferGecmisi, SeferBitir, Ayarlar)
-- MobileController endpoint'leri eklendi (sefer geçmişi, tekil sefer, health check)
-- IApiService/ApiService metodları güncellendi
-- FAZ 3.3 Mobil Uygulama tamamen tamamlandı
+- Şirket Yönetimi UI sayfası oluşturuldu (/ayarlar/sirketler)
+- TenantService Admin rolü desteği eklendi
+- NavMenu'ye Şirket Yönetimi linki eklendi (sadece Admin görebilir)
 
 ### Not
-- Mobil uygulama artık tam fonksiyonel (Giris, Home, SeferBaslat, SeferBitir, SeferGecmisi, MasrafGirisi, ArizaBildir, Ayarlar)
-- Sonraki adım: FAZ 4.1 Multi-tenant mimari (düşük öncelik) veya kullanıcı talepleri
+- Multi-tenant altyapısı hazır: Entity + Servis + DB + UI
+- Sonraki adım: Global Query Filter ile şirket bazlı veri izolasyonu
 
 ---
 
@@ -599,6 +599,195 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 - `CRMFiloServis.Mobile/Services/ApiService.cs` (güncellendi)
 - `CRMFiloServis.Web/Controllers/MobileController.cs` (güncellendi)
 - `ROADMAP.md` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 142 - Mobil API URL Platform Yapılandırması
+**Talep:**
+- Mobil uygulamada geliştirme ortamı için API bağlantı yapılandırması
+- Windows masaüstü'nde login hatası çözümü (test/test123 çalışmıyordu)
+
+**Sorun Analizi:**
+- Windows masaüstünde `10.0.0.2` IP adresi erişilemez (localhost gerekli)
+- Android emulator'de `localhost` erişilemez (`10.0.2.2` host IP gerekli)
+- Fiziksel Android cihazlarda yerel ağ IP'si gerekli
+
+**Yapılanlar:**
+
+**1. MauiProgram.cs Platform Bazlı API URL:**
+```csharp
+#if DEBUG
+    #if WINDOWS
+        private const string ApiBaseUrl = "http://localhost:5190/";
+    #elif ANDROID
+        private const string ApiBaseUrl = "http://10.0.2.2:5190/";
+    #else
+        private const string ApiBaseUrl = "http://10.0.0.2:5190/";
+    #endif
+#else
+    private const string ApiBaseUrl = "https://api.koafiloservis.com/";
+#endif
+```
+
+**2. AndroidManifest.xml Cleartext Traffic:**
+- `android:usesCleartextTraffic="true"` eklendi (HTTP izni)
+
+**3. SSL Bypass (Geliştirme Ortamı):**
+- `ServerCertificateCustomValidationCallback` ile self-signed sertifika desteği
+
+**Platform API URL Özeti:**
+| Platform | API URL | Açıklama |
+|----------|---------|----------|
+| Windows Masaüstü | `localhost:5190` | Aynı makine |
+| Android Emulator | `10.0.2.2:5190` | Host makine IP |
+| Fiziksel Cihaz | `10.0.0.2:5190` | Yerel ağ IP |
+| Production | `api.koafiloservis.com` | HTTPS |
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Mobile/MauiProgram.cs` (güncellendi)
+- `CRMFiloServis.Mobile/Platforms/Android/AndroidManifest.xml` (güncellendi)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 143 - Multi-tenant Altyapısı ve Fatura Import Fix
+**Talep:**
+1. Multi-tenant (çoklu şirket) desteği altyapısı
+2. Fatura XML+PDF import sorunu (2. firma aktarım yapamıyor)
+3. Windows masaüstü exe publish
+
+**Yapılanlar:**
+
+**1. Multi-tenant Entity'ler:**
+- `Sirket.cs` - Ana şirket entity'si (SirketKodu, Unvan, KisaAd, VergiDairesi, VergiNo, Adres, Il, Ilce, vb.)
+- `TenantEntity` - Base class (SirketId FK ile tenant izolasyonu)
+- `Kullanici.SirketId` - Kullanıcı-şirket ilişkisi eklendi
+
+**2. Multi-tenant Servisler:**
+- `ITenantService` interface (GetCurrentTenantId, GetCurrentTenantAsync, SetCurrentTenant)
+- `TenantService` implementasyonu (HttpContext + Session bazlı tenant çözümleme)
+- `ApplicationDbContext.Sirketler` DbSet eklendi
+- `Program.cs` TenantService DI kaydı
+
+**3. PostgreSQL Tablo Oluşturma:**
+```sql
+CREATE TABLE "Sirketler" (Id, SirketKodu, Unvan, KisaAd, VergiDairesi, VergiNo, 
+                          Adres, Il, Ilce, PostaKodu, Telefon, Email, WebSitesi, 
+                          LogoUrl, Aktif, ParaBirimi, AyarlarJson, LisansBitisTarihi,
+                          MaxKullaniciSayisi, CreatedAt, UpdatedAt, IsDeleted);
+ALTER TABLE "Kullanicilar" ADD COLUMN "SirketId" INTEGER REFERENCES "Sirketler"("Id");
+INSERT INTO "Sirketler" (...) VALUES ('KOA', 'Koa Filo Servis A.S.', ...);
+```
+
+**4. Fatura XML+PDF Import Fix:**
+- **Sorun:** InputFile `@key="importTipi"` - firma değiştiğinde component reset olmuyor
+- **Çözüm:** `@key="@($"{importFirmaId}_{importTipi}")"` - firma+tip kombinasyonu
+- `ImportFirmaDegisti()` handler eklendi - firma değiştiğinde dosya seçimlerini temizliyor
+
+**5. Windows Masaüstü EXE Publish:**
+```powershell
+dotnet publish CRMFiloServis.Mobile.csproj -f net10.0-windows10.0.19041.0 -c Release -o ./publish/windows-desktop
+```
+- Boyut: 129.50 MB
+- Çıktı: `publish/windows-desktop/CRMFiloServis.Mobile.exe`
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/Sirket.cs` (yeni)
+- `CRMFiloServis.Shared/Entities/KullaniciVeLisans.cs` (güncellendi - SirketId)
+- `CRMFiloServis.Web/Services/Interfaces/ITenantService.cs` (yeni)
+- `CRMFiloServis.Web/Services/TenantService.cs` (yeni)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (güncellendi - Sirketler DbSet)
+- `CRMFiloServis.Web/Program.cs` (güncellendi - TenantService kaydı)
+- `CRMFiloServis.Web/Components/Pages/EFatura/GelenFaturalar.razor` (güncellendi - InputFile @key fix)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 144 - Şirket Yönetimi UI (Multi-tenant)
+**Talep:**
+- Multi-tenant yönetim arayüzü oluşturma
+- Şirket CRUD işlemleri UI
+
+**Yapılanlar:**
+
+**1. SirketYonetimi.razor Sayfası:**
+- `/ayarlar/sirketler` route
+- Şirket listesi (kart görünümü)
+- İstatistik kartları (toplam/aktif şirket, kullanıcı sayısı, mevcut şirket)
+- Yeni şirket ekleme modal
+- Şirket düzenleme
+- Şirket silme (kullanıcısı olmayan şirketler)
+- Şirket geçişi (aktif şirketi değiştirme)
+
+**2. TenantService Güncellemesi:**
+- `IsSuperAdmin` property'sine Admin rolü desteği eklendi
+- SuperAdmin, Admin veya IsSuperAdmin claim'i olan kullanıcılar yönetici sayılıyor
+
+**3. NavMenu Güncellemesi:**
+- Şirket Yönetimi linki eklendi (sadece Admin/SuperAdmin görebilir)
+- `IsSuperAdmin()` yardımcı metodu eklendi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/SirketYonetimi.razor` (yeni)
+- `CRMFiloServis.Web/Services/TenantService.cs` (güncellendi - Admin rolü desteği)
+- `CRMFiloServis.Web/Components/Layout/NavMenu.razor` (güncellendi - Şirket Yönetimi linki)
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 145 - Multi-tenant Veri İzolasyonu (Global Query Filter)
+**Talep:**
+- Şirket bazlı veri izolasyonu (FAZ 4.1)
+- Her şirket sadece kendi verilerini görmeli
+
+**Yapılanlar:**
+
+**1. Entity'lere SirketId Eklendi:**
+- `Cari.cs` - SirketId + Sirket navigation property
+- `Sofor.cs` - SirketId + Sirket navigation property
+- `Arac.cs` - SirketId + Sirket navigation property
+- `Fatura.cs` - SirketId + Sirket navigation property
+- `Guzergah.cs` - SirketId + Sirket navigation property
+- `BankaHesap.cs` - SirketId + Sirket navigation property
+- `BankaKasaHareket.cs` - SirketId + Sirket navigation property
+
+**2. ApplicationDbContext Güncellemesi:**
+- ITenantService constructor injection eklendi
+- Her entity için Global Query Filter güncellendi:
+  - `!e.IsDeleted` + Multi-tenant filtreleme
+  - SuperAdmin/Admin bypass desteği
+  - `SirketId == null` sistem geneli veri desteği
+- Entity configuration'lara Sirket ilişkisi eklendi
+
+**3. Global Query Filter Mantığı:**
+```csharp
+entity.HasQueryFilter(e => !e.IsDeleted && 
+    (_tenantService == null || _tenantService.IsSuperAdmin || 
+     e.SirketId == null || e.SirketId == _tenantService.CurrentSirketId));
+```
+- `_tenantService == null`: Migration/seeding sırasında bypass
+- `_tenantService.IsSuperAdmin`: Admin kullanıcılar tüm veriyi görür
+- `e.SirketId == null`: Sistem geneli veriler (tüm şirketlere açık)
+- `e.SirketId == CurrentSirketId`: Şirkete özel veri filtreleme
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/Cari.cs` (SirketId eklendi)
+- `CRMFiloServis.Shared/Entities/Sofor.cs` (SirketId eklendi)
+- `CRMFiloServis.Shared/Entities/Arac.cs` (SirketId eklendi)
+- `CRMFiloServis.Shared/Entities/Fatura.cs` (SirketId eklendi)
+- `CRMFiloServis.Shared/Entities/Guzergah.cs` (SirketId eklendi)
+- `CRMFiloServis.Shared/Entities/BankaHesap.cs` (SirketId eklendi)
+- `CRMFiloServis.Shared/Entities/BankaKasaHareket.cs` (SirketId eklendi)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs` (ITenantService injection + Global Query Filter)
+
+**Sonraki Adım:**
+- EF Core Migration oluşturma: `dotnet ef migrations add AddMultiTenantSirketId`
+- Migration uygulama: `dotnet ef database update`
 
 **Durum:** ✅ Tamamlandı
 

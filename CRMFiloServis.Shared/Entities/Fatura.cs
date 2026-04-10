@@ -5,6 +5,12 @@
 /// </summary>
 public class Fatura : BaseEntity
 {
+    /// <summary>
+    /// Multi-tenant: Şirket ID (null = sistem geneli)
+    /// </summary>
+    public int? SirketId { get; set; }
+    public virtual Sirket? Sirket { get; set; }
+
     public string FaturaNo { get; set; } = string.Empty;
     public DateTime FaturaTarihi { get; set; }
     public DateTime? VadeTarihi { get; set; }

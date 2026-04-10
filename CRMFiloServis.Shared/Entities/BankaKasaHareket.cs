@@ -7,6 +7,12 @@ namespace CRMFiloServis.Shared.Entities;
 /// </summary>
 public class BankaKasaHareket : BaseEntity
 {
+    /// <summary>
+    /// Multi-tenant: Şirket ID (null = sistem geneli)
+    /// </summary>
+    public int? SirketId { get; set; }
+    public virtual Sirket? Sirket { get; set; }
+
     public string IslemNo { get; set; } = string.Empty;
     public DateTime IslemTarihi { get; set; }
     public HareketTipi HareketTipi { get; set; }

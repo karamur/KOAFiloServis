@@ -5,6 +5,12 @@
 /// </summary>
 public class Cari : BaseEntity
 {
+    /// <summary>
+    /// Multi-tenant: Şirket ID (null = sistem geneli)
+    /// </summary>
+    public int? SirketId { get; set; }
+    public virtual Sirket? Sirket { get; set; }
+
     public string CariKodu { get; set; } = string.Empty;
     public string Unvan { get; set; } = string.Empty;
     public CariTipi CariTipi { get; set; }
