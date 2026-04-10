@@ -1,6 +1,7 @@
 ﻿@page "/arac-takip"
 @page "/arac-takip/{AracId:int}"
 @using CRMFiloServis.Web.Services.Interfaces
+@using CRMFiloServis.Web.Hubs
 @using CRMFiloServis.Shared.Entities
 @inject IAracTakipService AracTakipService
 @inject IJSRuntime JSRuntime
@@ -16,13 +17,17 @@
                 <h3 class="mb-0">
                     <i class="bi bi-geo-alt-fill text-primary me-2"></i>Canlı Araç Takip
                 </h3>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 align-items-center">
+                    <!-- SignalR Bağlantı Durumu -->
+                    <span class="badge @GetBaglantiDurumuBadge() me-2">
+                        <i class="bi @GetBaglantiDurumuIcon()"></i> @baglantiDurumu
+                    </span>
                     <button class="btn btn-outline-primary" @onclick="YenidenYukle" disabled="@yukleniyor">
                         <i class="bi bi-arrow-clockwise @(yukleniyor ? "spin" : "")"></i> Yenile
                     </button>
                     <div class="form-check form-switch d-flex align-items-center ms-3">
-                        <input class="form-check-input" type="checkbox" id="otomatikYenile" @bind="otomatikYenile" @bind:after="OtomatikYenileToggle">
-                        <label class="form-check-label ms-2" for="otomatikYenile">Otomatik Yenile (30sn)</label>
+                        <input class="form-check-input" type="checkbox" id="canliTakip" @bind="canliTakipAktif" @bind:after="CanliTakipToggle">
+                        <label class="form-check-label ms-2" for="canliTakip">Canlı Takip</label>
                     </div>
                 </div>
             </div>
@@ -215,23 +220,25 @@
 
     private List<AracKonumDto> aracKonumlar = new();
     private bool yukleniyor = false;
-    private bool otomatikYenile = true;
+    private bool canliTakipAktif = true;
     private int? seciliAracId;
     private AracKonumDto? seciliArac;
     private int okunmamisAlarmSayisi = 0;
-    private Timer? yenilemeTimer;
     private bool haritaHazir = false;
+    private DotNetObjectReference<AracTakipCanli>? dotNetRef;
+    private string baglantiDurumu = "Bağlanıyor...";
+    private bool signalRBagli = false;
 
     protected override async Task OnInitializedAsync()
     {
         await YenidenYukle();
-        
+
         if (AracId.HasValue)
         {
             seciliAracId = AracId.Value;
             seciliArac = aracKonumlar.FirstOrDefault(a => a.AracId == AracId.Value);
         }
-        
+
         okunmamisAlarmSayisi = await AracTakipService.GetOkunmamisAlarmSayisiAsync();
     }
 
@@ -241,11 +248,239 @@
         {
             await HaritayiBaslat();
             haritaHazir = true;
-            
-            if (otomatikYenile)
+
+            // SignalR bağlantısını başlat
+            if (canliTakipAktif)
             {
-                BaslatOtomatikYenileme();
+                await SignalRBaglantiBaslat();
             }
+        }
+    }
+
+    private async Task SignalRBaglantiBaslat()
+    {
+        try
+        {
+            baglantiDurumu = "Bağlanıyor...";
+            StateHasChanged();
+
+            dotNetRef = DotNetObjectReference.Create(this);
+            var basarili = await JSRuntime.InvokeAsync<bool>("signalRHelper.startConnection", dotNetRef);
+
+            if (basarili)
+            {
+                baglantiDurumu = "Bağlı";
+                signalRBagli = true;
+            }
+            else
+            {
+                baglantiDurumu = "Bağlantı Hatası";
+                signalRBagli = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SignalR bağlantı hatası: {ex.Message}");
+            baglantiDurumu = "Hata";
+            signalRBagli = false;
+        }
+        StateHasChanged();
+    }
+
+    private async Task SignalRBaglantiyiKapat()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("signalRHelper.stopConnection");
+            baglantiDurumu = "Bağlı Değil";
+            signalRBagli = false;
+        }
+        catch { }
+        StateHasChanged();
+    }
+
+    // SignalR Event Callbacks
+    [JSInvokable]
+    public void OnSignalRConnected()
+    {
+        baglantiDurumu = "Bağlı";
+        signalRBagli = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnSignalRDisconnected(string? error)
+    {
+        baglantiDurumu = "Bağlantı Kesildi";
+        signalRBagli = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnSignalRReconnecting(string? error)
+    {
+        baglantiDurumu = "Yeniden Bağlanıyor...";
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnSignalRReconnected()
+    {
+        baglantiDurumu = "Bağlı";
+        signalRBagli = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnKonumGuncellendi(AracKonumGuncelleme guncelleme)
+    {
+        await InvokeAsync(async () =>
+        {
+            // Mevcut araç listesinde güncelle
+            var mevcutArac = aracKonumlar.FirstOrDefault(a => a.AracId == guncelleme.AracId);
+            if (mevcutArac != null)
+            {
+                mevcutArac.Latitude = guncelleme.Enlem;
+                mevcutArac.Longitude = guncelleme.Boylam;
+                mevcutArac.Hiz = guncelleme.Hiz;
+                mevcutArac.Yon = guncelleme.Yon;
+                mevcutArac.KontakDurumu = guncelleme.KontakDurumu;
+                mevcutArac.MotorDurumu = guncelleme.MotorDurumu;
+                mevcutArac.YakitSeviyesi = guncelleme.YakitSeviyesi;
+                mevcutArac.KayitZamani = guncelleme.ZamanDamgasi;
+                mevcutArac.Adres = guncelleme.Adres;
+                mevcutArac.Durum = ParseDurum(guncelleme.Durum);
+                mevcutArac.DurumAciklama = guncelleme.Durum;
+
+                // Seçili araçsa güncelle
+                if (seciliAracId == guncelleme.AracId)
+                {
+                    seciliArac = mevcutArac;
+                }
+
+                // Haritada güncelle
+                if (haritaHazir)
+                {
+                    await AraclariHaritayaEkle();
+                }
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    [JSInvokable]
+    public async Task OnAracKonumGuncellendi(AracKonumGuncelleme guncelleme)
+    {
+        await OnKonumGuncellendi(guncelleme);
+    }
+
+    [JSInvokable]
+    public async Task OnTopluKonumGuncellendi(List<AracKonumGuncelleme> guncellemeler)
+    {
+        await InvokeAsync(async () =>
+        {
+            foreach (var guncelleme in guncellemeler)
+            {
+                var mevcutArac = aracKonumlar.FirstOrDefault(a => a.AracId == guncelleme.AracId);
+                if (mevcutArac != null)
+                {
+                    mevcutArac.Latitude = guncelleme.Enlem;
+                    mevcutArac.Longitude = guncelleme.Boylam;
+                    mevcutArac.Hiz = guncelleme.Hiz;
+                    mevcutArac.Yon = guncelleme.Yon;
+                    mevcutArac.KontakDurumu = guncelleme.KontakDurumu;
+                    mevcutArac.MotorDurumu = guncelleme.MotorDurumu;
+                    mevcutArac.YakitSeviyesi = guncelleme.YakitSeviyesi;
+                    mevcutArac.KayitZamani = guncelleme.ZamanDamgasi;
+                    mevcutArac.Adres = guncelleme.Adres;
+                    mevcutArac.Durum = ParseDurum(guncelleme.Durum);
+                    mevcutArac.DurumAciklama = guncelleme.Durum;
+                }
+            }
+
+            // Seçili aracı güncelle
+            if (seciliAracId.HasValue)
+            {
+                seciliArac = aracKonumlar.FirstOrDefault(a => a.AracId == seciliAracId.Value);
+            }
+
+            if (haritaHazir)
+            {
+                await AraclariHaritayaEkle();
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    [JSInvokable]
+    public void OnAlarmOlustu(AlarmBildirimi alarm)
+    {
+        okunmamisAlarmSayisi++;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnAracAlarmOlustu(AlarmBildirimi alarm)
+    {
+        OnAlarmOlustu(alarm);
+    }
+
+    [JSInvokable]
+    public void OnBolgeOlayiOlustu(BolgeOlayi olay)
+    {
+        // Bölge olayı bildirimi
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnSistemMesaji(object mesaj)
+    {
+        // Sistem mesajı bildirimi
+        InvokeAsync(StateHasChanged);
+    }
+
+    private AracTakipDurum ParseDurum(string durum)
+    {
+        return durum switch
+        {
+            "Hareket" => AracTakipDurum.Hareket,
+            "Bekliyor" => AracTakipDurum.Bekliyor,
+            "Park" => AracTakipDurum.Park,
+            _ => AracTakipDurum.Cevrimdisi
+        };
+    }
+
+    private string GetBaglantiDurumuBadge()
+    {
+        return baglantiDurumu switch
+        {
+            "Bağlı" => "bg-success",
+            "Bağlanıyor..." or "Yeniden Bağlanıyor..." => "bg-warning text-dark",
+            _ => "bg-danger"
+        };
+    }
+
+    private string GetBaglantiDurumuIcon()
+    {
+        return baglantiDurumu switch
+        {
+            "Bağlı" => "bi-wifi",
+            "Bağlanıyor..." or "Yeniden Bağlanıyor..." => "bi-wifi-1",
+            _ => "bi-wifi-off"
+        };
+    }
+
+    private async Task CanliTakipToggle()
+    {
+        if (canliTakipAktif)
+        {
+            await SignalRBaglantiBaslat();
+        }
+        else
+        {
+            await SignalRBaglantiyiKapat();
         }
     }
 
@@ -255,7 +490,7 @@
         {
             // Türkiye merkezli başlat
             await JSRuntime.InvokeVoidAsync("leafletInterop.initMap", "arac-takip-harita", 39.0, 35.0, 6);
-            
+
             // Mevcut araçları haritaya ekle
             await AraclariHaritayaEkle();
         }
@@ -268,12 +503,12 @@
     private async Task AraclariHaritayaEkle()
     {
         if (!haritaHazir) return;
-        
+
         try
         {
             // Mevcut marker'ları temizle
             await JSRuntime.InvokeVoidAsync("leafletInterop.clearMarkers", "arac-takip-harita");
-            
+
             foreach (var arac in aracKonumlar.Where(a => a.Durum != AracTakipDurum.Cevrimdisi))
             {
                 var markerRenk = GetMarkerRenk(arac.Durum);
@@ -287,7 +522,7 @@
                             <i class='bi bi-clock'></i> {arac.KayitZamani:HH:mm:ss}
                         </small>
                     </div>";
-                
+
                 await JSRuntime.InvokeVoidAsync("leafletInterop.addMarker", 
                     "arac-takip-harita", 
                     arac.Latitude, 
@@ -295,7 +530,7 @@
                     markerRenk,
                     popup);
             }
-            
+
             // Seçili araç varsa ona yakınlaş
             if (seciliArac != null && seciliArac.Durum != AracTakipDurum.Cevrimdisi)
             {
@@ -323,12 +558,12 @@
         try
         {
             aracKonumlar = await AracTakipService.GetTumAraclarinSonKonumlariAsync();
-            
+
             if (seciliAracId.HasValue)
             {
                 seciliArac = aracKonumlar.FirstOrDefault(a => a.AracId == seciliAracId.Value);
             }
-            
+
             if (haritaHazir)
             {
                 await AraclariHaritayaEkle();
@@ -348,7 +583,13 @@
     {
         seciliAracId = arac.AracId;
         seciliArac = arac;
-        
+
+        // SignalR ile bu aracı özellikle takip et
+        if (signalRBagli)
+        {
+            await JSRuntime.InvokeVoidAsync("signalRHelper.takipBaslat", arac.AracId);
+        }
+
         if (haritaHazir && arac.Durum != AracTakipDurum.Cevrimdisi)
         {
             await JSRuntime.InvokeVoidAsync("leafletInterop.setView", 
@@ -357,37 +598,6 @@
                 arac.Longitude, 
                 15);
         }
-    }
-
-    private void OtomatikYenileToggle()
-    {
-        if (otomatikYenile)
-        {
-            BaslatOtomatikYenileme();
-        }
-        else
-        {
-            DurdurOtomatikYenileme();
-        }
-    }
-
-    private void BaslatOtomatikYenileme()
-    {
-        yenilemeTimer?.Dispose();
-        yenilemeTimer = new Timer(async _ =>
-        {
-            await InvokeAsync(async () =>
-            {
-                await YenidenYukle();
-                StateHasChanged();
-            });
-        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
-    }
-
-    private void DurdurOtomatikYenileme()
-    {
-        yenilemeTimer?.Dispose();
-        yenilemeTimer = null;
     }
 
     private string GetDurumBadgeClass(AracTakipDurum durum)
@@ -415,8 +625,10 @@
 
     public async ValueTask DisposeAsync()
     {
-        DurdurOtomatikYenileme();
-        
+        // SignalR bağlantısını kapat
+        await SignalRBaglantiyiKapat();
+        dotNetRef?.Dispose();
+
         if (haritaHazir)
         {
             try

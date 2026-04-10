@@ -3,6 +3,7 @@ using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Helpers;
 using CRMFiloServis.Web.Services;
 using CRMFiloServis.Web.Services.Interfaces;
+using CRMFiloServis.Web.Hubs;
 using CRMFiloServis.Shared.Entities;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
@@ -245,6 +246,8 @@ builder.Services.AddScoped<ISmsService, SmsService>(); // SMS Gönderim Servisi
 builder.Services.AddScoped<IWebhookService, WebhookService>(); // Webhook Sistemi Servisi
 builder.Services.AddScoped<TestDataSeeder>(); // Test/Demo Veri Oluşturma Servisi
 builder.Services.AddScoped<IAracTakipService, AracTakipService>(); // Araç GPS Takip Servisi
+builder.Services.AddScoped<IAracTakipBildirimService, AracTakipBildirimService>(); // SignalR Araç Takip Bildirim Servisi
+builder.Services.AddSignalR(); // SignalR Hub'ları için
 builder.Services.AddHttpClient("SMS"); // SMS provider'lar için HttpClient
 builder.Services.AddHttpClient("Webhook"); // Webhook gönderimi için HttpClient
 builder.Services.AddHostedService<AutoBackupService>();
@@ -513,5 +516,6 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapControllers(); // API Controller'larini haritalandir
+app.MapHub<AracTakipHub>("/hubs/aractakip"); // SignalR Araç Takip Hub'ı
 
 app.Run();
