@@ -2,6 +2,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Blazored.LocalStorage;
+using Microsoft.Extensions.Logging;
 
 namespace CRMFiloServis.Mobile.Services;
 

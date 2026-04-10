@@ -1,4 +1,6 @@
-﻿namespace CRMFiloServis.Mobile.Services;
+﻿using Microsoft.Extensions.Logging;
+
+namespace CRMFiloServis.Mobile.Services;
 
 /// <summary>
 /// MAUI Geolocation API kullanan konum servisi
