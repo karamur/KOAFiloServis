@@ -105,7 +105,7 @@
 |---------|---------|------|-------|
 | E-Fatura entegrasyonu (GİB) | 🔴 Yüksek | 5 gün | ✅ |
 | SMS entegrasyonu | 🟡 Orta | 2 gün | ✅ Tamamlandı |
-| Harita entegrasyonu (güzergah gösterimi) | 🟢 Düşük | 3 gün | ❓ |
+| Harita entegrasyonu (güzergah gösterimi) | 🟢 Düşük | 3 gün | ✅ Tamamlandı |
 | Araç takip sistemi entegrasyonu | 🟢 Düşük | 4 gün | ❓ |
 
 ### 3.2 Gelişmiş Raporlama

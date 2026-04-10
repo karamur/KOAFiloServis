@@ -1,0 +1,202 @@
+﻿@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div id="@MapId" class="@CssClass" style="@Style"></div>
+
+@code {
+    [Parameter]
+    public string MapId { get; set; } = "map-" + Guid.NewGuid().ToString("N")[..8];
+
+    [Parameter]
+    public double CenterLatitude { get; set; } = 39.9208; // Türkiye merkezi (Ankara)
+
+    [Parameter]
+    public double CenterLongitude { get; set; } = 32.8541;
+
+    [Parameter]
+    public int Zoom { get; set; } = 6;
+
+    [Parameter]
+    public string CssClass { get; set; } = "";
+
+    [Parameter]
+    public string Style { get; set; } = "height: 400px; width: 100%;";
+
+    [Parameter]
+    public bool EnableClickToSelect { get; set; } = false;
+
+    [Parameter]
+    public EventCallback<(double Lat, double Lng)> OnCoordinateSelected { get; set; }
+
+    private bool _isInitialized = false;
+    private DotNetObjectReference<HaritaGosterici>? _dotNetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeMap();
+        }
+    }
+
+    private async Task InitializeMap()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("leafletInterop.initMap", MapId, CenterLatitude, CenterLongitude, Zoom);
+            _isInitialized = true;
+
+            if (EnableClickToSelect)
+            {
+                _dotNetRef = DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("leafletInterop.enableClickToSelect", MapId, _dotNetRef);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Harita başlatma hatası: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnMapClicked(double lat, double lng)
+    {
+        if (OnCoordinateSelected.HasDelegate)
+        {
+            await OnCoordinateSelected.InvokeAsync((lat, lng));
+        }
+    }
+
+    /// <summary>
+    /// Başlangıç marker'ı ekle
+    /// </summary>
+    public async Task AddStartMarkerAsync(double lat, double lng, string title, string? popupContent = null)
+    {
+        if (!_isInitialized) return;
+        await JS.InvokeVoidAsync("leafletInterop.addStartMarker", MapId, lat, lng, title, popupContent ?? title);
+    }
+
+    /// <summary>
+    /// Bitiş marker'ı ekle
+    /// </summary>
+    public async Task AddEndMarkerAsync(double lat, double lng, string title, string? popupContent = null)
+    {
+        if (!_isInitialized) return;
+        await JS.InvokeVoidAsync("leafletInterop.addEndMarker", MapId, lat, lng, title, popupContent ?? title);
+    }
+
+    /// <summary>
+    /// Rota çiz
+    /// </summary>
+    public async Task AddRouteAsync(double startLat, double startLng, double endLat, double endLng, string? color = null)
+    {
+        if (!_isInitialized) return;
+        await JS.InvokeVoidAsync("leafletInterop.addRoute", MapId, startLat, startLng, endLat, endLng, color ?? "#3388ff", 4);
+    }
+
+    /// <summary>
+    /// Güzergah ekle (başlangıç + bitiş + rota)
+    /// </summary>
+    public async Task AddGuzergahAsync(double startLat, double startLng, double endLat, double endLng, 
+        string guzergahAdi, string? baslangicNokta = null, string? bitisNokta = null, string? color = null)
+    {
+        if (!_isInitialized) return;
+        await JS.InvokeVoidAsync("leafletInterop.addGuzergah", MapId, startLat, startLng, endLat, endLng, 
+            guzergahAdi, baslangicNokta, bitisNokta, color);
+    }
+
+    /// <summary>
+    /// Çoklu güzergah ekle
+    /// </summary>
+    public async Task AddMultipleGuzergahlarAsync(IEnumerable<GuzergahHaritaDto> guzergahlar)
+    {
+        if (!_isInitialized) return;
+        var list = guzergahlar.Select(g => new
+        {
+            baslangicLat = g.BaslangicLatitude,
+            baslangicLng = g.BaslangicLongitude,
+            bitisLat = g.BitisLatitude,
+            bitisLng = g.BitisLongitude,
+            guzergahAdi = g.GuzergahAdi,
+            baslangicNokta = g.BaslangicNoktasi,
+            bitisNokta = g.BitisNoktasi,
+            rotaRengi = g.RotaRengi
+        }).ToArray();
+
+        await JS.InvokeVoidAsync("leafletInterop.addMultipleGuzergahlar", MapId, list);
+    }
+
+    /// <summary>
+    /// Seçim marker'ı göster
+    /// </summary>
+    public async Task ShowSelectionMarkerAsync(double lat, double lng, bool isStart)
+    {
+        if (!_isInitialized) return;
+        await JS.InvokeVoidAsync("leafletInterop.showSelectionMarker", MapId, lat, lng, isStart);
+    }
+
+    /// <summary>
+    /// Haritayı temizle
+    /// </summary>
+    public async Task ClearMapAsync()
+    {
+        if (!_isInitialized) return;
+        await JS.InvokeVoidAsync("leafletInterop.clearMap", MapId);
+    }
+
+    /// <summary>
+    /// Harita merkezini ayarla
+    /// </summary>
+    public async Task SetCenterAsync(double lat, double lng, int? zoom = null)
+    {
+        if (!_isInitialized) return;
+        await JS.InvokeVoidAsync("leafletInterop.setCenter", MapId, lat, lng, zoom);
+    }
+
+    /// <summary>
+    /// Tüm marker'lara sığdır
+    /// </summary>
+    public async Task FitBoundsAsync()
+    {
+        if (!_isInitialized) return;
+        await JS.InvokeVoidAsync("leafletInterop.fitBounds", MapId);
+    }
+
+    /// <summary>
+    /// Harita boyutunu yenile
+    /// </summary>
+    public async Task InvalidateSizeAsync()
+    {
+        if (!_isInitialized) return;
+        await JS.InvokeVoidAsync("leafletInterop.invalidateSize", MapId);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_isInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("leafletInterop.disposeMap", MapId);
+            }
+            catch { }
+        }
+        _dotNetRef?.Dispose();
+    }
+}
+
+@* DTO for multiple guzergah display *@
+@code {
+    public class GuzergahHaritaDto
+    {
+        public double? BaslangicLatitude { get; set; }
+        public double? BaslangicLongitude { get; set; }
+        public double? BitisLatitude { get; set; }
+        public double? BitisLongitude { get; set; }
+        public string GuzergahAdi { get; set; } = string.Empty;
+        public string? BaslangicNoktasi { get; set; }
+        public string? BitisNoktasi { get; set; }
+        public string? RotaRengi { get; set; }
+    }
+}

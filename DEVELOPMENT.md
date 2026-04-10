@@ -42,21 +42,22 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 ## Handoff Notu
 
 ### Son Durum
-- Son tamamlanan geliştirme: `Kayıt 133 - Redis Cache Entegrasyonu (FAZ 4.3)`
+- Son tamamlanan geliştirme: `Kayıt 134 - Harita Entegrasyonu (Leaflet.js)`
 - Git durumu: commit edilecek
 - Branch: `main`
 
 ### Yarın Devam İçin Önerilen Başlangıç
-1. `Harita entegrasyonu (güzergah gösterimi)` veya
+1. `Araç takip sistemi entegrasyonu` veya
 2. `Mobil uygulama (MAUI Blazor)` veya
 3. `Multi-tenant mimari (FAZ 4.1)`
 
 ### Kısa Teknik Özet
-- IDistributedCache tabanlı cache servisi eklendi
-- Memory/Redis provider desteği (appsettings ile seçim)
-- Dashboard grafik metodlarına cache entegrasyonu yapıldı
-- CacheKeys ve CacheDurations yardımcı sınıfları oluşturuldu
-- FAZ 4.3 (Performans & Ölçekleme) tamamlandı
+- Leaflet.js harita kütüphanesi entegre edildi
+- HaritaGosterici.razor bileşeni oluşturuldu
+- Güzergah entity'sine koordinat alanları eklendi (BaslangicLat/Lng, BitisLat/Lng, RotaRengi)
+- GuzergahList'e harita/liste görünüm seçeneği eklendi
+- GuzergahForm'a haritadan koordinat seçme özelliği eklendi
+- FAZ 3.1 Entegrasyonlar bölümü tamamlandı
 
 ### Not
 - Yarın devam ederken önce `ROADMAP.md` ve bu dosyadaki son kayıtlar referans alınmalı.
@@ -118,6 +119,68 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 - `CRMFiloServis.Web/Services/DashboardGrafikService.cs` (güncellendi)
 - `CRMFiloServis.Web/Program.cs` (güncellendi)
 - `CRMFiloServis.Web/appsettings.json` (güncellendi)
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 134 - Harita Entegrasyonu (Leaflet.js)
+**Talep:**
+- Güzergahları harita üzerinde görselleştirme
+- Koordinat seçici ile konum belirleme
+
+**Yapılanlar:**
+- Leaflet.js Entegrasyonu:
+  - App.razor'a Leaflet CSS ve JS CDN eklendi
+  - `leaflet-interop.js` JavaScript dosyası oluşturuldu
+  - Blazor JSInterop ile tam entegrasyon
+- HaritaGosterici.razor Bileşeni:
+  - Çoklu harita desteği (MapId ile)
+  - Marker ekleme (başlangıç yeşil, bitiş kırmızı)
+  - Rota çizimi (polyline)
+  - Tıklama ile koordinat seçme
+  - Haritayı marker'lara sığdırma (FitBounds)
+  - GuzergahHaritaDto ile veri aktarımı
+- Guzergah Entity Güncellemesi:
+  - `BaslangicLatitude` (double?) eklendi
+  - `BaslangicLongitude` (double?) eklendi
+  - `BitisLatitude` (double?) eklendi
+  - `BitisLongitude` (double?) eklendi
+  - `RotaRengi` (string?) eklendi
+- GuzergahList.razor Güncellemeleri:
+  - Liste/Harita görünüm geçiş düğmeleri
+  - Harita görünümünde tüm güzergahlar gösteriliyor
+  - Koordinatlı güzergahlar badge ile işaretli
+  - Kart görünümü ile özet liste
+- GuzergahForm.razor Güncellemeleri:
+  - Genişletilebilir harita paneli
+  - Başlangıç/Bitiş koordinat input'ları
+  - Haritadan tıklayarak koordinat seçme
+  - Rota rengi seçici (color picker)
+  - Koordinat temizleme butonu
+  - Otomatik rota gösterimi
+- Migration Helper:
+  - SQLite için ALTER TABLE komutları
+  - PostgreSQL için DO $$ bloğu
+  - Program.cs'e migration çağrısı eklendi
+
+**Teknik Özellikler:**
+- OpenStreetMap tile katmanı (ücretsiz)
+- Renkli özel marker'lar (divIcon)
+- Türkiye merkezi varsayılan görünüm (Ankara)
+- Responsive harita boyutu
+- IAsyncDisposable ile temizlik
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/Guzergah.cs` (güncellendi)
+- `CRMFiloServis.Web/Components/App.razor` (güncellendi)
+- `CRMFiloServis.Web/wwwroot/js/leaflet-interop.js` (yeni)
+- `CRMFiloServis.Web/Components/Shared/HaritaGosterici.razor` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Guzergahlar/GuzergahList.razor` (güncellendi)
+- `CRMFiloServis.Web/Components/Pages/Guzergahlar/GuzergahForm.razor` (güncellendi)
+- `CRMFiloServis.Web/Data/Migrations/GuzergahKoordinatMigrationHelper.cs` (yeni)
+- `CRMFiloServis.Web/Program.cs` (güncellendi)
 - `ROADMAP.md`
 
 **Durum:** ✅ Tamamlandı

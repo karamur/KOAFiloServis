@@ -378,6 +378,19 @@ await RunScopedAsync(app, async services =>
 await RunScopedAsync(app, async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
+    if (dbProvider == "PostgreSQL")
+    {
+        await CRMFiloServis.Web.Data.Migrations.GuzergahKoordinatMigrationHelper.ApplyGuzergahKoordinatMigrationPostgresAsync(context);
+    }
+    else
+    {
+        await CRMFiloServis.Web.Data.Migrations.GuzergahKoordinatMigrationHelper.ApplyGuzergahKoordinatMigrationAsync(context);
+    }
+});
+
+await RunScopedAsync(app, async services =>
+{
+    var context = services.GetRequiredService<ApplicationDbContext>();
     await DbSeeder.SeedAsync(context);
 });
 

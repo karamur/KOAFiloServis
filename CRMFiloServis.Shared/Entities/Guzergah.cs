@@ -9,6 +9,18 @@ public class Guzergah : BaseEntity
     public string GuzergahAdi { get; set; } = string.Empty;
     public string? BaslangicNoktasi { get; set; }
     public string? BitisNoktasi { get; set; }
+
+    // Harita Koordinatları - Başlangıç
+    public double? BaslangicLatitude { get; set; }
+    public double? BaslangicLongitude { get; set; }
+
+    // Harita Koordinatları - Bitiş
+    public double? BitisLatitude { get; set; }
+    public double? BitisLongitude { get; set; }
+
+    // Rota Rengi (Harita gösterimi için)
+    public string? RotaRengi { get; set; } = "#3388ff";
+
     public decimal BirimFiyat { get; set; }
     public decimal? Mesafe { get; set; } // km
     public int? TahminiSure { get; set; } // dakika
