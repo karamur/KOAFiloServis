@@ -17,6 +17,10 @@ public class Fatura : BaseEntity
     public string? EttnNo { get; set; } // E-Fatura ETTN numarasi
     public string? GibKodu { get; set; } // GIB onay kodu
     public DateTime? GibOnayTarihi { get; set; }
+    public GibGonderimDurumu GibDurumu { get; set; } = GibGonderimDurumu.Bekliyor;
+    public DateTime? GibGonderimTarihi { get; set; }
+    public DateTime? GibDurumGuncellemeTarihi { get; set; }
+    public string? GibDurumMesaji { get; set; }
     public string? ImportKaynak { get; set; } // Excel, Luca, Manuel, XML
 
     // Dosya Yolları
@@ -102,4 +106,14 @@ public enum FaturaYonu
 {
     Giden = 1,      // Kesilen fatura
     Gelen = 2       // Alinan fatura
+}
+
+public enum GibGonderimDurumu
+{
+    Bekliyor = 0,
+    XmlHazirlandi = 1,
+    GonderimeHazir = 2,
+    Gonderildi = 3,
+    KabulEdildi = 4,
+    Reddedildi = 5
 }

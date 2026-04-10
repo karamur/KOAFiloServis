@@ -58,6 +58,16 @@
                             </select>
                         </div>
                         <div class="col-md-2">
+                            <label class="form-label">GİB Durumu</label>
+                            <select class="form-select" @bind="_gibDurum">
+                                <option value="">Tümü</option>
+                                @foreach (var durum in Enum.GetValues<GibGonderimDurumu>())
+                                {
+                                    <option value="@durum">@GetGibDurumText(durum)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label">Senaryo</label>
                             <select class="form-select" @bind="_senaryo">
                                 <option value="@EFaturaSenaryo.Temel">Temel Fatura</option>
@@ -128,6 +138,7 @@
                                         <th class="text-end">Tutar</th>
                                         <th>ETTN</th>
                                         <th>XML</th>
+                                        <th>GİB</th>
                                         <th style="width: 200px;">İşlemler</th>
                                     </tr>
                                 </thead>
@@ -207,6 +218,13 @@
                                                 }
                                             </td>
                                             <td>
+                                                <span class="badge @GetGibDurumBadge(fatura.GibDurumu)">@GetGibDurumText(fatura.GibDurumu)</span>
+                                                @if (!string.IsNullOrWhiteSpace(fatura.GibKodu))
+                                                {
+                                                    <br /><small class="text-muted">@fatura.GibKodu</small>
+                                                }
+                                            </td>
+                                            <td>
                                                 <div class="btn-group btn-group-sm">
                                                     @if (string.IsNullOrEmpty(fatura.XmlDosyaYolu))
                                                     {
@@ -235,6 +253,39 @@
                                                                 title="Yeniden Oluştur">
                                                             <i class="bi bi-arrow-repeat"></i>
                                                         </button>
+                                                        @if (fatura.GibDurumu == GibGonderimDurumu.XmlHazirlandi || fatura.GibDurumu == GibGonderimDurumu.Reddedildi)
+                                                        {
+                                                            <button class="btn btn-outline-secondary"
+                                                                    @onclick="() => GibHazirlaAsync(fatura.Id)"
+                                                                    disabled="@_islemYapiliyor"
+                                                                    title="Gönderime Hazırla">
+                                                                <i class="bi bi-send-check"></i>
+                                                            </button>
+                                                        }
+                                                        @if (fatura.GibDurumu == GibGonderimDurumu.GonderimeHazir)
+                                                        {
+                                                            <button class="btn btn-outline-dark"
+                                                                    @onclick="() => GibGonderildiIsaretleAsync(fatura.Id)"
+                                                                    disabled="@_islemYapiliyor"
+                                                                    title="Gönderildi Olarak İşaretle">
+                                                                <i class="bi bi-box-arrow-up-right"></i>
+                                                            </button>
+                                                        }
+                                                        @if (fatura.GibDurumu == GibGonderimDurumu.Gonderildi)
+                                                        {
+                                                            <button class="btn btn-outline-success"
+                                                                    @onclick="() => GibKabulAsync(fatura.Id)"
+                                                                    disabled="@_islemYapiliyor"
+                                                                    title="Kabul Edildi">
+                                                                <i class="bi bi-check2-circle"></i>
+                                                            </button>
+                                                            <button class="btn btn-outline-danger"
+                                                                    @onclick="() => GibRedAsync(fatura.Id)"
+                                                                    disabled="@_islemYapiliyor"
+                                                                    title="Reddedildi">
+                                                                <i class="bi bi-x-octagon"></i>
+                                                            </button>
+                                                        }
                                                     }
                                                 </div>
                                             </td>
@@ -359,6 +410,7 @@
     private DateTime _bitisTarihi = DateTime.Today;
     private FaturaTipi? _faturaTipi;
     private string _xmlDurum = "";
+    private string _gibDurum = "";
     private EFaturaSenaryo _senaryo = EFaturaSenaryo.Temel;
 
     // Önizleme
@@ -392,6 +444,7 @@
                 .Where(f => string.IsNullOrEmpty(_xmlDurum) ||
                             (_xmlDurum == "yok" && string.IsNullOrEmpty(f.XmlDosyaYolu)) ||
                             (_xmlDurum == "var" && !string.IsNullOrEmpty(f.XmlDosyaYolu)))
+                .Where(f => string.IsNullOrEmpty(_gibDurum) || f.GibDurumu.ToString() == _gibDurum)
                 .OrderByDescending(f => f.FaturaTarihi)
                 .ThenBy(f => f.FaturaNo)
                 .ToList();
@@ -566,4 +619,83 @@
             _basarili = true;
         }
     }
+
+    private async Task GibHazirlaAsync(int faturaId)
+    {
+        await GibDurumGuncelleAsync(faturaId, GibGonderimDurumu.GonderimeHazir, null, "XML kontrol edildi, GİB gönderimine hazır.");
+    }
+
+    private async Task GibGonderildiIsaretleAsync(int faturaId)
+    {
+        await GibDurumGuncelleAsync(faturaId, GibGonderimDurumu.Gonderildi, null, "GİB/entegratör tarafına gönderildi.");
+    }
+
+    private async Task GibKabulAsync(int faturaId)
+    {
+        var gibKodu = await JSRuntime.InvokeAsync<string>("prompt", "GİB onay kodu", "");
+        if (gibKodu is null)
+            return;
+
+        await GibDurumGuncelleAsync(faturaId, GibGonderimDurumu.KabulEdildi, gibKodu, "Fatura GİB tarafından kabul edildi.");
+    }
+
+    private async Task GibRedAsync(int faturaId)
+    {
+        var redNedeni = await JSRuntime.InvokeAsync<string>("prompt", "Red nedeni", "Şema/doğrulama hatası");
+        if (string.IsNullOrWhiteSpace(redNedeni))
+            return;
+
+        await GibDurumGuncelleAsync(faturaId, GibGonderimDurumu.Reddedildi, null, redNedeni);
+    }
+
+    private async Task GibDurumGuncelleAsync(int faturaId, GibGonderimDurumu durum, string? gibKodu, string? mesaj)
+    {
+        _islemYapiliyor = true;
+
+        try
+        {
+            var result = await EFaturaXmlService.GibDurumGuncelleAsync(faturaId, durum, gibKodu, mesaj);
+            if (!result)
+            {
+                _mesaj = "Fatura bulunamadı.";
+                _basarili = false;
+                return;
+            }
+
+            _mesaj = $"GİB durumu güncellendi: {GetGibDurumText(durum)}";
+            _basarili = true;
+            await FiltreleAsync();
+        }
+        catch (Exception ex)
+        {
+            _mesaj = $"GİB durum güncelleme hatası: {ex.Message}";
+            _basarili = false;
+        }
+        finally
+        {
+            _islemYapiliyor = false;
+        }
+    }
+
+    private static string GetGibDurumText(GibGonderimDurumu durum) => durum switch
+    {
+        GibGonderimDurumu.Bekliyor => "Bekliyor",
+        GibGonderimDurumu.XmlHazirlandi => "XML Hazırlandı",
+        GibGonderimDurumu.GonderimeHazir => "Gönderime Hazır",
+        GibGonderimDurumu.Gonderildi => "Gönderildi",
+        GibGonderimDurumu.KabulEdildi => "Kabul Edildi",
+        GibGonderimDurumu.Reddedildi => "Reddedildi",
+        _ => "Bekliyor"
+    };
+
+    private static string GetGibDurumBadge(GibGonderimDurumu durum) => durum switch
+    {
+        GibGonderimDurumu.Bekliyor => "bg-secondary",
+        GibGonderimDurumu.XmlHazirlandi => "bg-info",
+        GibGonderimDurumu.GonderimeHazir => "bg-primary",
+        GibGonderimDurumu.Gonderildi => "bg-dark",
+        GibGonderimDurumu.KabulEdildi => "bg-success",
+        GibGonderimDurumu.Reddedildi => "bg-danger",
+        _ => "bg-secondary"
+    };
 }

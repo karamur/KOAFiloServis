@@ -1,4 +1,5 @@
-﻿using CRMFiloServis.Web.Models;
+﻿using CRMFiloServis.Shared.Entities;
+using CRMFiloServis.Web.Models;
 
 namespace CRMFiloServis.Web.Services.Interfaces;
 
@@ -36,6 +37,11 @@ public interface IEFaturaXmlService
     /// Toplu E-Fatura XML oluşturur
     /// </summary>
     Task<List<EFaturaXmlSonuc>> TopluXmlOlusturAsync(List<int> faturaIdler, EFaturaSenaryo senaryo);
+
+    /// <summary>
+    /// GİB gönderim durumunu günceller
+    /// </summary>
+    Task<bool> GibDurumGuncelleAsync(int faturaId, GibGonderimDurumu durum, string? gibKodu = null, string? mesaj = null);
 
     /// <summary>
     /// ETTN (UUID) numarası oluşturur

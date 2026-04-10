@@ -115,6 +115,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<Mesaj> Mesajlar { get; set; }
     public DbSet<EmailAyar> EmailAyarlari { get; set; }
     public DbSet<WhatsAppAyar> WhatsAppAyarlari { get; set; }
+    public DbSet<SmsAyar> SmsAyarlari { get; set; }
+    public DbSet<SmsLog> SmsLoglari { get; set; }
+    public DbSet<SmsSablon> SmsSablonlari { get; set; }
     public DbSet<Hatirlatici> Hatirlaticilar { get; set; }
     public DbSet<KullaniciCari> KullaniciCariler { get; set; }
     public DbSet<DashboardWidget> DashboardWidgetlar { get; set; }

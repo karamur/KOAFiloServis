@@ -367,6 +367,50 @@ public class EFaturaXmlService : IEFaturaXmlService
     }
 
     /// <inheritdoc/>
+    public async Task<bool> GibDurumGuncelleAsync(int faturaId, GibGonderimDurumu durum, string? gibKodu = null, string? mesaj = null)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+
+        var fatura = await dbContext.Faturalar.FindAsync(faturaId);
+        if (fatura == null)
+            return false;
+
+        if (durum != GibGonderimDurumu.Bekliyor && string.IsNullOrWhiteSpace(fatura.XmlDosyaYolu))
+            throw new InvalidOperationException("GİB durumuna alınmadan önce XML oluşturulmuş olmalıdır.");
+
+        fatura.GibDurumu = durum;
+        fatura.GibDurumMesaji = mesaj;
+        fatura.GibDurumGuncellemeTarihi = DateTime.UtcNow;
+
+        if (durum == GibGonderimDurumu.Gonderildi)
+        {
+            fatura.GibGonderimTarihi = DateTime.UtcNow;
+        }
+
+        if (durum == GibGonderimDurumu.KabulEdildi)
+        {
+            fatura.GibKodu = gibKodu;
+            fatura.GibOnayTarihi = DateTime.UtcNow;
+        }
+
+        if (durum == GibGonderimDurumu.Reddedildi)
+        {
+            fatura.GibKodu = gibKodu;
+            fatura.GibOnayTarihi = null;
+        }
+
+        if (durum == GibGonderimDurumu.Bekliyor)
+        {
+            fatura.GibKodu = null;
+            fatura.GibOnayTarihi = null;
+            fatura.GibGonderimTarihi = null;
+        }
+
+        await dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    /// <inheritdoc/>
     public string YeniEttnOlustur()
     {
         return Guid.NewGuid().ToString().ToUpperInvariant();
@@ -718,6 +762,9 @@ public class EFaturaXmlService : IEFaturaXmlService
             fatura.EttnNo = ettn;
             if (!string.IsNullOrEmpty(dosyaYolu))
                 fatura.XmlDosyaYolu = dosyaYolu;
+            fatura.GibDurumu = GibGonderimDurumu.XmlHazirlandi;
+            fatura.GibDurumMesaji = "UBL-TR XML oluşturuldu.";
+            fatura.GibDurumGuncellemeTarihi = DateTime.UtcNow;
 
             await dbContext.SaveChangesAsync();
         }

@@ -89,6 +89,13 @@ public class BildirimAyar : BaseEntity
     public bool EpostaAlsin { get; set; } = false;
     public string? EpostaAdresi { get; set; }
 
+    // SMS tercihleri
+    public bool SmsAlsin { get; set; } = false;
+    [StringLength(20)]
+    public string? SmsTelefon { get; set; }
+    public bool SmsVadeHatirlatma { get; set; } = true;
+    public bool SmsBelgeHatirlatma { get; set; } = false;
+
     // Kaç gün önceden uyarı verilsin?
     public int VadeUyariGunSayisi { get; set; } = 7;
     public int BelgeUyariGunSayisi { get; set; } = 30;
@@ -226,6 +233,146 @@ public class WhatsAppAyar : BaseEntity
     public string? HizliSablonlarJson { get; set; }
 
     public bool Aktif { get; set; } = false;
+}
+
+/// <summary>
+/// SMS ayarları - provider bazlı (NetGSM, İletimerkezi, Twilio vb.)
+/// </summary>
+public class SmsAyar : BaseEntity
+{
+    public int? FirmaId { get; set; }
+    public virtual Firma? Firma { get; set; }
+
+    [Required]
+    public SmsProvider Provider { get; set; } = SmsProvider.NetGsm;
+
+    [StringLength(100)]
+    public string? KullaniciAdi { get; set; } // API kullanıcı adı
+
+    [StringLength(200)]
+    public string? ApiKey { get; set; } // API anahtarı / şifre
+
+    [StringLength(50)]
+    public string? GondericiNumara { get; set; } // Originator / Başlık (FIRMAADI gibi)
+
+    [StringLength(200)]
+    public string? ApiUrl { get; set; } // Özel API URL (opsiyonel)
+
+    public bool Aktif { get; set; } = false;
+
+    // Bakiye/Limit Takibi
+    public decimal? Bakiye { get; set; }
+    public DateTime? SonBakiyeSorguTarihi { get; set; }
+
+    // İstatistikler
+    public int ToplamGonderilenSms { get; set; } = 0;
+    public int ToplamBasarisizSms { get; set; } = 0;
+    public DateTime? SonGonderimTarihi { get; set; }
+}
+
+/// <summary>
+/// SMS sağlayıcı türleri
+/// </summary>
+public enum SmsProvider
+{
+    NetGsm = 0,        // NetGSM
+    Iletimerkezi = 1,  // İletimerkezi
+    Twilio = 2,        // Twilio
+    Mutlucell = 3,     // Mutlucell
+    JetSms = 4,        // JetSMS
+    Verimor = 5,       // Verimor
+    Diger = 99         // Diğer/Özel
+}
+
+/// <summary>
+/// SMS gönderim logu - gönderilen SMS kayıtları
+/// </summary>
+public class SmsLog : BaseEntity
+{
+    public int? SmsAyarId { get; set; }
+    public virtual SmsAyar? SmsAyar { get; set; }
+
+    [Required]
+    [StringLength(20)]
+    public string Telefon { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(500)]
+    public string Mesaj { get; set; } = string.Empty;
+
+    public SmsGonderimDurum Durum { get; set; } = SmsGonderimDurum.Bekliyor;
+
+    [StringLength(100)]
+    public string? ProviderMesajId { get; set; } // Provider'dan dönen ID
+
+    [StringLength(500)]
+    public string? HataMesaji { get; set; }
+
+    public DateTime? GonderimTarihi { get; set; }
+    public DateTime? IletimTarihi { get; set; }
+
+    // İlişkili kayıt
+    [StringLength(50)]
+    public string? IliskiliTablo { get; set; } // "Cari", "Fatura", "Personel" vb.
+    public int? IliskiliKayitId { get; set; }
+
+    // SMS tipi
+    public SmsTipi Tip { get; set; } = SmsTipi.Bildirim;
+
+    // Gönderen kullanıcı
+    public int? GonderenKullaniciId { get; set; }
+    public virtual Kullanici? GonderenKullanici { get; set; }
+}
+
+/// <summary>
+/// SMS gönderim durumu
+/// </summary>
+public enum SmsGonderimDurum
+{
+    Bekliyor = 0,      // Henüz gönderilmedi
+    Gonderildi = 1,    // Provider'a iletildi
+    Iletildi = 2,      // Alıcıya ulaştı
+    Basarisiz = 3,     // Gönderilemedi
+    Iptal = 4          // İptal edildi
+}
+
+/// <summary>
+/// SMS tipi
+/// </summary>
+public enum SmsTipi
+{
+    Bildirim = 0,       // Genel bildirim
+    VadeHatirlatma = 1, // Vade hatırlatması
+    OdemeBildirimi = 2, // Ödeme bildirimi
+    FaturaBildirimi = 3,// Fatura bildirimi
+    Duyuru = 4,         // Toplu duyuru
+    DogrulamaKodu = 5,  // OTP/Doğrulama kodu
+    Pazarlama = 6       // Pazarlama SMS'i
+}
+
+/// <summary>
+/// SMS şablonları
+/// </summary>
+public class SmsSablon : BaseEntity
+{
+    public int? FirmaId { get; set; }
+    public virtual Firma? Firma { get; set; }
+
+    [Required]
+    [StringLength(100)]
+    public string Adi { get; set; } = string.Empty;
+
+    [StringLength(200)]
+    public string? Aciklama { get; set; }
+
+    [Required]
+    [StringLength(500)]
+    public string Sablon { get; set; } = string.Empty; // {MusteriAdi}, {FaturaNo}, {Tutar} gibi değişkenler
+
+    public SmsTipi Tip { get; set; } = SmsTipi.Bildirim;
+
+    public bool Aktif { get; set; } = true;
+    public bool Varsayilan { get; set; } = false;
 }
 
 #endregion

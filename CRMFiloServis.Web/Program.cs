@@ -9,10 +9,14 @@ using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.DataProtection.Repositories;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
+using System.Text;
 using System.Text.Json;
 
 // EPPlus lisans ayari (NonCommercial kullanim icin)
@@ -218,11 +222,84 @@ builder.Services.AddScoped<IEbysBelgeAramaService, EbysBelgeAramaService>(); // 
 builder.Services.AddScoped<IEbysAIService, EbysAIService>(); // EBYS AI Servisi (OCR, Belge Sınıflandırma)
 builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>(); // EBYS Semantic Search (Akıllı Belge Arama) Servisi
 builder.Services.AddScoped<IBildirimService, BildirimService>(); // Bildirim Sistemi Servisi
+builder.Services.AddScoped<ISmsService, SmsService>(); // SMS Gönderim Servisi
+builder.Services.AddHttpClient("SMS"); // SMS provider'lar için HttpClient
 builder.Services.AddHostedService<AutoBackupService>();
 builder.Services.AddHttpContextAccessor();
 
-// API Controller destegi - Mobil uygulama icin
-builder.Services.AddControllers();
+// API Controller ve JWT Authentication
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = null;
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
+
+// JWT Authentication - API için
+var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "CRMFiloServis-Super-Secret-Key-2025-Minimum-32-Chars";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "CRMFiloServis";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "CRMFiloServis-API";
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = "Cookies";
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+// Swagger/OpenAPI
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "CRM Filo Servis API",
+        Version = "v1",
+        Description = "Filo Yönetim Sistemi REST API - Araç, Şoför, Cari, Fatura ve daha fazlası",
+        Contact = new OpenApiContact
+        {
+            Name = "Koa Yazılım",
+            Email = "destek@koayazilim.com"
+        }
+    });
+
+    // JWT Bearer Authentication şeması
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header. Örnek: \"Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
@@ -262,6 +339,19 @@ await RunScopedAsync(app, async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.PersonelPuantajOnayMigrationHelper.ApplyPersonelPuantajOnayAsync(context);
+});
+
+await RunScopedAsync(app, async services =>
+{
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    await CRMFiloServis.Web.Data.Migrations.FaturaGibDurumMigrationHelper.ApplyFaturaGibDurumAsync(context);
+});
+
+await RunScopedAsync(app, async services =>
+{
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    await CRMFiloServis.Web.Data.Migrations.SmsMigrationHelper.EnsureSmsTablesAsync(context, logger);
 });
 
 await RunScopedAsync(app, async services =>
@@ -347,6 +437,16 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
+
+// Swagger UI - tüm ortamlarda aktif (API dokümantasyonu)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM Filo Servis API v1");
+    c.RoutePrefix = "swagger";
+    c.DocumentTitle = "CRM Filo Servis API Dokümantasyonu";
+});
+
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
 // HTTPS yonlendirme - sadece HTTPS portu aktifse calistir
@@ -359,6 +459,10 @@ if (httpsPort.HasValue)
 }
 
 app.UseAntiforgery();
+
+// Authentication & Authorization - API için
+app.UseAuthentication();
+app.UseAuthorization();
 
 var externalUploadsPath = AppStoragePaths.GetUploadsRoot(app.Environment.ContentRootPath);
 Directory.CreateDirectory(externalUploadsPath);

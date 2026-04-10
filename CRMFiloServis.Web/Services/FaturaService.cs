@@ -223,6 +223,11 @@ public class FaturaService : IFaturaService
         existing.Notlar = fatura.Notlar;
         existing.EttnNo = fatura.EttnNo;
         existing.GibKodu = fatura.GibKodu;
+        existing.GibDurumu = fatura.GibDurumu;
+        existing.GibGonderimTarihi = fatura.GibGonderimTarihi;
+        existing.GibDurumGuncellemeTarihi = fatura.GibDurumGuncellemeTarihi;
+        existing.GibDurumMesaji = fatura.GibDurumMesaji;
+        existing.GibOnayTarihi = fatura.GibOnayTarihi;
         existing.TevkifatliMi = fatura.TevkifatliMi;
         existing.TevkifatOrani = fatura.TevkifatOrani;
         existing.TevkifatKodu = fatura.TevkifatKodu;

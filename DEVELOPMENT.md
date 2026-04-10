@@ -39,7 +39,158 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ---
 
+## Handoff Notu
+
+### Son Durum
+- Son tamamlanan geliştirme: `Kayıt 130 - REST API + Swagger (FAZ 4.2)`
+- Git durumu: commit edilecek
+- Branch: `main`
+
+### Yarın Devam İçin Önerilen Başlangıç
+1. `Harita entegrasyonu` veya
+2. `Mobil uygulama (MAUI Blazor)` veya
+3. `Webhook desteği`
+
+### Kısa Teknik Özet
+- REST API ile JWT Bearer Authentication eklendi (24 saat token süresi)
+- Swagger/OpenAPI dokümantasyonu aktif (/swagger endpoint)
+- 6 API Controller: AuthController, CarilerController, AraclarController, SoforlerController, FaturalarController, GuzergahlarController
+- appsettings.json'da Jwt:Secret konfigürasyonu eklendi
+
+### Not
+- Yarın devam ederken önce `ROADMAP.md` ve bu dosyadaki son kayıtlar referans alınmalı.
+
+---
+
 ## İstek Kayıtları
+
+### Kayıt 130 - REST API + Swagger (FAZ 4.2)
+**Talep:**
+- REST API oluşturma ve Swagger dokümantasyonu
+
+**Yapılanlar:**
+- NuGet paketleri eklendi:
+  - `Swashbuckle.AspNetCore` (Swagger/OpenAPI)
+  - `Microsoft.AspNetCore.Authentication.JwtBearer` (JWT Authentication)
+- `Program.cs` güncellemeleri:
+  - JWT Bearer Authentication konfigürasyonu
+  - Swagger/OpenAPI servisi ve UI
+  - Bearer token şeması ile güvenlik tanımı
+- `appsettings.json` güncellemeleri:
+  - `Jwt:Secret`, `Jwt:Issuer`, `Jwt:Audience` ayarları
+- 6 API Controller oluşturuldu:
+  - `AuthController` - JWT token oluşturma (login, refresh, verify)
+  - `CarilerController` - Cari CRUD (list, get, create, update, delete, bakiye)
+  - `AraclarController` - Araç CRUD (list, get, create, update, delete)
+  - `SoforlerController` - Şoför CRUD (list, get, create, update, delete, performans)
+  - `FaturalarController` - Fatura CRUD (list, get, create, delete, durum güncelleme, vadesi geçmişler)
+  - `GuzergahlarController` - Güzergah CRUD (list, get, create, update, delete)
+- Her controller için DTO modelleri tanımlandı
+- Entity model uyumsuzlukları düzeltildi (KdvTutar, FaturaKalemleri, Rol.RolAdi, PlakaIslemTipi.Alis)
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Web/Program.cs`
+- `CRMFiloServis.Web/appsettings.json`
+- `CRMFiloServis.Web/Controllers/AuthController.cs` (yeni)
+- `CRMFiloServis.Web/Controllers/CarilerController.cs` (yeni)
+- `CRMFiloServis.Web/Controllers/AraclarController.cs` (yeni)
+- `CRMFiloServis.Web/Controllers/SoforlerController.cs` (yeni)
+- `CRMFiloServis.Web/Controllers/FaturalarController.cs` (yeni)
+- `CRMFiloServis.Web/Controllers/GuzergahlarController.cs` (yeni)
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 129 - SMS Entegrasyonu
+**Talep:**
+- SMS gönderim altyapısı (birden fazla SMS sağlayıcı desteği)
+- SMS şablonları
+- Bildirim sistemi ile entegrasyon
+
+**Yapılanlar:**
+- SMS Entity'leri oluşturuldu:
+  - `SmsAyar` - SMS sağlayıcı ayarları (provider, API bilgileri, bakiye vb.)
+  - `SmsLog` - SMS gönderim logları
+  - `SmsSablon` - SMS şablonları
+  - `SmsProvider` enum (NetGSM, İletimerkezi, Mutlucell, Twilio, JetSMS, Verimor)
+  - `SmsGonderimDurum` enum (Bekliyor, Gonderildi, Iletildi, Basarisiz, Iptal)
+  - `SmsTipi` enum (Bildirim, VadeHatirlatma, OdemeBildirimi, FaturaBildirimi, Duyuru, DogrulamaKodu, Pazarlama)
+- `ISmsService` interface oluşturuldu:
+  - SMS ayarları CRUD
+  - Bakiye sorgulama
+  - Tekli/toplu SMS gönderimi
+  - Şablonlu gönderim
+  - Log yönetimi
+  - İstatistik
+- `SmsService` implementasyonu:
+  - NetGSM API entegrasyonu
+  - İletimerkezi API entegrasyonu
+  - Mutlucell API entegrasyonu
+  - Twilio API entegrasyonu
+  - Telefon numarası formatlama
+  - Hata kodu açıklamaları
+- `SmsMigrationHelper` oluşturuldu (runtime tablo oluşturma)
+- `BildirimAyar` entity'sine SMS tercihleri eklendi:
+  - `SmsAlsin`, `SmsTelefon`, `SmsVadeHatirlatma`, `SmsBelgeHatirlatma`
+- `/ayarlar/sms` sayfası oluşturuldu:
+  - SMS sağlayıcı ayarları yönetimi
+  - SMS şablon yönetimi
+  - Bakiye sorgulama
+  - Test SMS gönderimi
+  - İstatistik paneli
+  - Desteklenen sağlayıcılar listesi
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/CRMEntities.cs`
+- `CRMFiloServis.Web/Services/Interfaces/ISmsService.cs` (yeni)
+- `CRMFiloServis.Web/Services/SmsService.cs` (yeni)
+- `CRMFiloServis.Web/Data/ApplicationDbContext.cs`
+- `CRMFiloServis.Web/Data/Migrations/SmsMigrationHelper.cs` (yeni)
+- `CRMFiloServis.Web/Components/Pages/Ayarlar/SmsAyarlari.razor` (yeni)
+- `CRMFiloServis.Web/Program.cs`
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
+
+### Kayıt 128 - E-Fatura Entegrasyonu (GİB) Durum Takibi
+**Talep:**
+- E-Fatura tarafında GİB gönderim sürecinin hazırlanması ve durum takibi
+
+**Yapılanlar:**
+- `Fatura` entity'sine GİB durum alanları eklendi:
+  - `GibDurumu`
+  - `GibGonderimTarihi`
+  - `GibDurumGuncellemeTarihi`
+  - `GibDurumMesaji`
+- `IEFaturaXmlService` içine `GibDurumGuncelleAsync` eklendi
+- `EFaturaXmlService` içinde:
+  - XML oluşturma sonrası faturayı otomatik `XmlHazirlandi` durumuna alma
+  - gönderime hazır / gönderildi / kabul / red güncelleme akışı
+  eklendi
+- `EFaturaXml.razor` içinde:
+  - GİB durumu filtresi
+  - durum rozeti
+  - gönderime hazırla / gönderildi / kabul / red aksiyonları
+  eklendi
+- `FaturaGibDurumMigrationHelper` oluşturuldu ve `Program.cs` içine bağlandı
+
+**Etkilenen Dosyalar:**
+- `CRMFiloServis.Shared/Entities/Fatura.cs`
+- `CRMFiloServis.Web/Services/Interfaces/IEFaturaXmlService.cs`
+- `CRMFiloServis.Web/Services/EFaturaXmlService.cs`
+- `CRMFiloServis.Web/Services/FaturaService.cs`
+- `CRMFiloServis.Web/Components/Pages/Faturalar/EFaturaXml.razor`
+- `CRMFiloServis.Web/Data/Migrations/FaturaGibDurumMigrationHelper.cs`
+- `CRMFiloServis.Web/Program.cs`
+- `ROADMAP.md`
+
+**Durum:** ✅ Tamamlandı
+
+---
 
 ### Kayıt 127 - Puantaj Onay Sistemi
 **Talep:**

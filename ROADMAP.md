@@ -3,6 +3,8 @@
 ## ?? Mevcut Durum Analizi
 
 ### Son Güncellemeler
+- ✅ `REST API + Swagger (FAZ 4.2)` tamamlandı - JWT Bearer Authentication, 6 API Controller (Auth, Cariler, Araclar, Soforler, Faturalar, Guzergahlar), Swagger/OpenAPI dokümantasyonu eklendi.
+- ✅ `E-Fatura entegrasyonu (GİB) - Durum Takibi` tamamlandı - XML sonrası gönderime hazırlık, gönderildi, kabul/red durum takibi ve UI aksiyonları eklendi.
 - ✅ `Puantaj onay sistemi` tamamlandı - Personel puantaj kayıtları için taslak, onay bekliyor, onaylandı, reddedildi akışı ve UI aksiyonları eklendi.
 - ✅ `Maaşa Mahsup (Masraf/Ödeme)` tamamlandı - Açık avansların maaştan kesinti olarak mahsup edilmesi ve maaş ekranından yönetimi eklendi.
 - ✅ `ASP.NET Core Identity Entegrasyonu` tamamlandı - `UserManager` destekli kullanıcı store, legacy hash uyumlu password hasher ve mevcut kullanıcı sistemi ile uyumlu kimlik altyapısı eklendi.
@@ -93,15 +95,15 @@
 
 ---
 
-## ?? FAZ 3 - İleri Seviye Özellikler
+## 🚀 FAZ 3 - İleri Seviye Özellikler
 
 ### 3.1 Entegrasyonlar
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| E-Fatura entegrasyonu (GİB) | ?? Yüksek | 5 gün | ? |
-| SMS entegrasyonu | ?? Orta | 2 gün | ? |
-| Harita entegrasyonu (güzergah gösterimi) | ?? Düşük | 3 gün | ? |
-| Araç takip sistemi entegrasyonu | ?? Düşük | 4 gün | ? |
+| E-Fatura entegrasyonu (GİB) | 🔴 Yüksek | 5 gün | ✅ |
+| SMS entegrasyonu | 🟡 Orta | 2 gün | ✅ Tamamlandı |
+| Harita entegrasyonu (güzergah gösterimi) | 🟢 Düşük | 3 gün | ❓ |
+| Araç takip sistemi entegrasyonu | 🟢 Düşük | 4 gün | ❓ |
 
 ### 3.2 Gelişmiş Raporlama
 | Özellik | Öncelik | Süre | Durum |
@@ -134,9 +136,9 @@
 ### 4.2 API & Entegrasyon
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| REST API oluşturma | ?? Orta | 4 gün | ? |
-| API dokümantasyonu (Swagger) | ?? Orta | 1 gün | ? |
-| Webhook desteği | ?? Düşük | 2 gün | ? |
+| REST API oluşturma | 🟡 Orta | 4 gün | ✅ Tamamlandı |
+| API dokümantasyonu (Swagger) | 🟡 Orta | 1 gün | ✅ Tamamlandı |
+| Webhook desteği | 🟢 Düşük | 2 gün | ❌ |
 
 ### 4.3 Performans & Ölçekleme
 | Özellik | Öncelik | Süre | Durum |
@@ -415,7 +417,13 @@ FAZ 8 (2-3 Hafta) - ✅ TAMAMLANDI
    - Örnek gelen/giden evraklar (7 adet) ✅
 
 ### ✅ Son Tamamlanan
-1. **Puantaj onay sistemi** (Kayıt 127)
+1. **E-Fatura entegrasyonu (GİB) - Durum Takibi** (Kayıt 128)
+   - `Fatura` entity'sine GİB gönderim durumu alanları eklendi
+   - `EFaturaXmlService` içine GİB durum güncelleme akışı eklendi
+   - XML oluşturulduğunda fatura otomatik `XML Hazırlandı` durumuna alınıyor
+   - `EFaturaXml.razor` ekranına GİB durum filtresi, rozetleri ve durum aksiyonları eklendi
+
+2. **Puantaj onay sistemi** (Kayıt 127)
    - `PersonelPuantaj` için onay durumu, onaylayan kullanıcı, onay tarihi ve onay notu alanları eklendi
    - `PuantajService` içine onaya gönder, onayla ve reddet akışları eklendi
    - `CalismaPuantaji.razor` içine onay durumu sütunu ve satır bazlı aksiyonlar eklendi
