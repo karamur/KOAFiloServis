@@ -142,6 +142,25 @@ builder.Services.AddSingleton<IConfigureOptions<KeyManagementOptions>>(sp =>
 builder.Services.AddSingleton<IPortalProjectCatalogService, PortalProjectCatalogService>();
 builder.Services.AddSingleton<ISecureFileService, SecureFileService>();
 
+// Distributed Cache - Redis veya Memory
+var cacheProvider = builder.Configuration.GetValue<string>("Cache:Provider") ?? "Memory";
+if (cacheProvider.Equals("Redis", StringComparison.OrdinalIgnoreCase))
+{
+    var redisConnection = builder.Configuration.GetValue<string>("Cache:Redis:ConnectionString") ?? "localhost:6379";
+    var redisInstance = builder.Configuration.GetValue<string>("Cache:Redis:InstanceName") ?? "CRMFilo:";
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnection;
+        options.InstanceName = redisInstance;
+    });
+}
+else
+{
+    // Development/fallback için Memory Cache
+    builder.Services.AddDistributedMemoryCache();
+}
+builder.Services.AddScoped<ICacheService, CacheService>();
+
 // Application Services
 builder.Services.AddSingleton<IFirmaService, FirmaService>(); // Singleton - aktif firma state tutmak icin
 builder.Services.AddSingleton<ILisansService, LisansService>(); // Singleton - lisans cache
