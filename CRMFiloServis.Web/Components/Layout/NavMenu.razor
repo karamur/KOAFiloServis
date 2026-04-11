@@ -38,7 +38,7 @@
             </div>
         }
 
-        <!-- EBYS BELGE YONETIMI -->
+ @*        <!-- EBYS BELGE YONETIMI -->
         @if (HasYetki("belgeuyari.oku"))
         {
             <div class="nav-section">
@@ -83,8 +83,7 @@
                 }
             </div>
         }
-
-        <!-- CRM MODULU -->
+ @*        <!-- CRM MODULU -->
         @if (HasMenuYetki("menu.crm"))
         {
             <div class="nav-section">
@@ -150,7 +149,7 @@
                     </div>
                 }
             </div>
-        }
+        } *@
 
         <!-- CARI MODULU -->
         @if (HasMenuYetki("menu.cari"))
@@ -281,6 +280,9 @@
                         <!-- YENİ EKLENEN FİLO KOMİSYON PUANTAJ LİSTESİ -->
                         @if (HasYetki("raporlar.oku"))
                         {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-diagram-3 me-2"></i>Operasyon / Puantaj</span>
+                            </div>
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="filo/komisyon-eslestirme">
                                     <i class="bi bi-link-45deg me-2 text-primary"></i> Eşleştirme Şablonları
@@ -296,39 +298,12 @@
                         <!-- FİLO OPERASYON YÖNETİMİ -->
                         @if (HasYetki("raporlar.oku"))
                         {
-                            <div class="nav-item px-3 mt-2 pt-2 border-top">
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-speedometer2 me-2"></i>Filo Yönetimi</span>
+                            </div>
+                            <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="filo-operasyon">
                                     <i class="bi bi-gear-wide-connected me-2 text-info"></i> <strong>Filo Operasyon</strong>
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="filo-operasyon/komisyonculuk">
-                                    <i class="bi bi-briefcase me-2 text-success"></i> Komisyonculuk İşleri
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="filo-operasyon/alim-satim">
-                                    <i class="bi bi-cart-plus me-2 text-warning"></i> Araç Alım/Satım
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="filo-operasyon/plaka-donusum">
-                                    <i class="bi bi-card-text me-2 text-primary"></i> Plaka Dönüşüm
-                                </NavLink>
-                            </div>
-                        }
-
-                        <!-- ARAÇ İLAN YAYIN -->
-                        @if (HasYetki("raporlar.oku"))
-                        {
-                            <div class="nav-item px-3 mt-2 pt-2 border-top">
-                                <NavLink class="nav-link" href="ilan-platformlari">
-                                    <i class="bi bi-broadcast me-2 text-danger"></i> İlan Platformları
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="arac-ilan-yayinlari">
-                                    <i class="bi bi-megaphone me-2 text-info"></i> Araç İlan Yayınları
                                 </NavLink>
                             </div>
                         }
@@ -336,7 +311,10 @@
                         <!-- HAKEDİS/PUANTAJ SİSTEMİ -->
                         @if (HasYetki("raporlar.oku"))
                         {
-                            <div class="nav-item px-3 mt-2 pt-2 border-top">
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-cash-coin me-2"></i>Hakediş / Puantaj</span>
+                            </div>
+                            <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="hakedis-tablosu">
                                     <i class="bi bi-table me-2 text-primary"></i> <strong>Hakedis Tablosu</strong>
                                 </NavLink>
@@ -714,11 +692,51 @@
                                 </NavLink>
                             </div>
                         }
+                        @if (HasYetki("raporlar.oku"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-car-front me-2"></i>Araç Satış / Kiralama</span>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="filo-operasyon/alim-satim">
+                                    <i class="bi bi-cart-plus me-2 text-warning"></i> Araç Alım/Satım
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="filo-operasyon/plaka-donusum">
+                                    <i class="bi bi-card-text me-2 text-primary"></i> Plaka Dönüşüm
+                                </NavLink>
+                            </div>
+                        }
+                        @if (HasYetki("raporlar.oku"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-briefcase me-2"></i>Komisyon / Taşeron</span>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="filo-operasyon/komisyonculuk">
+                                    <i class="bi bi-briefcase me-2 text-success"></i> Komisyonculuk İşleri
+                                </NavLink>
+                            </div>
+                        }
                         @if (HasYetki("piyasa.oku"))
                         {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-megaphone me-2"></i>Piyasa / İlan</span>
+                            </div>
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="satis/piyasa-karsilastirma">
                                     <i class="bi bi-bar-chart-line-fill me-2 text-info"></i> Piyasa Araştırma
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ilan-platformlari">
+                                    <i class="bi bi-broadcast me-2 text-danger"></i> İlan Platformları
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="arac-ilan-yayinlari">
+                                    <i class="bi bi-megaphone me-2 text-info"></i> Araç İlan Yayınları
                                 </NavLink>
                             </div>
                         }
@@ -1106,6 +1124,11 @@
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="ayarlar/gps-simulasyon">
                                     <i class="bi bi-broadcast me-2 text-success"></i> GPS Simülasyon
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/audit-log">
+                                    <i class="bi bi-clock-history me-2 text-info"></i> Audit Log
                                 </NavLink>
                             </div>
                         }
