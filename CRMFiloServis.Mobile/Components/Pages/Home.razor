@@ -154,6 +154,8 @@
 
         try
         {
+            await ApiService.TokenYukleAsync();
+
             if (ApiService.TokenGecerliMi)
             {
                 _kullanici = await ApiService.KullaniciBilgisiGetirAsync();

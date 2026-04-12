@@ -44,6 +44,27 @@
                             </button>
                         </div>
                         <small class="text-muted">Gerekirse IP:Port girin. Örnek: 192.168.1.10:5190</small>
+                        <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="BaglantiyiTestEtAsync" disabled="@_yukleniyor">
+                                @if (_baglantiTestEdiliyor)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                    <span>Test ediliyor...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-wifi me-1"></i>
+                                    <span>Bağlantıyı Test Et</span>
+                                }
+                            </button>
+                            @if (!string.IsNullOrWhiteSpace(_baglantiDurumu))
+                            {
+                                <span class="small @(_baglantiBasarili ? "text-success" : "text-danger")">
+                                    <i class="bi @(_baglantiBasarili ? "bi-check-circle" : "bi-x-circle") me-1"></i>
+                                    @_baglantiDurumu
+                                </span>
+                            }
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -117,6 +138,9 @@
     private string? _hataMesaji;
     private bool _sifreGoster;
     private string _sunucuAdresi = "192.168.1.10:5190";
+    private bool _baglantiTestEdiliyor;
+    private bool _baglantiBasarili;
+    private string? _baglantiDurumu;
 
     private class GirisModel
     {
@@ -164,6 +188,33 @@
         }
     }
 
+    private async Task BaglantiyiTestEtAsync()
+    {
+        _hataMesaji = null;
+        _baglantiDurumu = null;
+        _baglantiBasarili = false;
+        _baglantiTestEdiliyor = true;
+
+        try
+        {
+            await ApiService.SetSunucuAdresiAsync(_sunucuAdresi);
+            var sonuc = await ApiService.BaglantiyiTestEtAsync();
+            _baglantiBasarili = sonuc;
+            _baglantiDurumu = sonuc
+                ? "Sunucuya bağlanıldı"
+                : "Sunucuya bağlanılamadı";
+        }
+        catch (Exception ex)
+        {
+            _baglantiBasarili = false;
+            _baglantiDurumu = $"Bağlantı hatası: {ex.Message}";
+        }
+        finally
+        {
+            _baglantiTestEdiliyor = false;
+        }
+    }
+
     private void SifreGosterToggle()
     {
         _sifreGoster = !_sifreGoster;
@@ -173,5 +224,6 @@
     {
         _sunucuAdresi = "192.168.1.10:5190";
         _hataMesaji = null;
+        _baglantiDurumu = null;
     }
 }
