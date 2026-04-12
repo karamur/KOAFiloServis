@@ -75,9 +75,17 @@
                 <label class="form-label small text-muted">Sunucu Adresi</label>
                 <input type="text" class="form-control" @bind="_sunucuAdresi" placeholder="https://api.filoservis.com" />
             </div>
-            <button class="btn btn-outline-primary btn-sm" @onclick="BaglantiyiTestEtAsync">
+            <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="VarsayilanSunucuyuUygula">
+                    <i class="bi bi-router me-1"></i> 192.168.1.10:5190 kullan
+                </button>
+                <button class="btn btn-primary btn-sm" @onclick="SunucuAdresiniKaydetAsync">
+                    <i class="bi bi-floppy me-1"></i> Kaydet
+                </button>
+                <button class="btn btn-outline-primary btn-sm" @onclick="BaglantiyiTestEtAsync">
                 <i class="bi bi-wifi me-1"></i> Bağlantıyı Test Et
-            </button>
+                </button>
+            </div>
             @if (_baglantiDurumu != null)
             {
                 <span class="ms-2 @(_baglantiBasarili ? "text-success" : "text-danger")">
@@ -134,8 +142,7 @@
 
     private async Task AyarlariYukleAsync()
     {
-        // TODO: Ayarları localStorage'dan yükle
-        await Task.CompletedTask;
+        _sunucuAdresi = await ApiService.GetSunucuAdresiAsync();
     }
 
     private async Task BaglantiyiTestEtAsync()
@@ -146,6 +153,7 @@
 
         try
         {
+            await ApiService.SetSunucuAdresiAsync(_sunucuAdresi);
             var sonuc = await ApiService.BaglantiyiTestEtAsync();
             _baglantiBasarili = sonuc;
             _baglantiDurumu = sonuc ? "Bağlantı başarılı" : "Bağlantı başarısız";
@@ -155,6 +163,20 @@
             _baglantiBasarili = false;
             _baglantiDurumu = "Bağlantı hatası";
         }
+    }
+
+    private async Task SunucuAdresiniKaydetAsync()
+    {
+        await ApiService.SetSunucuAdresiAsync(_sunucuAdresi);
+        _sunucuAdresi = await ApiService.GetSunucuAdresiAsync();
+        _baglantiBasarili = true;
+        _baglantiDurumu = "Sunucu adresi kaydedildi";
+    }
+
+    private void VarsayilanSunucuyuUygula()
+    {
+        _sunucuAdresi = "192.168.1.10:5190";
+        _baglantiDurumu = null;
     }
 
     private async Task CikisYapAsync()

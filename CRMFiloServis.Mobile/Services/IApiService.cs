@@ -86,6 +86,16 @@ public interface IApiService
     Task<bool> BaglantiyiTestEtAsync();
 
     /// <summary>
+    /// Kaydedilmiş sunucu adresini getir
+    /// </summary>
+    Task<string> GetSunucuAdresiAsync();
+
+    /// <summary>
+    /// Sunucu adresini kaydet ve kullan
+    /// </summary>
+    Task SetSunucuAdresiAsync(string sunucuAdresi);
+
+    /// <summary>
     /// Token'ı başlangıçta yükle
     /// </summary>
     Task TokenYukleAsync();

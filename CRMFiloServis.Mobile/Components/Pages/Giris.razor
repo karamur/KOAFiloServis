@@ -30,6 +30,23 @@
                     <DataAnnotationsValidator />
 
                     <div class="mb-3">
+                        <label class="form-label">Sunucu Adresi</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-server"></i>
+                            </span>
+                            <InputText @bind-Value="_sunucuAdresi"
+                                       class="form-control"
+                                       placeholder="192.168.1.10:5190"
+                                       disabled="@_yukleniyor" />
+                            <button type="button" class="btn btn-outline-secondary" @onclick="VarsayilanSunucuyuUygula" disabled="@_yukleniyor">
+                                192.168.1.10:5190
+                            </button>
+                        </div>
+                        <small class="text-muted">Gerekirse IP:Port girin. Örnek: 192.168.1.10:5190</small>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label">Kullanıcı Adı</label>
                         <div class="input-group">
                             <span class="input-group-text">
@@ -99,6 +116,7 @@
     private bool _yukleniyor;
     private string? _hataMesaji;
     private bool _sifreGoster;
+    private string _sunucuAdresi = "192.168.1.10:5190";
 
     private class GirisModel
     {
@@ -111,6 +129,11 @@
         public bool BeniHatirla { get; set; } = true;
     }
 
+    protected override async Task OnInitializedAsync()
+    {
+        _sunucuAdresi = await ApiService.GetSunucuAdresiAsync();
+    }
+
     private async Task GirisYapAsync()
     {
         _hataMesaji = null;
@@ -118,6 +141,7 @@
 
         try
         {
+            await ApiService.SetSunucuAdresiAsync(_sunucuAdresi);
             var sonuc = await ApiService.GirisYapAsync(_model.KullaniciAdi, _model.Sifre);
 
             if (sonuc?.Basarili == true)
@@ -143,5 +167,11 @@
     private void SifreGosterToggle()
     {
         _sifreGoster = !_sifreGoster;
+    }
+
+    private void VarsayilanSunucuyuUygula()
+    {
+        _sunucuAdresi = "192.168.1.10:5190";
+        _hataMesaji = null;
     }
 }

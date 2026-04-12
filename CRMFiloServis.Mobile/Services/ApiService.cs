@@ -11,6 +11,7 @@ namespace CRMFiloServis.Mobile.Services;
 /// </summary>
 public class ApiService : IApiService
 {
+    private const string VarsayilanSunucuAdresi = "http://192.168.1.10:5190/";
     private readonly HttpClient _httpClient;
     private readonly ILocalStorageService _localStorage;
     private readonly ILogger<ApiService> _logger;
@@ -22,6 +23,7 @@ public class ApiService : IApiService
     private const string TokenKey = "jwt_token";
     private const string TokenSonlanmaKey = "jwt_token_expiry";
     private const string KullaniciBilgisiKey = "kullanici_bilgisi";
+    private const string SunucuAdresiKey = "sunucu_adresi";
     
     public bool TokenGecerliMi => !string.IsNullOrEmpty(_token) && 
                                    _tokenSonlanma.HasValue && 
@@ -49,6 +51,7 @@ public class ApiService : IApiService
     {
         try
         {
+            await SunucuAdresiYukleAsync();
             _token = await _localStorage.GetItemAsync<string>(TokenKey);
             _tokenSonlanma = await _localStorage.GetItemAsync<DateTime?>(TokenSonlanmaKey);
             
@@ -68,6 +71,7 @@ public class ApiService : IApiService
     {
         try
         {
+            await SunucuAdresiYukleAsync();
             var request = new { KullaniciAdi = kullaniciAdi, Sifre = sifre };
             var response = await _httpClient.PostAsJsonAsync("api/auth/login", request, _jsonOptions);
             
@@ -382,6 +386,7 @@ public class ApiService : IApiService
     {
         try
         {
+            await SunucuAdresiYukleAsync();
             var response = await _httpClient.GetAsync("api/health");
             return response.IsSuccessStatusCode;
         }
@@ -389,5 +394,52 @@ public class ApiService : IApiService
         {
             return false;
         }
+    }
+
+    public async Task<string> GetSunucuAdresiAsync()
+    {
+        return await SunucuAdresiYukleAsync();
+    }
+
+    public async Task SetSunucuAdresiAsync(string sunucuAdresi)
+    {
+        var normalized = NormalizeSunucuAdresi(sunucuAdresi);
+        _httpClient.BaseAddress = new Uri(normalized);
+        await _localStorage.SetItemAsync(SunucuAdresiKey, normalized);
+    }
+
+    private async Task<string> SunucuAdresiYukleAsync()
+    {
+        var kayitliAdres = await _localStorage.GetItemAsync<string>(SunucuAdresiKey);
+        var normalized = NormalizeSunucuAdresi(kayitliAdres);
+
+        if (_httpClient.BaseAddress is null || !string.Equals(_httpClient.BaseAddress.AbsoluteUri, normalized, StringComparison.OrdinalIgnoreCase))
+        {
+            _httpClient.BaseAddress = new Uri(normalized);
+        }
+
+        if (string.IsNullOrWhiteSpace(kayitliAdres))
+        {
+            await _localStorage.SetItemAsync(SunucuAdresiKey, normalized);
+        }
+
+        return normalized;
+    }
+
+    private static string NormalizeSunucuAdresi(string? sunucuAdresi)
+    {
+        var value = string.IsNullOrWhiteSpace(sunucuAdresi) ? VarsayilanSunucuAdresi : sunucuAdresi.Trim();
+
+        if (!value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            value = $"http://{value}";
+        }
+
+        if (!value.EndsWith('/'))
+        {
+            value += "/";
+        }
+
+        return value;
     }
 }
