@@ -11,12 +11,13 @@ namespace KOABackupTool;
 
 class Program
 {
+    private static readonly string _executableDirectory = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
     private static string _host = "localhost";
     private static int _port = 5432;
     private static string _database = "DestekCRMServisBlazorDb";
     private static string _username = "postgres";
     private static string _password = "Fast123";
-    private static string _backupFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KOA_Backups");
+    private static string _backupFolder = GetDefaultBackupFolder();
 
     private static readonly string ConfigFile = Path.Combine(
         Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory, 
@@ -28,6 +29,13 @@ class Program
 
         // Kayıtlı ayarları yükle
         LoadSettings();
+
+        if (IsAutoBackupMode(args))
+        {
+            ApplyCommandLineOverrides(args);
+            await RunAutoBackupAsync();
+            return;
+        }
 
         AnsiConsole.Write(new FigletText("KOA Backup").Centered().Color(Color.Blue));
         AnsiConsole.MarkupLine("[grey]PostgreSQL Yedekleme Araci v1.2[/]");
@@ -82,11 +90,125 @@ class Program
                     _database = settings.Database ?? _database;
                     _username = settings.Username ?? _username;
                     _password = settings.Password ?? _password;
-                    _backupFolder = settings.BackupFolder ?? _backupFolder;
+                    _backupFolder = ResolveConfiguredBackupFolder(settings.BackupFolder);
                 }
             }
         }
         catch { /* İlk çalıştırma veya bozuk dosya */ }
+    }
+
+    static async Task RunAutoBackupAsync()
+    {
+        Directory.CreateDirectory(_backupFolder);
+
+        AnsiConsole.Write(new Rule("[green]KOA Backup - Otomatik Tam Dump[/]").RuleStyle("grey"));
+        AnsiConsole.MarkupLine($"[grey]Host:[/] {_host}");
+        AnsiConsole.MarkupLine($"[grey]Port:[/] {_port}");
+        AnsiConsole.MarkupLine($"[grey]Database:[/] {_database}");
+        AnsiConsole.MarkupLine($"[grey]Yedek Klasoru:[/] {_backupFolder}");
+        AnsiConsole.WriteLine();
+
+        try
+        {
+            await CreateBackupAsync();
+            Environment.ExitCode = 0;
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.MarkupLine($"[red]Otomatik yedekleme hatasi: {ex.Message}[/]");
+            Environment.ExitCode = 1;
+        }
+    }
+
+    static void ApplyCommandLineOverrides(string[] args)
+    {
+        _host = GetArgumentValue(args, "--host") ?? _host;
+        _database = GetArgumentValue(args, "--database") ?? _database;
+        _username = GetArgumentValue(args, "--username") ?? _username;
+        _password = GetArgumentValue(args, "--password") ?? _password;
+
+        if (int.TryParse(GetArgumentValue(args, "--port"), out var port) && port > 0)
+        {
+            _port = port;
+        }
+
+        var outputFolder = GetArgumentValue(args, "--output");
+        _backupFolder = string.IsNullOrWhiteSpace(outputFolder)
+            ? GetDefaultBackupFolder()
+            : Path.GetFullPath(outputFolder);
+    }
+
+    static bool IsAutoBackupMode(string[] args)
+    {
+        return args.Any(arg => arg.Equals("backup", StringComparison.OrdinalIgnoreCase)
+            || arg.Equals("--backup", StringComparison.OrdinalIgnoreCase)
+            || arg.Equals("--full-dump", StringComparison.OrdinalIgnoreCase)
+            || arg.Equals("/backup", StringComparison.OrdinalIgnoreCase));
+    }
+
+    static string? GetArgumentValue(string[] args, string argumentName)
+    {
+        for (var i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i].Equals(argumentName, StringComparison.OrdinalIgnoreCase))
+            {
+                return args[i + 1];
+            }
+        }
+
+        return null;
+    }
+
+    static string GetDefaultBackupFolder()
+    {
+        var solutionRoot = FindSolutionRoot();
+        if (!string.IsNullOrWhiteSpace(solutionRoot))
+        {
+            return Path.Combine(solutionRoot, "publish");
+        }
+
+        var normalizedBaseDirectory = Path.GetFullPath(_executableDirectory);
+        if (string.Equals(Path.GetFileName(normalizedBaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)), "publish", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalizedBaseDirectory;
+        }
+
+        return Path.Combine(normalizedBaseDirectory, "publish");
+    }
+
+    static string ResolveConfiguredBackupFolder(string? configuredPath)
+    {
+        if (string.IsNullOrWhiteSpace(configuredPath))
+        {
+            return GetDefaultBackupFolder();
+        }
+
+        var oldDefaultPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KOA_Backups");
+        if (string.Equals(Path.GetFullPath(configuredPath), Path.GetFullPath(oldDefaultPath), StringComparison.OrdinalIgnoreCase))
+        {
+            return GetDefaultBackupFolder();
+        }
+
+        return Path.IsPathRooted(configuredPath)
+            ? configuredPath
+            : Path.GetFullPath(configuredPath, _executableDirectory);
+    }
+
+    static string? FindSolutionRoot()
+    {
+        var current = new DirectoryInfo(_executableDirectory);
+        while (current != null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "CRMFiloServis.slnx")) ||
+                Directory.Exists(Path.Combine(current.FullName, ".git")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        return null;
     }
 
     static void SaveSettings()
