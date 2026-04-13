@@ -1,12 +1,28 @@
 ﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CRMFiloServis.Web.Data;
 
 public class ApplicationDbContext : DbContext
 {
+    private IServiceProvider? _serviceProvider;
     private ITenantService? _tenantService;
+
+    // Multi-tenant query filter yardımcı property'leri
+    // EF Core expression tree'de _tenantService null olduğunda NullReferenceException'ı önler
+    // Lazy resolution: ITenantService, sorgu çalıştığında IServiceProvider'dan çözümlenir
+    private bool TenantFilterDisabled
+    {
+        get
+        {
+            var ts = ResolveTenantService();
+            return ts == null || ts.IsSuperAdmin;
+        }
+    }
+
+    private int? TenantId => ResolveTenantService()?.CurrentSirketId;
 
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
@@ -14,11 +30,22 @@ public class ApplicationDbContext : DbContext
     }
 
     /// <summary>
-    /// Multi-tenant servisini ayarlar. DI container tarafından çağrılır.
+    /// Scoped IServiceProvider'ı ayarlar. ITenantService sorgu zamanında lazy olarak çözümlenir.
+    /// Bu sayede döngüsel bağımlılık (TenantService → DbContext → ITenantService) önlenir.
     /// </summary>
-    public void SetTenantService(ITenantService tenantService)
+    public void SetServiceProvider(IServiceProvider serviceProvider)
     {
-        _tenantService = tenantService;
+        _serviceProvider = serviceProvider;
+        _tenantService = null; // Yeni scope, yeni tenant service
+    }
+
+    private ITenantService? ResolveTenantService()
+    {
+        if (_tenantService == null && _serviceProvider != null)
+        {
+            _tenantService = _serviceProvider.GetService<ITenantService>();
+        }
+        return _tenantService;
     }
 
     // Firma Modulu
@@ -193,6 +220,8 @@ public class ApplicationDbContext : DbContext
     // İhale Hazırlık Modülü
     public DbSet<IhaleProje> IhaleProjeleri { get; set; }
     public DbSet<IhaleGuzergahKalem> IhaleGuzergahKalemleri { get; set; }
+    public DbSet<IhaleTeklifVersiyon> IhaleTeklifVersiyonlari { get; set; }
+    public DbSet<IhaleTeklifKararLog> IhaleTeklifKararLoglari { get; set; }
 
     // Destek Talebi (Ticket) Modülü - osTicket benzeri
     public DbSet<DestekTalebi> DestekTalepleri { get; set; }
@@ -243,6 +272,8 @@ public class ApplicationDbContext : DbContext
     // Şirketler Arası Transfer Modülü
     public DbSet<SirketTransferLog> SirketTransferLoglari { get; set; }
 
+    // Audit Log Modülü (Tüm İşlem Takibi)
+    public DbSet<AuditLog> AuditLoglar { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -296,7 +327,7 @@ public class ApplicationDbContext : DbContext
 
             // Global Query Filter: IsDeleted + Multi-tenant
             entity.HasQueryFilter(e => !e.IsDeleted && 
-                (_tenantService == null || _tenantService.IsSuperAdmin || e.SirketId == null || e.SirketId == _tenantService.CurrentSirketId));
+                (TenantFilterDisabled || e.SirketId == null || e.SirketId == TenantId));
         });
 
         // Şoför
@@ -335,7 +366,7 @@ public class ApplicationDbContext : DbContext
 
             // Global Query Filter: IsDeleted + Multi-tenant
             entity.HasQueryFilter(e => !e.IsDeleted && 
-                (_tenantService == null || _tenantService.IsSuperAdmin || e.SirketId == null || e.SirketId == _tenantService.CurrentSirketId));
+                (TenantFilterDisabled || e.SirketId == null || e.SirketId == TenantId));
         });
 
         // Araç
@@ -385,9 +416,9 @@ public class ApplicationDbContext : DbContext
             // PlakaGecmisi navigation'ı AracPlaka entity'sinde tanımlanıyor
             // Global Query Filter: IsDeleted + Multi-tenant
             entity.HasQueryFilter(e => !e.IsDeleted && 
-                (_tenantService == null || _tenantService.IsSuperAdmin || e.SirketId == null || e.SirketId == _tenantService.CurrentSirketId));
+                (TenantFilterDisabled || e.SirketId == null || e.SirketId == TenantId));
         });
-        
+
         // Araç Plaka Geçmişi
         modelBuilder.Entity<AracPlaka>(entity =>
         {
@@ -433,7 +464,7 @@ public class ApplicationDbContext : DbContext
 
             // Global Query Filter: IsDeleted + Multi-tenant
             entity.HasQueryFilter(e => !e.IsDeleted && 
-                (_tenantService == null || _tenantService.IsSuperAdmin || e.SirketId == null || e.SirketId == _tenantService.CurrentSirketId));
+                (TenantFilterDisabled || e.SirketId == null || e.SirketId == TenantId));
         });
 
         // Masraf Kalemi
@@ -483,6 +514,10 @@ public class ApplicationDbContext : DbContext
         // Servis Çalışma
         modelBuilder.Entity<ServisCalisma>(entity =>
         {
+            entity.HasIndex(e => e.CalismaTarihi);
+            entity.HasIndex(e => new { e.AracId, e.CalismaTarihi });
+            entity.HasIndex(e => new { e.SoforId, e.CalismaTarihi });
+            entity.HasIndex(e => new { e.GuzergahId, e.CalismaTarihi });
             entity.Property(e => e.Fiyat).HasPrecision(18, 2);
             entity.HasOne(e => e.Arac)
                 .WithMany(a => a.ServisCalismalari)
@@ -503,6 +538,11 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Fatura>(entity =>
         {
             entity.HasIndex(e => e.FaturaNo).IsUnique();
+            entity.HasIndex(e => e.FaturaTarihi);
+            entity.HasIndex(e => new { e.CariId, e.FaturaTarihi });
+            entity.HasIndex(e => new { e.Durum, e.VadeTarihi });
+            entity.HasIndex(e => new { e.FaturaTipi, e.FaturaTarihi });
+            entity.HasIndex(e => new { e.SirketId, e.FaturaTarihi });
             entity.Property(e => e.FaturaNo).HasMaxLength(50);
             entity.Property(e => e.AraToplam).HasPrecision(18, 2);
             entity.Property(e => e.KdvOrani).HasPrecision(5, 2);
@@ -539,7 +579,7 @@ public class ApplicationDbContext : DbContext
 
             // Global Query Filter: IsDeleted + Multi-tenant
             entity.HasQueryFilter(e => !e.IsDeleted && 
-                (_tenantService == null || _tenantService.IsSuperAdmin || e.SirketId == null || e.SirketId == _tenantService.CurrentSirketId));
+                (TenantFilterDisabled || e.SirketId == null || e.SirketId == TenantId));
         });
 
         // Fatura Kalem
@@ -590,13 +630,17 @@ public class ApplicationDbContext : DbContext
 
             // Global Query Filter: IsDeleted + Multi-tenant
             entity.HasQueryFilter(e => !e.IsDeleted && 
-                (_tenantService == null || _tenantService.IsSuperAdmin || e.SirketId == null || e.SirketId == _tenantService.CurrentSirketId));
+                (TenantFilterDisabled || e.SirketId == null || e.SirketId == TenantId));
         });
 
         // Banka/Kasa Hareket
         modelBuilder.Entity<BankaKasaHareket>(entity =>
         {
             entity.HasIndex(e => e.IslemNo).IsUnique();
+            entity.HasIndex(e => new { e.BankaHesapId, e.IslemTarihi });
+            entity.HasIndex(e => new { e.CariId, e.IslemTarihi });
+            entity.HasIndex(e => new { e.HareketTipi, e.IslemTarihi });
+            entity.HasIndex(e => new { e.SirketId, e.IslemTarihi });
             entity.Property(e => e.IslemNo).HasMaxLength(50);
             entity.Property(e => e.Tutar).HasPrecision(18, 2);
             entity.HasOne(e => e.BankaHesap)
@@ -616,7 +660,7 @@ public class ApplicationDbContext : DbContext
 
             // Global Query Filter: IsDeleted + Multi-tenant
             entity.HasQueryFilter(e => !e.IsDeleted && 
-                (_tenantService == null || _tenantService.IsSuperAdmin || e.SirketId == null || e.SirketId == _tenantService.CurrentSirketId));
+                (TenantFilterDisabled || e.SirketId == null || e.SirketId == TenantId));
         });
 
         // Ödeme Eşleştirme
@@ -837,6 +881,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.KullaniciAdi).IsUnique();
             entity.Property(e => e.KullaniciAdi).HasMaxLength(50);
             entity.Property(e => e.AdSoyad).HasMaxLength(100);
+            entity.Property(e => e.IkiFaktorSecretKey).HasMaxLength(200);
             entity.HasOne(e => e.Rol)
                 .WithMany(r => r.Kullanicilar)
                 .HasForeignKey(e => e.RolId)
@@ -1704,6 +1749,39 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PersonelBorcOdeme>()
             .HasQueryFilter(e => !e.IsDeleted && !e.Borc.IsDeleted);
 
+        modelBuilder.Entity<AracBolgeAtama>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Arac.IsDeleted);
+
+        modelBuilder.Entity<AracTakipCihaz>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.Arac.IsDeleted);
+
+        modelBuilder.Entity<AracKonum>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.AracTakipCihaz.IsDeleted);
+
+        modelBuilder.Entity<AracTakipAlarm>()
+            .HasQueryFilter(e => !e.IsDeleted && !e.AracTakipCihaz.IsDeleted);
+
+        modelBuilder.Entity<AracEvrakDosyaVersiyon>()
+            .HasQueryFilter(e => !e.IsDeleted && e.AracEvrakDosya != null && !e.AracEvrakDosya.IsDeleted);
+
+        modelBuilder.Entity<BildirimAyar>()
+            .HasQueryFilter(e => !e.IsDeleted && e.Kullanici != null && !e.Kullanici.IsDeleted);
+
+        modelBuilder.Entity<EbysAramaGecmisi>()
+            .HasQueryFilter(e => !e.IsDeleted && e.Kullanici != null && !e.Kullanici.IsDeleted);
+
+        modelBuilder.Entity<EbysEvrakDosyaVersiyon>()
+            .HasQueryFilter(e => !e.IsDeleted && e.EvrakDosya != null && !e.EvrakDosya.IsDeleted);
+
+        modelBuilder.Entity<EbysKayitliArama>()
+            .HasQueryFilter(e => !e.IsDeleted && e.Kullanici != null && !e.Kullanici.IsDeleted);
+
+        modelBuilder.Entity<EpostaBildirimLog>()
+            .HasQueryFilter(e => !e.IsDeleted && e.Kullanici != null && !e.Kullanici.IsDeleted);
+
+        modelBuilder.Entity<PersonelOzlukEvrakVersiyon>()
+            .HasQueryFilter(e => !e.IsDeleted && e.PersonelOzlukEvrak != null && !e.PersonelOzlukEvrak.IsDeleted);
+
         // Proforma Fatura
         modelBuilder.Entity<ProformaFatura>(entity =>
         {
@@ -1757,6 +1835,69 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.StokKartiId)
                 .OnDelete(DeleteBehavior.SetNull);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // İhale Teklif Versiyonları
+        modelBuilder.Entity<IhaleTeklifVersiyon>(entity =>
+        {
+            if (isSqlite)
+            {
+                entity.HasIndex(e => new { e.IhaleProjeId, e.VersiyonNo }).IsUnique();
+            }
+            else
+            {
+                entity.HasIndex(e => new { e.IhaleProjeId, e.VersiyonNo })
+                    .IsUnique()
+                    .HasFilter("\"IsDeleted\" = false");
+
+                entity.HasIndex(e => e.IhaleProjeId)
+                    .HasDatabaseName("IX_IhaleTeklifVersiyonlari_AktifVersiyon")
+                    .IsUnique()
+                    .HasFilter("\"AktifVersiyon\" = true AND \"IsDeleted\" = false");
+            }
+
+            entity.Property(e => e.RevizyonKodu).HasMaxLength(50);
+            entity.Property(e => e.RevizyonNotu).HasMaxLength(2000);
+            entity.Property(e => e.KararNotu).HasMaxLength(2000);
+            entity.Property(e => e.ToplamMaliyet).HasPrecision(18, 2);
+            entity.Property(e => e.TeklifTutari).HasPrecision(18, 2);
+            entity.Property(e => e.KarMarjiTutari).HasPrecision(18, 2);
+            entity.Property(e => e.KarMarjiOrani).HasPrecision(5, 2);
+
+            entity.HasOne(e => e.IhaleProje)
+                .WithMany(p => p.TeklifVersiyonlari)
+                .HasForeignKey(e => e.IhaleProjeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.HazirlayanKullanici)
+                .WithMany()
+                .HasForeignKey(e => e.HazirlayanKullaniciId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.OnaylayanKullanici)
+                .WithMany()
+                .HasForeignKey(e => e.OnaylayanKullaniciId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<IhaleTeklifKararLog>(entity =>
+        {
+            entity.HasIndex(e => new { e.IhaleTeklifVersiyonId, e.IslemTarihi });
+            entity.Property(e => e.Not).HasMaxLength(2000);
+
+            entity.HasOne(e => e.IhaleTeklifVersiyon)
+                .WithMany(v => v.KararLoglari)
+                .HasForeignKey(e => e.IhaleTeklifVersiyonId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.IslemYapanKullanici)
+                .WithMany()
+                .HasForeignKey(e => e.IslemYapanKullaniciId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 

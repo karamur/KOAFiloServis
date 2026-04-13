@@ -127,48 +127,92 @@ public static class DbInitializer
 
     private static async Task NormalizePostgreSqlAuditTimestampColumnsAsync(ApplicationDbContext context, IConfiguration configuration)
     {
-        try
+        var connectionString = GetDefaultConnectionString(context, configuration);
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+
+        const string findColumnsSql = @"
+SELECT c.table_name, c.column_name, c.column_default
+FROM information_schema.columns c
+INNER JOIN information_schema.tables t
+    ON t.table_schema = c.table_schema
+   AND t.table_name = c.table_name
+WHERE c.table_schema = current_schema()
+  AND t.table_type = 'BASE TABLE'
+  AND c.data_type = 'timestamp with time zone'
+ORDER BY CASE WHEN c.table_name IN ('Soforler', 'Personeller') THEN 0 ELSE 1 END,
+         c.table_name,
+         c.ordinal_position;";
+
+        var targets = new List<(string TableName, string ColumnName, string? ColumnDefault)>();
+        await using (var findCmd = new NpgsqlCommand(findColumnsSql, conn))
+        await using (var reader = await findCmd.ExecuteReaderAsync())
         {
-            var connectionString = GetDefaultConnectionString(context, configuration);
-            await using var conn = new NpgsqlConnection(connectionString);
-            await conn.OpenAsync();
-
-            const string findColumnsSql = @"
-SELECT table_name, column_name
-FROM information_schema.columns
-WHERE table_schema = 'public'
-  AND column_name IN ('CreatedAt', 'UpdatedAt')
-  AND data_type = 'timestamp with time zone';";
-
-            var targets = new List<(string TableName, string ColumnName)>();
-            await using (var findCmd = new NpgsqlCommand(findColumnsSql, conn))
-            await using (var reader = await findCmd.ExecuteReaderAsync())
+            while (await reader.ReadAsync())
             {
-                while (await reader.ReadAsync())
-                {
-                    targets.Add((reader.GetString(0), reader.GetString(1)));
-                }
+                targets.Add((
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
+            }
+        }
+
+        foreach (var (tableName, columnName, columnDefault) in targets)
+        {
+            var escapedTableName = tableName.Replace("\"", "\"\"");
+            var escapedColumnName = columnName.Replace("\"", "\"\"");
+
+            if (!string.IsNullOrWhiteSpace(columnDefault))
+            {
+                var dropDefaultSql = $@"ALTER TABLE ""{escapedTableName}""
+ALTER COLUMN ""{escapedColumnName}"" DROP DEFAULT;";
+
+                await using var dropDefaultCmd = new NpgsqlCommand(dropDefaultSql, conn);
+                await dropDefaultCmd.ExecuteNonQueryAsync();
             }
 
-            foreach (var (tableName, columnName) in targets)
-            {
-                var alterSql = $@"ALTER TABLE ""{tableName}""
-ALTER COLUMN ""{columnName}"" TYPE timestamp without time zone
-USING ""{columnName}"" AT TIME ZONE 'UTC';";
+            var alterSql = $@"ALTER TABLE ""{escapedTableName}""
+ALTER COLUMN ""{escapedColumnName}"" TYPE timestamp without time zone
+USING ""{escapedColumnName}"" AT TIME ZONE 'UTC';";
 
-                await using var alterCmd = new NpgsqlCommand(alterSql, conn);
+            await using (var alterCmd = new NpgsqlCommand(alterSql, conn))
+            {
                 await alterCmd.ExecuteNonQueryAsync();
             }
 
-            if (targets.Count > 0)
+            var normalizedDefaultSql = NormalizeTimestampDefaultExpression(columnDefault);
+            if (!string.IsNullOrWhiteSpace(normalizedDefaultSql))
             {
-                Console.WriteLine($"PostgreSQL timestamp kolonlari normalize edildi: {targets.Count}");
+                var setDefaultSql = $@"ALTER TABLE ""{escapedTableName}""
+ALTER COLUMN ""{escapedColumnName}"" SET DEFAULT {normalizedDefaultSql};";
+
+                await using var setDefaultCmd = new NpgsqlCommand(setDefaultSql, conn);
+                await setDefaultCmd.ExecuteNonQueryAsync();
             }
         }
-        catch (Exception ex)
+
+        if (targets.Count > 0)
         {
-            Console.WriteLine($"PostgreSQL timestamp normalizasyon hatasi: {ex.Message}");
+            Console.WriteLine($"PostgreSQL timestamp kolonlari normalize edildi: {targets.Count}");
         }
+    }
+
+    private static string? NormalizeTimestampDefaultExpression(string? columnDefault)
+    {
+        if (string.IsNullOrWhiteSpace(columnDefault))
+        {
+            return null;
+        }
+
+        if (columnDefault.Contains("now()", StringComparison.OrdinalIgnoreCase)
+            || columnDefault.Contains("current_timestamp", StringComparison.OrdinalIgnoreCase)
+            || columnDefault.Contains("statement_timestamp()", StringComparison.OrdinalIgnoreCase)
+            || columnDefault.Contains("transaction_timestamp()", StringComparison.OrdinalIgnoreCase))
+        {
+            return "LOCALTIMESTAMP";
+        }
+
+        return null;
     }
 
     private static async Task EnsurePiyasaKaynaklarTableAsync(ApplicationDbContext context, string dbProvider, IConfiguration configuration)
