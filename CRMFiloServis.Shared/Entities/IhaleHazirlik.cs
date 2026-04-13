@@ -55,6 +55,7 @@ public class IhaleProje : BaseEntity
 
     // Navigation
     public virtual ICollection<IhaleGuzergahKalem> Kalemler { get; set; } = new List<IhaleGuzergahKalem>();
+    public virtual ICollection<IhaleTeklifVersiyon> TeklifVersiyonlari { get; set; } = new List<IhaleTeklifVersiyon>();
 }
 
 /// <summary>

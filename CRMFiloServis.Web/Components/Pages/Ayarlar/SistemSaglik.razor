@@ -106,6 +106,17 @@
                                 </div>
                             </div>
                             <div class="mb-3">
+                                <small class="text-muted">Sağlayıcı</small>
+                                <div class="fw-bold">@report.Database.ProviderName</div>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(report.Database.DatabasePath))
+                            {
+                                <div class="mb-3">
+                                    <small class="text-muted">Veritabanı Dosyası</small>
+                                    <div class="small text-break">@report.Database.DatabasePath</div>
+                                </div>
+                            }
+                            <div class="mb-3">
                                 <small class="text-muted">Veritabanı Boyutu</small>
                                 <div class="fw-bold">@report.Database.DatabaseSizeFormatted</div>
                             </div>

@@ -1,5 +1,6 @@
 ﻿using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
+using CRMFiloServis.Web.Helpers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -219,6 +220,77 @@ public class KullaniciService : IKullaniciService
         }
     }
 
+    public async Task<IkiFaktorKurulumBilgisi> IkiFaktorKurulumBaslatAsync(int kullaniciId)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await context.Kullanicilar.FindAsync(kullaniciId);
+        if (kullanici == null)
+            throw new Exception("Kullanıcı bulunamadı.");
+
+        if (string.IsNullOrWhiteSpace(kullanici.IkiFaktorSecretKey))
+        {
+            kullanici.IkiFaktorSecretKey = TwoFactorAuthenticatorHelper.GenerateSecretKey();
+            kullanici.UpdatedAt = DateTime.UtcNow;
+            context.Kullanicilar.Update(kullanici);
+            await context.SaveChangesAsync();
+        }
+
+        var accountName = !string.IsNullOrWhiteSpace(kullanici.Email)
+            ? kullanici.Email
+            : kullanici.KullaniciAdi;
+
+        return new IkiFaktorKurulumBilgisi
+        {
+            SecretKey = kullanici.IkiFaktorSecretKey,
+            ManuelAnahtar = TwoFactorAuthenticatorHelper.FormatManualEntryKey(kullanici.IkiFaktorSecretKey),
+            KurulumUri = TwoFactorAuthenticatorHelper.BuildSetupUri("Koa Filo Servis", accountName, kullanici.IkiFaktorSecretKey),
+            IkiFaktorAktif = kullanici.IkiFaktorAktif
+        };
+    }
+
+    public async Task IkiFaktorEtkinlestirAsync(int kullaniciId, string dogrulamaKodu)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await context.Kullanicilar.FindAsync(kullaniciId);
+        if (kullanici == null)
+            throw new Exception("Kullanıcı bulunamadı.");
+
+        if (string.IsNullOrWhiteSpace(kullanici.IkiFaktorSecretKey))
+            throw new Exception("Önce iki faktörlü doğrulama kurulumu başlatılmalıdır.");
+
+        if (!TwoFactorAuthenticatorHelper.ValidateCode(kullanici.IkiFaktorSecretKey, dogrulamaKodu))
+            throw new Exception("Doğrulama kodu geçersiz.");
+
+        kullanici.IkiFaktorAktif = true;
+        kullanici.IkiFaktorEtkinlestirmeTarihi = DateTime.UtcNow;
+        kullanici.UpdatedAt = DateTime.UtcNow;
+
+        context.Kullanicilar.Update(kullanici);
+        await context.SaveChangesAsync();
+    }
+
+    public async Task IkiFaktorDevreDisiBirakAsync(int kullaniciId, string dogrulamaKodu)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await context.Kullanicilar.FindAsync(kullaniciId);
+        if (kullanici == null)
+            throw new Exception("Kullanıcı bulunamadı.");
+
+        if (!kullanici.IkiFaktorAktif || string.IsNullOrWhiteSpace(kullanici.IkiFaktorSecretKey))
+            throw new Exception("İki faktörlü doğrulama zaten kapalı.");
+
+        if (!TwoFactorAuthenticatorHelper.ValidateCode(kullanici.IkiFaktorSecretKey, dogrulamaKodu))
+            throw new Exception("Doğrulama kodu geçersiz.");
+
+        kullanici.IkiFaktorAktif = false;
+        kullanici.IkiFaktorSecretKey = null;
+        kullanici.IkiFaktorEtkinlestirmeTarihi = null;
+        kullanici.UpdatedAt = DateTime.UtcNow;
+
+        context.Kullanicilar.Update(kullanici);
+        await context.SaveChangesAsync();
+    }
+
     #endregion
 
     #region Giris/Cikis
@@ -269,6 +341,21 @@ public class KullaniciService : IKullaniciService
         kullanici.SonGirisTarihi = DateTime.UtcNow;
         kullanici.BasarisizGirisSayisi = 0;
 
+        if (kullanici.IkiFaktorAktif && !string.IsNullOrWhiteSpace(kullanici.IkiFaktorSecretKey))
+        {
+            context.Kullanicilar.Update(kullanici);
+            await context.SaveChangesAsync();
+
+            return new KullaniciGirisSonuc
+            {
+                Basarili = false,
+                IkiFaktorGerekli = true,
+                BekleyenKullaniciId = kullanici.Id,
+                IkiFaktorHedefi = !string.IsNullOrWhiteSpace(kullanici.Email) ? kullanici.Email : kullanici.KullaniciAdi,
+                Mesaj = "Doğrulama kodunu girin."
+            };
+        }
+
         context.Kullanicilar.Update(kullanici);
         await context.SaveChangesAsync();
 
@@ -277,6 +364,32 @@ public class KullaniciService : IKullaniciService
 
         _logger.LogInformation("Basarili giris: {KullaniciAdi}, Rol: {Rol}",
             kullaniciAdi, kullanici.Rol?.RolAdi);
+
+        return new KullaniciGirisSonuc { Basarili = true, Kullanici = kullanici };
+    }
+
+    public async Task<KullaniciGirisSonuc> IkiFaktorGirisiTamamlaAsync(int kullaniciId, string dogrulamaKodu)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await context.Kullanicilar
+            .Include(k => k.Rol)
+            .FirstOrDefaultAsync(k => !k.IsDeleted && k.Id == kullaniciId);
+
+        if (kullanici == null)
+            return new KullaniciGirisSonuc { Basarili = false, Mesaj = "Kullanıcı bulunamadı." };
+
+        if (!kullanici.IkiFaktorAktif || string.IsNullOrWhiteSpace(kullanici.IkiFaktorSecretKey))
+            return new KullaniciGirisSonuc { Basarili = false, Mesaj = "İki faktörlü doğrulama etkin değil." };
+
+        if (!TwoFactorAuthenticatorHelper.ValidateCode(kullanici.IkiFaktorSecretKey, dogrulamaKodu))
+            return new KullaniciGirisSonuc { Basarili = false, Mesaj = "Doğrulama kodu geçersiz." };
+
+        context.Kullanicilar.Update(kullanici);
+        await context.SaveChangesAsync();
+
+        await _authProvider.GirisYapAsync(kullanici);
+
+        _logger.LogInformation("2FA ile basarili giris: {KullaniciAdi}", kullanici.KullaniciAdi);
 
         return new KullaniciGirisSonuc { Basarili = true, Kullanici = kullanici };
     }

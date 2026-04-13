@@ -1059,10 +1059,10 @@ else
                     toplamBanka = bankaStats.ToplamBanka;
                     
                     var testHesaplar = await bankaKasaService.GetHesaplarAsync();
-                    Logger.LogWarning($"DEBUG: Toplam Hesap Sayısı: {testHesaplar.Count}, Kasa Bakiye: {toplamKasa}, Banka Bakiye: {toplamBanka}");
+                    Logger.LogDebug("Toplam Hesap Sayısı: {HesapSayisi}, Kasa Bakiye: {KasaBakiye}, Banka Bakiye: {BankaBakiye}", testHesaplar.Count, toplamKasa, toplamBanka);
                     
                     sonHareketler = await bankaKasaService.GetRecentAsync(5);
-                    Logger.LogWarning($"DEBUG: Son Hareket Sayısı: {sonHareketler?.Count ?? 0}");
+                    Logger.LogDebug("Son Hareket Sayısı: {HareketSayisi}", sonHareketler?.Count ?? 0);
                     await Task.Delay(10);
                     
                     butceOzet = await budgetService.GetAylikOzetAsync(DateTime.Today.Year, DateTime.Today.Month);
@@ -1080,7 +1080,7 @@ else
                 {
                     var servisCalismaService = sp.GetRequiredService<IServisCalismaService>();
                     sonCalismalar = await servisCalismaService.GetRecentAsync(5);
-                    Logger.LogWarning($"DEBUG: Son Calisma Sayısı: {sonCalismalar?.Count ?? 0}");
+                    Logger.LogDebug("Son Calisma Sayısı: {CalismaSayisi}", sonCalismalar?.Count ?? 0);
                     await Task.Delay(10);
                 }, "Servis verileri");
             }

@@ -57,6 +57,11 @@ public class CariHatirlatmaBackgroundService : BackgroundService
         }
     }
 
+    public Task RunOnceAsync(CancellationToken cancellationToken = default)
+    {
+        return KontrolVeHatirlatAsync(cancellationToken);
+    }
+
     private async Task KontrolVeHatirlatAsync(CancellationToken stoppingToken)
     {
         if (stoppingToken.IsCancellationRequested)

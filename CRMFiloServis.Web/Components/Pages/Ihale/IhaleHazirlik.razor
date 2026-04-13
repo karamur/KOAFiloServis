@@ -8,11 +8,16 @@
 @using CRMFiloServis.Web.Models
 @using CRMFiloServis.Web.Services
 @inject IIhaleHazirlikService IhaleService
+@inject IIhaleTeklifVersiyonService TeklifVersiyonService
+@inject IIhaleTeklifKarsilastirmaService TeklifKarsilastirmaService
+@inject IIhaleTeklifExportService TeklifExportService
 @inject IOllamaService OllamaService
 @inject ICariService CariService
 @inject IGuzergahService GuzergahService
 @inject IAracService AracService
+@inject IKullaniciService KullaniciService
 @inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 @inject NavigationManager Navigation
 @inject IToastService ToastService
 
@@ -150,6 +155,62 @@ else
                     <strong class="text-success">@aktifKalemler.Sum(k => k.AylikTeklifFiyati).ToString("N0") ₺</strong>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Teklif Versiyonları -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-layers me-2"></i>Teklif Versiyonları</h6>
+            <div class="d-flex gap-2">
+                @if (!teklifVersiyonlari.Any())
+                {
+                    <button class="btn btn-sm btn-primary" @onclick="IlkVersiyonOlusturAsync" disabled="@(!CanManageDraftTeklif() || yukleniyor)">
+                        <i class="bi bi-plus-circle me-1"></i>İlk Versiyonu Oluştur
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-sm btn-outline-primary" @onclick="RevizyonModalAc" disabled="@(!CanManageDraftTeklif() || yukleniyor || aktifTeklifVersiyon == null)">
+                        <i class="bi bi-copy me-1"></i>Yeni Revizyon
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="card-body">
+            @if (!teklifVersiyonlari.Any())
+            {
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-2"></i>Bu proje için henüz teklif versiyonu oluşturulmamış.
+                </div>
+            }
+            else
+            {
+                <AktifTeklifVersiyonKarti AktifVersiyon="aktifTeklifVersiyon" />
+
+                <TeklifVersiyonlariTablosu Versiyonlar="teklifVersiyonlari"
+                                          CanManageDraft="CanManageDraftTeklif()"
+                                          CanApprovePredicate="CanApproveTeklif"
+                                          CanExportPredicate="CanExportTeklif"
+                                          OnSetActive="AktifVersiyonYapAsync"
+                                          OnSendToReview="IncelemeyeGonderAsync"
+                                          OnApprove="OnayModalAc"
+                                          OnReject="RedModalAc"
+                                          OnPdfExport="PdfExportAsync"
+                                          OnExcelExport="ExcelExportAsync" />
+
+                @if (teklifVersiyonlari.Count >= 2)
+                {
+                    <TeklifVersiyonKarsilastirmaPaneli Versiyonlar="teklifVersiyonlari"
+                                                     @bind-SolVersiyonId="karsilastirmaSolVersiyonId"
+                                                     @bind-SagVersiyonId="karsilastirmaSagVersiyonId"
+                                                     Yukleniyor="yukleniyor"
+                                                     Karsilastirma="teklifKarsilastirma"
+                                                     OnCompare="VersiyonKarsilastirAsync" />
+                }
+
+                <TeklifKararGecmisiPaneli KararLoglari="teklifKararLoglari" />
+            }
         </div>
     </div>
 
@@ -739,6 +800,55 @@ else
     </div>
 }
 
+@if (revizyonModalGoster)
+{
+    <div class="modal show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Yeni Revizyon Oluştur</h5>
+                    <button type="button" class="btn-close" @onclick="RevizyonModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-2">Yeni revizyon aktif versiyonun snapshot bilgileri üzerinden oluşturulur.</p>
+                    <label class="form-label">Revizyon Notu</label>
+                    <textarea class="form-control" rows="4" @bind="revizyonNotu" placeholder="Revizyon nedeni veya açıklama"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="RevizyonModalKapat">İptal</button>
+                    <button class="btn btn-primary" @onclick="RevizyonOlusturAsync" disabled="@yukleniyor">
+                        <i class="bi bi-check me-1"></i>Oluştur
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (kararModalGoster)
+{
+    <div class="modal show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(redIslemi ? "Teklifi Reddet" : "Teklifi Onayla")</h5>
+                    <button type="button" class="btn-close" @onclick="KararModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Karar Notu @(redIslemi ? "*" : "")</label>
+                    <textarea class="form-control" rows="4" @bind="kararNotu" placeholder="Karar notu"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="KararModalKapat">İptal</button>
+                    <button class="btn @(redIslemi ? "btn-danger" : "btn-success")" @onclick="KararVerAsync" disabled="@yukleniyor">
+                        <i class="bi bi-check me-1"></i>@(redIslemi ? "Reddet" : "Onayla")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Loading overlay -->
 @if (yukleniyor)
 {
@@ -763,19 +873,26 @@ else
     private List<IhaleProje>? projeler;
     private IhaleProje? secilenProje;
     private List<IhaleGuzergahKalem> aktifKalemler = [];
+    private List<IhaleTeklifVersiyon> teklifVersiyonlari = [];
+    private List<IhaleTeklifKararLog> teklifKararLoglari = [];
     private List<Cari>? tumCariler;
     private List<Guzergah> tumGuzergahlar = [];
     private List<Arac> tumAraclar = [];
+    private Kullanici? aktifKullanici;
+    private IhaleTeklifVersiyon? aktifTeklifVersiyon;
 
     private IhaleProje editProje = new();
     private IhaleGuzergahKalem editKalem = new();
 
     private bool projeModalGoster;
     private bool kalemModalGoster;
+    private bool revizyonModalGoster;
+    private bool kararModalGoster;
     private bool yukleniyor;
     private bool aiAktif;
     private bool aiYukleniyor;
     private bool raporGoster;
+    private bool redIslemi;
 
     private string? aiAnalizSonuc;
     private string? aiTahminMesaj;
@@ -783,6 +900,12 @@ else
     private string? kalemOneriMesaji;
     private string? yakitFiyatMesaji;
     private string? editKalemBolge;
+    private string? revizyonNotu;
+    private string kararNotu = string.Empty;
+    private int? seciliTeklifVersiyonId;
+    private int? karsilastirmaSolVersiyonId;
+    private int? karsilastirmaSagVersiyonId;
+    private IhaleTeklifKarsilastirmaDto? teklifKarsilastirma;
 
     private IhaleProjeOzet? projeOzet;
 
@@ -792,6 +915,7 @@ else
         tumCariler = await CariService.GetAllAsync();
         tumGuzergahlar = await GuzergahService.GetActiveAsync();
         tumAraclar = await AracService.GetActiveAsync();
+        aktifKullanici = await KullaniciService.GetAktifKullaniciAsync();
 
         if (ProjeId.HasValue)
             await ProjeSecAsync(ProjeId.Value);
@@ -860,6 +984,7 @@ else
     {
         secilenProje = await IhaleService.GetProjeByIdAsync(projeId);
         RefreshKalemler();
+        await RefreshTeklifVersiyonlariAsync();
     }
 
     private void RefreshKalemler()
@@ -873,7 +998,275 @@ else
         raporGoster = false;
         aiAnalizSonuc = null;
         projeOzet = null;
+        teklifVersiyonlari = [];
+        teklifKararLoglari = [];
+        aktifTeklifVersiyon = null;
         await LoadProjelerAsync();
+    }
+
+    private async Task RefreshTeklifVersiyonlariAsync()
+    {
+        if (secilenProje == null)
+        {
+            teklifVersiyonlari = [];
+            teklifKararLoglari = [];
+            aktifTeklifVersiyon = null;
+            teklifKarsilastirma = null;
+            return;
+        }
+
+        teklifVersiyonlari = await TeklifVersiyonService.GetListByIhaleProjeIdAsync(secilenProje.Id);
+        aktifTeklifVersiyon = teklifVersiyonlari.FirstOrDefault(x => x.AktifVersiyon);
+        teklifKararLoglari = aktifTeklifVersiyon != null
+            ? await TeklifVersiyonService.GetKararLoglariAsync(aktifTeklifVersiyon.Id)
+            : [];
+
+        if (karsilastirmaSolVersiyonId.HasValue && !teklifVersiyonlari.Any(x => x.Id == karsilastirmaSolVersiyonId.Value))
+            karsilastirmaSolVersiyonId = null;
+
+        if (karsilastirmaSagVersiyonId.HasValue && !teklifVersiyonlari.Any(x => x.Id == karsilastirmaSagVersiyonId.Value))
+            karsilastirmaSagVersiyonId = null;
+
+        teklifKarsilastirma = null;
+    }
+
+    private async Task VersiyonKarsilastirAsync()
+    {
+        if (!karsilastirmaSolVersiyonId.HasValue || !karsilastirmaSagVersiyonId.HasValue)
+            return;
+
+        try
+        {
+            teklifKarsilastirma = await TeklifKarsilastirmaService.CompareAsync(karsilastirmaSolVersiyonId.Value, karsilastirmaSagVersiyonId.Value);
+            if (teklifKarsilastirma == null)
+                ToastService.ShowWarning("Seçilen versiyonlar karşılaştırılamadı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+    }
+
+    private async Task IlkVersiyonOlusturAsync()
+    {
+        if (secilenProje == null) return;
+
+        yukleniyor = true;
+        try
+        {
+            await TeklifVersiyonService.CreateInitialAsync(secilenProje.Id);
+            await RefreshTeklifVersiyonlariAsync();
+            ToastService.ShowSuccess("İlk teklif versiyonu oluşturuldu.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
+    }
+
+    private void RevizyonModalAc()
+    {
+        if (aktifTeklifVersiyon == null)
+        {
+            ToastService.ShowWarning("Önce aktif bir teklif versiyonu seçin.");
+            return;
+        }
+
+        revizyonNotu = null;
+        revizyonModalGoster = true;
+    }
+
+    private void RevizyonModalKapat()
+    {
+        revizyonModalGoster = false;
+        revizyonNotu = null;
+    }
+
+    private async Task RevizyonOlusturAsync()
+    {
+        if (aktifTeklifVersiyon == null) return;
+
+        yukleniyor = true;
+        try
+        {
+            await TeklifVersiyonService.CreateRevisionAsync(aktifTeklifVersiyon.Id, revizyonNotu);
+            RevizyonModalKapat();
+            await RefreshTeklifVersiyonlariAsync();
+            ToastService.ShowSuccess("Yeni revizyon oluşturuldu.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
+    }
+
+    private async Task AktifVersiyonYapAsync(int versiyonId)
+    {
+        yukleniyor = true;
+        try
+        {
+            await TeklifVersiyonService.SetActiveAsync(versiyonId);
+            await RefreshTeklifVersiyonlariAsync();
+            ToastService.ShowSuccess("Aktif versiyon güncellendi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
+    }
+
+    private async Task IncelemeyeGonderAsync(int versiyonId)
+    {
+        yukleniyor = true;
+        try
+        {
+            await TeklifVersiyonService.SendToReviewAsync(versiyonId);
+            await RefreshTeklifVersiyonlariAsync();
+            ToastService.ShowSuccess("Teklif incelemeye gönderildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
+    }
+
+    private void KararModalAc(int versiyonId, bool red)
+    {
+        seciliTeklifVersiyonId = versiyonId;
+        redIslemi = red;
+        kararNotu = string.Empty;
+        kararModalGoster = true;
+    }
+
+    private Task OnayModalAc(int versiyonId)
+    {
+        KararModalAc(versiyonId, false);
+        return Task.CompletedTask;
+    }
+
+    private Task RedModalAc(int versiyonId)
+    {
+        KararModalAc(versiyonId, true);
+        return Task.CompletedTask;
+    }
+
+    private void KararModalKapat()
+    {
+        kararModalGoster = false;
+        seciliTeklifVersiyonId = null;
+        kararNotu = string.Empty;
+        redIslemi = false;
+    }
+
+    private async Task KararVerAsync()
+    {
+        if (!seciliTeklifVersiyonId.HasValue)
+            return;
+
+        yukleniyor = true;
+        try
+        {
+            if (redIslemi)
+                await TeklifVersiyonService.RejectAsync(seciliTeklifVersiyonId.Value, kararNotu);
+            else
+                await TeklifVersiyonService.ApproveAsync(seciliTeklifVersiyonId.Value, string.IsNullOrWhiteSpace(kararNotu) ? null : kararNotu);
+
+            KararModalKapat();
+            await RefreshTeklifVersiyonlariAsync();
+            ToastService.ShowSuccess(redIslemi ? "Teklif reddedildi." : "Teklif onaylandı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
+    }
+
+    private bool CanApproveTeklif(IhaleTeklifVersiyon versiyon)
+    {
+        if (versiyon.Durum != IhaleTeklifVersiyonDurum.Incelemede || aktifKullanici?.Rol == null)
+            return false;
+
+        return HasAnyRole("Admin", "Yönetici", "Yonetici");
+    }
+
+    private bool CanManageDraftTeklif()
+    {
+        return HasAnyRole("Admin", "Operasyon");
+    }
+
+    private bool CanExportTeklif(IhaleTeklifVersiyon versiyon)
+    {
+        if (versiyon.Durum == IhaleTeklifVersiyonDurum.Onaylandi)
+            return true;
+
+        return HasAnyRole("Admin", "Yönetici", "Yonetici");
+    }
+
+    private bool HasAnyRole(params string[] roller)
+    {
+        var rolAdi = aktifKullanici?.Rol?.RolAdi;
+        if (string.IsNullOrWhiteSpace(rolAdi))
+            return false;
+
+        return roller.Any(rol => string.Equals(rolAdi, rol, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task PdfExportAsync(int versiyonId)
+    {
+        try
+        {
+            yukleniyor = true;
+            var bytes = await TeklifExportService.ExportPdfAsync(versiyonId);
+            await JS.InvokeVoidAsync("downloadFileFromBytes", GetTeklifExportFileName(versiyonId, "pdf"), "application/pdf", bytes);
+            ToastService.ShowSuccess("PDF dosyası indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
+    }
+
+    private async Task ExcelExportAsync(int versiyonId)
+    {
+        try
+        {
+            yukleniyor = true;
+            var bytes = await TeklifExportService.ExportExcelAsync(versiyonId);
+            await JS.InvokeVoidAsync("downloadFileFromBytes", GetTeklifExportFileName(versiyonId, "xlsx"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+            ToastService.ShowSuccess("Excel dosyası indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError(ex.Message);
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
     }
 
     private async Task SilProjeAsync(int id)
@@ -1227,6 +1620,21 @@ else
         };
     }
 
+    private static string GetFarkTextClass(decimal fark)
+    {
+        if (fark > 0)
+            return "text-danger fw-semibold";
+        if (fark < 0)
+            return "text-success fw-semibold";
+
+        return "text-muted";
+    }
+
+    private static string FormatSigned(decimal deger)
+    {
+        return deger > 0 ? $"+{deger:N0}" : deger.ToString("N0");
+    }
+
     private static string GetDurumBadge(IhaleProjeDurum d)
     {
         return d switch
@@ -1275,6 +1683,70 @@ else
             AracSahiplikKalem.Komisyon => "bg-info",
             _ => "bg-secondary"
         };
+    }
+
+    private static string GetTeklifDurumMetni(IhaleTeklifVersiyonDurum durum)
+    {
+        return durum switch
+        {
+            IhaleTeklifVersiyonDurum.Taslak => "Taslak",
+            IhaleTeklifVersiyonDurum.Incelemede => "İncelemede",
+            IhaleTeklifVersiyonDurum.Onaylandi => "Onaylandı",
+            IhaleTeklifVersiyonDurum.Reddedildi => "Reddedildi",
+            _ => "-"
+        };
+    }
+
+    private static string GetTeklifDurumBadge(IhaleTeklifVersiyonDurum durum)
+    {
+        return durum switch
+        {
+            IhaleTeklifVersiyonDurum.Taslak => "bg-secondary",
+            IhaleTeklifVersiyonDurum.Incelemede => "bg-warning text-dark",
+            IhaleTeklifVersiyonDurum.Onaylandi => "bg-success",
+            IhaleTeklifVersiyonDurum.Reddedildi => "bg-danger",
+            _ => "bg-light text-dark"
+        };
+    }
+
+    private static string GetTeklifIslemTipiMetni(IhaleTeklifIslemTipi islemTipi)
+    {
+        return islemTipi switch
+        {
+            IhaleTeklifIslemTipi.Olustur => "İlk versiyon oluşturuldu",
+            IhaleTeklifIslemTipi.RevizyonOlustur => "Revizyon oluşturuldu",
+            IhaleTeklifIslemTipi.IncelemeyeGonder => "İncelemeye gönderildi",
+            IhaleTeklifIslemTipi.Onayla => "Onaylandı",
+            IhaleTeklifIslemTipi.Reddet => "Reddedildi",
+            IhaleTeklifIslemTipi.AktifVersiyonDegisti => "Aktif versiyon değişti",
+            _ => "İşlem"
+        };
+    }
+
+    private string GetTeklifExportFileName(int versiyonId, string extension)
+    {
+        var versiyon = teklifVersiyonlari.FirstOrDefault(x => x.Id == versiyonId);
+        var projeKodu = SanitizeFileNamePart(secilenProje?.ProjeKodu);
+        var revizyonKodu = SanitizeFileNamePart(versiyon?.RevizyonKodu);
+
+        if (string.IsNullOrWhiteSpace(projeKodu))
+            projeKodu = $"Proje-{secilenProje?.Id ?? 0}";
+
+        if (string.IsNullOrWhiteSpace(revizyonKodu))
+            revizyonKodu = $"Versiyon-{versiyonId}";
+
+        return $"IhaleTeklif_{projeKodu}_{revizyonKodu}.{extension}";
+    }
+
+    private static string SanitizeFileNamePart(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitized = new string(value.Trim().Select(ch => invalidChars.Contains(ch) ? '-' : ch).ToArray());
+
+        return sanitized.Replace(' ', '-');
     }
 
     private static string? BolgeMetniGetir(IhaleGuzergahKalem kalem)

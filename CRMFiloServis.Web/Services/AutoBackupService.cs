@@ -1,4 +1,4 @@
-namespace CRMFiloServis.Web.Services;
+﻿namespace CRMFiloServis.Web.Services;
 
 public class AutoBackupService : BackgroundService
 {
@@ -47,6 +47,11 @@ public class AutoBackupService : BackgroundService
         }
     }
 
+    public Task RunOnceAsync(CancellationToken cancellationToken = default)
+    {
+        return CheckAndBackupAsync(cancellationToken);
+    }
+
     private async Task CheckAndBackupAsync(CancellationToken stoppingToken)
     {
         if (stoppingToken.IsCancellationRequested)
@@ -60,17 +65,7 @@ public class AutoBackupService : BackgroundService
         if (!settings.AutoBackupEnabled)
             return;
 
-        var shouldBackup = false;
-
-        if (!settings.LastBackupTime.HasValue)
-        {
-            shouldBackup = true;
-        }
-        else
-        {
-            var elapsed = DateTime.Now - settings.LastBackupTime.Value;
-            shouldBackup = elapsed.TotalHours >= settings.AutoBackupIntervalHours;
-        }
+        var shouldBackup = settings.ShouldRun();
 
         if (shouldBackup && !stoppingToken.IsCancellationRequested)
         {

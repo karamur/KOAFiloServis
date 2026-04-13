@@ -20,15 +20,18 @@ public class SystemHealthService : ISystemHealthService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<SystemHealthService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _environment;
 
     public SystemHealthService(
         IServiceScopeFactory scopeFactory,
         ILogger<SystemHealthService> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _configuration = configuration;
+        _environment = environment;
     }
 
     public async Task<SystemHealthReport> GetHealthReportAsync()
@@ -82,34 +85,58 @@ public class SystemHealthService : ISystemHealthService
 
             if (canConnect)
             {
+                var providerName = context.Database.ProviderName ?? _configuration["DatabaseProvider"] ?? "Bilinmiyor";
+                info.ProviderName = providerName;
+
                 // Tablo sayısı
                 info.TableCount = context.Model.GetEntityTypes().Count();
 
-                // Veritabanı boyutu (PostgreSQL)
-                try
+                if (providerName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) ||
+                    providerName.Contains("SQLite", StringComparison.OrdinalIgnoreCase))
                 {
-                    var dbName = context.Database.GetDbConnection().Database;
-                    var sizeQuery = await context.Database
-                        .SqlQueryRaw<long>($"SELECT pg_database_size('{dbName}')")
-                        .FirstOrDefaultAsync();
-                    info.DatabaseSizeBytes = sizeQuery;
-                }
-                catch
-                {
-                    // Boyut alınamazsa devam et
-                }
+                    var connectionString = context.Database.GetConnectionString() ?? string.Empty;
+                    var sqlitePath = ResolveSqlitePath(connectionString);
+                    info.DatabasePath = sqlitePath;
 
-                // Aktif bağlantı sayısı
-                try
-                {
-                    var activeConnections = await context.Database
-                        .SqlQueryRaw<int>("SELECT count(*) FROM pg_stat_activity WHERE state = 'active'")
-                        .FirstOrDefaultAsync();
-                    info.ActiveConnections = activeConnections;
+                    if (File.Exists(sqlitePath))
+                    {
+                        var fileInfo = new FileInfo(sqlitePath);
+                        info.DatabaseSizeBytes = fileInfo.Length;
+                    }
+
+                    info.ActiveConnections = canConnect ? 1 : 0;
                 }
-                catch
+                else if (providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) ||
+                         providerName.Contains("Postgre", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Bağlantı sayısı alınamazsa devam et
+                    try
+                    {
+                        var dbName = context.Database.GetDbConnection().Database;
+#pragma warning disable EF1002
+                        var sizeQuery = await context.Database
+                            .SqlQueryRaw<long>($"SELECT pg_database_size('{dbName}')")
+                            .FirstOrDefaultAsync();
+#pragma warning restore EF1002
+                        info.DatabaseSizeBytes = sizeQuery;
+                    }
+                    catch
+                    {
+                    }
+
+                    try
+                    {
+                        var activeConnections = await context.Database
+                            .SqlQueryRaw<int>("SELECT count(*) FROM pg_stat_activity WHERE state = 'active'")
+                            .FirstOrDefaultAsync();
+                        info.ActiveConnections = activeConnections;
+                    }
+                    catch
+                    {
+                    }
+                }
+                else
+                {
+                    info.ActiveConnections = canConnect ? 1 : 0;
                 }
             }
         }
@@ -208,6 +235,34 @@ public class SystemHealthService : ISystemHealthService
 
         return HealthStatus.Healthy;
     }
+
+    private string ResolveSqlitePath(string connectionString)
+    {
+        const string prefix = "Data Source=";
+        var source = connectionString;
+        var index = source.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
+
+        if (index >= 0)
+        {
+            source = source[(index + prefix.Length)..];
+        }
+
+        var endIndex = source.IndexOf(';');
+        if (endIndex >= 0)
+        {
+            source = source[..endIndex];
+        }
+
+        source = source.Trim().Trim('"');
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            source = "crmfiloservis.db";
+        }
+
+        return Path.IsPathRooted(source)
+            ? source
+            : Path.Combine(_environment.ContentRootPath, source);
+    }
 }
 
 public class SystemHealthReport
@@ -238,6 +293,8 @@ public class DatabaseHealthInfo
     public int TableCount { get; set; }
     public long DatabaseSizeBytes { get; set; }
     public int ActiveConnections { get; set; }
+    public string ProviderName { get; set; } = "";
+    public string DatabasePath { get; set; } = "";
     public string ErrorMessage { get; set; } = "";
     
     public string DatabaseSizeFormatted => DatabaseSizeBytes switch

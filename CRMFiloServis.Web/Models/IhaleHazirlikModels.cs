@@ -123,3 +123,27 @@ public class AylikProjeksiyonOzet
     public decimal KumulatifKar { get; set; }
     public decimal EnflasyonEtkisi { get; set; } // Enflasyon farkı
 }
+
+public class IhaleTeklifKarsilastirmaDto
+{
+    public int SolVersiyonId { get; set; }
+    public string SolRevizyonKodu { get; set; } = string.Empty;
+    public int SagVersiyonId { get; set; }
+    public string SagRevizyonKodu { get; set; } = string.Empty;
+
+    public decimal SolToplamMaliyet { get; set; }
+    public decimal SagToplamMaliyet { get; set; }
+    public decimal ToplamMaliyetFarki { get; set; }
+
+    public decimal SolTeklifTutari { get; set; }
+    public decimal SagTeklifTutari { get; set; }
+    public decimal TeklifTutariFarki { get; set; }
+
+    public decimal SolKarMarjiTutari { get; set; }
+    public decimal SagKarMarjiTutari { get; set; }
+    public decimal KarMarjiTutariFarki { get; set; }
+
+    public decimal SolKarMarjiOrani { get; set; }
+    public decimal SagKarMarjiOrani { get; set; }
+    public decimal KarMarjiOraniFarki { get; set; }
+}

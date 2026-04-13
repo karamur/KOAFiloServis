@@ -23,6 +23,10 @@ public interface IKullaniciService
     Task SifreDegistirAsync(int kullaniciId, string eskiSifre, string yeniSifre);
     Task SifreSifirlaAsync(int kullaniciId, string yeniSifre);
     Task<bool> SifremiUnuttumAsync(string kullaniciAdiVeyaEmail);
+    Task<IkiFaktorKurulumBilgisi> IkiFaktorKurulumBaslatAsync(int kullaniciId);
+    Task IkiFaktorEtkinlestirAsync(int kullaniciId, string dogrulamaKodu);
+    Task IkiFaktorDevreDisiBirakAsync(int kullaniciId, string dogrulamaKodu);
+    Task<KullaniciGirisSonuc> IkiFaktorGirisiTamamlaAsync(int kullaniciId, string dogrulamaKodu);
     
     // Yetki
     Task<bool> YetkiVarMiAsync(int kullaniciId, string yetkiKodu);
@@ -46,4 +50,15 @@ public class KullaniciGirisSonuc
     public bool Basarili { get; set; }
     public string? Mesaj { get; set; }
     public Kullanici? Kullanici { get; set; }
+    public bool IkiFaktorGerekli { get; set; }
+    public int? BekleyenKullaniciId { get; set; }
+    public string? IkiFaktorHedefi { get; set; }
+}
+
+public class IkiFaktorKurulumBilgisi
+{
+    public string SecretKey { get; set; } = string.Empty;
+    public string ManuelAnahtar { get; set; } = string.Empty;
+    public string KurulumUri { get; set; } = string.Empty;
+    public bool IkiFaktorAktif { get; set; }
 }

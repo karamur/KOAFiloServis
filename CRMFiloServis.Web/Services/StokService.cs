@@ -6,11 +6,13 @@ namespace CRMFiloServis.Web.Services;
 
 public class StokService : IStokService
 {
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<StokService> _logger;
 
-    public StokService(ApplicationDbContext context, ILogger<StokService> logger)
+    public StokService(IDbContextFactory<ApplicationDbContext> contextFactory, ApplicationDbContext context, ILogger<StokService> logger)
     {
+        _contextFactory = contextFactory;
         _context = context;
         _logger = logger;
     }
@@ -19,7 +21,10 @@ public class StokService : IStokService
 
     public async Task<List<StokKarti>> GetStokKartlariAsync(StokTipi? tip = null, int? kategoriId = null, bool? aktif = true)
     {
-        var query = _context.StokKartlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var query = context.StokKartlari
+            .AsNoTracking()
             .Include(s => s.Kategori)
             .Include(s => s.VarsayilanTedarikci)
             .Where(s => !s.IsDeleted)

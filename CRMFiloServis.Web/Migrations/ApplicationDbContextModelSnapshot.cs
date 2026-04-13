@@ -94,7 +94,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Modul", "IslemTipi");
 
-                    b.ToTable("AktiviteLoglar", (string)null);
+                    b.ToTable("AktiviteLoglar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Arac", b =>
@@ -211,6 +211,9 @@ namespace CRMFiloServis.Web.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<int?>("SirketId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("TrafikSigortaBitisTarihi")
                         .HasColumnType("timestamp without time zone");
 
@@ -227,7 +230,9 @@ namespace CRMFiloServis.Web.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("Araclar", (string)null);
+                    b.HasIndex("SirketId");
+
+                    b.ToTable("Araclar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracAlimSatim", b =>
@@ -357,7 +362,95 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "IslemTarihi");
 
-                    b.ToTable("AracAlimSatimlar", (string)null);
+                    b.ToTable("AracAlimSatimlar");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracBolge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Aktif")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("BolgeAdi")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("CikisBildirimi")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("GirisBildirimi")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<double?>("MerkezLatitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("MerkezLongitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Notlar")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PoligonKoordinatlari")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Renk")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Tip")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<double?>("YaricapMetre")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AracBolgeler");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracBolgeAtama", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AracBolgeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AracId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AracBolgeId");
+
+                    b.HasIndex("AracId");
+
+                    b.ToTable("AracBolgeAtamalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracEvrak", b =>
@@ -427,7 +520,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "EvrakKategorisi");
 
-                    b.ToTable("AracEvraklari", (string)null);
+                    b.ToTable("AracEvraklari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracEvrakDosya", b =>
@@ -468,14 +561,78 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("SonDegisiklikNotu")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("VersiyonNo")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AracEvrakId");
 
-                    b.ToTable("AracEvrakDosyalari", (string)null);
+                    b.ToTable("AracEvrakDosyalari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracEvrakDosyaVersiyon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Aciklama")
+                        .HasColumnType("text");
+
+                    b.Property<int>("AracEvrakDosyaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DegisiklikNotu")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DosyaAdi")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("DosyaBoyutu")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("DosyaTipi")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DosyaYolu")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("OlusturanKullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("VersiyonNo")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AracEvrakDosyaId");
+
+                    b.HasIndex("OlusturanKullaniciId");
+
+                    b.ToTable("AracEvrakDosyaVersiyonlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIlan", b =>
@@ -622,7 +779,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SatisPersoneliId");
 
-                    b.ToTable("AracIlanlari", (string)null);
+                    b.ToTable("AracIlanlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIlanIcerik", b =>
@@ -683,7 +840,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "PlatformId");
 
-                    b.ToTable("AracIlanIcerikleri", (string)null);
+                    b.ToTable("AracIlanIcerikleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIlanYayin", b =>
@@ -779,7 +936,7 @@ namespace CRMFiloServis.Web.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("AracIlanYayinlar", (string)null);
+                    b.ToTable("AracIlanYayinlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIslem", b =>
@@ -859,7 +1016,76 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "IslemTarihi");
 
-                    b.ToTable("AracIslemler", (string)null);
+                    b.ToTable("AracIslemler");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracKonum", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Adres")
+                        .HasColumnType("text");
+
+                    b.Property<int>("AracTakipCihazId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<double?>("Hassasiyet")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("Hiz")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("KayitZamani")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("Kilometre")
+                        .HasColumnType("integer");
+
+                    b.Property<bool?>("KontakDurumu")
+                        .HasColumnType("boolean");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool?>("MotorDurumu")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("OlayTipi")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("Rakım")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("Sicaklik")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("YakitSeviyesi")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("Yon")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AracTakipCihazId");
+
+                    b.ToTable("AracKonumlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracMarka", b =>
@@ -898,7 +1124,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("MarkaAdi")
                         .IsUnique();
 
-                    b.ToTable("AracMarkalari", (string)null);
+                    b.ToTable("AracMarkalari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracMarkaModel", b =>
@@ -954,7 +1180,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AracMarkaModeller", (string)null);
+                    b.ToTable("AracMarkaModeller");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracMasraf", b =>
@@ -1027,7 +1253,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("AracMasraflari", (string)null);
+                    b.ToTable("AracMasraflari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracModelTanim", b =>
@@ -1071,7 +1297,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MarkaId");
 
-                    b.ToTable("AracModelleri", (string)null);
+                    b.ToTable("AracModelleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracOperasyonDurum", b =>
@@ -1161,7 +1387,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("AracId", "Yil", "Ay")
                         .IsUnique();
 
-                    b.ToTable("AracOperasyonDurumlari", (string)null);
+                    b.ToTable("AracOperasyonDurumlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracPiyasaArastirma", b =>
@@ -1251,7 +1477,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PiyasaArastirmalar", (string)null);
+                    b.ToTable("PiyasaArastirmalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracPlaka", b =>
@@ -1308,7 +1534,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("Plaka", "CikisTarihi")
                         .HasFilter("\"CikisTarihi\" IS NULL AND \"IsDeleted\" = false");
 
-                    b.ToTable("AracPlakalar", (string)null);
+                    b.ToTable("AracPlakalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracSatis", b =>
@@ -1362,7 +1588,210 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SatisPersoneliId");
 
-                    b.ToTable("AracSatislari", (string)null);
+                    b.ToTable("AracSatislari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracTakipAlarm", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AlarmTipi")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("AlarmZamani")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("AracTakipCihazId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<double?>("Deger")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Islendi")
+                        .HasColumnType("boolean");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Mesaj")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notlar")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Okundu")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AracTakipCihazId");
+
+                    b.ToTable("AracTakipAlarmlar");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracTakipCihaz", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Aktif")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("AracId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("BataryaSeviyesi")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CihazId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CihazMarka")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CihazModel")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("KurulumTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Notlar")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SimKartNo")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SinyalGucu")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SonIletisimZamani")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AracId");
+
+                    b.ToTable("AracTakipCihazlar");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Aciklama")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("Basarili")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DegisenAlanlar")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("EntityAdi")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("EntityGuid")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("EntityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EskiDeger")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("HataMesaji")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("IpAdresi")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<long?>("IslemSuresiMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("IslemTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("IslemTipi")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Kategori")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("KullaniciAdi")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RequestPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Seviye")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("SirketId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("YeniDeger")
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KullaniciId");
+
+                    b.HasIndex("SirketId");
+
+                    b.ToTable("AuditLoglar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AylikChecklist", b =>
@@ -1423,7 +1852,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Yil", "Ay", "ChecklistTipi", "SoforId", "AracId", "GuzergahId");
 
-                    b.ToTable("AylikChecklistler", (string)null);
+                    b.ToTable("AylikChecklistler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AylikOdemeGerceklesen", b =>
@@ -1481,7 +1910,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("AylikOdemeGerceklesenler", (string)null);
+                    b.ToTable("AylikOdemeGerceklesenler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AylikOdemePlani", b =>
@@ -1552,7 +1981,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MasrafKalemiId");
 
-                    b.ToTable("AylikOdemePlanlari", (string)null);
+                    b.ToTable("AylikOdemePlanlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BankaHesap", b =>
@@ -1610,6 +2039,9 @@ namespace CRMFiloServis.Web.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
+                    b.Property<int?>("SirketId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("SubeAdi")
                         .HasColumnType("text");
 
@@ -1630,7 +2062,9 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("HesapKodu")
                         .IsUnique();
 
-                    b.ToTable("BankaHesaplari", (string)null);
+                    b.HasIndex("SirketId");
+
+                    b.ToTable("BankaHesaplari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BankaKasaHareket", b =>
@@ -1694,6 +2128,9 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<string>("ProjeKodu")
                         .HasColumnType("text");
 
+                    b.Property<int?>("SirketId")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("Tutar")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -1703,14 +2140,18 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BankaHesapId");
-
-                    b.HasIndex("CariId");
-
                     b.HasIndex("IslemNo")
                         .IsUnique();
 
-                    b.ToTable("BankaKasaHareketleri", (string)null);
+                    b.HasIndex("BankaHesapId", "IslemTarihi");
+
+                    b.HasIndex("CariId", "IslemTarihi");
+
+                    b.HasIndex("HareketTipi", "IslemTarihi");
+
+                    b.HasIndex("SirketId", "IslemTarihi");
+
+                    b.ToTable("BankaKasaHareketleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Bildirim", b =>
@@ -1775,7 +2216,89 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId", "Okundu");
 
-                    b.ToTable("Bildirimler", (string)null);
+                    b.ToTable("Bildirimler");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.BildirimAyar", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BelgeUyariGunSayisi")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("DestekTalebiUyarisi")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("EhliyetBitisUyarisi")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("EpostaAdresi")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("EpostaAlsin")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("FaturaVadeUyarisi")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("KaskoUyarisi")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("MuayeneUyarisi")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PsikoteknikUyarisi")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SaglikRaporuUyarisi")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SistemBildirimleri")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SmsAlsin")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SmsBelgeHatirlatma")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SmsTelefon")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("SmsVadeHatirlatma")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SrcBelgesiUyarisi")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("TrafikSigortaUyarisi")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("VadeUyariGunSayisi")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KullaniciId");
+
+                    b.ToTable("BildirimAyarlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Bordro", b =>
@@ -1841,7 +2364,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("Bordrolar", (string)null);
+                    b.ToTable("Bordrolar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BordroAyar", b =>
@@ -1907,7 +2430,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("BordroAyarlar", (string)null);
+                    b.ToTable("BordroAyarlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BordroDetay", b =>
@@ -1995,7 +2518,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersonelId");
 
-                    b.ToTable("BordroDetaylar", (string)null);
+                    b.ToTable("BordroDetaylar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BordroOdeme", b =>
@@ -2050,7 +2573,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MuhasebeFisId");
 
-                    b.ToTable("BordroOdemeler", (string)null);
+                    b.ToTable("BordroOdemeler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BudgetHedef", b =>
@@ -2093,7 +2616,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("BudgetHedefler", (string)null);
+                    b.ToTable("BudgetHedefler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BudgetMasrafKalemi", b =>
@@ -2140,7 +2663,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KalemAdi");
 
-                    b.ToTable("BudgetMasrafKalemleri", (string)null);
+                    b.ToTable("BudgetMasrafKalemleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BudgetOdeme", b =>
@@ -2255,7 +2778,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("OdemeYil", "OdemeAy", "MasrafKalemi");
 
-                    b.ToTable("BudgetOdemeler", (string)null);
+                    b.ToTable("BudgetOdemeler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Cari", b =>
@@ -2317,6 +2840,9 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<string>("PostaKodu")
                         .HasColumnType("text");
 
+                    b.Property<int?>("SirketId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("SoforId")
                         .HasColumnType("integer");
 
@@ -2362,9 +2888,11 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MuhasebeHesapId");
 
+                    b.HasIndex("SirketId");
+
                     b.HasIndex("SoforId");
 
-                    b.ToTable("Cariler", (string)null);
+                    b.ToTable("Cariler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.CariHatirlatma", b =>
@@ -2376,11 +2904,13 @@ namespace CRMFiloServis.Web.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Aciklama")
-                        .HasColumnType("text");
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<string>("Baslik")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<int?>("BildirimId")
                         .HasColumnType("integer");
@@ -2416,7 +2946,8 @@ namespace CRMFiloServis.Web.Migrations
                         .HasColumnType("integer");
 
                     b.Property<decimal?>("Tutar")
-                        .HasColumnType("numeric");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -2429,13 +2960,13 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CariId");
-
                     b.HasIndex("FaturaId");
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("CariHatirlatmalar", (string)null);
+                    b.HasIndex("CariId", "Tip", "CreatedAt");
+
+                    b.ToTable("CariHatirlatmalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.CariIletisimNot", b =>
@@ -2500,7 +3031,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("CariIletisimNotlar", (string)null);
+                    b.ToTable("CariIletisimNotlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ChecklistKalem", b =>
@@ -2548,7 +3079,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AylikChecklistId");
 
-                    b.ToTable("ChecklistKalemleri", (string)null);
+                    b.ToTable("ChecklistKalemleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DashboardWidget", b =>
@@ -2598,7 +3129,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("DashboardWidgetlar", (string)null);
+                    b.ToTable("DashboardWidgetlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekAyar", b =>
@@ -2640,7 +3171,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("Anahtar")
                         .IsUnique();
 
-                    b.ToTable("DestekAyarlari", (string)null);
+                    b.ToTable("DestekAyarlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekBilgiBankasi", b =>
@@ -2719,7 +3250,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("YazarKullaniciId");
 
-                    b.ToTable("DestekBilgiBankasiMakaleleri", (string)null);
+                    b.ToTable("DestekBilgiBankasiMakaleleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekDepartman", b =>
@@ -2772,7 +3303,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstDepartmanId");
 
-                    b.ToTable("DestekDepartmanlari", (string)null);
+                    b.ToTable("DestekDepartmanlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekDepartmanUye", b =>
@@ -2811,7 +3342,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("DepartmanId", "KullaniciId")
                         .IsUnique();
 
-                    b.ToTable("DestekDepartmanUyeleri", (string)null);
+                    b.ToTable("DestekDepartmanUyeleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekHazirYanit", b =>
@@ -2868,7 +3399,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KategoriId");
 
-                    b.ToTable("DestekHazirYanitlari", (string)null);
+                    b.ToTable("DestekHazirYanitlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekKategori", b =>
@@ -2924,7 +3455,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstKategoriId");
 
-                    b.ToTable("DestekKategorileri", (string)null);
+                    b.ToTable("DestekKategorileri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekSla", b =>
@@ -2974,7 +3505,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Oncelik");
 
-                    b.ToTable("DestekSlaListesi", (string)null);
+                    b.ToTable("DestekSlaListesi");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebi", b =>
@@ -3097,7 +3628,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("DepartmanId", "Durum");
 
-                    b.ToTable("DestekTalepleri", (string)null);
+                    b.ToTable("DestekTalepleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebiAktivite", b =>
@@ -3145,7 +3676,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("DestekTalebiId", "CreatedAt");
 
-                    b.ToTable("DestekTalebiAktiviteleri", (string)null);
+                    b.ToTable("DestekTalebiAktiviteleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebiEk", b =>
@@ -3205,7 +3736,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("YukleyenKullaniciId");
 
-                    b.ToTable("DestekTalebiEkleri", (string)null);
+                    b.ToTable("DestekTalebiEkleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebiIliski", b =>
@@ -3241,7 +3772,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("AnaTalepId", "IliskiliTalepId")
                         .IsUnique();
 
-                    b.ToTable("DestekTalebiIliskileri", (string)null);
+                    b.ToTable("DestekTalebiIliskileri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.DestekTalebiYanit", b =>
@@ -3293,7 +3824,106 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("DestekTalebiId", "CreatedAt");
 
-                    b.ToTable("DestekTalebiYanitlari", (string)null);
+                    b.ToTable("DestekTalebiYanitlari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysAramaGecmisi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AramaMetni")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("AramaTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("FiltreJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SonucSayisi")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KullaniciId");
+
+                    b.ToTable("EbysAramaGecmisleri");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysBelgeEmbedding", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("DosyaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EmbeddingBoyutu")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EmbeddingJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("GuncellemeTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kaynak")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("KaynakId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Metin")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<string>("MetinOzet")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ModelAdi")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EbysBelgeEmbeddingler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrak", b =>
@@ -3413,7 +4043,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Yon", "Durum");
 
-                    b.ToTable("EbysEvraklar", (string)null);
+                    b.ToTable("EbysEvraklar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakAtama", b =>
@@ -3470,7 +4100,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("EvrakId", "Durum");
 
-                    b.ToTable("EbysEvrakAtamalar", (string)null);
+                    b.ToTable("EbysEvrakAtamalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakDosya", b =>
@@ -3514,14 +4144,78 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("SonDegisiklikNotu")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("VersiyonNo")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("EvrakId");
 
-                    b.ToTable("EbysEvrakDosyalar", (string)null);
+                    b.ToTable("EbysEvrakDosyalar");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakDosyaVersiyon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Aciklama")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DegisiklikNotu")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DosyaAdi")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("DosyaBoyutu")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("DosyaTipi")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DosyaYolu")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("EvrakDosyaId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("OlusturanKullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("VersiyonNo")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EvrakDosyaId");
+
+                    b.HasIndex("OlusturanKullaniciId");
+
+                    b.ToTable("EbysEvrakDosyaVersiyonlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakHareket", b =>
@@ -3572,7 +4266,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("EvrakId", "IslemTarihi");
 
-                    b.ToTable("EbysEvrakHareketler", (string)null);
+                    b.ToTable("EbysEvrakHareketler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakKategori", b =>
@@ -3619,7 +4313,54 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KategoriAdi");
 
-                    b.ToTable("EbysEvrakKategoriler", (string)null);
+                    b.ToTable("EbysEvrakKategoriler");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysKayitliArama", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Aciklama")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<string>("AramaAdi")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("BildirimAktif")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("FiltreJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SiraNo")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KullaniciId");
+
+                    b.ToTable("EbysKayitliAramalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EmailAyar", b =>
@@ -3691,7 +4432,52 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("EmailAyarlari", (string)null);
+                    b.ToTable("EmailAyarlari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EpostaBildirimLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Basarili")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("EpostaAdresi")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("GonderimTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("HataMesaji")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("UyariSayisi")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KullaniciId");
+
+                    b.ToTable("EpostaBildirimLoglari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Fatura", b =>
@@ -3757,6 +4543,18 @@ namespace CRMFiloServis.Web.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<DateTime?>("GibDurumGuncellemeTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("GibDurumMesaji")
+                        .HasColumnType("text");
+
+                    b.Property<int>("GibDurumu")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("GibGonderimTarihi")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<string>("GibKodu")
                         .HasColumnType("text");
 
@@ -3805,6 +4603,9 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<string>("PdfDosyaYolu")
                         .HasColumnType("text");
 
+                    b.Property<int?>("SirketId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("TevkifatKodu")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -3833,18 +4634,26 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId");
 
-                    b.HasIndex("CariId");
-
                     b.HasIndex("EslesenFaturaId");
 
                     b.HasIndex("FaturaNo")
                         .IsUnique();
 
+                    b.HasIndex("FaturaTarihi");
+
                     b.HasIndex("FirmaId");
 
                     b.HasIndex("KarsiFirmaId");
 
-                    b.ToTable("Faturalar", (string)null);
+                    b.HasIndex("CariId", "FaturaTarihi");
+
+                    b.HasIndex("Durum", "VadeTarihi");
+
+                    b.HasIndex("FaturaTipi", "FaturaTarihi");
+
+                    b.HasIndex("SirketId", "FaturaTarihi");
+
+                    b.ToTable("Faturalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.FaturaKalem", b =>
@@ -3942,7 +4751,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MuhasebeHesapId");
 
-                    b.ToTable("FaturaKalemleri", (string)null);
+                    b.ToTable("FaturaKalemleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.FaturaSablon", b =>
@@ -4163,7 +4972,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("FaturaSablonlari", (string)null);
+                    b.ToTable("FaturaSablonlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.FiloGunlukPuantaj", b =>
@@ -4252,7 +5061,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("FiloGunlukPuantajlar", (string)null);
+                    b.ToTable("FiloGunlukPuantajlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.FiloGuzergahEslestirme", b =>
@@ -4309,7 +5118,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("FiloGuzergahEslestirmeleri", (string)null);
+                    b.ToTable("FiloGuzergahEslestirmeleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Firma", b =>
@@ -4398,7 +5207,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("FirmaKodu")
                         .IsUnique();
 
-                    b.ToTable("Firmalar", (string)null);
+                    b.ToTable("Firmalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.GunlukPuantaj", b =>
@@ -4448,7 +5257,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("ServisCalismaId");
 
-                    b.ToTable("GunlukPuantajlar", (string)null);
+                    b.ToTable("GunlukPuantajlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Guzergah", b =>
@@ -4462,12 +5271,24 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<bool>("Aktif")
                         .HasColumnType("boolean");
 
+                    b.Property<double?>("BaslangicLatitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("BaslangicLongitude")
+                        .HasColumnType("double precision");
+
                     b.Property<string>("BaslangicNoktasi")
                         .HasColumnType("text");
 
                     b.Property<decimal>("BirimFiyat")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<double?>("BitisLatitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("BitisLongitude")
+                        .HasColumnType("double precision");
 
                     b.Property<string>("BitisNoktasi")
                         .HasColumnType("text");
@@ -4507,7 +5328,13 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<int>("PersonelSayisi")
                         .HasColumnType("integer");
 
+                    b.Property<string>("RotaRengi")
+                        .HasColumnType("text");
+
                     b.Property<int>("SeferTipi")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SirketId")
                         .HasColumnType("integer");
 
                     b.Property<int?>("TahminiSure")
@@ -4531,11 +5358,13 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("GuzergahKodu")
                         .IsUnique();
 
+                    b.HasIndex("SirketId");
+
                     b.HasIndex("VarsayilanAracId");
 
                     b.HasIndex("VarsayilanSoforId");
 
-                    b.ToTable("Guzergahlar", (string)null);
+                    b.ToTable("Guzergahlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Hatirlatici", b =>
@@ -4620,7 +5449,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId", "BaslangicTarihi");
 
-                    b.ToTable("Hatirlaticilar", (string)null);
+                    b.ToTable("Hatirlaticilar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleGuzergahKalem", b =>
@@ -4799,7 +5628,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("IhaleGuzergahKalemleri", (string)null);
+                    b.ToTable("IhaleGuzergahKalemleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleProje", b =>
@@ -4877,7 +5706,143 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("IhaleProjeleri", (string)null);
+                    b.ToTable("IhaleProjeleri");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleTeklifKararLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("IhaleTeklifVersiyonId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("IslemTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("IslemTipi")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("IslemYapanKullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Not")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("OncekiDurum")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("YeniDurum")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IslemYapanKullaniciId");
+
+                    b.HasIndex("IhaleTeklifVersiyonId", "IslemTarihi");
+
+                    b.ToTable("IhaleTeklifKararLoglari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleTeklifVersiyon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AktifVersiyon")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Durum")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("HazirlamaTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("HazirlayanKullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IhaleProjeId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("KarMarjiOrani")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal>("KarMarjiTutari")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("KararNotu")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("OnayTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("OnaylayanKullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RevizyonKodu")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RevizyonNotu")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<decimal>("TeklifTutari")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("ToplamMaliyet")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("VersiyonNo")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HazirlayanKullaniciId");
+
+                    b.HasIndex("IhaleProjeId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_IhaleTeklifVersiyonlari_AktifVersiyon")
+                        .HasFilter("\"AktifVersiyon\" = true AND \"IsDeleted\" = false");
+
+                    b.HasIndex("OnaylayanKullaniciId");
+
+                    b.HasIndex("IhaleProjeId", "VersiyonNo")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("IhaleTeklifVersiyonlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.IlanPlatformu", b =>
@@ -4955,7 +5920,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("PlatformAdi")
                         .IsUnique();
 
-                    b.ToTable("IlanPlatformlari", (string)null);
+                    b.ToTable("IlanPlatformlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KiralamaArac", b =>
@@ -5039,7 +6004,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KiralayıcıCariId");
 
-                    b.ToTable("KiralamaAraclar", (string)null);
+                    b.ToTable("KiralamaAraclar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KomisyonculukIs", b =>
@@ -5123,7 +6088,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MusteriCariId");
 
-                    b.ToTable("KomisyonculukIsler", (string)null);
+                    b.ToTable("KomisyonculukIsler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KomisyonculukIsAtama", b =>
@@ -5221,7 +6186,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("VerilenIsFaturaId");
 
-                    b.ToTable("KomisyonculukIsAtamalar", (string)null);
+                    b.ToTable("KomisyonculukIsAtamalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KostMerkezi", b =>
@@ -5264,7 +6229,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstKostMerkeziId");
 
-                    b.ToTable("KostMerkezleri", (string)null);
+                    b.ToTable("KostMerkezleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Kullanici", b =>
@@ -5293,6 +6258,16 @@ namespace CRMFiloServis.Web.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<bool>("IkiFaktorAktif")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("IkiFaktorEtkinlestirmeTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("IkiFaktorSecretKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -5313,6 +6288,9 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<string>("SifreHash")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int?>("SirketId")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("SoforId")
                         .HasColumnType("integer");
@@ -5338,9 +6316,11 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("RolId");
 
+                    b.HasIndex("SirketId");
+
                     b.HasIndex("SoforId");
 
-                    b.ToTable("Kullanicilar", (string)null);
+                    b.ToTable("Kullanicilar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KullaniciCari", b =>
@@ -5390,7 +6370,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("KullaniciCariler", (string)null);
+                    b.ToTable("KullaniciCariler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KullaniciSonIslem", b =>
@@ -5436,7 +6416,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId", "SayfaYolu");
 
-                    b.ToTable("KullaniciSonIslemler", (string)null);
+                    b.ToTable("KullaniciSonIslemler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KullaniciTercihi", b =>
@@ -5503,7 +6483,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("KullaniciId")
                         .IsUnique();
 
-                    b.ToTable("KullaniciTercihleri", (string)null);
+                    b.ToTable("KullaniciTercihleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Lisans", b =>
@@ -5581,7 +6561,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("LisansAnahtari")
                         .IsUnique();
 
-                    b.ToTable("Lisanslar", (string)null);
+                    b.ToTable("Lisanslar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MasrafKalemi", b =>
@@ -5625,7 +6605,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("MasrafKodu")
                         .IsUnique();
 
-                    b.ToTable("MasrafKalemleri", (string)null);
+                    b.ToTable("MasrafKalemleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Mesaj", b =>
@@ -5691,7 +6671,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AliciId", "Okundu");
 
-                    b.ToTable("Mesajlar", (string)null);
+                    b.ToTable("Mesajlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeAyar", b =>
@@ -5788,7 +6768,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MuhasebeAyarlari", (string)null);
+                    b.ToTable("MuhasebeAyarlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeDonem", b =>
@@ -5831,7 +6811,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("Yil", "Ay")
                         .IsUnique();
 
-                    b.ToTable("MuhasebeDonemleri", (string)null);
+                    b.ToTable("MuhasebeDonemleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeFis", b =>
@@ -5895,7 +6875,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("FisNo")
                         .IsUnique();
 
-                    b.ToTable("MuhasebeFisleri", (string)null);
+                    b.ToTable("MuhasebeFisleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeFisKalem", b =>
@@ -5949,7 +6929,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("HesapId");
 
-                    b.ToTable("MuhasebeFisKalemleri", (string)null);
+                    b.ToTable("MuhasebeFisKalemleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeHesap", b =>
@@ -6007,7 +6987,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstHesapId");
 
-                    b.ToTable("MuhasebeHesaplari", (string)null);
+                    b.ToTable("MuhasebeHesaplari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MuhasebeProje", b =>
@@ -6064,7 +7044,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FirmaId");
 
-                    b.ToTable("MuhasebeProjeler", (string)null);
+                    b.ToTable("MuhasebeProjeler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.MusteriKiralama", b =>
@@ -6139,7 +7119,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MusteriKiralamalar", (string)null);
+                    b.ToTable("MusteriKiralamalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.OdemeEslestirme", b =>
@@ -6181,7 +7161,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("FaturaId");
 
-                    b.ToTable("OdemeEslestirmeleri", (string)null);
+                    b.ToTable("OdemeEslestirmeleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.OzlukEvrakTanim", b =>
@@ -6225,7 +7205,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OzlukEvrakTanimlari", (string)null);
+                    b.ToTable("OzlukEvrakTanimlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelAvans", b =>
@@ -6291,7 +7271,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersonelId");
 
-                    b.ToTable("PersonelAvanslar", (string)null);
+                    b.ToTable("PersonelAvanslar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelAvansMahsup", b =>
@@ -6340,7 +7320,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MaasId");
 
-                    b.ToTable("PersonelAvansMahsuplar", (string)null);
+                    b.ToTable("PersonelAvansMahsuplar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelBorc", b =>
@@ -6413,7 +7393,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersonelId");
 
-                    b.ToTable("PersonelBorclar", (string)null);
+                    b.ToTable("PersonelBorclar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelBorcOdeme", b =>
@@ -6462,7 +7442,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MuhasebeFisId");
 
-                    b.ToTable("PersonelBorcOdemeler", (string)null);
+                    b.ToTable("PersonelBorcOdemeler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelFinansAyar", b =>
@@ -6521,7 +7501,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersoneleBorclarHesapId");
 
-                    b.ToTable("PersonelFinansAyarlar", (string)null);
+                    b.ToTable("PersonelFinansAyarlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelIzin", b =>
@@ -6575,7 +7555,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("PersonelIzinleri", (string)null);
+                    b.ToTable("PersonelIzinleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelIzinHakki", b =>
@@ -6618,7 +7598,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("SoforId", "Yil")
                         .IsUnique();
 
-                    b.ToTable("PersonelIzinHaklari", (string)null);
+                    b.ToTable("PersonelIzinHaklari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelMaas", b =>
@@ -6740,7 +7720,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("SoforId", "Yil", "Ay")
                         .IsUnique();
 
-                    b.ToTable("PersonelMaaslari", (string)null);
+                    b.ToTable("PersonelMaaslari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelOzlukEvrak", b =>
@@ -6757,6 +7737,15 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("DosyaAdi")
+                        .HasColumnType("text");
+
+                    b.Property<long?>("DosyaBoyutu")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("DosyaTipi")
+                        .HasColumnType("text");
+
                     b.Property<string>("DosyaYolu")
                         .HasColumnType("text");
 
@@ -6769,6 +7758,9 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<int>("SoforId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("SonDegisiklikNotu")
+                        .HasColumnType("text");
+
                     b.Property<bool>("Tamamlandi")
                         .HasColumnType("boolean");
 
@@ -6778,13 +7770,72 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<int>("VersiyonNo")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EvrakTanimId");
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("PersonelOzlukEvraklar", (string)null);
+                    b.ToTable("PersonelOzlukEvraklar");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelOzlukEvrakVersiyon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Aciklama")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DegisiklikNotu")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DosyaAdi")
+                        .HasColumnType("text");
+
+                    b.Property<long?>("DosyaBoyutu")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("DosyaTipi")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DosyaYolu")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("OlusturanKullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("OlusturmaTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("PersonelOzlukEvrakId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("VersiyonNo")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OlusturanKullaniciId");
+
+                    b.HasIndex("PersonelOzlukEvrakId");
+
+                    b.ToTable("PersonelOzlukEvrakVersiyonlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelPuantaj", b =>
@@ -6849,6 +7900,18 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<bool>("Odendi")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("OnayDurumu")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OnayNotu")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("OnayTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("OnaylayanKullanici")
+                        .HasColumnType("text");
+
                     b.Property<int>("PersonelId")
                         .HasColumnType("integer");
 
@@ -6876,7 +7939,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("PersonelId");
 
-                    b.ToTable("PersonelPuantajlar", (string)null);
+                    b.ToTable("PersonelPuantajlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PiyasaArastirmaIlan", b =>
@@ -7006,7 +8069,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("ArastirmaId");
 
-                    b.ToTable("PiyasaArastirmaIlanlar", (string)null);
+                    b.ToTable("PiyasaArastirmaIlanlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PiyasaIlan", b =>
@@ -7082,7 +8145,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracIlanId");
 
-                    b.ToTable("PiyasaIlanlari", (string)null);
+                    b.ToTable("PiyasaIlanlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PiyasaKaynak", b =>
@@ -7146,7 +8209,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PiyasaKaynaklar", (string)null);
+                    b.ToTable("PiyasaKaynaklar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PlakaDonusum", b =>
@@ -7238,7 +8301,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "EskiPlaka");
 
-                    b.ToTable("PlakaDonusumler", (string)null);
+                    b.ToTable("PlakaDonusumler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ProformaFatura", b =>
@@ -7354,7 +8417,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("ProformaNo")
                         .IsUnique();
 
-                    b.ToTable("ProformaFaturalar", (string)null);
+                    b.ToTable("ProformaFaturalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ProformaFaturaKalem", b =>
@@ -7442,7 +8505,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("StokKartiId");
 
-                    b.ToTable("ProformaFaturaKalemler", (string)null);
+                    b.ToTable("ProformaFaturaKalemler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PuantajEslestirmeOneri", b =>
@@ -7493,7 +8556,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("ExcelImportId", "Tip", "ExcelDeger");
 
-                    b.ToTable("PuantajEslestirmeOnerileri", (string)null);
+                    b.ToTable("PuantajEslestirmeOnerileri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PuantajExcelImport", b =>
@@ -7560,7 +8623,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Yil", "Ay");
 
-                    b.ToTable("PuantajExcelImportlar", (string)null);
+                    b.ToTable("PuantajExcelImportlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PuantajKayit", b =>
@@ -7908,7 +8971,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("Yil", "Ay", "GuzergahId", "AracId");
 
-                    b.ToTable("PuantajKayitlar", (string)null);
+                    b.ToTable("PuantajKayitlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Rol", b =>
@@ -7947,7 +9010,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("RolAdi")
                         .IsUnique();
 
-                    b.ToTable("Roller", (string)null);
+                    b.ToTable("Roller");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.RolYetki", b =>
@@ -7983,7 +9046,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("RolId", "YetkiKodu")
                         .IsUnique();
 
-                    b.ToTable("RolYetkileri", (string)null);
+                    b.ToTable("RolYetkileri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.SatisPersoneli", b =>
@@ -8044,7 +9107,7 @@ namespace CRMFiloServis.Web.Migrations
                     b.HasIndex("PersonelKodu")
                         .IsUnique();
 
-                    b.ToTable("SatisPersonelleri", (string)null);
+                    b.ToTable("SatisPersonelleri");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ServisCalisma", b =>
@@ -8109,13 +9172,15 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AracId");
+                    b.HasIndex("CalismaTarihi");
 
-                    b.HasIndex("GuzergahId");
+                    b.HasIndex("AracId", "CalismaTarihi");
 
-                    b.HasIndex("SoforId");
+                    b.HasIndex("GuzergahId", "CalismaTarihi");
 
-                    b.ToTable("ServisCalismalari", (string)null);
+                    b.HasIndex("SoforId", "CalismaTarihi");
+
+                    b.ToTable("ServisCalismalari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ServisCalismaKiralama", b =>
@@ -8215,7 +9280,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("SoforId");
 
-                    b.ToTable("ServisCalismaKiralamalar", (string)null);
+                    b.ToTable("ServisCalismaKiralamalar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ServisKaydi", b =>
@@ -8311,7 +9376,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("AracId", "ServisTarihi");
 
-                    b.ToTable("ServisKayitlari", (string)null);
+                    b.ToTable("ServisKayitlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ServisParca", b =>
@@ -8364,7 +9429,359 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("StokKartiId");
 
-                    b.ToTable("ServisParcalar", (string)null);
+                    b.ToTable("ServisParcalar");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.Sirket", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Adres")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("Aktif")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("AyarlarJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Il")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Ilce")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KisaAd")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("LisansBitisTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LogoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("MaxKullaniciSayisi")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ParaBirimi")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("PostaKodu")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("SirketKodu")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Telefon")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Unvan")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("VergiDairesi")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("VergiNo")
+                        .HasMaxLength(11)
+                        .HasColumnType("character varying(11)");
+
+                    b.Property<string>("WebSitesi")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SirketKodu")
+                        .IsUnique();
+
+                    b.ToTable("Sirketler");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.SirketTransferLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Durum")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EntityAciklama")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EntityTuru")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("HataMesaji")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("HedefSirketId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IliskiliEntitySayisi")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IliskiliVerilerTransferEdildi")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("KaynakSirketId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notlar")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("TransferTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HedefSirketId");
+
+                    b.HasIndex("KullaniciId");
+
+                    b.HasIndex("TransferTarihi");
+
+                    b.HasIndex("EntityTuru", "EntityId");
+
+                    b.HasIndex("KaynakSirketId", "HedefSirketId");
+
+                    b.ToTable("SirketTransferLoglari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.SmsAyar", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Aktif")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ApiKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ApiUrl")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("Bakiye")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("FirmaId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GondericiNumara")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KullaniciAdi")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SonBakiyeSorguTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("SonGonderimTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("ToplamBasarisizSms")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ToplamGonderilenSms")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.ToTable("SmsAyarlari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.SmsLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Durum")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("GonderenKullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("GonderimTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("HataMesaji")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("IletimTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("IliskiliKayitId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("IliskiliTablo")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Mesaj")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ProviderMesajId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("SmsAyarId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Telefon")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Tip")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GonderenKullaniciId");
+
+                    b.HasIndex("SmsAyarId");
+
+                    b.ToTable("SmsLoglari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.SmsSablon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Aciklama")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Adi")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("Aktif")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("FirmaId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Sablon")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Tip")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("Varsayilan")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirmaId");
+
+                    b.ToTable("SmsSablonlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Sofor", b =>
@@ -8446,6 +9863,9 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<DateTime?>("IstenAyrilmaTarihi")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<int?>("MuhasebeHesapId")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("NetMaas")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -8481,6 +9901,9 @@ namespace CRMFiloServis.Web.Migrations
                     b.Property<int>("SiralamaNo")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("SirketId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("SoforKodu")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -8510,6 +9933,10 @@ namespace CRMFiloServis.Web.Migrations
                         .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("MuhasebeHesapId");
+
+                    b.HasIndex("SirketId");
 
                     b.HasIndex("SoforKodu")
                         .IsUnique();
@@ -8590,7 +10017,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("StokKartiId", "IslemTarihi");
 
-                    b.ToTable("StokHareketler", (string)null);
+                    b.ToTable("StokHareketler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.StokKarti", b =>
@@ -8694,7 +10121,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("VarsayilanTedarikciId");
 
-                    b.ToTable("StokKartlari", (string)null);
+                    b.ToTable("StokKartlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.StokKategori", b =>
@@ -8743,7 +10170,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("UstKategoriId");
 
-                    b.ToTable("StokKategoriler", (string)null);
+                    b.ToTable("StokKategoriler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.TekrarlayanOdeme", b =>
@@ -8820,7 +10247,146 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("MasrafKalemi");
 
-                    b.ToTable("TekrarlayanOdemeler", (string)null);
+                    b.ToTable("TekrarlayanOdemeler");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.WebhookEndpoint", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Aciklama")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Ad")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("Aktif")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("BasariliGonderim")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BasarisizGonderim")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Headers")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HttpMethod")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MaxRetry")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OlayFiltresi")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RetryDelaySaniye")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Secret")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("SonBasariliTarih")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("SonGonderimTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("ToplamGonderim")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WebhookEndpointler");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.WebhookLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Durum")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("GonderimTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("HataMesaji")
+                        .HasColumnType("text");
+
+                    b.Property<int>("HttpStatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("IliskiliKayitId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("IliskiliTablo")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OlayTipi")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Payload")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResponseBody")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SureMilisaniye")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("WebhookEndpointId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("YanitTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WebhookEndpointId");
+
+                    b.ToTable("WebhookLoglar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppAyar", b =>
@@ -8866,7 +10432,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KullaniciId");
 
-                    b.ToTable("WhatsAppAyarlari", (string)null);
+                    b.ToTable("WhatsAppAyarlari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppGrup", b =>
@@ -8896,7 +10462,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WhatsAppGruplar", (string)null);
+                    b.ToTable("WhatsAppGruplar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppGrupUye", b =>
@@ -8930,7 +10496,7 @@ namespace CRMFiloServis.Web.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("WhatsAppGrupUyeler", (string)null);
+                    b.ToTable("WhatsAppGrupUyeler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppKisi", b =>
@@ -8974,7 +10540,7 @@ namespace CRMFiloServis.Web.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("WhatsAppKisiler", (string)null);
+                    b.ToTable("WhatsAppKisiler");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppMesaj", b =>
@@ -9027,7 +10593,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasIndex("KisiId");
 
-                    b.ToTable("WhatsAppMesajlar", (string)null);
+                    b.ToTable("WhatsAppMesajlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppSablon", b =>
@@ -9061,7 +10627,7 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WhatsAppSablonlar", (string)null);
+                    b.ToTable("WhatsAppSablonlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Arac", b =>
@@ -9076,9 +10642,16 @@ namespace CRMFiloServis.Web.Migrations
                         .HasForeignKey("KomisyoncuCariId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "Sirket")
+                        .WithMany()
+                        .HasForeignKey("SirketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("KiralikCari");
 
                     b.Navigation("KomisyoncuCari");
+
+                    b.Navigation("Sirket");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracAlimSatim", b =>
@@ -9106,6 +10679,25 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("KarsiTarafCari");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracBolgeAtama", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.AracBolge", "AracBolge")
+                        .WithMany("Atamalar")
+                        .HasForeignKey("AracBolgeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.Arac", "Arac")
+                        .WithMany()
+                        .HasForeignKey("AracId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Arac");
+
+                    b.Navigation("AracBolge");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracEvrak", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.Arac", "Arac")
@@ -9126,6 +10718,23 @@ namespace CRMFiloServis.Web.Migrations
                         .IsRequired();
 
                     b.Navigation("AracEvrak");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracEvrakDosyaVersiyon", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.AracEvrakDosya", "AracEvrakDosya")
+                        .WithMany("Versiyonlar")
+                        .HasForeignKey("AracEvrakDosyaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "OlusturanKullanici")
+                        .WithMany()
+                        .HasForeignKey("OlusturanKullaniciId");
+
+                    b.Navigation("AracEvrakDosya");
+
+                    b.Navigation("OlusturanKullanici");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIlan", b =>
@@ -9219,6 +10828,17 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Fatura");
 
                     b.Navigation("StokHareket");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracKonum", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.AracTakipCihaz", "AracTakipCihaz")
+                        .WithMany("Konumlar")
+                        .HasForeignKey("AracTakipCihazId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AracTakipCihaz");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracMasraf", b =>
@@ -9340,6 +10960,43 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("SatisPersoneli");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracTakipAlarm", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.AracTakipCihaz", "AracTakipCihaz")
+                        .WithMany()
+                        .HasForeignKey("AracTakipCihazId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AracTakipCihaz");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracTakipCihaz", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Arac", "Arac")
+                        .WithMany()
+                        .HasForeignKey("AracId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Arac");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AuditLog", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "Kullanici")
+                        .WithMany()
+                        .HasForeignKey("KullaniciId");
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "Sirket")
+                        .WithMany()
+                        .HasForeignKey("SirketId");
+
+                    b.Navigation("Kullanici");
+
+                    b.Navigation("Sirket");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AylikChecklist", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.Arac", "Arac")
@@ -9418,6 +11075,16 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("MasrafKalemi");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.BankaHesap", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "Sirket")
+                        .WithMany()
+                        .HasForeignKey("SirketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Sirket");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.BankaKasaHareket", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.BankaHesap", "BankaHesap")
@@ -9431,15 +11098,33 @@ namespace CRMFiloServis.Web.Migrations
                         .HasForeignKey("CariId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "Sirket")
+                        .WithMany()
+                        .HasForeignKey("SirketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("BankaHesap");
 
                     b.Navigation("Cari");
+
+                    b.Navigation("Sirket");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Bildirim", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "Kullanici")
                         .WithMany("Bildirimler")
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Kullanici");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.BildirimAyar", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "Kullanici")
+                        .WithMany()
                         .HasForeignKey("KullaniciId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -9553,6 +11238,11 @@ namespace CRMFiloServis.Web.Migrations
                         .WithMany()
                         .HasForeignKey("MuhasebeHesapId");
 
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "Sirket")
+                        .WithMany()
+                        .HasForeignKey("SirketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CRMFiloServis.Shared.Entities.Sofor", "Sofor")
                         .WithMany()
                         .HasForeignKey("SoforId")
@@ -9562,24 +11252,28 @@ namespace CRMFiloServis.Web.Migrations
 
                     b.Navigation("MuhasebeHesap");
 
+                    b.Navigation("Sirket");
+
                     b.Navigation("Sofor");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.CariHatirlatma", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.Cari", "Cari")
-                        .WithMany()
+                        .WithMany("CariHatirlatmalar")
                         .HasForeignKey("CariId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("CRMFiloServis.Shared.Entities.Fatura", "Fatura")
                         .WithMany()
-                        .HasForeignKey("FaturaId");
+                        .HasForeignKey("FaturaId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("CRMFiloServis.Shared.Entities.Firma", "Firma")
                         .WithMany()
-                        .HasForeignKey("FirmaId");
+                        .HasForeignKey("FirmaId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Cari");
 
@@ -9825,6 +11519,17 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Kullanici");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysAramaGecmisi", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "Kullanici")
+                        .WithMany()
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Kullanici");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrak", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "AtananKullanici")
@@ -9886,6 +11591,23 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Evrak");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakDosyaVersiyon", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.EbysEvrakDosya", "EvrakDosya")
+                        .WithMany("Versiyonlar")
+                        .HasForeignKey("EvrakDosyaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "OlusturanKullanici")
+                        .WithMany()
+                        .HasForeignKey("OlusturanKullaniciId");
+
+                    b.Navigation("EvrakDosya");
+
+                    b.Navigation("OlusturanKullanici");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakHareket", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.EbysEvrak", "Evrak")
@@ -9905,12 +11627,34 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Kullanici");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysKayitliArama", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "Kullanici")
+                        .WithMany()
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Kullanici");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EmailAyar", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "Kullanici")
                         .WithMany()
                         .HasForeignKey("KullaniciId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Kullanici");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EpostaBildirimLog", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "Kullanici")
+                        .WithMany()
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Kullanici");
                 });
@@ -9942,6 +11686,11 @@ namespace CRMFiloServis.Web.Migrations
                         .HasForeignKey("KarsiFirmaId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "Sirket")
+                        .WithMany()
+                        .HasForeignKey("SirketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Arac");
 
                     b.Navigation("Cari");
@@ -9951,6 +11700,8 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Firma");
 
                     b.Navigation("KarsiFirma");
+
+                    b.Navigation("Sirket");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.FaturaKalem", b =>
@@ -10094,6 +11845,11 @@ namespace CRMFiloServis.Web.Migrations
                         .WithMany()
                         .HasForeignKey("FirmaId");
 
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "Sirket")
+                        .WithMany()
+                        .HasForeignKey("SirketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CRMFiloServis.Shared.Entities.Arac", "VarsayilanArac")
                         .WithMany()
                         .HasForeignKey("VarsayilanAracId");
@@ -10105,6 +11861,8 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Cari");
 
                     b.Navigation("Firma");
+
+                    b.Navigation("Sirket");
 
                     b.Navigation("VarsayilanArac");
 
@@ -10171,6 +11929,49 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Cari");
 
                     b.Navigation("Firma");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleTeklifKararLog", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.IhaleTeklifVersiyon", "IhaleTeklifVersiyon")
+                        .WithMany("KararLoglari")
+                        .HasForeignKey("IhaleTeklifVersiyonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "IslemYapanKullanici")
+                        .WithMany()
+                        .HasForeignKey("IslemYapanKullaniciId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("IhaleTeklifVersiyon");
+
+                    b.Navigation("IslemYapanKullanici");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleTeklifVersiyon", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "HazirlayanKullanici")
+                        .WithMany()
+                        .HasForeignKey("HazirlayanKullaniciId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.IhaleProje", "IhaleProje")
+                        .WithMany("TeklifVersiyonlari")
+                        .HasForeignKey("IhaleProjeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "OnaylayanKullanici")
+                        .WithMany()
+                        .HasForeignKey("OnaylayanKullaniciId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("HazirlayanKullanici");
+
+                    b.Navigation("IhaleProje");
+
+                    b.Navigation("OnaylayanKullanici");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.KiralamaArac", b =>
@@ -10266,12 +12067,19 @@ namespace CRMFiloServis.Web.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "Sirket")
+                        .WithMany("Kullanicilar")
+                        .HasForeignKey("SirketId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("CRMFiloServis.Shared.Entities.Sofor", "Sofor")
                         .WithMany()
                         .HasForeignKey("SoforId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Rol");
+
+                    b.Navigation("Sirket");
 
                     b.Navigation("Sofor");
                 });
@@ -10610,6 +12418,23 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Sofor");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelOzlukEvrakVersiyon", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "OlusturanKullanici")
+                        .WithMany()
+                        .HasForeignKey("OlusturanKullaniciId");
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.PersonelOzlukEvrak", "PersonelOzlukEvrak")
+                        .WithMany("Versiyonlar")
+                        .HasForeignKey("PersonelOzlukEvrakId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("OlusturanKullanici");
+
+                    b.Navigation("PersonelOzlukEvrak");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelPuantaj", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.Firma", "Firma")
@@ -10912,6 +12737,83 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("StokKarti");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.SirketTransferLog", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "HedefSirket")
+                        .WithMany()
+                        .HasForeignKey("HedefSirketId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "KaynakSirket")
+                        .WithMany()
+                        .HasForeignKey("KaynakSirketId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "Kullanici")
+                        .WithMany()
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .IsRequired();
+
+                    b.Navigation("HedefSirket");
+
+                    b.Navigation("KaynakSirket");
+
+                    b.Navigation("Kullanici");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.SmsAyar", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Firma", "Firma")
+                        .WithMany()
+                        .HasForeignKey("FirmaId");
+
+                    b.Navigation("Firma");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.SmsLog", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "GonderenKullanici")
+                        .WithMany()
+                        .HasForeignKey("GonderenKullaniciId");
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.SmsAyar", "SmsAyar")
+                        .WithMany()
+                        .HasForeignKey("SmsAyarId");
+
+                    b.Navigation("GonderenKullanici");
+
+                    b.Navigation("SmsAyar");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.SmsSablon", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.Firma", "Firma")
+                        .WithMany()
+                        .HasForeignKey("FirmaId");
+
+                    b.Navigation("Firma");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.Sofor", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.MuhasebeHesap", "MuhasebeHesap")
+                        .WithMany()
+                        .HasForeignKey("MuhasebeHesapId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("CRMFiloServis.Shared.Entities.Sirket", "Sirket")
+                        .WithMany()
+                        .HasForeignKey("SirketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("MuhasebeHesap");
+
+                    b.Navigation("Sirket");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.StokHareket", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.Arac", "Arac")
@@ -11002,6 +12904,17 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Firma");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.WebhookLog", b =>
+                {
+                    b.HasOne("CRMFiloServis.Shared.Entities.WebhookEndpoint", "WebhookEndpoint")
+                        .WithMany("Loglar")
+                        .HasForeignKey("WebhookEndpointId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WebhookEndpoint");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppAyar", b =>
                 {
                     b.HasOne("CRMFiloServis.Shared.Entities.Kullanici", "Kullanici")
@@ -11074,9 +12987,19 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("ServisCalismalari");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracBolge", b =>
+                {
+                    b.Navigation("Atamalar");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracEvrak", b =>
                 {
                     b.Navigation("Dosyalar");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracEvrakDosya", b =>
+                {
+                    b.Navigation("Versiyonlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracIlan", b =>
@@ -11092,6 +13015,11 @@ namespace CRMFiloServis.Web.Migrations
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracPiyasaArastirma", b =>
                 {
                     b.Navigation("Ilanlar");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.AracTakipCihaz", b =>
+                {
+                    b.Navigation("Konumlar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.AylikChecklist", b =>
@@ -11119,6 +13047,8 @@ namespace CRMFiloServis.Web.Migrations
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Cari", b =>
                 {
                     b.Navigation("BankaKasaHareketler");
+
+                    b.Navigation("CariHatirlatmalar");
 
                     b.Navigation("Faturalar");
 
@@ -11176,6 +13106,11 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Hareketler");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakDosya", b =>
+                {
+                    b.Navigation("Versiyonlar");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.EbysEvrakKategori", b =>
                 {
                     b.Navigation("Evraklar");
@@ -11200,6 +13135,13 @@ namespace CRMFiloServis.Web.Migrations
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleProje", b =>
                 {
                     b.Navigation("Kalemler");
+
+                    b.Navigation("TeklifVersiyonlari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.IhaleTeklifVersiyon", b =>
+                {
+                    b.Navigation("KararLoglari");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.IlanPlatformu", b =>
@@ -11272,6 +13214,11 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Odemeler");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.PersonelOzlukEvrak", b =>
+                {
+                    b.Navigation("Versiyonlar");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.ProformaFatura", b =>
                 {
                     b.Navigation("Kalemler");
@@ -11306,6 +13253,11 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("Parcalar");
                 });
 
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.Sirket", b =>
+                {
+                    b.Navigation("Kullanicilar");
+                });
+
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.Sofor", b =>
                 {
                     b.Navigation("IzinHaklari");
@@ -11327,6 +13279,11 @@ namespace CRMFiloServis.Web.Migrations
                     b.Navigation("AltKategoriler");
 
                     b.Navigation("StokKartlari");
+                });
+
+            modelBuilder.Entity("CRMFiloServis.Shared.Entities.WebhookEndpoint", b =>
+                {
+                    b.Navigation("Loglar");
                 });
 
             modelBuilder.Entity("CRMFiloServis.Shared.Entities.WhatsAppGrup", b =>

@@ -70,7 +70,7 @@ public class OllamaAIChatService : IOllamaAIChatService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Ollama bağlantı kontrolü başarısız");
+            _logger.LogInformation("Ollama bağlantı kontrolü başarısız: {Mesaj}", ex.Message);
             return false;
         }
     }
@@ -207,11 +207,16 @@ public class OllamaAIChatService : IOllamaAIChatService
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var reader = new StreamReader(stream);
 
-        while (!reader.EndOfStream)
+        while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var line = await reader.ReadLineAsync(cancellationToken);
+            if (line is null)
+            {
+                yield break;
+            }
+
             if (string.IsNullOrWhiteSpace(line))
             {
                 continue;

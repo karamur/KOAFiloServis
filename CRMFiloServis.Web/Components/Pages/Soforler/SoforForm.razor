@@ -8,9 +8,9 @@
 @inject ISoforService SoforService
 @inject IMuhasebeService MuhasebeService
 @inject IPersonelOzlukService OzlukService
+@inject ISecureFileService SecureFileService
 @inject IToastService ToastService
 @inject NavigationManager Navigation
-@inject IWebHostEnvironment Env
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
@@ -808,19 +808,15 @@
         evrakYukleniyor = true;
         try
         {
-            // Dosyayı kaydet
-            var uploadsPath = Path.Combine(Env.ContentRootPath, "uploads", "ozluk", Id!.Value.ToString());
-            if (!Directory.Exists(uploadsPath))
-                Directory.CreateDirectory(uploadsPath);
+            await using var stream = secilenEvrakDosya.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
 
-            var dosyaAdi = $"{seciliEvrakDetay.EvrakTanimId}_{Guid.NewGuid()}{Path.GetExtension(secilenEvrakDosya.Name)}";
-            var dosyaYolu = Path.Combine(uploadsPath, dosyaAdi);
+            var relativePath = await SecureFileService.SaveEncryptedAsync(
+                $"ozluk/{Id}",
+                secilenEvrakDosya.Name,
+                memoryStream.ToArray());
 
-            await using var stream = new FileStream(dosyaYolu, FileMode.Create);
-            await secilenEvrakDosya.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
-
-            // Veritabanına kaydet
-            var relativePath = $"uploads/ozluk/{Id}/{dosyaAdi}";
             await OzlukService.EvrakDosyaYukle(Id!.Value, seciliEvrakDetay.EvrakTanimId, relativePath);
 
             ToastService.ShowSuccess($"{seciliEvrakDetay.EvrakAdi} başarıyla yüklendi.");
@@ -843,16 +839,13 @@
 
         try
         {
-            var relativePath = evrak.DosyaYolu.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
-            var dosyaYolu = Path.Combine(Env.ContentRootPath, relativePath);
-
-            if (!File.Exists(dosyaYolu))
+            var content = await SecureFileService.ReadDecryptedAsync(evrak.DosyaYolu);
+            if (content == null)
             {
                 ToastService.ShowWarning("Dosya bulunamadı.");
                 return;
             }
 
-            var content = await File.ReadAllBytesAsync(dosyaYolu);
             var fileName = Path.GetFileName(evrak.DosyaYolu);
             var extension = Path.GetExtension(fileName).TrimStart('.').ToLower();
             var mimeType = GetMimeType(extension);

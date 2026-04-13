@@ -2,6 +2,8 @@
 using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
+#pragma warning disable EF1002 // Migration helper - tablo isimleri güvenli kaynaktan geliyor
+
 namespace CRMFiloServis.Web.Data.Migrations;
 
 public static class SoforMaasMigrationHelper

@@ -76,6 +76,7 @@ public class CariHareketTakipRapor
 public class CariHareketDetay
 {
     public int Id { get; set; }
+    public string? DetayUrl { get; set; }
     public DateTime Tarih { get; set; }
     public string HareketTipi { get; set; } = string.Empty; // "Fatura", "Tahsilat", "Ödeme", "Açılış"
     public string Aciklama { get; set; } = string.Empty;
@@ -90,6 +91,7 @@ public class CariHareketDetay
         "Fatura" => "primary",
         "Tahsilat" => "success",
         "Ödeme" => "info",
+        "Araç Masrafı" => "warning",
         "Açılış" => "secondary",
         _ => "dark"
     };
@@ -99,6 +101,7 @@ public class CariHareketDetay
         "Fatura" => "bi-file-text",
         "Tahsilat" => "bi-cash-coin",
         "Ödeme" => "bi-credit-card",
+        "Araç Masrafı" => "bi-fuel-pump",
         "Açılış" => "bi-box-arrow-in-right",
         _ => "bi-circle"
     };

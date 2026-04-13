@@ -1,4 +1,4 @@
-namespace CRMFiloServis.Shared.Entities;
+﻿namespace CRMFiloServis.Shared.Entities;
 
 public class DatabaseSettings
 {
@@ -6,9 +6,9 @@ public class DatabaseSettings
     public DatabaseProvider Provider { get; set; } = DatabaseProvider.PostgreSQL;
     public string Host { get; set; } = "localhost";
     public int Port { get; set; } = 5432;
-    public string DatabaseName { get; set; } = "";
-    public string Username { get; set; } = "";
-    public string Password { get; set; } = "";
+    public string DatabaseName { get; set; } = "DestekCRMServisBlazorDb";
+    public string Username { get; set; } = "postgres";
+    public string Password { get; set; } = "Fast123";
     public bool UseIntegratedSecurity { get; set; } = false;
     public string? AdditionalOptions { get; set; }
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;

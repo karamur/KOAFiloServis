@@ -9,12 +9,12 @@ namespace CRMFiloServis.Web.Services;
 public class AracService : IAracService
 {
     private readonly ApplicationDbContext _context;
-    private readonly IWebHostEnvironment _env;
+    private readonly ISecureFileService _secureFileService;
 
-    public AracService(ApplicationDbContext context, IWebHostEnvironment env)
+    public AracService(ApplicationDbContext context, ISecureFileService secureFileService)
     {
         _context = context;
-        _env = env;
+        _secureFileService = secureFileService;
     }
 
     #region Araç CRUD İşlemleri
@@ -555,13 +555,7 @@ public class AracService : IAracService
             // Dosyaları sil
             foreach (var dosya in evrak.Dosyalar)
             {
-                var relativePath = dosya.DosyaYolu.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
-                if (relativePath.StartsWith($"uploads{Path.DirectorySeparatorChar}"))
-                    relativePath = relativePath.Substring($"uploads{Path.DirectorySeparatorChar}".Length);
-
-                var dosyaYolu = Path.Combine(AppStoragePaths.GetUploadsRoot(_env.ContentRootPath), relativePath);
-                if (File.Exists(dosyaYolu))
-                    File.Delete(dosyaYolu);
+                await _secureFileService.DeleteAsync(dosya.DosyaYolu);
             }
             
             evrak.IsDeleted = true;
@@ -575,21 +569,20 @@ public class AracService : IAracService
         if (evrak == null)
             throw new Exception("Evrak bulunamadi");
 
-        var klasorYolu = Path.Combine(AppStoragePaths.GetUploadsRoot(_env.ContentRootPath), "evraklar", evrakId.ToString());
-        if (!Directory.Exists(klasorYolu))
-            Directory.CreateDirectory(klasorYolu);
+        await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
 
-        var dosyaAdi = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
-        var dosyaYolu = Path.Combine(klasorYolu, dosyaAdi);
-
-        await using var stream = new FileStream(dosyaYolu, FileMode.Create);
-        await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
+        var storedPath = await _secureFileService.SaveEncryptedAsync(
+            $"evraklar/{evrakId}",
+            file.Name,
+            memoryStream.ToArray());
 
         var evrakDosya = new AracEvrakDosya
         {
             AracEvrakId = evrakId,
             DosyaAdi = file.Name,
-            DosyaYolu = $"uploads/evraklar/{evrakId}/{dosyaAdi}",
+            DosyaYolu = storedPath,
             DosyaTipi = Path.GetExtension(file.Name).TrimStart('.').ToLower(),
             DosyaBoyutu = file.Size,
             CreatedAt = DateTime.UtcNow
@@ -606,15 +599,11 @@ public class AracService : IAracService
         if (dosya == null)
             throw new Exception("Dosya bulunamadi");
 
-        var relativePath = dosya.DosyaYolu.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
-        if (relativePath.StartsWith($"uploads{Path.DirectorySeparatorChar}"))
-            relativePath = relativePath.Substring($"uploads{Path.DirectorySeparatorChar}".Length);
-
-        var dosyaYolu = Path.Combine(AppStoragePaths.GetUploadsRoot(_env.ContentRootPath), relativePath);
-        if (!File.Exists(dosyaYolu))
+        var content = await _secureFileService.ReadDecryptedAsync(dosya.DosyaYolu);
+        if (content == null)
             throw new Exception("Dosya diskte bulunamadi");
 
-        return await File.ReadAllBytesAsync(dosyaYolu);
+        return content;
     }
 
     public async Task DeleteEvrakDosyaAsync(int dosyaId)
@@ -622,13 +611,7 @@ public class AracService : IAracService
         var dosya = await _context.AracEvrakDosyalari.FindAsync(dosyaId);
         if (dosya != null)
         {
-            var relativePath = dosya.DosyaYolu.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
-            if (relativePath.StartsWith($"uploads{Path.DirectorySeparatorChar}"))
-                relativePath = relativePath.Substring($"uploads{Path.DirectorySeparatorChar}".Length);
-
-            var dosyaYolu = Path.Combine(AppStoragePaths.GetUploadsRoot(_env.ContentRootPath), relativePath);
-            if (File.Exists(dosyaYolu))
-                File.Delete(dosyaYolu);
+            await _secureFileService.DeleteAsync(dosya.DosyaYolu);
 
             _context.AracEvrakDosyalari.Remove(dosya);
             await _context.SaveChangesAsync();

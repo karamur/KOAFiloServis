@@ -13,6 +13,7 @@ namespace CRMFiloServis.Web.Services;
 public class TenantService : ITenantService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly AuthenticationStateProvider _authStateProvider;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<TenantService> _logger;
@@ -23,11 +24,13 @@ public class TenantService : ITenantService
 
     public TenantService(
         ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         AuthenticationStateProvider authStateProvider,
         IHttpContextAccessor httpContextAccessor,
         ILogger<TenantService> logger)
     {
         _context = context;
+        _contextFactory = contextFactory;
         _authStateProvider = authStateProvider;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
@@ -83,7 +86,9 @@ public class TenantService : ITenantService
 
         if (sirketId.HasValue)
         {
-            _currentSirket = await _context.Sirketler
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            _currentSirket = await context.Sirketler
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == sirketId.Value && !s.IsDeleted && s.Aktif);
 
@@ -100,11 +105,18 @@ public class TenantService : ITenantService
             _currentSirket = null;
         }
 
-        // Session/Cookie'ye kaydet
-        var httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext != null)
+        // Session/Cookie'ye kaydet (Blazor Server'da session mevcut olmayabilir)
+        try
         {
-            httpContext.Session.SetInt32("CurrentSirketId", sirketId ?? 0);
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext?.Features.Get<Microsoft.AspNetCore.Http.Features.ISessionFeature>() != null)
+            {
+                httpContext.Session.SetInt32("CurrentSirketId", sirketId ?? 0);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Session yapılandırılmamış - Blazor Server'da normal durum
         }
 
         _logger.LogInformation("Tenant context değişti: SirketId={SirketId}", sirketId);
@@ -123,7 +135,9 @@ public class TenantService : ITenantService
             return [];
         }
 
-        return await _context.Sirketler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        return await context.Sirketler
             .AsNoTracking()
             .Where(s => !s.IsDeleted)
             .OrderBy(s => s.SirketKodu)
@@ -132,7 +146,9 @@ public class TenantService : ITenantService
 
     public async Task<Sirket?> GetSirketByIdAsync(int id)
     {
-        return await _context.Sirketler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        return await context.Sirketler
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
     }
@@ -168,8 +184,9 @@ public class TenantService : ITenantService
             Aktif = true
         };
 
-        _context.Sirketler.Add(sirket);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.Sirketler.Add(sirket);
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Yeni şirket oluşturuldu: {SirketKodu} - {Unvan}", sirket.SirketKodu, sirket.Unvan);
         return sirket;
@@ -177,7 +194,9 @@ public class TenantService : ITenantService
 
     public async Task<Sirket> UpdateSirketAsync(SirketGuncelleModel model)
     {
-        var sirket = await _context.Sirketler.FindAsync(model.Id)
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var sirket = await context.Sirketler.FindAsync(model.Id)
             ?? throw new InvalidOperationException("Şirket bulunamadı.");
 
         if (!HasAccessToSirket(model.Id))
@@ -201,7 +220,7 @@ public class TenantService : ITenantService
         sirket.MaxKullaniciSayisi = model.MaxKullaniciSayisi;
         sirket.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Şirket güncellendi: {SirketKodu}", sirket.SirketKodu);
         return sirket;
@@ -214,11 +233,13 @@ public class TenantService : ITenantService
             throw new UnauthorizedAccessException("Şirket silme yetkiniz yok.");
         }
 
-        var sirket = await _context.Sirketler.FindAsync(id)
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var sirket = await context.Sirketler.FindAsync(id)
             ?? throw new InvalidOperationException("Şirket bulunamadı.");
 
         // Şirkete bağlı aktif kullanıcı var mı kontrol et
-        var aktifKullaniciSayisi = await _context.Kullanicilar
+        var aktifKullaniciSayisi = await context.Kullanicilar
             .CountAsync(k => k.SirketId == id && !k.IsDeleted && k.Aktif);
 
         if (aktifKullaniciSayisi > 0)
@@ -231,7 +252,7 @@ public class TenantService : ITenantService
         sirket.Aktif = false;
         sirket.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Şirket silindi: {SirketKodu}", sirket.SirketKodu);
     }
@@ -240,7 +261,9 @@ public class TenantService : ITenantService
     {
         var normalizedKod = sirketKodu.ToUpperInvariant();
 
-        var query = _context.Sirketler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var query = context.Sirketler
             .Where(s => s.SirketKodu == normalizedKod && !s.IsDeleted);
 
         if (excludeId.HasValue)
@@ -265,23 +288,33 @@ public class TenantService : ITenantService
             {
                 _currentSirketId = sirketId;
                 // Lazy load şirket bilgisi
-                _currentSirket = _context.Sirketler
+                    using var context = _contextFactory.CreateDbContext();
+                    _currentSirket = context.Sirketler
                     .AsNoTracking()
                     .FirstOrDefault(s => s.Id == sirketId && !s.IsDeleted);
             }
 
             // Session'dan override kontrolü (super admin için)
-            var httpContext = _httpContextAccessor.HttpContext;
-            if (httpContext != null && IsSuperAdmin)
+            // Not: Blazor Server'da session her zaman mevcut olmayabilir
+            try
             {
-                var sessionSirketId = httpContext.Session.GetInt32("CurrentSirketId");
-                if (sessionSirketId.HasValue && sessionSirketId.Value > 0)
+                var httpContext = _httpContextAccessor.HttpContext;
+                if (httpContext?.Features.Get<Microsoft.AspNetCore.Http.Features.ISessionFeature>() != null && IsSuperAdmin)
                 {
-                    _currentSirketId = sessionSirketId.Value;
-                    _currentSirket = _context.Sirketler
-                        .AsNoTracking()
-                        .FirstOrDefault(s => s.Id == sessionSirketId.Value && !s.IsDeleted);
+                    var sessionSirketId = httpContext.Session.GetInt32("CurrentSirketId");
+                    if (sessionSirketId.HasValue && sessionSirketId.Value > 0)
+                    {
+                        _currentSirketId = sessionSirketId.Value;
+                        using var context = _contextFactory.CreateDbContext();
+                        _currentSirket = context.Sirketler
+                            .AsNoTracking()
+                            .FirstOrDefault(s => s.Id == sessionSirketId.Value && !s.IsDeleted);
+                    }
                 }
+            }
+            catch (InvalidOperationException)
+            {
+                // Session yapılandırılmamış - Blazor Server'da normal durum
             }
         }
 
@@ -321,7 +354,9 @@ public class TenantService : ITenantService
         var result = new SirketTransferResult();
 
         // Hedef şirket kontrolü
-        var hedefSirket = await _context.Sirketler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var hedefSirket = await context.Sirketler
             .FirstOrDefaultAsync(s => s.Id == request.HedefSirketId && !s.IsDeleted && s.Aktif);
 
         if (hedefSirket == null)
@@ -436,15 +471,18 @@ public class TenantService : ITenantService
             log.HataMesaji = ex.Message;
         }
 
-        _context.SirketTransferLoglari.Add(log);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.SirketTransferLoglari.Add(log);
+        await context.SaveChangesAsync();
 
         return log;
     }
 
     private async Task TransferCariAsync(int cariId, int hedefSirketId, bool iliskiliVeriler, SirketTransferLog log)
     {
-        var cari = await _context.Cariler.FindAsync(cariId)
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var cari = await context.Cariler.FindAsync(cariId)
             ?? throw new InvalidOperationException("Cari bulunamadı.");
 
         log.KaynakSirketId = cari.SirketId ?? 0;
@@ -456,7 +494,7 @@ public class TenantService : ITenantService
         if (iliskiliVeriler)
         {
             // İlişkili faturaları da transfer et
-            var faturalar = await _context.Faturalar
+            var faturalar = await context.Faturalar
                 .Where(f => f.CariId == cariId && !f.IsDeleted)
                 .ToListAsync();
 
@@ -469,12 +507,14 @@ public class TenantService : ITenantService
             log.IliskiliEntitySayisi = faturalar.Count;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     private async Task TransferAracAsync(int aracId, int hedefSirketId, bool iliskiliVeriler, SirketTransferLog log)
     {
-        var arac = await _context.Araclar.FindAsync(aracId)
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var arac = await context.Araclar.FindAsync(aracId)
             ?? throw new InvalidOperationException("Araç bulunamadı.");
 
         log.KaynakSirketId = arac.SirketId ?? 0;
@@ -486,7 +526,7 @@ public class TenantService : ITenantService
         if (iliskiliVeriler)
         {
             // İlişkili masrafları da transfer et
-            var masraflar = await _context.AracMasraflari
+            var masraflar = await context.AracMasraflari
                 .Where(m => m.AracId == aracId && !m.IsDeleted)
                 .ToListAsync();
 
@@ -494,12 +534,14 @@ public class TenantService : ITenantService
             log.IliskiliEntitySayisi = masraflar.Count;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     private async Task TransferSoforAsync(int soforId, int hedefSirketId, bool iliskiliVeriler, SirketTransferLog log)
     {
-        var sofor = await _context.Soforler.FindAsync(soforId)
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var sofor = await context.Soforler.FindAsync(soforId)
             ?? throw new InvalidOperationException("Şoför bulunamadı.");
 
         log.KaynakSirketId = sofor.SirketId ?? 0;
@@ -511,19 +553,21 @@ public class TenantService : ITenantService
         if (iliskiliVeriler)
         {
             // İlişkili puantajları da transfer et
-            var puantajlar = await _context.PersonelPuantajlar
+            var puantajlar = await context.PersonelPuantajlar
                 .Where(p => p.PersonelId == soforId && !p.IsDeleted)
                 .ToListAsync();
 
             log.IliskiliEntitySayisi = puantajlar.Count;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     private async Task TransferGuzergahAsync(int guzergahId, int hedefSirketId, SirketTransferLog log)
     {
-        var guzergah = await _context.Guzergahlar.FindAsync(guzergahId)
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var guzergah = await context.Guzergahlar.FindAsync(guzergahId)
             ?? throw new InvalidOperationException("Güzergah bulunamadı.");
 
         log.KaynakSirketId = guzergah.SirketId ?? 0;
@@ -532,12 +576,14 @@ public class TenantService : ITenantService
         guzergah.SirketId = hedefSirketId;
         guzergah.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     private async Task TransferFaturaAsync(int faturaId, int hedefSirketId, SirketTransferLog log)
     {
-        var fatura = await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var fatura = await context.Faturalar
             .Include(f => f.Cari)
             .FirstOrDefaultAsync(f => f.Id == faturaId)
             ?? throw new InvalidOperationException("Fatura bulunamadı.");
@@ -548,12 +594,14 @@ public class TenantService : ITenantService
         fatura.SirketId = hedefSirketId;
         fatura.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     private async Task TransferBankaHesapAsync(int hesapId, int hedefSirketId, bool iliskiliVeriler, SirketTransferLog log)
     {
-        var hesap = await _context.BankaHesaplari.FindAsync(hesapId)
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var hesap = await context.BankaHesaplari.FindAsync(hesapId)
             ?? throw new InvalidOperationException("Banka hesabı bulunamadı.");
 
         log.KaynakSirketId = hesap.SirketId ?? 0;
@@ -565,7 +613,7 @@ public class TenantService : ITenantService
         if (iliskiliVeriler)
         {
             // İlişkili hareketleri de transfer et
-            var hareketler = await _context.BankaKasaHareketleri
+            var hareketler = await context.BankaKasaHareketleri
                 .Where(h => h.BankaHesapId == hesapId && !h.IsDeleted)
                 .ToListAsync();
 
@@ -578,12 +626,14 @@ public class TenantService : ITenantService
             log.IliskiliEntitySayisi = hareketler.Count;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     private async Task TransferBankaKasaHareketAsync(int hareketId, int hedefSirketId, SirketTransferLog log)
     {
-        var hareket = await _context.BankaKasaHareketleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var hareket = await context.BankaKasaHareketleri
             .Include(h => h.BankaHesap)
             .FirstOrDefaultAsync(h => h.Id == hareketId)
             ?? throw new InvalidOperationException("Banka/Kasa hareketi bulunamadı.");
@@ -594,7 +644,7 @@ public class TenantService : ITenantService
         hareket.SirketId = hedefSirketId;
         hareket.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<List<TransferEntityOzet>> GetTransferOnizlemeAsync(string entityTuru, List<int> entityIdler)
@@ -631,14 +681,16 @@ public class TenantService : ITenantService
 
     private async Task<TransferEntityOzet?> GetCariOzetAsync(int id)
     {
-        var cari = await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var cari = await context.Cariler
             .AsNoTracking()
             .Include(c => c.Sirket)
             .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
         if (cari == null) return null;
 
-        var faturaCount = await _context.Faturalar
+        var faturaCount = await context.Faturalar
             .CountAsync(f => f.CariId == id && !f.IsDeleted);
 
         return new TransferEntityOzet
@@ -654,14 +706,16 @@ public class TenantService : ITenantService
 
     private async Task<TransferEntityOzet?> GetAracOzetAsync(int id)
     {
-        var arac = await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var arac = await context.Araclar
             .AsNoTracking()
             .Include(a => a.Sirket)
             .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
 
         if (arac == null) return null;
 
-        var masrafCount = await _context.AracMasraflari
+        var masrafCount = await context.AracMasraflari
             .CountAsync(m => m.AracId == id && !m.IsDeleted);
 
         return new TransferEntityOzet
@@ -677,14 +731,16 @@ public class TenantService : ITenantService
 
     private async Task<TransferEntityOzet?> GetSoforOzetAsync(int id)
     {
-        var sofor = await _context.Soforler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var sofor = await context.Soforler
             .AsNoTracking()
             .Include(s => s.Sirket)
             .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
 
         if (sofor == null) return null;
 
-        var puantajCount = await _context.PersonelPuantajlar
+        var puantajCount = await context.PersonelPuantajlar
             .CountAsync(p => p.PersonelId == id && !p.IsDeleted);
 
         return new TransferEntityOzet
@@ -700,7 +756,9 @@ public class TenantService : ITenantService
 
     private async Task<TransferEntityOzet?> GetGuzergahOzetAsync(int id)
     {
-        var guzergah = await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var guzergah = await context.Guzergahlar
             .AsNoTracking()
             .Include(g => g.Sirket)
             .FirstOrDefaultAsync(g => g.Id == id && !g.IsDeleted);
@@ -720,7 +778,9 @@ public class TenantService : ITenantService
 
     private async Task<TransferEntityOzet?> GetFaturaOzetAsync(int id)
     {
-        var fatura = await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var fatura = await context.Faturalar
             .AsNoTracking()
             .Include(f => f.Sirket)
             .Include(f => f.Cari)
@@ -741,14 +801,16 @@ public class TenantService : ITenantService
 
     private async Task<TransferEntityOzet?> GetBankaHesapOzetAsync(int id)
     {
-        var hesap = await _context.BankaHesaplari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var hesap = await context.BankaHesaplari
             .AsNoTracking()
             .Include(h => h.Sirket)
             .FirstOrDefaultAsync(h => h.Id == id && !h.IsDeleted);
 
         if (hesap == null) return null;
 
-        var hareketCount = await _context.BankaKasaHareketleri
+        var hareketCount = await context.BankaKasaHareketleri
             .CountAsync(h => h.BankaHesapId == id && !h.IsDeleted);
 
         return new TransferEntityOzet
@@ -764,7 +826,9 @@ public class TenantService : ITenantService
 
     private async Task<TransferEntityOzet?> GetBankaKasaHareketOzetAsync(int id)
     {
-        var hareket = await _context.BankaKasaHareketleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var hareket = await context.BankaKasaHareketleri
             .AsNoTracking()
             .Include(h => h.Sirket)
             .Include(h => h.BankaHesap)
@@ -790,7 +854,9 @@ public class TenantService : ITenantService
             throw new UnauthorizedAccessException("Transfer logları için SuperAdmin yetkisi gerekli.");
         }
 
-        var query = _context.SirketTransferLoglari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var query = context.SirketTransferLoglari
             .AsNoTracking()
             .Include(l => l.KaynakSirket)
             .Include(l => l.HedefSirket)
@@ -825,7 +891,9 @@ public class TenantService : ITenantService
             throw new UnauthorizedAccessException("Transfer log detayı için SuperAdmin yetkisi gerekli.");
         }
 
-        return await _context.SirketTransferLoglari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        return await context.SirketTransferLoglari
             .AsNoTracking()
             .Include(l => l.KaynakSirket)
             .Include(l => l.HedefSirket)

@@ -380,14 +380,15 @@
                                     <th style="width: 100px;">Personel</th>
                                     <th style="width: 100px;">Birim Fiyat</th>
                                     <th style="width: 80px;">Miktar</th>
+                                    <th style="width: 180px;">Durum</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var guzergah in guzergahListesi)
                                 {
-                                    <tr class="@(guzergah.Secili ? "" : "table-secondary")">
+                                    <tr class="@(guzergah.ZatenMevcut ? "table-success" : (guzergah.Secili ? "" : "table-secondary"))">
                                         <td>
-                                            <input type="checkbox" class="form-check-input" @bind="guzergah.Secili" />
+                                            <input type="checkbox" class="form-check-input" @bind="guzergah.Secili" disabled="@guzergah.ZatenMevcut" />
                                         </td>
                                         <td>
                                             <select class="form-select form-select-sm" @bind="guzergah.FirmaId">
@@ -418,6 +419,21 @@
                                         <td class="text-center">
                                             <span class="badge bg-secondary">@guzergah.Miktar</span>
                                         </td>
+                                        <td>
+                                            @if (guzergah.ZatenMevcut)
+                                            {
+                                                <span class="badge bg-success">Mevcut</span>
+                                                <small class="text-muted d-block">@guzergah.MevcutGuzergahAdi</small>
+                                            }
+                                            else if (guzergah.FirmaId > 0)
+                                            {
+                                                <span class="badge bg-info text-dark">Oluşturulacak</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark">Firma seçilmeli</span>
+                                            }
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -427,7 +443,14 @@
                     <div class="row mt-3">
                         <div class="col-md-6">
                             <div class="alert alert-secondary py-2 mb-0">
-                                <strong>@guzergahListesi.Count(g => g.Secili)</strong> / @guzergahListesi.Count güzergah seçili
+                                <strong>@guzergahListesi.Count(g => g.Secili && !g.ZatenMevcut)</strong> / @guzergahListesi.Count güzergah oluşturulacak
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-light py-2 mb-0">
+                                <small>
+                                    <span class="badge bg-success me-1">Mevcut</span> daha önce oluşturulmuş güzergahlar tekrar işlenmez.
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -437,7 +460,7 @@
                         <i class="bi bi-x me-1"></i>İptal
                     </button>
                     <button type="button" class="btn btn-success" @onclick="GuzergahlariOlustur" 
-                            disabled="@(!guzergahListesi.Any(g => g.Secili) || isKaydediliyor)">
+                            disabled="@(!guzergahListesi.Any(g => g.Secili && !g.ZatenMevcut && g.FirmaId > 0) || isKaydediliyor)">
                         @if (isKaydediliyor)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -937,16 +960,14 @@
         return false;
     }
 
-    private void GuzergahOnizlemeAc()
+    private async Task GuzergahOnizlemeAc()
     {
         if (!seciliKalemler.Any()) return;
 
         var secilenKalemler = eslesmemisKalemler.Where(k => seciliKalemler.Contains(k.Id)).ToList();
         guzergahListesi = secilenKalemler.Select(k => ParseGuzergahFromKalem(k)).ToList();
 
-        // Mevcut güzergah kontrolü yap (async olarak)
-        _ = MevcutGuzergahKontrolEtAsync();
-
+        await MevcutGuzergahKontrolEtAsync();
         showGuzergahModal = true;
     }
 
@@ -1044,6 +1065,27 @@
 
     private async Task GuzergahlariOlustur()
     {
+        var ilgiliKalemIds = guzergahListesi.Select(g => g.FaturaKalemId).ToHashSet();
+        var ilgiliKalemler = GetKalemlerVeTekrarlari(eslesmemisKalemler
+            .Where(k => ilgiliKalemIds.Contains(k.Id))
+            .ToList());
+
+        foreach (var kalem in ilgiliKalemler)
+        {
+            kalem.KalemTipi = FaturaKalemTipi.Hizmet;
+            kalem.AltTipi = FaturaKalemAltTipi.KiralamaHizmeti;
+            degistirilmisKalemler.Add(kalem.Id);
+        }
+
+        StokKartiOlusturSonuc? stokSonuc = null;
+
+        if (ilgiliKalemler.Any())
+        {
+            stokSonuc = await FaturaService.UpdateFaturaKalemleriVeStokKartiOlusturAsync(ilgiliKalemler, true);
+            foreach (var kalemId in ilgiliKalemler.Select(k => k.Id))
+                degistirilmisKalemler.Remove(kalemId);
+        }
+
         // Mevcut olmayan ve firma seçilmiş güzergahları al
         var seciliGuzergahlar = guzergahListesi
             .Where(g => g.Secili && g.FirmaId > 0 && !g.ZatenMevcut)
@@ -1051,7 +1093,17 @@
 
         if (!seciliGuzergahlar.Any())
         {
-            ToastService.ShowWarning("Lütfen firma seçili ve daha önce oluşturulmamış güzergahları işaretleyin.");
+            if (stokSonuc?.OlusturulanStokKartiSayisi > 0)
+            {
+                ToastService.ShowSuccess($"{stokSonuc.OlusturulanStokKartiSayisi} stok kartı Hizmet / Kiralama olarak oluşturuldu.");
+            }
+
+            if (stokSonuc?.AtlananStokKartiSayisi > 0)
+            {
+                ToastService.ShowInfo($"{stokSonuc.AtlananStokKartiSayisi} stok kartı zaten mevcut olduğu için güncellendi/atlanıldı.");
+            }
+
+            ToastService.ShowInfo("Seçili satırlar için oluşturulacak yeni güzergah bulunamadı. Mevcut güzergahlar tekrar oluşturulmaz.");
             return;
         }
 
@@ -1110,6 +1162,19 @@
             if (olusturulanSayisi > 0)
             {
                 ToastService.ShowSuccess($"{olusturulanSayisi} güzergah oluşturuldu.");
+            }
+
+            if (stokSonuc != null)
+            {
+                if (stokSonuc.OlusturulanStokKartiSayisi > 0)
+                {
+                    ToastService.ShowSuccess($"{stokSonuc.OlusturulanStokKartiSayisi} stok kartı Hizmet / Kiralama olarak oluşturuldu.");
+                }
+
+                if (stokSonuc.AtlananStokKartiSayisi > 0)
+                {
+                    ToastService.ShowInfo($"{stokSonuc.AtlananStokKartiSayisi} stok kartı zaten mevcut olduğu için güncellendi/atlanıldı.");
+                }
             }
 
             if (atladiSayisi > 0)

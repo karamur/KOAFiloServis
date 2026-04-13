@@ -101,6 +101,13 @@ public class Kullanici : BaseEntity
     public int BasarisizGirisSayisi { get; set; } = 0;
     public bool Kilitli { get; set; } = false;
 
+    public bool IkiFaktorAktif { get; set; } = false;
+
+    [StringLength(200)]
+    public string? IkiFaktorSecretKey { get; set; }
+
+    public DateTime? IkiFaktorEtkinlestirmeTarihi { get; set; }
+
     // Tercihler
     public string Tema { get; set; } = "Default";
     public bool KompaktMod { get; set; } = false;

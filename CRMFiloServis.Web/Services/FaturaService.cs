@@ -1678,7 +1678,8 @@ public class FaturaService : IFaturaService
         var query = _context.FaturaKalemleri
             .Include(k => k.Fatura)
                 .ThenInclude(f => f.Cari)
-            .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted);
+            .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted)
+            .Where(k => !_context.Guzergahlar.Any(g => !g.IsDeleted && g.FaturaKalemId == k.Id));
 
         if (baslangic.HasValue)
         {
@@ -1713,7 +1714,8 @@ public class FaturaService : IFaturaService
         var query = _context.FaturaKalemleri
             .Include(k => k.Fatura)
                 .ThenInclude(f => f.Cari)
-            .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted);
+            .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted)
+            .Where(k => !_context.Guzergahlar.Any(g => !g.IsDeleted && g.FaturaKalemId == k.Id));
 
         if (baslangic.HasValue)
         {

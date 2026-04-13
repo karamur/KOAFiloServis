@@ -3,6 +3,7 @@ using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Hubs;
 using CRMFiloServis.Web.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace CRMFiloServis.Web.Services;
 
@@ -14,12 +15,12 @@ public class GpsSimulasyonService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<GpsSimulasyonService> _logger;
-    private readonly IConfiguration _configuration;
     
     // Simülasyon durumu
     private bool _aktif = false;
     private int _guncellemeAraligiSaniye = 10;
     private readonly Random _random = new();
+    private bool _eksikTabloUyarisiLoglandi;
     
     // Simüle edilen araçların durumları
     private readonly Dictionary<int, SimulasyonAracDurumu> _aracDurumlari = new();
@@ -31,7 +32,6 @@ public class GpsSimulasyonService : BackgroundService
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
-        _configuration = configuration;
         
         // Yapılandırmadan oku
         _aktif = configuration.GetValue<bool>("GpsSimulasyon:Aktif", false);
@@ -65,6 +65,19 @@ public class GpsSimulasyonService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var bildirimService = scope.ServiceProvider.GetRequiredService<IAracTakipBildirimService>();
+
+        if (!await GerekliTablolarHazirMiAsync(context, stoppingToken))
+        {
+            if (!_eksikTabloUyarisiLoglandi)
+            {
+                _logger.LogWarning("GPS simülasyonu atlandı: araç takip tabloları henüz hazır değil.");
+                _eksikTabloUyarisiLoglandi = true;
+            }
+
+            return;
+        }
+
+        _eksikTabloUyarisiLoglandi = false;
         
         // Aktif cihazları al
         var cihazlar = await context.AracTakipCihazlar
@@ -79,6 +92,21 @@ public class GpsSimulasyonService : BackgroundService
             return;
         }
 
+        var cihazIdleri = cihazlar.Select(c => c.Id).ToList();
+        var sonKonumListesi = await context.AracKonumlar
+            .AsNoTracking()
+            .Where(k => cihazIdleri.Contains(k.AracTakipCihazId))
+            .OrderByDescending(k => k.KayitZamani)
+            .ToListAsync(stoppingToken);
+
+        var sonKonumlar = sonKonumListesi
+            .GroupBy(k => k.AracTakipCihazId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var cihazEntityMap = await context.AracTakipCihazlar
+            .Where(c => cihazIdleri.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, stoppingToken);
+
         var guncellemeler = new List<AracKonumGuncelleme>();
 
         foreach (var cihaz in cihazlar)
@@ -86,7 +114,8 @@ public class GpsSimulasyonService : BackgroundService
             // Araç için simülasyon durumu al veya oluştur
             if (!_aracDurumlari.TryGetValue(cihaz.AracId, out var durum))
             {
-                durum = YeniSimulasyonDurumuOlustur(cihaz);
+                sonKonumlar.TryGetValue(cihaz.Id, out var sonKonum);
+                durum = YeniSimulasyonDurumuOlustur(cihaz, sonKonum);
                 _aracDurumlari[cihaz.AracId] = durum;
             }
 
@@ -113,8 +142,7 @@ public class GpsSimulasyonService : BackgroundService
             context.AracKonumlar.Add(konum);
 
             // Cihazın son iletişim zamanını güncelle
-            var cihazEntity = await context.AracTakipCihazlar.FindAsync(cihaz.Id);
-            if (cihazEntity != null)
+            if (cihazEntityMap.TryGetValue(cihaz.Id, out var cihazEntity))
             {
                 cihazEntity.SonIletisimZamani = DateTime.Now;
                 cihazEntity.BataryaSeviyesi = durum.BataryaSeviyesi;
@@ -148,18 +176,10 @@ public class GpsSimulasyonService : BackgroundService
         }
     }
 
-    private SimulasyonAracDurumu YeniSimulasyonDurumuOlustur(AracTakipCihaz cihaz)
+    private SimulasyonAracDurumu YeniSimulasyonDurumuOlustur(AracTakipCihaz cihaz, AracKonum? sonKonum)
     {
         // Türkiye sınırları içinde rastgele başlangıç noktası
         // veya son bilinen konumdan devam
-        var sonKonum = _scopeFactory.CreateScope().ServiceProvider
-            .GetRequiredService<ApplicationDbContext>()
-            .AracKonumlar
-            .AsNoTracking()
-            .Where(k => k.AracTakipCihazId == cihaz.Id)
-            .OrderByDescending(k => k.KayitZamani)
-            .FirstOrDefault();
-
         double baslangicEnlem, baslangicBoylam;
         
         if (sonKonum != null)
@@ -204,7 +224,6 @@ public class GpsSimulasyonService : BackgroundService
         if (modSuresi > 5 + _random.Next(10))
         {
             // Mod değiştir
-            var eskiMod = durum.Mod;
             var modlar = new[] { SimulasyonModu.Hareket, SimulasyonModu.Bekliyor, SimulasyonModu.Park };
             durum.Mod = modlar[_random.Next(modlar.Length)];
             durum.SonDurumDegisikligi = DateTime.Now;
@@ -377,6 +396,51 @@ public class GpsSimulasyonService : BackgroundService
     {
         _aracDurumlari.Clear();
         _logger.LogInformation("GPS simülasyon araç durumları sıfırlandı");
+    }
+
+    private async Task<bool> GerekliTablolarHazirMiAsync(ApplicationDbContext context, CancellationToken cancellationToken)
+    {
+        return await TabloVarMiAsync(context, "AracTakipCihazlar", cancellationToken)
+            && await TabloVarMiAsync(context, "AracKonumlar", cancellationToken);
+    }
+
+    private static async Task<bool> TabloVarMiAsync(ApplicationDbContext context, string tableName, CancellationToken cancellationToken)
+    {
+        var connection = context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+
+        if (shouldClose)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+
+            if (context.Database.IsNpgsql())
+            {
+                command.CommandText = $"SELECT to_regclass('\"{tableName}\"') IS NOT NULL";
+            }
+            else if (context.Database.IsSqlite())
+            {
+                command.CommandText = $"SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '{tableName}')";
+            }
+            else
+            {
+                return true;
+            }
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return result != null && Convert.ToBoolean(result);
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
     }
 
     #endregion

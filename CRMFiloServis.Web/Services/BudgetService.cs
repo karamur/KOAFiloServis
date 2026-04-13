@@ -8,13 +8,15 @@ public class BudgetService : IBudgetService
 {
     private readonly ApplicationDbContext _context;
     private readonly IBankaKasaHareketService _bankaKasaHareketService;
+    private readonly IMuhasebeService _muhasebeService;
     private static readonly string[] AyAdlari = { "", "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", 
                                                    "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik" };
 
-    public BudgetService(ApplicationDbContext context, IBankaKasaHareketService bankaKasaHareketService)
+    public BudgetService(ApplicationDbContext context, IBankaKasaHareketService bankaKasaHareketService, IMuhasebeService muhasebeService)
     {
         _context = context;
         _bankaKasaHareketService = bankaKasaHareketService;
+        _muhasebeService = muhasebeService;
     }
 
     #region Odeme Islemleri
@@ -334,6 +336,15 @@ public class BudgetService : IBudgetService
 
             // Hareket ID'sini kaydet
             bankaKasaHareketId = hareket.Id;
+
+            if (request.OdemeTipi == OdemeTipi.KrediKarti)
+            {
+                var donemAy = request.KrediKartiOdemeAy ?? request.OdemeTarihi.Month;
+                var donemYil = request.KrediKartiOdemeYil ?? request.OdemeTarihi.Year;
+                await AddKrediKartiBorcAsync(request.BankaHesapId.Value, netOdemeTutari, donemAy, donemYil, aciklamaBuilder);
+            }
+
+            await CreateBudgetMuhasebeFisiAsync(odeme, request, hareket, odemeTutari, masrafKesintisi, cezaKesintisi, digerKesinti);
         }
 
         // Doğrudan veritabanında güncelle - ExecuteUpdateAsync ile tracking sorunu olmaz
@@ -869,6 +880,350 @@ public class BudgetService : IBudgetService
 
     private static decimal RoundCurrency(decimal value)
         => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    private static string? BirlestirNotlar(string? notlar, string? ekNot)
+    {
+        if (string.IsNullOrWhiteSpace(ekNot))
+            return notlar;
+
+        if (string.IsNullOrWhiteSpace(notlar))
+            return ekNot;
+
+        return $"{notlar}\n{ekNot}";
+    }
+
+    private static string? UpsertBudgetMeta(string? notlar, string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return notlar;
+
+        var satir = $"[{key}:{value}]";
+        if (string.IsNullOrWhiteSpace(notlar))
+            return satir;
+
+        if (notlar.Contains($"[{key}:"))
+        {
+            var satirlar = notlar.Split('\n').Where(l => !l.StartsWith($"[{key}:", StringComparison.OrdinalIgnoreCase)).ToList();
+            satirlar.Add(satir);
+            return string.Join("\n", satirlar);
+        }
+
+        return $"{notlar}\n{satir}";
+    }
+
+    private static string? GetBudgetMeta(string? notlar, string key)
+    {
+        if (string.IsNullOrWhiteSpace(notlar))
+            return null;
+
+        foreach (var satir in notlar.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (satir.StartsWith($"[{key}:", StringComparison.OrdinalIgnoreCase) && satir.EndsWith("]"))
+            {
+                return satir.Substring(key.Length + 2, satir.Length - key.Length - 3);
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsKrediKalemi(string? masrafKalemi)
+        => !string.IsNullOrWhiteSpace(masrafKalemi)
+           && (masrafKalemi.Contains("Banka Kredisi", StringComparison.OrdinalIgnoreCase)
+               || masrafKalemi.Contains("Araç Kredisi", StringComparison.OrdinalIgnoreCase)
+               || masrafKalemi.Contains("Arac Kredisi", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsKrediKartiKalemi(string? masrafKalemi)
+        => !string.IsNullOrWhiteSpace(masrafKalemi)
+           && masrafKalemi.Contains("Kredi Kartı", StringComparison.OrdinalIgnoreCase);
+
+    private static string? BuildFinansMetaNotu(TaksitliOdemeRequest request)
+    {
+        string? not = null;
+        not = UpsertBudgetMeta(not, "FinansKaynakHesapId", request.BagliBankaHesapId?.ToString());
+        not = UpsertBudgetMeta(not, "KrediAnaPara", request.KrediAnaParaTutari?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        not = UpsertBudgetMeta(not, "KrediNet", request.KrediNetGecenTutar?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        not = UpsertBudgetMeta(not, "PesinFaiz", request.PesinFaizTutari.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        not = UpsertBudgetMeta(not, "PesinMasraf", request.PesinMasrafTutari.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return not;
+    }
+
+    private async Task<MuhasebeHesap> ResolveMuhasebeHesabiAsync(params string[] adayKodlar)
+    {
+        foreach (var kod in adayKodlar.Where(k => !string.IsNullOrWhiteSpace(k)))
+        {
+            var hesap = await _muhasebeService.GetHesapByKodAsync(kod);
+            if (hesap != null)
+                return hesap;
+
+            var kokKod = kod.Contains('.') ? kod.Split('.')[0] : kod;
+            hesap = await _muhasebeService.GetHesapByKodAsync(kokKod);
+            if (hesap != null)
+                return hesap;
+        }
+
+        throw new InvalidOperationException($"Muhasebe hesabı bulunamadı: {string.Join(", ", adayKodlar)}");
+    }
+
+    private async Task<string> GetBankaHesapMuhasebeKoduAsync(int bankaHesapId)
+    {
+        var hesap = await _context.BankaHesaplari.AsNoTracking().FirstOrDefaultAsync(h => h.Id == bankaHesapId)
+            ?? throw new InvalidOperationException("Banka hesabı bulunamadı.");
+
+        return hesap.VarsayilanMuhasebeKodu ?? GetBankaHesapKodu(hesap.HesapTipi);
+    }
+
+    private static string GetBankaHesapKodu(HesapTipi tip)
+    {
+        return tip switch
+        {
+            HesapTipi.Kasa => "100.01",
+            HesapTipi.VadesizHesap or HesapTipi.VadeliHesap => "102.01",
+            HesapTipi.KrediHesabi => "300.01",
+            HesapTipi.KrediKarti => "103.01",
+            _ => "102.01"
+        };
+    }
+
+    private string GetBudgetMuhasebeGiderKodu(BudgetOdeme odeme)
+    {
+        if (IsKrediKalemi(odeme.MasrafKalemi))
+            return "300.01";
+
+        if (IsKrediKartiKalemi(odeme.MasrafKalemi))
+            return "103.01";
+
+        return odeme.MasrafKalemi switch
+        {
+            var kalem when kalem.Contains("Yakıt", StringComparison.OrdinalIgnoreCase) => "770.06",
+            var kalem when kalem.Contains("AdBlue", StringComparison.OrdinalIgnoreCase) => "770.06",
+            var kalem when kalem.Contains("Bakım", StringComparison.OrdinalIgnoreCase) || kalem.Contains("Onarım", StringComparison.OrdinalIgnoreCase) => "770.07",
+            var kalem when kalem.Contains("Sigorta", StringComparison.OrdinalIgnoreCase) => "770.08",
+            var kalem when kalem.Contains("Kredi Kartı", StringComparison.OrdinalIgnoreCase) => "103.01",
+            _ => "770.01"
+        };
+    }
+
+    private async Task CreateKrediKullanimiKayitlariAsync(TaksitliOdemeRequest request, Guid taksitGrupId, BankaHesap bagliHesap)
+    {
+        var anaPara = RoundCurrency(request.KrediAnaParaTutari ?? 0);
+        if (anaPara <= 0)
+            return;
+
+        var netTutar = RoundCurrency(request.KrediNetGecenTutar ?? anaPara);
+        var pesinFaiz = RoundCurrency(Math.Abs(request.PesinFaizTutari));
+        var pesinMasraf = RoundCurrency(Math.Abs(request.PesinMasrafTutari));
+        var kullanimTarihi = DateTime.SpecifyKind(request.BaslangicTarihi, DateTimeKind.Utc);
+
+        var hareket = new BankaKasaHareket
+        {
+            IslemNo = $"KRD-{taksitGrupId.ToString()[..8]}-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            IslemTarihi = kullanimTarihi,
+            HareketTipi = HareketTipi.Giris,
+            BankaHesapId = bagliHesap.Id,
+            Tutar = netTutar,
+            Aciklama = $"Kredi kullanımı: {request.Aciklama ?? request.MasrafKalemi}",
+            IslemKaynak = IslemKaynak.Butce,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.BankaKasaHareketleri.Add(hareket);
+        await _context.SaveChangesAsync();
+
+        var bankaHesap = await ResolveMuhasebeHesabiAsync(bagliHesap.VarsayilanMuhasebeKodu ?? GetBankaHesapKodu(bagliHesap.HesapTipi));
+        var krediHesap = await ResolveMuhasebeHesabiAsync("300.01", "300");
+        var kalemler = new List<MuhasebeFisKalem>
+        {
+            new()
+            {
+                HesapId = bankaHesap.Id,
+                Borc = netTutar,
+                Alacak = 0,
+                SiraNo = 1,
+                Aciklama = $"Kredi kullanımı - {bagliHesap.HesapAdi}"
+            }
+        };
+
+        var siraNo = 2;
+        if (pesinFaiz > 0)
+        {
+            var faizHesap = await ResolveMuhasebeHesabiAsync("780.01", "780", "770.01", "770");
+            kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = faizHesap.Id,
+                Borc = pesinFaiz,
+                Alacak = 0,
+                SiraNo = siraNo++,
+                Aciklama = "Peşin kredi faizi"
+            });
+
+            _context.BudgetOdemeler.Add(new BudgetOdeme
+            {
+                OdemeTarihi = kullanimTarihi,
+                OdemeAy = kullanimTarihi.Month,
+                OdemeYil = kullanimTarihi.Year,
+                MasrafKalemi = "Banka Kredisi Faiz",
+                Aciklama = request.Aciklama,
+                Miktar = pesinFaiz,
+                Durum = OdemeDurum.Odendi,
+                OdenenTutar = pesinFaiz,
+                GercekOdemeTarihi = kullanimTarihi,
+                OdemeYapildigiHesapId = bagliHesap.Id,
+                TaksitliMi = false,
+                ToplamTaksitSayisi = 1,
+                KacinciTaksit = 1,
+                TaksitGrupId = taksitGrupId,
+                Notlar = UpsertBudgetMeta(request.Notlar, "FinansKaynakHesapId", bagliHesap.Id.ToString()),
+                FirmaId = request.FirmaId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        if (pesinMasraf > 0)
+        {
+            var masrafHesap = await ResolveMuhasebeHesabiAsync("770.01", "770");
+            kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = masrafHesap.Id,
+                Borc = pesinMasraf,
+                Alacak = 0,
+                SiraNo = siraNo++,
+                Aciklama = "Peşin kredi masrafı"
+            });
+
+            _context.BudgetOdemeler.Add(new BudgetOdeme
+            {
+                OdemeTarihi = kullanimTarihi,
+                OdemeAy = kullanimTarihi.Month,
+                OdemeYil = kullanimTarihi.Year,
+                MasrafKalemi = "Banka Kredisi Masrafı",
+                Aciklama = request.Aciklama,
+                Miktar = pesinMasraf,
+                Durum = OdemeDurum.Odendi,
+                OdenenTutar = pesinMasraf,
+                GercekOdemeTarihi = kullanimTarihi,
+                OdemeYapildigiHesapId = bagliHesap.Id,
+                TaksitliMi = false,
+                ToplamTaksitSayisi = 1,
+                KacinciTaksit = 1,
+                TaksitGrupId = taksitGrupId,
+                Notlar = UpsertBudgetMeta(request.Notlar, "FinansKaynakHesapId", bagliHesap.Id.ToString()),
+                FirmaId = request.FirmaId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        kalemler.Add(new MuhasebeFisKalem
+        {
+            HesapId = krediHesap.Id,
+            Borc = 0,
+            Alacak = anaPara,
+            SiraNo = siraNo,
+            Aciklama = $"Kredi anapara tahakkuku - {request.MasrafKalemi}"
+        });
+
+        var fis = new MuhasebeFis
+        {
+            FisNo = await _muhasebeService.GenerateNextFisNoAsync(FisTipi.Mahsup),
+            FisTarihi = kullanimTarihi,
+            FisTipi = FisTipi.Mahsup,
+            Aciklama = $"Kredi kullanımı: {request.Aciklama ?? request.MasrafKalemi}",
+            Kaynak = FisKaynak.Butce,
+            KaynakTip = "BudgetKredi",
+            KaynakId = hareket.Id,
+            Durum = FisDurum.Onaylandi,
+            Kalemler = kalemler
+        };
+
+        await _muhasebeService.CreateFisAsync(fis);
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task CreateBudgetMuhasebeFisiAsync(BudgetOdeme odeme, OdemeYapRequest request, BankaKasaHareket hareket, decimal anaTutar, decimal masrafKesintisi, decimal cezaKesintisi, decimal digerKesinti)
+    {
+        if (!request.BankaHesapId.HasValue)
+            return;
+
+        var kaynakKod = await GetBankaHesapMuhasebeKoduAsync(request.BankaHesapId.Value);
+        var kaynakHesap = await ResolveMuhasebeHesabiAsync(kaynakKod);
+        var kalemler = new List<MuhasebeFisKalem>();
+        var siraNo = 1;
+
+        if (IsKrediKartiKalemi(odeme.MasrafKalemi))
+        {
+            var bagliHesapId = odeme.OdemeYapildigiHesapId;
+            if (!bagliHesapId.HasValue)
+            {
+                var meta = GetBudgetMeta(odeme.Notlar, "FinansKaynakHesapId");
+                if (int.TryParse(meta, out var parsedId))
+                    bagliHesapId = parsedId;
+            }
+
+            var kartKod = bagliHesapId.HasValue ? await GetBankaHesapMuhasebeKoduAsync(bagliHesapId.Value) : "103.01";
+            var kartHesap = await ResolveMuhasebeHesabiAsync(kartKod, "103.01", "103");
+            kalemler.Add(new MuhasebeFisKalem { HesapId = kartHesap.Id, Borc = anaTutar, Alacak = 0, SiraNo = siraNo++, Aciklama = "Kredi kartı borç kapama" });
+        }
+        else if (IsKrediKalemi(odeme.MasrafKalemi))
+        {
+            var krediHesap = await ResolveMuhasebeHesabiAsync("300.01", "300");
+            kalemler.Add(new MuhasebeFisKalem { HesapId = krediHesap.Id, Borc = anaTutar, Alacak = 0, SiraNo = siraNo++, Aciklama = "Kredi taksit/anapara ödemesi" });
+        }
+        else
+        {
+            var giderHesap = await ResolveMuhasebeHesabiAsync(GetBudgetMuhasebeGiderKodu(odeme), "770.01", "770");
+            kalemler.Add(new MuhasebeFisKalem { HesapId = giderHesap.Id, Borc = anaTutar, Alacak = 0, SiraNo = siraNo++, Aciklama = odeme.MasrafKalemi });
+        }
+
+        if (masrafKesintisi + digerKesinti > 0)
+        {
+            var yonetimMasrafHesabi = await ResolveMuhasebeHesabiAsync("770.01", "770");
+            kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = yonetimMasrafHesabi.Id,
+                Borc = masrafKesintisi + digerKesinti,
+                Alacak = 0,
+                SiraNo = siraNo++,
+                Aciklama = odeme.KesintiAciklamasi ?? "Yönetim masrafı"
+            });
+        }
+
+        if (cezaKesintisi > 0)
+        {
+            var finansmanGideri = await ResolveMuhasebeHesabiAsync("780.01", "780", "770.01", "770");
+            kalemler.Add(new MuhasebeFisKalem
+            {
+                HesapId = finansmanGideri.Id,
+                Borc = cezaKesintisi,
+                Alacak = 0,
+                SiraNo = siraNo++,
+                Aciklama = "Faiz / finansman gideri"
+            });
+        }
+
+        kalemler.Add(new MuhasebeFisKalem
+        {
+            HesapId = kaynakHesap.Id,
+            Borc = 0,
+            Alacak = hareket.Tutar,
+            SiraNo = siraNo,
+            Aciklama = $"Ödeme kaynağı - {hareket.BankaHesap?.HesapAdi ?? kaynakHesap.HesapAdi}"
+        });
+
+        var fis = new MuhasebeFis
+        {
+            FisNo = await _muhasebeService.GenerateNextFisNoAsync(FisTipi.Tediye),
+            FisTarihi = hareket.IslemTarihi,
+            FisTipi = FisTipi.Tediye,
+            Aciklama = $"Bütçe ödeme muhasebeleştirme: {odeme.MasrafKalemi}",
+            Kaynak = FisKaynak.Butce,
+            KaynakId = odeme.Id,
+            KaynakTip = "BudgetOdeme",
+            Durum = FisDurum.Onaylandi,
+            Kalemler = kalemler
+        };
+
+        await _muhasebeService.CreateFisAsync(fis);
+    }
 
     public async Task<List<BudgetGunlukOzet>> GetTakvimDataAsync(int yil, int ay, int? firmaId = null)
     {
@@ -1431,7 +1786,9 @@ public class BudgetService : IBudgetService
             Aciklama = $"[{hesap.HesapAdi}] {aciklama}",
             Miktar = tutar,
             Durum = OdemeDurum.Bekliyor,
+            OdemeYapildigiHesapId = bankaHesapId,
             TaksitGrupId = hesap.KrediTaksitGrupId, // Kredi kartı ile ilişkilendir
+            Notlar = UpsertBudgetMeta(null, "FinansKaynakHesapId", bankaHesapId.ToString()),
             CreatedAt = DateTime.UtcNow
         };
 

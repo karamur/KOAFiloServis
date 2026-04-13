@@ -612,13 +612,15 @@ else
     private bool isLoading = true;
     private bool isSaving = false;
     private string? loadError;
-    
+
     // Modal kontrolleri
     private bool showYanitModal = false;
     private bool showAtamaModal = false;
     private bool showOncelikModal = false;
     private bool showTransferModal = false;
+#pragma warning disable CS0414 // Etiket modal özelliği gelecekte eklenecek
     private bool showEtiketModal = false;
+#pragma warning restore CS0414
     
     private DestekTalebiYanit yeniYanit = new();
     private int? secilenKullaniciId;

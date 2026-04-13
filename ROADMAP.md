@@ -14,6 +14,7 @@
 - ✅ `EF Core Sorgu Optimizasyonu (FAZ 4.3)` tamamlandı - CariService N+1 sorunu çözüldü (toplu bakiye hesaplama), AsNoTracking yaygınlaştırıldı (Cari, Fatura, Araç servisleri).
 - ✅ `Webhook Desteği (FAZ 4.2)` tamamlandı - WebhookEndpoint/WebhookLog entity'leri, IWebhookService servisi, HMAC imza, retry mekanizması, Webhook yönetim UI'ı (/ayarlar/webhooks) eklendi.
 - ✅ `REST API + Swagger (FAZ 4.2)` tamamlandı - JWT Bearer Authentication, 6 API Controller (Auth, Cariler, Araclar, Soforler, Faturalar, Guzergahlar), Swagger/OpenAPI dokümantasyonu eklendi.
+- ✅ `Veri Export (FAZ 9.1)` tamamlandı - `IDataExportService` içine `CSV / JSON / Parquet` export desteği eklendi, `OdemeYonetimi` ekranından filtrelenmiş ödeme listesi doğrudan indirilebilir hale getirildi.
 - ✅ `E-Fatura entegrasyonu (GİB) - Durum Takibi` tamamlandı - XML sonrası gönderime hazırlık, gönderildi, kabul/red durum takibi ve UI aksiyonları eklendi.
 - ✅ `Puantaj onay sistemi` tamamlandı - Personel puantaj kayıtları için taslak, onay bekliyor, onaylandı, reddedildi akışı ve UI aksiyonları eklendi.
 - ✅ `Maaşa Mahsup (Masraf/Ödeme)` tamamlandı - Açık avansların maaştan kesinti olarak mahsup edilmesi ve maaş ekranından yönetimi eklendi.
@@ -356,6 +357,310 @@
 | Proje özet kartları | 🟡 Orta | 1 gün | ✅ |
 | **Örnek Veri Oluşturma (Test Data Seeding)** | 🟡 Orta | 1 gün | ✅ Tamamlandı |
 
+### 8.5 Teklif Operasyonları & Karar Destek (YENİ)
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| Teklif versiyonlama ve revizyon geçmişi | 🔴 Yüksek | 2 gün | ❌ Bekliyor |
+| Teklif onay akışı (Hazırlayan → Yönetici → Onaylandı) | 🔴 Yüksek | 2 gün | ❌ Bekliyor |
+| Teklif PDF / Excel export | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Senaryo karşılaştırma (A/B teklif modeli) | 🟡 Orta | 2 gün | ❌ Bekliyor |
+| Rakip / piyasa teklif benchmark alanları | 🟡 Orta | 2 gün | ❌ Bekliyor |
+| Teklif notları ve karar günlüğü | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+
+### 8.6 Kazanılan Proje Gerçekleşen Takibi (YENİ)
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| Kazanılan proje için gerçekleşen maliyet takibi | 🔴 Yüksek | 2 gün | ❌ Bekliyor |
+| Tekliflenen vs gerçekleşen sapma analizi | 🔴 Yüksek | 2 gün | ❌ Bekliyor |
+| Sözleşme revizyon ve ek protokol takibi | 🟡 Orta | 2 gün | ❌ Bekliyor |
+| Hat/güzergah bazlı gerçekleşen kârlılık | 🟡 Orta | 2 gün | ❌ Bekliyor |
+| AI tahmin geri besleme (teklif doğruluk skoru) | 🟡 Orta | 2 gün | ❌ Bekliyor |
+| İhale sonrası operasyon dashboard kartları | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+
+### 8.7 FAZ 8.5 İlk Sprint Backlog'u (ÖNERİLEN)
+| İş Paketi | İçerik | Öncelik | Süre | Durum |
+|-----------|--------|---------|------|-------|
+| Teklif versiyon entity/model tasarımı | `IhaleProje` ile ilişkili teklif versiyon tablosu, revizyon no, durum, açıklama, hazırlayan kullanıcı | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Teklif versiyon servis katmanı | Yeni versiyon oluştur, aktif versiyonu kopyala, revizyon geçmişi listele, karşılaştırma için temel DTO'lar | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Teklif revizyon UI | İhale detay ekranında “Versiyonlar” sekmesi, aktif versiyon rozetleri, revizyon notu modalı | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Teklif onay akışı altyapısı | Hazırlandı / İncelemede / Onaylandı / Reddedildi durumları, onaylayan kullanıcı ve zaman damgası | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Teklif onay UI aksiyonları | Yönetici onayla/reddet butonları, durum geçmişi ve karar notu alanı | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Teklif export altyapısı | PDF/Excel çıktı servisi, teklif özeti + maliyet tablosu + kâr marjı bölümleri | 🟡 Orta | 1 gün | ❌ Bekliyor |
+
+### 8.8 FAZ 8.5 Sprint Çıkış Kriterleri
+- Aynı ihale projesi için birden fazla teklif versiyonu oluşturulabilmeli.
+- Kullanıcı önceki teklif versiyonunu kopyalayarak yeni revizyon başlatabilmeli.
+- Yönetici rolü teklif versiyonunu onaylayıp reddedebilmeli.
+- Onay/red işlemlerinde karar notu ve işlem tarihi saklanmalı.
+- Onaylı teklif PDF ve Excel olarak dışa aktarılabilmeli.
+- İhale detay ekranında aktif teklif versiyonu ve versiyon geçmişi görünür olmalı.
+
+### 8.9 FAZ 8.5 Teknik Taslak (Sprint 1)
+
+#### Veri Modeli Önerisi
+- `IhaleTeklifVersiyon`
+  - `Id`
+  - `IhaleProjeId`
+  - `VersiyonNo`
+  - `RevizyonKodu` (`V1`, `V2`, `REV-A` vb.)
+  - `Durum` (`Taslak`, `Incelemede`, `Onaylandi`, `Reddedildi`)
+  - `RevizyonNotu`
+  - `KararNotu`
+  - `HazirlayanKullaniciId`
+  - `OnaylayanKullaniciId`
+  - `HazirlamaTarihi`
+  - `OnayTarihi`
+  - `AktifVersiyon`
+  - `ToplamMaliyet`
+  - `TeklifTutari`
+  - `KarMarjiTutari`
+  - `KarMarjiOrani`
+  - `CreatedAt / UpdatedAt / IsDeleted`
+
+#### İlişkili Yardımcı Yapılar
+- `IhaleTeklifVersiyonKalem` (opsiyonel ikinci adım)
+  - hat/güzergah bazlı snapshot saklamak için
+- `IhaleTeklifKararLog`
+  - onay/red/geçiş işlemlerinin zaman çizelgesi için
+- `IhaleTeklifKarsilastirmaDto`
+  - iki versiyon arasındaki maliyet / teklif / kâr farklarını göstermek için
+
+#### Servis Katmanı Önerisi
+- `IIhaleTeklifVersiyonService`
+  - `CreateInitialVersionAsync(int ihaleProjeId)`
+  - `CreateRevisionAsync(int ihaleProjeId, int kaynakVersiyonId, string? revizyonNotu)`
+  - `GetVersiyonlarAsync(int ihaleProjeId)`
+  - `GetAktifVersiyonAsync(int ihaleProjeId)`
+  - `SetIncelemeDurumuAsync(int versiyonId)`
+  - `ApproveAsync(int versiyonId, string? kararNotu)`
+  - `RejectAsync(int versiyonId, string? kararNotu)`
+  - `CompareAsync(int solVersiyonId, int sagVersiyonId)`
+
+#### UI Kırılımı
+- `IhaleDetay.razor`
+  - yeni `Teklif Versiyonları` sekmesi
+  - aktif versiyon kartı
+  - versiyon listesi + durum rozetleri
+  - `Yeni Revizyon Oluştur` aksiyonu
+- `TeklifVersiyonKarsilastirma.razor` veya modal
+  - iki versiyonun maliyet / teklif / kâr karşılaştırması
+- `TeklifOnayGecmisi` paneli
+  - kim, ne zaman, hangi karar notuyla işlem yaptı
+
+#### Teknik Uygulama Sırası
+1. Entity + migration
+2. DbContext kaydı + temel query/indexler
+3. Service implementasyonu
+4. İhale detay ekranı sekme entegrasyonu
+5. Onay akışı ve karar logları
+6. Export çıktıları
+
+#### Sprint 1 Dışı Ama Yakın Devam İşleri
+- teklif snapshot'ını kalem bazında saklama
+- versiyon bazlı PDF şablon özelleştirme
+- onay akışı için rol/yetki matrisi
+- gerçekleşen vs tekliflenen sapma ekranının versiyonla bağlanması
+
+### 8.10 FAZ 8.5 Kod Uygulama Haritası
+
+#### Önerilen Dosya/Dizin Kırılımı
+- `CRMFiloServis.Shared/Entities/`
+  - `IhaleTeklifVersiyon.cs`
+  - `IhaleTeklifKararLog.cs`
+- `CRMFiloServis.Web/Data/`
+  - `ApplicationDbContext.cs` içine `DbSet` tanımları
+- `CRMFiloServis.Web/Data/Migrations/`
+  - teklif versiyon tabloları için yeni migration
+- `CRMFiloServis.Web/Services/Interfaces/`
+  - `IIhaleTeklifVersiyonService.cs`
+- `CRMFiloServis.Web/Services/`
+  - `IhaleTeklifVersiyonService.cs`
+- `CRMFiloServis.Web/Components/Pages/Ihale/`
+  - mevcut `IhaleDetay.razor` içine sekme entegrasyonu
+  - gerekirse `TeklifVersiyonKarsilastirma.razor` bileşeni
+
+#### İlk Uygulama Iterasyonu
+1. `Entity` tanımları oluşturulacak.
+2. `DbContext` içine tablolar ve ilişkiler eklenecek.
+3. `Migration` üretilecek ve mevcut PostgreSQL/SQLite akışıyla uyumu kontrol edilecek.
+4. `Service` katmanında temel CRUD + revizyon kopyalama yazılacak.
+5. `IhaleDetay` ekranında listeleme ve yeni revizyon oluşturma aksiyonu açılacak.
+
+#### İlişki ve Kısıt Önerileri
+- Bir `IhaleProje` için birden fazla `IhaleTeklifVersiyon` olabilir.
+- Aynı projede yalnızca bir kayıt `AktifVersiyon = true` olmalı.
+- `VersiyonNo` proje bazında artan sırada tutulmalı.
+- `OnaylayanKullaniciId` ve `HazirlayanKullaniciId` mevcut `Kullanici` tablosuna bağlanmalı.
+- `IsDeleted` kullanılan mevcut soft delete yaklaşımı korunmalı.
+
+#### Teknik Riskler
+- mevcut ihale modülü sorgularının aktif versiyon mantığına adapte edilmesi gerekebilir
+- migration zincirindeki mevcut PostgreSQL hassasiyetleri nedeniyle yeni migration küçük ve izole tutulmalı
+- PDF/Excel export tarafında mevcut ihale çıktı servisleri varsa tekrar kullanılmalı
+- aktif versiyon değişiminde cache ve rapor ekranları etkilenebilir
+
+#### Tamamlanma Kontrol Listesi
+- [ ] Entity sınıfları eklendi
+- [ ] `DbContext` ilişkileri tanımlandı
+- [ ] Migration oluşturuldu
+- [ ] Build başarılı
+- [ ] Revizyon oluşturma servisi çalışıyor
+- [ ] Aktif versiyon listelemesi UI'da görünüyor
+- [ ] Onay durumu rozetleri gösteriliyor
+
+### 8.11 FAZ 8.5 Sprint 2-3 Backlog'u
+
+#### Sprint 2 - Karşılaştırma ve Çıktılar
+| İş Paketi | İçerik | Öncelik | Süre | Durum |
+|-----------|--------|---------|------|-------|
+| Versiyon karşılaştırma servisi | iki teklif versiyonu arasında maliyet, teklif, kâr ve oran farkları | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Karşılaştırma UI | yan yana versiyon karşılaştırma ekranı / modalı | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Teklif PDF çıktısı | yönetim özeti, maliyet tablosu, varsayımlar, kâr marjı | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Teklif Excel çıktısı | kalem bazlı teklif ve özet sayfaları | 🟡 Orta | 1 gün | ❌ Bekliyor |
+| Karar günlüğü görünümü | onay/red/inceleme aksiyonlarının zaman çizelgesi | 🟡 Orta | 1 gün | ❌ Bekliyor |
+
+#### Sprint 3 - Gerçekleşen ve Sapma Takibi
+| İş Paketi | İçerik | Öncelik | Süre | Durum |
+|-----------|--------|---------|------|-------|
+| Gerçekleşen maliyet veri modeli | proje/hat/güzergah bazlı gerçekleşen kayıt yapısı | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Teklif vs gerçekleşen hesaplama servisi | sapma tutarı, sapma oranı, kârlılık farkı | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Sapma dashboard kartları | toplam sapma, en yüksek sapma, riskli projeler | 🔴 Yüksek | 1 gün | ❌ Bekliyor |
+| Hat/güzergah bazlı sapma raporu | kırılım bazlı analiz tablosu | 🟡 Orta | 1 gün | ❌ Bekliyor |
+| AI doğruluk geri besleme skoru | tahmin edilen ve gerçekleşen farklara göre skor üretimi | 🟡 Orta | 1 gün | ❌ Bekliyor |
+
+### 8.12 FAZ 8.5 MVP Teslim Kapsamı
+- teklif versiyon oluşturma
+- önceki versiyondan revizyon kopyalama
+- aktif versiyon seçimi
+- onay / red akışı
+- karar notu ve işlem geçmişi
+- PDF / Excel teklif çıktısı
+- temel versiyon karşılaştırma ekranı
+
+### 8.13 FAZ 8.5 Sonrası Genişleme Alanları
+- rakip teklif veri havuzu ve benchmark önerileri
+- teklif şablon bazlı dinamik çıktı sistemi
+- proje türüne göre farklı onay akışları
+- şirket bazlı teklif numaralandırma kuralları
+- mobil onay deneyimi
+
+### 8.14 FAZ 8.5 Veri Kaynağı ve Snapshot Stratejisi
+
+#### Snapshot'ta Dondurulacak Alanlar
+- `ToplamMaliyet`
+- `TeklifTutari`
+- `KarMarjiTutari`
+- `KarMarjiOrani`
+- temel varsayımlar (`yakit`, `maas`, `kira/komisyon`, `enflasyon`, `sozlesme suresi`)
+- özet hat/güzergah dağılımı
+
+#### Canlıdan Okunacak Alanlar
+- `IhaleProje` temel kimlik bilgileri
+- proje sahibi kullanıcı ve organizasyon bilgileri
+- yetki/rol kontrolleri
+- export sırasında kullanılacak güncel firma bilgileri
+
+#### Neden Snapshot Gerekli?
+- teklif onaylandıktan sonra maliyet varsayımları değişse bile eski teklif bozulmamalı
+- revizyonlar arasında karşılaştırma yapılabilmeli
+- sapma analizi için referans teklif sayısı korunmalı
+- PDF/Excel çıktılarında sonradan değişen veri nedeniyle tutarsızlık oluşmamalı
+
+#### Gerçekleşen Veri Kaynağı Adayları
+- `ServisCalisma`
+- `AracMasraf`
+- `Personel / Sofor` maliyet kayıtları
+- `Fatura` ve tahakkuk kayıtları
+- gerekiyorsa hat/güzergah bazlı özet tablo
+
+#### Teknik Tasarım Notu
+- ilk iterasyonda tam kalem snapshot yerine özet finansal snapshot yeterli olabilir
+- ikinci iterasyonda `IhaleTeklifVersiyonKalem` ile satır bazlı snapshot açılmalı
+- gerçekleşen maliyet analizi başlamadan önce hangi servislerin referans veri kaynağı olacağı netleştirilmeli
+
+### 8.15 FAZ 8.5 Entegrasyon Noktaları ve Servis Sözleşmeleri
+
+#### Entegrasyon Noktaları
+- `IhaleProje` detay sayfası
+- mevcut kullanıcı / rol / yetki altyapısı
+- mevcut `Excel` ve `PDF` export servisleri
+- maliyet hesaplama servisleri
+- audit/log altyapısı
+
+#### Önerilen Servis Sözleşmeleri
+- `IIhaleTeklifVersiyonService`
+  - `GetByIdAsync(int versiyonId)`
+  - `GetListByIhaleProjeIdAsync(int ihaleProjeId)`
+  - `CreateInitialAsync(int ihaleProjeId)`
+  - `CreateRevisionAsync(int kaynakVersiyonId, string? revizyonNotu)`
+  - `SetActiveAsync(int versiyonId)`
+  - `SendToReviewAsync(int versiyonId)`
+  - `ApproveAsync(int versiyonId, string? kararNotu)`
+  - `RejectAsync(int versiyonId, string kararNotu)`
+
+- `IIhaleTeklifKarsilastirmaService`
+  - `CompareAsync(int solVersiyonId, int sagVersiyonId)`
+
+- `IIhaleTeklifExportService`
+  - `ExportPdfAsync(int versiyonId)`
+  - `ExportExcelAsync(int versiyonId)`
+
+#### DTO Önerileri
+- `IhaleTeklifVersiyonListDto`
+- `IhaleTeklifVersiyonDetayDto`
+- `IhaleTeklifKarsilastirmaDto`
+- `IhaleTeklifKararLogDto`
+
+#### Entegrasyon Kuralları
+- `IhaleDetay` ekranı doğrudan entity yerine servis DTO'ları kullanmalı
+- export işlemleri yalnızca `Onaylandi` veya yetkili kullanıcı senaryosunda açılmalı
+- onay/red akışları audit log ve karar log ile birlikte çalışmalı
+- aktif versiyon güncellemesi sonrası ekran cache'leri temizlenmeli veya yenilenmeli
+
+### 8.16 FAZ 8.5 Blazor UI Bileşen Haritası
+
+#### Sayfa ve Bileşen Önerileri
+- `IhaleDetay.razor`
+  - `TeklifVersiyonlariTablosu`
+  - `AktifTeklifVersiyonKarti`
+  - `TeklifKararGecmisiPaneli`
+- `TeklifRevizyonModal.razor`
+  - revizyon notu girme
+  - kaynak versiyon özeti gösterme
+- `TeklifKarsilastirmaModal.razor`
+  - iki versiyon seçimi
+  - özet fark tablosu
+- `TeklifOnayModal.razor`
+  - onay / red karar notu girişi
+
+#### UI Akışları
+- kullanıcı `IhaleDetay` ekranında versiyon listesini görür
+- aktif versiyon kartından teklif özeti okunur
+- `Yeni Revizyon Oluştur` ile modal açılır
+- `İncelemeye Gönder` sonrası durum rozeti güncellenir
+- yönetici `Onayla / Reddet` aksiyonu ile karar sürecini tamamlar
+- `Karşılaştır` aksiyonu ile iki versiyon yan yana açılır
+
+#### Görsel Durum Rozetleri
+- `Taslak` -> gri
+- `Incelemede` -> sarı
+- `Onaylandi` -> yeşil
+- `Reddedildi` -> kırmızı
+- `Aktif Versiyon` -> ek mavi vurgu
+
+#### İlk UI Teslim Kapsamı
+- versiyon listesi
+- aktif versiyon kartı
+- revizyon oluşturma modalı
+- onay / red aksiyonları
+- karar geçmişi listesi
+
+#### Sonraki UI Genişleme Alanları
+- sürükle-bırak senaryo karşılaştırma
+- versiyon bazlı grafik fark görünümü
+- mobil uyumlu onay ekranı
+- export önizleme paneli
+
 ---
 
 ## 📅 Önerilen Uygulama Takvimi
@@ -395,39 +700,314 @@ FAZ 7 (5-6 Hafta)
 ├── Hafta 4-5: AI Entegrasyonu (Local LLM + OCR)
 └── Hafta 6: Örnek Veri & Test
 
-FAZ 8 (2-3 Hafta) - ✅ TAMAMLANDI
+FAZ 8 (2-3 Hafta) - ✅ ÇEKİRDEK KAPSAM TAMAMLANDI
 ├── Hafta 1: İhale Proje CRUD + Maliyet Hesaplama
 ├── Hafta 2: AI Tahmin + Enflasyonlu Projeksiyon
 └── Hafta 3: Kâr/Zarar Rapor + Proje Kopyalama
+
+FAZ 8.5 (2-3 Hafta) - 🆕 ÖNERİLEN DEVAM FAZI
+├── Hafta 1: Teklif versiyonlama + onay akışı
+├── Hafta 2: Teklif export + senaryo karşılaştırma
+└── Hafta 3: Kazanılan proje gerçekleşen / sapma takibi
 ```
+
+---
+
+## 🚀 FAZ 9 - İleri Seviye Özellikler & Optimizasyonlar
+
+### 9.1 Gelişmiş Analitik & BI
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| Power BI / Grafana entegrasyonu | 🟡 Orta | 3 gün | ❌ Bekliyor |
+| Özel dashboard widget oluşturma | 🟡 Orta | 2 gün | ❌ Bekliyor |
+| Veri export (CSV/JSON/Parquet) | 🟢 Düşük | 1 gün | ✅ Tamamlandı |
+| Scheduled report e-posta | 🟢 Düşük | 2 gün | ❌ Bekliyor |
+
+### 9.2 Güvenlik & Uyumluluk
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| İki faktörlü doğrulama (2FA/MFA) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Audit log (tüm işlemler) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| GDPR/KVKK uyumluluk araçları | 🟡 Orta | 3 gün | ❌ Bekliyor |
+| IP beyaz liste / kara liste | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+
+### 9.3 Performans & Altyapı
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| Background job sistemi (Hangfire/Quartz) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
+| Database index optimizasyonu | 🟡 Orta | 1 gün | ✅ Tamamlandı |
+| Harici object storage entegrasyonu (S3 vb.) | 🟡 Orta | 2 gün | ❌ Bekliyor |
+| Health check & monitoring | 🟢 Düşük | 1 gün | ✅ Tamamlandı |
+
+### 9.4 Kullanıcı Deneyimi
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| Dark mode / tema özelleştirme | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+| Keyboard shortcuts | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+| Favoriler / hızlı erişim | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+| Çoklu dil desteği (i18n) | 🟡 Orta | 3 gün | ❌ Bekliyor |
+
+### 9.5 Entegrasyon & Otomasyon
+| Özellik | Öncelik | Süre | Durum |
+|---------|---------|------|-------|
+| Zapier / n8n entegrasyonu | 🟢 Düşük | 2 gün | ❌ Bekliyor |
+| Microsoft Teams bildirimleri | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+| Slack entegrasyonu | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+| Otomatik yedekleme sistemi | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 
 ---
 
 ## 🎯 Hemen Başlanabilecek Öncelikli İşler
 
-### 🔴 Güncel Açık Öncelikler
-1. **Kullanıcı Yönetimi & Yetkilendirme (ASP.NET Core Identity)**
+### ✅ FAZ 1-8 Çekirdek Kapsam Tamamlandı
 
-### 🟡 Devam Eden Başlıklar
-1. **EBYS Temel Altyapı** ✅ TAMAMLANDI
-   - belge kategorileri ✅
-   - dosya yükleme/indirme ✅
-   - metadata yönetimi ✅
-   - versiyon kontrolü ✅
-   - belge arama ✅
-2. **EBYS AI Entegrasyonu** ✅ TAMAMLANDI
-   - OCR (Tesseract) ✅
-   - Belge sınıflandırma ✅
-   - Belge özeti ✅
-   - Anahtar kelime çıkarma ✅
-   - Semantic search ✅
-3. **EBYS Örnek Veri ve Test Senaryoları** ✅ TAMAMLANDI
-   - Evrak kategorileri (10 adet) ✅
-   - Özlük evrak tanımları (19 adet) ✅
-   - Örnek gelen/giden evraklar (7 adet) ✅
+Proje MVP'den kurumsal seviyeye kadar tüm temel özellikleri içermektedir:
+- ✅ FAZ 1: MVP (Cari, Araç, Şoför, Fatura, Raporlar)
+- ✅ FAZ 2: Gelişmiş Özellikler (Kullanıcı, Bildirim, Doküman, Destek)
+- ✅ FAZ 3: İleri Seviye (E-Fatura, SMS, GPS, Mobil)
+- ✅ FAZ 4: Kurumsal (Multi-tenant, API, Cache)
+- ✅ FAZ 5: Personel/Maaş/Bordro
+- ✅ FAZ 6: Puantaj & Fatura Yönetimi
+- ✅ FAZ 7: EBYS & AI Entegrasyonu
+- ✅ FAZ 8: İhale Hazırlık & Teklif (çekirdek kapsam)
+
+### 🆕 FAZ 8'den Devam Önerisi
+1. **Teklif versiyonlama ve revizyon geçmişi**
+2. **Teklif onay akışı ve karar günlüğü**
+3. **Teklif PDF / Excel export**
+4. **Kazanılan projelerde gerçekleşen vs tekliflenen sapma analizi**
+5. **AI tahmin doğruluk skoru ve geri besleme mekanizması**
+
+#### Alt Kırılım Önerisi
+
+**1. Teklif versiyonlama ve revizyon geçmişi**
+- aynı `IhaleProje` altında birden fazla teklif revizyonu tutulması
+- aktif versiyon işaretleme
+- önceki versiyondan kopyalayarak yeni revizyon oluşturma
+- versiyon bazlı maliyet / teklif / kâr verisinin dondurulması
+
+**2. Teklif onay akışı ve karar günlüğü**
+- `Taslak -> Incelemede -> Onaylandi / Reddedildi` durum geçişleri
+- onaylayan kullanıcı, karar tarihi ve karar notu saklama
+- yönetici rolü için onay/red aksiyonları
+- işlem geçmişinin zaman çizelgesi şeklinde gösterimi
+
+**3. Teklif PDF / Excel export**
+- yönetici özeti içeren PDF çıktı
+- kalem bazlı teklif detaylarını içeren Excel çıktı
+- versiyon bazlı çıktı alma
+- onaylı tekliflerin resmi paylaşım formatına dönüştürülmesi
+
+**4. Kazanılan projelerde gerçekleşen vs tekliflenen sapma analizi**
+- teklif maliyeti ile operasyon sırasında oluşan gerçek maliyetin karşılaştırılması
+- toplam sapma, oran sapması ve kârlılık farkı hesaplanması
+- hat / güzergah / araç tipi bazlı kırılımlar
+- riskli projeler için uyarı kartları
+
+**5. AI tahmin doğruluk skoru ve geri besleme mekanizması**
+- AI tarafından önerilen maliyet ile gerçekleşen maliyet farkının izlenmesi
+- tahmin doğruluk puanı üretilmesi
+- proje türüne göre model başarımının ölçülmesi
+- gelecekteki tekliflerde AI önerilerinin daha güvenilir hale getirilmesi
+
+#### Bu Bölümün Hedef Çıktısı
+- teklif hazırlama süreci denetlenebilir hale gelir
+- hangi teklifin ne zaman ve kim tarafından onaylandığı izlenebilir
+- satış / operasyon / yönetim ekipleri aynı versiyon üstünden çalışır
+- kazanılan projelerde teklif kalitesinin ölçümü mümkün olur
+
+### ▶️ Önerilen İlk Uygulama Sırası
+1. `Teklif versiyon entity + migration`
+2. `Teklif servis katmanı ve revizyon kopyalama`
+3. `İhale detay ekranında versiyon sekmesi`
+4. `Onay akışı ve karar günlüğü`
+5. `PDF / Excel teklif çıktısı`
+6. `Gerçekleşen vs tekliflenen sapma ekranı`
+
+#### Önceliklendirilmiş Teknik Görev Listesi
+
+**Aşama 1 - Veri Katmanı**
+1. `IhaleTeklifVersiyon` entity sınıfını oluştur
+2. `IhaleTeklifKararLog` entity sınıfını oluştur
+3. `ApplicationDbContext` içine `DbSet` tanımlarını ekle
+4. entity ilişkilerini ve index ihtiyaçlarını tanımla
+5. migration üret ve mevcut veritabanı akışıyla uyumu doğrula
+
+**Aşama 2 - İş Kuralları**
+1. `IIhaleTeklifVersiyonService` arayüzünü tanımla
+2. aktif versiyon getirme ve versiyon listeleme metodlarını yaz
+3. önceki versiyondan revizyon kopyalama akışını ekle
+4. onaya gönder / onayla / reddet iş kurallarını ekle
+5. karar loglarını otomatik oluşturan yardımcı akışı yaz
+
+**Aşama 3 - UI Katmanı**
+1. `IhaleDetay.razor` içine `Teklif Versiyonları` sekmesini ekle
+2. aktif versiyon kartı ve versiyon listesi göster
+3. `Yeni Revizyon Oluştur` modalı ekle
+4. onay / red aksiyon butonlarını ekle
+5. karar geçmişi zaman çizelgesini göster
+
+**Aşama 4 - Çıktı ve Analiz**
+1. versiyon karşılaştırma DTO ve servis metodunu ekle
+2. PDF teklif çıktısını üret
+3. Excel teklif çıktısını üret
+4. tekliflenen vs gerçekleşen sapma servis altyapısını başlat
+5. ilk dashboard sapma kartlarını ekle
+
+#### Teknik Öncelik Notu
+- İlk teslim için kritik yol: `Entity -> DbContext -> Migration -> Service -> IhaleDetay UI`
+- PDF/Excel ve sapma analizi ikinci aşamada açılabilir.
+- PostgreSQL migration zinciri hassas olduğu için yeni migration küçük, tek amaçlı ve izole tutulmalı.
+
+#### Bağımlılıklar
+- `IhaleProje` detay ekranının mevcut veri modeli yeni versiyon yapısını desteklemeli.
+- mevcut kullanıcı/rol altyapısı onay akışında yeniden kullanılmalı.
+- PDF/Excel çıktıları için hâlihazırdaki export servisleri analiz edilmeli.
+- operasyon verileriyle teklif sapma karşılaştırması için maliyet kaynakları netleştirilmeli.
+
+#### Risk Azaltma Planı
+- ilk migration sadece `teklif versiyon` ve `karar log` tablolarını içermeli.
+- aktif versiyon mantığı önce servis seviyesinde güvence altına alınmalı, sonra UI'ya açılmalı.
+- karşılaştırma ekranı ilk iterasyonda özet alanlarla sınırlı tutulmalı.
+- sapma analizi başlamadan önce `gerçekleşen maliyet` veri kaynağı için doğrulama yapılmalı.
+- export çıktılarında ilk teslimde sabit şablon kullanılmalı, dinamik şablon sonraya bırakılmalı.
+
+#### Başarı Ölçütleri
+- bir ihale için en az 2 teklif versiyonu hatasız oluşturulabiliyor olmalı.
+- aktif versiyon değişimi sonrası detay ekranı doğru veriyi göstermeli.
+- onay/red işlemleri log kaydı üretmeli.
+- PDF ve Excel çıktısı onaylı versiyon üzerinden üretilebilmeli.
+- tekliflenen ve gerçekleşen veri modeli bağlandığında ilk sapma metriği hesaplanabiliyor olmalı.
+
+#### Kabul Test Senaryoları
+
+**Senaryo 1 - İlk teklif versiyonu oluşturma**
+- yeni bir `IhaleProje` açıldığında ilk teklif versiyonu oluşturulabilir olmalı
+- varsayılan durum `Taslak` gelmeli
+- `VersiyonNo = 1` olarak atanmalı
+
+**Senaryo 2 - Revizyon kopyalama**
+- mevcut aktif versiyondan yeni revizyon oluşturulmalı
+- yeni kayıt bir önceki teklifin maliyet ve teklif özetini taşımalı
+- yeni versiyonun `VersiyonNo` değeri artmalı
+
+**Senaryo 3 - Onay akışı**
+- teklif `Incelemede` durumuna alınabilmeli
+- yönetici kullanıcı teklifi onaylayabilmeli veya reddedebilmeli
+- karar notu ve işlem zamanı loglanmalı
+
+**Senaryo 4 - Aktif versiyon gösterimi**
+- ihale detay ekranında sadece bir versiyon aktif görünmeli
+- aktif versiyon değiştiğinde ekran yeni veriyi göstermeli
+
+**Senaryo 5 - Çıktı alma**
+- onaylı teklif için PDF üretilebilmeli
+- aynı teklif için Excel çıktısı alınabilmeli
+- çıktı üzerinde doğru versiyon bilgisi görünmeli
+
+**Senaryo 6 - Temel karşılaştırma**
+- iki teklif versiyonu seçilip özet maliyet/teklif/kâr farkı görülebilmeli
+- fark hesapları negatif ve pozitif durumlarda doğru çalışmalı
+
+#### Rol Matrisi
+
+| Rol | Taslak Oluştur | Revizyon Oluştur | İncelemeye Gönder | Onayla/Reddet | PDF/Excel Al | Karar Geçmişi Gör |
+|-----|----------------|------------------|-------------------|---------------|--------------|-------------------|
+| Admin | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Operasyon | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Muhasebe | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Yönetici | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+
+#### Durum Geçiş Kuralları
+- `Taslak -> Incelemede`
+  - teklif sahibi veya yetkili kullanıcı tarafından yapılabilir
+- `Incelemede -> Onaylandi`
+  - yalnızca onay yetkisi olan kullanıcı yapabilir
+- `Incelemede -> Reddedildi`
+  - yalnızca onay yetkisi olan kullanıcı yapabilir
+- `Reddedildi -> Taslak`
+  - yeni revizyon açılarak dolaylı şekilde ilerlenmeli, aynı kayıt doğrudan geri alınmamalı
+- `Onaylandi`
+  - onaylanan versiyon salt-okunur kabul edilmeli
+
+#### İş Kuralı Notları
+- aynı anda birden fazla `Onaylandi` teklif versiyonu olabilir, ancak yalnızca bir tanesi `AktifVersiyon` olmalı
+- `AktifVersiyon` değişikliği ayrıca loglanmalı
+- `Onaylandi` durumundaki kayıtta düzenleme yerine yeni revizyon oluşturulmalı
+- `Reddedildi` durumunda karar notu zorunlu olmalı
+
+#### Yayınlama ve Geçiş Checklist'i
+
+**Veritabanı Geçişi**
+- yeni tablolar için migration alınmalı
+- mevcut `IhaleProje` kayıtları için geriye dönük ilk versiyon üretim ihtiyacı değerlendirilmeli
+- indexler üretim verisi üzerinde doğrulanmalı
+
+**Uygulama Geçişi**
+- eski ihale detay ekranı yeni versiyon yapısına uyarlanmalı
+- aktif versiyon yoksa güvenli varsayılan akış tanımlanmalı
+- yetkisiz kullanıcılar için onay butonları gizlenmeli
+
+**Operasyonel Kontroller**
+- üretime çıkmadan önce en az bir demo ihale üzerinde uçtan uca senaryo çalıştırılmalı
+- PDF ve Excel çıktıları gerçek kullanıcı verisiyle kontrol edilmeli
+- log kayıtları ve audit görünürlüğü doğrulanmalı
+
+**Geri Dönüş Planı**
+- migration geri alma komutu hazır olmalı
+- yeni UI sekmesi feature flag benzeri kontrollü açılmalı veya pasif bırakılabilmeli
+- ilk sürümde yalnızca çekirdek versiyonlama akışı aktif edilip sapma analizi daha sonra açılabilir
+
+### 🔴 FAZ 9 Öncelikleri
+1. ~~**İki faktörlü doğrulama (2FA/MFA)**~~ ✅ Tamamlandı
+2. ~~**Audit log sistemi**~~ ✅ Tamamlandı
+3. ~~**Background job sistemi**~~ ✅ Tamamlandı
+4. ~~**Otomatik yedekleme**~~ ✅ Tamamlandı
 
 ### ✅ Son Tamamlanan
-1. **E-Fatura entegrasyonu (GİB) - Durum Takibi** (Kayıt 128)
+1. **Health Check & Monitoring (FAZ 9.3)** (Kayıt 134)
+   - `SystemHealthService` yerel `SQLite` veritabanı ile uyumlu sağlık ölçümü üretecek şekilde güncellendi
+   - Veritabanı sağlayıcısı, dosya yolu, dosya boyutu, disk ve bellek bilgileri gerçek verilerle raporlanıyor
+   - `HealthController` ile `/api/health` ve `/api/health/details` endpoint'leri eklendi
+   - Eski sahte `MobileController` health cevabı kaldırıldı ve merkezi endpoint yapısına geçildi
+   - `SistemSaglik.razor` ekranında veritabanı sağlayıcısı ve yerel dosya yolu görünür hale getirildi
+
+2. **Database Index Optimizasyonu (FAZ 9.3)** (Kayıt 133)
+   - `ServisCalisma` için tarih, araç+tarih, şoför+tarih ve güzergah+tarih indexleri eklendi
+   - `Fatura` için tarih, cari+tarih, durum+vade, tip+tarih ve şirket+tarih indexleri eklendi
+   - `BankaKasaHareket` için hesap+tarih, cari+tarih, hareket tipi+tarih ve şirket+tarih indexleri eklendi
+   - `AddDatabaseIndexesOptimization` migration'ı oluşturuldu
+
+2. **Otomatik Yedekleme Sistemi (FAZ 9.5)** (Kayıt 132)
+   - `BackupSettings` günlük / haftalık / saat bazlı planlamayı destekleyecek şekilde genişletildi
+   - `AutoBackupService` yeni planlama kurallarını kullanacak şekilde güncellendi
+   - `Yedekleme.razor` ekranına planlama tipi, saat/dakika, haftalık gün ve sonraki çalışma zamanı bilgisi eklendi
+   - Otomatik yedekleme artık günlük/haftalık senaryolar için UI üzerinden yönetilebilir hale geldi
+
+2. **Background Job Sistemi (Quartz) (FAZ 9.3)** (Kayıt 131)
+   - `Quartz.Extensions.Hosting` paketi eklendi ve merkezi scheduler altyapısı kuruldu
+   - `AutoBackupJob`, `CariHatirlatmaJob`, `BelgeUyariJob`, `DatabaseBackupJob` job sınıfları oluşturuldu
+   - `Program.cs` içindeki dağınık `HostedService` kayıtları Quartz job tetiklerine taşındı
+   - `AutoBackupService`, `CariHatirlatmaBackgroundService`, `BelgeUyariBackgroundService` tek seferlik çalıştırılabilir hale getirildi
+   - `DatabaseBackupService` için retention temizliği dahil zamanlanmış yedek çalıştırma akışı eklendi
+
+2. **İki Faktörlü Doğrulama (2FA/MFA) (FAZ 9.2)** (Kayıt 130)
+   - `Kullanici` entity'sine `IkiFaktorAktif`, `IkiFaktorSecretKey`, `IkiFaktorEtkinlestirmeTarihi` alanları eklendi
+   - `TwoFactorAuthenticatorHelper` ile `TOTP` tabanlı doğrulama altyapısı eklendi
+   - `KullaniciService` içine 2FA kurulum, etkinleştirme, kapatma ve giriş tamamlama akışları eklendi
+   - `Login.razor` şifre sonrası ikinci adım doğrulama akışıyla güncellendi
+   - `Profil.razor` içine 2FA yönetim kartı eklendi
+   - `AddTwoFactorAuthentication` migration'ı oluşturuldu
+
+3. **Audit Log Sistemi (FAZ 9.2)** (Kayıt 129)
+   - `AuditLog` entity'si oluşturuldu (işlem tipi, entity, kullanıcı, IP, eski/yeni değer JSON)
+   - `IAuditLogService` interface ve `AuditLogService` implementasyonu eklendi
+   - CRUD işlemleri için `LogCreateAsync`, `LogUpdateAsync`, `LogDeleteAsync` metodları
+   - Login/Logout, Export/Import, özel işlem loglama desteği
+   - `AuditLogYonetimi.razor` yönetim sayfası (filtreleme, sayfalama, dashboard, detay modal)
+   - Log temizleme ve arşivleme özellikleri
+
+3. **E-Fatura entegrasyonu (GİB) - Durum Takibi** (Kayıt 128)
    - `Fatura` entity'sine GİB gönderim durumu alanları eklendi
    - `EFaturaXmlService` içine GİB durum güncelleme akışı eklendi
    - XML oluşturulduğunda fatura otomatik `XML Hazırlandı` durumuna alınıyor
@@ -558,8 +1138,11 @@ FAZ 8 (2-3 Hafta) - ✅ TAMAMLANDI
    - Yetkili Kanban yönetim paneli (TalepYonetim.razor)
    - Durum akışı: Taslak → Gönderildi → İşlemde → Bitti → Onaylandı
 
-### 🟢 Sonraki Mantıklı Adımlar
-1. Kullanıcı Yönetimi & Yetkilendirme (ASP.NET Core Identity)
+### 🟢 FAZ 9'dan Başlanabilecek Özellikler
+1. ~~**İki faktörlü doğrulama (2FA)**~~ ✅ Tamamlandı
+2. ~~**Audit log sistemi**~~ ✅ Tamamlandı
+3. ~~**Background jobs (Hangfire/Quartz)**~~ ✅ Tamamlandı
+4. ~~**Otomatik yedekleme**~~ ✅ Tamamlandı
 
 ---
 
@@ -567,7 +1150,7 @@ FAZ 8 (2-3 Hafta) - ✅ TAMAMLANDI
 
 - Öncelik: 🔴🔴 Acil | 🔴 Yüksek | 🟡 Orta | 🟢 Düşük | 🤖 AI
 - Durum: ❌ Bekliyor | 🔄 Devam Ediyor | ✅ Tamamlandı | 🆕 Yeni Eklendi
-- Güncel odak: **Kullanıcı Yönetimi & Yetkilendirme**
+- Güncel odak: **FAZ 8.5 - Teklif Operasyonları & Gerçekleşen Takibi**
 - EBYS için Ollama/LLaMA kullanılarak internetsiz çalışabilirlik sağlandı
 - Personel/Maaş/Bordro modülleri SGK mevzuatına uygun olmalı
 - Local AI (Ollama) ile raporlama özellikleri offline çalışabilecek
@@ -583,15 +1166,4 @@ FAZ 8 (2-3 Hafta) - ✅ TAMAMLANDI
 
 ---
 
-*Son güncelleme: Haziran 2025*
-#if DEBUG
-#if WINDOWS
-    private const string ApiBaseUrl = "http://localhost:5190/"; // Windows masaüstü için localhost
-#elif ANDROID
-    private const string ApiBaseUrl = "http://10.0.2.2:5190/"; // Android emulator için host makinesi
-#else
-    private const string ApiBaseUrl = "http://10.0.0.2:5190/"; // Diğer platformlar / fiziksel cihaz
-#endif
-#else
-    private const string ApiBaseUrl = "https://api.koafiloservis.com/"; // Üretim ortamı
-#endif
+*Son güncelleme: Nisan 2026*

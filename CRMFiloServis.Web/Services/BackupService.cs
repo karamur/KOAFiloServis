@@ -1214,12 +1214,16 @@ public class BackupService : IBackupService
 
         foreach (var tableName in orderedTables.Where(targetTables.Contains))
         {
+#pragma warning disable EF1002 // Tablo isimleri güvenli kaynaktan geliyor ve escape ediliyor
             await context.Database.ExecuteSqlRawAsync($"DELETE FROM {EscapeSqliteIdentifier(tableName)};");
+#pragma warning restore EF1002
         }
 
         foreach (var tableName in targetTables.Except(orderedTables, StringComparer.OrdinalIgnoreCase))
         {
+#pragma warning disable EF1002 // Tablo isimleri güvenli kaynaktan geliyor ve escape ediliyor
             await context.Database.ExecuteSqlRawAsync($"DELETE FROM {EscapeSqliteIdentifier(tableName)};");
+#pragma warning restore EF1002
         }
 
         await context.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence;");

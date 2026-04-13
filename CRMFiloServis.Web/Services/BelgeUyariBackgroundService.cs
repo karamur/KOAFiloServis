@@ -57,6 +57,16 @@ public class BelgeUyariBackgroundService : BackgroundService
         }
     }
 
+    public Task RunOnceAsync(CancellationToken cancellationToken = default)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Task.CompletedTask;
+        }
+
+        return KontrolVeGonderAsync();
+    }
+
     private async Task KontrolVeGonderAsync()
     {
         using var scope = _scopeFactory.CreateScope();

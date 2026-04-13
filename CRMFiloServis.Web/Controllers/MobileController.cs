@@ -833,16 +833,6 @@ public class MobileController : ControllerBase
     }
 
     /// <summary>
-    /// Health check endpoint
-    /// </summary>
-    [HttpGet("/api/health")]
-    [AllowAnonymous]
-    public IActionResult HealthCheck()
-    {
-        return Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow });
-    }
-
-    /// <summary>
     /// Arıza bildirimi gönderir
     /// </summary>
     [HttpPost("ariza")]

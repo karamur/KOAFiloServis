@@ -93,7 +93,7 @@ public class AracMasrafService : IAracMasrafService
             .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
     }
 
-    public async Task<AracMasraf> CreateAsync(AracMasraf aracMasraf)
+    public async Task<AracMasraf> CreateAsync(AracMasraf aracMasraf, bool muhasebeFisiOlustur = true)
     {
         await UygulaSahiplikKurallariAsync(aracMasraf);
         ValidateMuhtapSecimi(aracMasraf);
@@ -101,11 +101,11 @@ public class AracMasrafService : IAracMasrafService
         _context.AracMasraflari.Add(aracMasraf);
         await _context.SaveChangesAsync();
 
-        await MuhasebeFisSenkronizeEtAsync(aracMasraf.Id);
+        await SenkronizeMuhasebeDurumuAsync(aracMasraf.Id, muhasebeFisiOlustur);
         return (await GetByIdAsync(aracMasraf.Id))!;
     }
 
-    public async Task<AracMasraf> UpdateAsync(AracMasraf aracMasraf)
+    public async Task<AracMasraf> UpdateAsync(AracMasraf aracMasraf, bool muhasebeFisiOlustur = true)
     {
         await UygulaSahiplikKurallariAsync(aracMasraf);
         ValidateMuhtapSecimi(aracMasraf);
@@ -130,7 +130,7 @@ public class AracMasrafService : IAracMasrafService
         existing.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-        await MuhasebeFisSenkronizeEtAsync(existing.Id);
+        await SenkronizeMuhasebeDurumuAsync(existing.Id, muhasebeFisiOlustur);
 
         return (await GetByIdAsync(existing.Id))!;
     }
@@ -256,6 +256,30 @@ public class AracMasrafService : IAracMasrafService
         await _muhasebeService.UpdateFisAsync(fis);
     }
 
+    private async Task SenkronizeMuhasebeDurumuAsync(int aracMasrafId, bool muhasebeFisiOlustur)
+    {
+        var aracMasraf = await _context.AracMasraflari
+            .AsTracking()
+            .FirstOrDefaultAsync(m => m.Id == aracMasrafId && !m.IsDeleted);
+
+        if (aracMasraf == null)
+            return;
+
+        if (!muhasebeFisiOlustur)
+        {
+            if (aracMasraf.MuhasebeFisId.HasValue)
+            {
+                await _muhasebeService.DeleteFisAsync(aracMasraf.MuhasebeFisId.Value);
+                aracMasraf.MuhasebeFisId = null;
+                await _context.SaveChangesAsync();
+            }
+
+            return;
+        }
+
+        await MuhasebeFisSenkronizeEtAsync(aracMasrafId);
+    }
+
     private async Task<MuhasebeHesap> GetMasrafHesabiAsync(MasrafKategori kategori)
     {
         var hesapKodu = kategori switch
@@ -303,8 +327,13 @@ public class AracMasrafService : IAracMasrafService
         var cari = await _context.Cariler.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == cariId)
             ?? throw new InvalidOperationException("Cari bulunamadı.");
 
-        var hesapKodu = $"320.{cari.CariKodu}";
+        var hesapKodu = BuildAltHesapKodu("320", cari.Id);
         var mevcut = await _muhasebeService.GetHesapByKodAsync(hesapKodu);
+        if (mevcut != null)
+            return mevcut;
+
+        mevcut = await _context.MuhasebeHesaplari
+            .FirstOrDefaultAsync(h => h.UstHesapId == anaHesap.Id && h.HesapAdi == cari.Unvan && !h.IsDeleted);
         if (mevcut != null)
             return mevcut;
 
@@ -330,9 +359,13 @@ public class AracMasrafService : IAracMasrafService
         var sofor = await _context.Soforler.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == soforId)
             ?? throw new InvalidOperationException("Personel bulunamadı.");
 
-        var altKod = string.IsNullOrWhiteSpace(sofor.SoforKodu) ? sofor.Id.ToString() : sofor.SoforKodu.Replace(" ", string.Empty);
-        var hesapKodu = $"335.{altKod}";
+        var hesapKodu = BuildAltHesapKodu("335", sofor.Id);
         var mevcut = await _muhasebeService.GetHesapByKodAsync(hesapKodu);
+        if (mevcut != null)
+            return mevcut;
+
+        mevcut = await _context.MuhasebeHesaplari
+            .FirstOrDefaultAsync(h => h.UstHesapId == anaHesap.Id && h.HesapAdi == sofor.TamAd && !h.IsDeleted);
         if (mevcut != null)
             return mevcut;
 
@@ -370,11 +403,16 @@ public class AracMasrafService : IAracMasrafService
             return $"Komisyon araç masrafı: {aracMasraf.Cari.Unvan}";
 
         if (aracMasraf.Sofor != null)
-            return $"Personel fişi: {aracMasraf.Sofor.TamAd}";
+            return $"Personel cebinden ödeme: {aracMasraf.Sofor.TamAd}";
 
         if (aracMasraf.Cari != null)
-            return $"Cari masrafı: {aracMasraf.Cari.Unvan}";
+            return $"Cari cebinden ödeme: {aracMasraf.Cari.Unvan}";
 
         return "Kasa karşılığı";
+    }
+
+    private static string BuildAltHesapKodu(string anaHesapKodu, int id)
+    {
+        return $"{anaHesapKodu}.{id:D6}";
     }
 }

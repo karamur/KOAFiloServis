@@ -104,7 +104,16 @@
                                                 @hareket.HareketTipi
                                             </span>
                                         </td>
-                                        <td>@hareket.Aciklama</td>
+                                        <td>
+                                            @if (!string.IsNullOrWhiteSpace(hareket.DetayUrl))
+                                            {
+                                                <a href="@hareket.DetayUrl">@hareket.Aciklama</a>
+                                            }
+                                            else
+                                            {
+                                                @hareket.Aciklama
+                                            }
+                                        </td>
                                         <td>@hareket.BelgeNo</td>
                                         <td>@hareket.VadeTarihi?.ToString("dd.MM.yyyy")</td>
                                         <td class="text-end">@(hareket.Borc > 0 ? hareket.Borc.ToString("N2") : "")</td>
@@ -599,7 +608,18 @@
                                                     <i class="bi @hareket.HareketIkon"></i>
                                                 </span>
                                             </td>
-                                            <td><small>@hareket.Aciklama</small></td>
+                                            <td>
+                                                <small>
+                                                    @if (!string.IsNullOrWhiteSpace(hareket.DetayUrl))
+                                                    {
+                                                        <a href="@hareket.DetayUrl">@hareket.Aciklama</a>
+                                                    }
+                                                    else
+                                                    {
+                                                        @hareket.Aciklama
+                                                    }
+                                                </small>
+                                            </td>
                                             <td class="text-end"><small>@(hareket.Borc > 0 ? hareket.Borc.ToString("N2") : "")</small></td>
                                             <td class="text-end"><small>@(hareket.Alacak > 0 ? hareket.Alacak.ToString("N2") : "")</small></td>
                                             <td class="text-end fw-bold @(hareket.Bakiye > 0 ? "text-danger" : "text-success")">

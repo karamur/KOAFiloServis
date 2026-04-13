@@ -257,6 +257,85 @@
                 </div>
             </div>
 
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>İki Faktörlü Doğrulama</h5>
+                    @if (aktifKullanici != null)
+                    {
+                        <span class="badge @(aktifKullanici.IkiFaktorAktif ? "bg-success" : "bg-secondary")">
+                            @(aktifKullanici.IkiFaktorAktif ? "Aktif" : "Kapalı")
+                        </span>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (aktifKullanici != null)
+                    {
+                        @if (!aktifKullanici.IkiFaktorAktif)
+                        {
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Microsoft Authenticator veya Google Authenticator ile giriş güvenliğini artırabilirsiniz.
+                            </div>
+
+                            @if (ikiFaktorKurulum is null)
+                            {
+                                <button class="btn btn-outline-primary" @onclick="IkiFaktorKurulumBaslatAsync" disabled="@ikiFaktorIslemde">
+                                    <i class="bi bi-shield-plus me-1"></i>Kurulumu Başlat
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label">Manuel Kurulum Anahtarı</label>
+                                    <input class="form-control font-monospace" value="@ikiFaktorKurulum.ManuelAnahtar" readonly />
+                                    <small class="text-muted">Authenticator uygulamasına bu anahtarı manuel olarak ekleyin.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Kurulum URI</label>
+                                    <textarea class="form-control font-monospace" rows="3" readonly>@ikiFaktorKurulum.KurulumUri</textarea>
+                                </div>
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Doğrulama Kodu</label>
+                                        <InputText class="form-control" @bind-Value="ikiFaktorDogrulamaKodu" />
+                                    </div>
+                                    <div class="col-md-6 d-flex gap-2">
+                                        <button class="btn btn-success" @onclick="IkiFaktorEtkinlestirAsync" disabled="@ikiFaktorIslemde">
+                                            <i class="bi bi-check-lg me-1"></i>Etkinleştir
+                                        </button>
+                                        <button class="btn btn-outline-secondary" @onclick="IkiFaktorKurulumIptal">
+                                            <i class="bi bi-x-lg me-1"></i>İptal
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="alert alert-success">
+                                <i class="bi bi-shield-check me-1"></i>
+                                İki faktörlü doğrulama aktif.
+                                @if (aktifKullanici.IkiFaktorEtkinlestirmeTarihi.HasValue)
+                                {
+                                    <span class="ms-1 small">(@aktifKullanici.IkiFaktorEtkinlestirmeTarihi.Value.ToString("dd.MM.yyyy HH:mm"))</span>
+                                }
+                            </div>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-6">
+                                    <label class="form-label">Kapatmak için doğrulama kodu</label>
+                                    <InputText class="form-control" @bind-Value="ikiFaktorKapatmaKodu" />
+                                </div>
+                                <div class="col-md-6">
+                                    <button class="btn btn-outline-danger" @onclick="IkiFaktorDevreDisiBirakAsync" disabled="@ikiFaktorIslemde">
+                                        <i class="bi bi-shield-x me-1"></i>2FA Kapat
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
             <!-- Hesap Aktivitesi -->
             <div class="card shadow-sm">
                 <div class="card-header">
@@ -328,6 +407,11 @@
     private bool yeniSifreGoster = false;
     private bool yeniSifreTekrarGoster = false;
 
+    private IkiFaktorKurulumBilgisi? ikiFaktorKurulum;
+    private string ikiFaktorDogrulamaKodu = string.Empty;
+    private string ikiFaktorKapatmaKodu = string.Empty;
+    private bool ikiFaktorIslemde = false;
+
     // Tercihler
     private string temaTercihi = "Default";
     private bool kompaktMod = false;
@@ -395,6 +479,89 @@
         finally
         {
             bilgiKaydediliyor = false;
+        }
+    }
+
+    private async Task IkiFaktorKurulumBaslatAsync()
+    {
+        if (aktifKullanici == null) return;
+
+        try
+        {
+            ikiFaktorIslemde = true;
+            ikiFaktorKurulum = await KullaniciService.IkiFaktorKurulumBaslatAsync(aktifKullanici.Id);
+            ikiFaktorDogrulamaKodu = string.Empty;
+            ToastService.ShowInfo("Kurulum anahtarı oluşturuldu. Authenticator uygulamanıza ekleyip doğrulama kodunu girin.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            ikiFaktorIslemde = false;
+        }
+    }
+
+    private void IkiFaktorKurulumIptal()
+    {
+        ikiFaktorKurulum = null;
+        ikiFaktorDogrulamaKodu = string.Empty;
+    }
+
+    private async Task IkiFaktorEtkinlestirAsync()
+    {
+        if (aktifKullanici == null) return;
+
+        if (string.IsNullOrWhiteSpace(ikiFaktorDogrulamaKodu))
+        {
+            ToastService.ShowError("Doğrulama kodu zorunludur.");
+            return;
+        }
+
+        try
+        {
+            ikiFaktorIslemde = true;
+            await KullaniciService.IkiFaktorEtkinlestirAsync(aktifKullanici.Id, ikiFaktorDogrulamaKodu);
+            ToastService.ShowSuccess("İki faktörlü doğrulama etkinleştirildi.");
+            IkiFaktorKurulumIptal();
+            await YukleAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            ikiFaktorIslemde = false;
+        }
+    }
+
+    private async Task IkiFaktorDevreDisiBirakAsync()
+    {
+        if (aktifKullanici == null) return;
+
+        if (string.IsNullOrWhiteSpace(ikiFaktorKapatmaKodu))
+        {
+            ToastService.ShowError("Doğrulama kodu zorunludur.");
+            return;
+        }
+
+        try
+        {
+            ikiFaktorIslemde = true;
+            await KullaniciService.IkiFaktorDevreDisiBirakAsync(aktifKullanici.Id, ikiFaktorKapatmaKodu);
+            ikiFaktorKapatmaKodu = string.Empty;
+            ToastService.ShowSuccess("İki faktörlü doğrulama kapatıldı.");
+            await YukleAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            ikiFaktorIslemde = false;
         }
     }
 

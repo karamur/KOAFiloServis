@@ -149,6 +149,23 @@ public class DatabaseBackupService : IHostedService, IDisposable
         }
     }
 
+    public async Task ExecuteScheduledBackupAsync()
+    {
+        _logger.LogInformation("Otomatik veritabanı yedekleme başlatıldı");
+
+        var result = await CreateBackupAsync();
+
+        if (result.Success)
+        {
+            _logger.LogInformation("Veritabanı yedeği oluşturuldu: {Path}", result.FilePath);
+            CleanupOldBackups();
+        }
+        else
+        {
+            _logger.LogError("Veritabanı yedeği oluşturulamadı: {Error}", result.ErrorMessage);
+        }
+    }
+
     /// <summary>
     /// Veritabanını SQL dosyasına export eder
     /// </summary>

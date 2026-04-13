@@ -1,6 +1,7 @@
 ﻿using CRMFiloServis.Web.Components;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Helpers;
+using CRMFiloServis.Web.Jobs;
 using CRMFiloServis.Web.Services;
 using CRMFiloServis.Web.Services.Interfaces;
 using CRMFiloServis.Web.Hubs;
@@ -17,6 +18,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
+using Quartz;
 using System.Text;
 using System.Text.Json;
 
@@ -26,7 +28,7 @@ ExcelPackage.License.SetNonCommercialPersonal("CRMFiloServis");
 var builder = WebApplication.CreateBuilder(args);
 
 // Database Provider Secimi (dbsettings.json varsa onu oncele)
-var dbProvider = builder.Configuration.GetValue<string>("DatabaseProvider") ?? "SQLite";
+var dbProvider = builder.Configuration.GetValue<string>("DatabaseProvider") ?? "PostgreSQL";
 var defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
 var dbSettingsPath = Path.Combine(builder.Environment.ContentRootPath, "dbsettings.json");
 
@@ -107,9 +109,14 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =
     options.AddInterceptors(sp.GetRequiredService<AktiviteLogInterceptor>());
 });
 
-// DbContext - Factory'den olustur
+// DbContext - Factory'den olustur ve scoped IServiceProvider'ı bağla
+// ITenantService sorgu zamanında lazy olarak çözümlenir (döngüsel bağımlılık önlenir)
 builder.Services.AddScoped<ApplicationDbContext>(sp =>
-    sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
+{
+    var context = sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext();
+    context.SetServiceProvider(sp);
+    return context;
+});
 
 // Authentication - Her circuit (tarayici baglantisi) icin bagimsiz oturum yonetimi
 // Scoped: Her Blazor circuit kendi oturumunu yonetir - farkli PC/tarayicilar birbirini etkilemez
@@ -187,6 +194,7 @@ builder.Services.AddScoped<IMaliAnalizService, MaliAnalizService>();
 builder.Services.AddScoped<IPersonelMaasIzinService, PersonelMaasIzinService>();
 builder.Services.AddScoped<IBelgeUyariService, BelgeUyariService>();
 builder.Services.AddScoped<IDashboardGrafikService, DashboardGrafikService>();
+builder.Services.AddScoped<IDataExportService, DataExportService>();
 builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<IToastService, ToastService>();
 builder.Services.AddScoped<AppIssueStateService>();
@@ -221,8 +229,8 @@ builder.Services.AddScoped<ICariHareketTakipService, CariHareketTakipService>();
 builder.Services.AddScoped<UpdateService>(); // Güncelleme Yönetimi Servisi
 builder.Services.AddScoped<IEmailService, EmailService>(); // E-posta Bildirim Servisi
 builder.Services.AddScoped<ISystemHealthService, SystemHealthService>(); // Sistem Sağlık Kontrolü
-builder.Services.AddHostedService<DatabaseBackupService>(); // Otomatik Veritabanı Yedekleme
-builder.Services.AddHostedService<BelgeUyariBackgroundService>(); // Belge Süresi Email Uyarı
+builder.Services.AddScoped<DatabaseBackupService>(); // Quartz job tarafından tetiklenen veritabanı yedek servisi
+builder.Services.AddScoped<BelgeUyariBackgroundService>(); // Quartz job tarafından tetiklenen belge uyarı servisi
 builder.Services.AddHttpClient("OpenAI"); // OpenAI icin HttpClient
 builder.Services.AddHttpClient("Scraper"); // Scraper icin HttpClient
 builder.Services.AddHttpClient("Ollama"); // Ollama Local LLM icin HttpClient
@@ -234,9 +242,12 @@ builder.Services.AddScoped<ICariRiskService, CariRiskService>(); // Cari Risk An
 builder.Services.AddScoped<IKolayMuhasebeService, KolayMuhasebeService>(); // Kolay Muhasebe Girişi Servisi
 builder.Services.AddScoped<ITopluFaturaService, TopluFaturaService>(); // Toplu Fatura Oluşturma Servisi
 builder.Services.AddScoped<IEFaturaXmlService, EFaturaXmlService>(); // E-Fatura XML (GİB UBL-TR) Servisi
+builder.Services.AddScoped<IIhaleTeklifVersiyonService, IhaleTeklifVersiyonService>(); // İhale teklif versiyonlama servisi
+builder.Services.AddScoped<IIhaleTeklifKarsilastirmaService, IhaleTeklifKarsilastirmaService>(); // İhale teklif karşılaştırma servisi
+builder.Services.AddScoped<IIhaleTeklifExportService, IhaleTeklifExportService>(); // İhale teklif export servisi
 builder.Services.AddScoped<ILucaPortalService, LucaPortalService>(); // Luca Portal E-Fatura/E-Arşiv Entegrasyonu
 builder.Services.AddScoped<ICariHatirlatmaService, CariHatirlatmaService>(); // Cari Otomatik Hatırlatma Servisi
-builder.Services.AddHostedService<CariHatirlatmaBackgroundService>(); // Cari Hatırlatma Arka Plan Servisi
+builder.Services.AddScoped<CariHatirlatmaBackgroundService>(); // Quartz job tarafından tetiklenen cari hatırlatma servisi
 builder.Services.AddScoped<IFaturaSablonService, FaturaSablonService>(); // Fatura Şablon Yönetimi Servisi
 builder.Services.AddScoped<IDestekTalebiService, DestekTalebiService>(); // Destek Talebi (Ticket) Servisi - osTicket benzeri
 builder.Services.AddScoped<IEbysEvrakService, EbysEvrakService>(); // EBYS Gelen/Giden Evrak Servisi
@@ -250,13 +261,51 @@ builder.Services.AddScoped<IWebhookService, WebhookService>(); // Webhook Sistem
 builder.Services.AddScoped<TestDataSeeder>(); // Test/Demo Veri Oluşturma Servisi
 builder.Services.AddScoped<IAracTakipService, AracTakipService>(); // Araç GPS Takip Servisi
 builder.Services.AddScoped<IAracTakipBildirimService, AracTakipBildirimService>(); // SignalR Araç Takip Bildirim Servisi
+builder.Services.AddScoped<IAuditLogService, AuditLogService>(); // Audit Log (Tüm İşlem Takibi) Servisi
 builder.Services.AddSingleton<GpsSimulasyonService>(); // GPS Simülasyon Servisi (Singleton - state tutar)
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GpsSimulasyonService>()); // BackgroundService olarak çalıştır
 builder.Services.AddSignalR(); // SignalR Hub'ları için
 builder.Services.AddHttpClient("SMS"); // SMS provider'lar için HttpClient
 builder.Services.AddHttpClient("Webhook"); // Webhook gönderimi için HttpClient
-builder.Services.AddHostedService<AutoBackupService>();
+builder.Services.AddScoped<AutoBackupService>(); // Quartz job tarafından tetiklenen otomatik yedek servisi
 builder.Services.AddHttpContextAccessor();
+
+var belgeUyariCheckIntervalHours = Math.Max(1, builder.Configuration.GetValue("BelgeUyari:CheckIntervalHours", 24));
+var belgeUyariEmailEnabled = builder.Configuration.GetValue("BelgeUyari:EmailEnabled", false);
+
+builder.Services.AddQuartz(q =>
+{
+    q.AddJob<AutoBackupJob>(opts => opts.WithIdentity("auto-backup-job"));
+    q.AddTrigger(opts => opts
+        .ForJob("auto-backup-job")
+        .WithIdentity("auto-backup-trigger")
+        .StartAt(DateBuilder.FutureDate(2, IntervalUnit.Minute))
+        .WithSimpleSchedule(x => x.WithIntervalInMinutes(30).RepeatForever()));
+
+    q.AddJob<CariHatirlatmaJob>(opts => opts.WithIdentity("cari-hatirlatma-job"));
+    q.AddTrigger(opts => opts
+        .ForJob("cari-hatirlatma-job")
+        .WithIdentity("cari-hatirlatma-trigger")
+        .StartAt(DateBuilder.FutureDate(3, IntervalUnit.Minute))
+        .WithSimpleSchedule(x => x.WithIntervalInMinutes(30).RepeatForever()));
+
+    q.AddJob<DatabaseBackupJob>(opts => opts.WithIdentity("database-backup-job"));
+    q.AddTrigger(opts => opts
+        .ForJob("database-backup-job")
+        .WithIdentity("database-backup-trigger")
+        .WithSchedule(CronScheduleBuilder.DailyAtHourAndMinute(3, 0)));
+
+    if (belgeUyariEmailEnabled)
+    {
+        q.AddJob<BelgeUyariJob>(opts => opts.WithIdentity("belge-uyari-job"));
+        q.AddTrigger(opts => opts
+            .ForJob("belge-uyari-job")
+            .WithIdentity("belge-uyari-trigger")
+            .StartAt(DateBuilder.FutureDate(1, IntervalUnit.Minute))
+            .WithSimpleSchedule(x => x.WithInterval(TimeSpan.FromHours(belgeUyariCheckIntervalHours)).RepeatForever()));
+    }
+});
+builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 
 // API Controller ve JWT Authentication
 builder.Services.AddControllers()
@@ -334,58 +383,76 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-static async Task RunScopedAsync(WebApplication app, Func<IServiceProvider, Task> action)
+static async Task RunScopedSafeAsync(WebApplication app, string taskName, Func<IServiceProvider, Task> action)
 {
     using var scope = app.Services.CreateScope();
-    await action(scope.ServiceProvider);
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        logger.LogInformation("Startup gorevi basliyor: {TaskName}", taskName);
+        await action(scope.ServiceProvider);
+        logger.LogInformation("Startup gorevi tamamlandi: {TaskName}", taskName);
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex, "Startup gorevi basarisiz. Uygulama durduruluyor: {TaskName}", taskName);
+        throw;
+    }
 }
 
 // Seed Database
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "DbInitializer", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     var configuration = services.GetRequiredService<IConfiguration>();
     await DbInitializer.InitializeAsync(context, configuration);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "PersonelTableMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.PersonelTableMigrationHelper.ApplyPersonelTableMigrationAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "PersonelMaasHesaplamaMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.PersonelMaasHesaplamaMigrationHelper.ApplyPersonelMaasHesaplamaAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "SoforMaasMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.SoforMaasMigrationHelper.ApplySoforMaasAlanlariAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "PersonelPuantajOnayMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.PersonelPuantajOnayMigrationHelper.ApplyPersonelPuantajOnayAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "FaturaGibDurumMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.FaturaGibDurumMigrationHelper.ApplyFaturaGibDurumAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "TwoFactorMigration", async services =>
+{
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    await CRMFiloServis.Web.Data.Migrations.TwoFactorMigrationHelper.ApplyTwoFactorColumnsAsync(context);
+});
+
+await RunScopedSafeAsync(app, "SmsMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     var logger = services.GetRequiredService<ILogger<Program>>();
     await CRMFiloServis.Web.Data.Migrations.SmsMigrationHelper.EnsureSmsTablesAsync(context, logger);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "GuzergahKoordinatMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     if (dbProvider == "PostgreSQL")
@@ -398,79 +465,79 @@ await RunScopedAsync(app, async services =>
     }
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "DbSeeder", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await DbSeeder.SeedAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "SeedAdmin", async services =>
 {
     var kullaniciService = services.GetRequiredService<IKullaniciService>();
     await kullaniciService.SeedAdminAsync();
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "LisansSeed", async services =>
 {
     var lisansService = services.GetRequiredService<ILisansService>();
     await lisansService.GetAktifLisansAsync(); // Trial lisans olusturur
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "MarkaModelSeed", async services =>
 {
     var satisService = services.GetRequiredService<ISatisService>();
     await satisService.SeedMarkaModelAsync();
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "MuhasebeHesapPlaniSeed", async services =>
 {
     var muhasebeService = services.GetRequiredService<IMuhasebeService>();
     await muhasebeService.SeedVarsayilanHesapPlaniAsync();
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "PiyasaKaynakSeed", async services =>
 {
     var piyasaKaynakService = services.GetRequiredService<IPiyasaKaynakService>();
     await piyasaKaynakService.SeedDefaultKaynaklarAsync();
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "BudgetMasrafKalemleriSeed", async services =>
 {
     var budgetService = services.GetRequiredService<IBudgetService>();
     await budgetService.SeedMasrafKalemleriAsync();
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "CariAlanGenisletmeMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.CariMigrationHelper.ApplyCariAlanGenisletmeAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "BordroMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.BordroMigrationHelper.ApplyBordroTablolariAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "AracMasrafMuhasebeMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.AracMasrafMuhasebeMigrationHelper.ApplyAracMasrafMuhasebeAlanlariAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "OzlukEvrakMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.OzlukEvrakMigrationHelper.ApplyOzlukEvrakMigrationAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "MuhasebeAyarMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await CRMFiloServis.Web.Data.Migrations.MuhasebeAyarMigrationHelper.ApplyStokMasrafAyarlariAsync(context);
 });
 
-await RunScopedAsync(app, async services =>
+await RunScopedSafeAsync(app, "SeedDefaultEvrakTanimlari", async services =>
 {
     var ozlukService = services.GetRequiredService<IPersonelOzlukService>();
     await ozlukService.SeedDefaultEvrakTanimlariAsync();

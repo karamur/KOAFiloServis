@@ -116,6 +116,27 @@
                     <!-- Masraf Kalemi -->
                     @if (giris.IslemTuru == KolayIslemTuru.MasrafGirisi)
                     {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Masrafı Kim Ödedi?</label>
+                            <div class="btn-group w-100" role="group">
+                                <button type="button"
+                                        class="btn @(giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.KasaBanka ? "btn-warning" : "btn-outline-warning")"
+                                        @onclick="() => MasrafOdemeKaynagiDegisti(MasrafOdemeKaynagi.KasaBanka)">
+                                    <i class="bi bi-bank me-1"></i>Kasa / Banka
+                                </button>
+                                <button type="button"
+                                        class="btn @(giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel ? "btn-info" : "btn-outline-info")"
+                                        @onclick="() => MasrafOdemeKaynagiDegisti(MasrafOdemeKaynagi.Personel)">
+                                    <i class="bi bi-person-badge me-1"></i>Personel Cebinden
+                                </button>
+                                <button type="button"
+                                        class="btn @(giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Cari ? "btn-secondary" : "btn-outline-secondary")"
+                                        @onclick="() => MasrafOdemeKaynagiDegisti(MasrafOdemeKaynagi.Cari)">
+                                    <i class="bi bi-building me-1"></i>Cari Cebinden
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Masraf Kalemi</label>
@@ -558,19 +579,23 @@
     };
 
     // Computed properties
-    private bool CariGerekliMi => giris.IslemTuru != KolayIslemTuru.MasrafGirisi;
+    private bool CariGerekliMi => giris.IslemTuru != KolayIslemTuru.MasrafGirisi
+                                  || giris.MasrafOdemeKaynagi != MasrafOdemeKaynagi.KasaBanka;
     
     private string CariBaslik => giris.IslemTuru switch
     {
         KolayIslemTuru.GelirFatura or KolayIslemTuru.TahsilatGirisi => "Müşteri",
         KolayIslemTuru.GiderFatura or KolayIslemTuru.OdemeGirisi => "Tedarikçi",
         KolayIslemTuru.AvansGirisi => "Personel",
+        KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel => "Personel",
+        KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Cari => "Cari",
         KolayIslemTuru.MahsupKaydi => "Cari (Mahsup)",
         _ => "Cari"
     };
 
-    private bool BankaGerekliMi => giris.IslemTuru is KolayIslemTuru.TahsilatGirisi or KolayIslemTuru.OdemeGirisi 
-                                   or KolayIslemTuru.MasrafGirisi or KolayIslemTuru.AvansGirisi or KolayIslemTuru.MahsupKaydi;
+    private bool BankaGerekliMi => giris.IslemTuru is KolayIslemTuru.TahsilatGirisi or KolayIslemTuru.OdemeGirisi
+                                   or KolayIslemTuru.AvansGirisi or KolayIslemTuru.MahsupKaydi
+                                   || (giris.IslemTuru == KolayIslemTuru.MasrafGirisi && giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.KasaBanka);
 
     private string BankaBaslik => giris.IslemTuru switch
     {
@@ -603,6 +628,7 @@
     private async Task IslemTuruDegisti(KolayIslemTuru yeniTur)
     {
         giris.IslemTuru = yeniTur;
+        giris.MasrafOdemeKaynagi = MasrafOdemeKaynagi.KasaBanka;
 
         // Cari tipi ayarla
         giris.YeniCariTipi = yeniTur switch
@@ -620,6 +646,24 @@
         giris.CariUnvan = null;
         cariArama = "";
         arananCariler = new();
+
+        await OnizlemeGuncelle();
+    }
+
+    private async Task MasrafOdemeKaynagiDegisti(MasrafOdemeKaynagi yeniKaynak)
+    {
+        giris.MasrafOdemeKaynagi = yeniKaynak;
+
+        secilenCari = null;
+        giris.CariId = null;
+        giris.CariUnvan = null;
+        cariArama = "";
+        arananCariler = new();
+
+        if (yeniKaynak == MasrafOdemeKaynagi.KasaBanka)
+        {
+            giris.YeniCariTipi = null;
+        }
 
         await OnizlemeGuncelle();
     }
@@ -705,6 +749,8 @@
             KolayIslemTuru.GelirFatura or KolayIslemTuru.TahsilatGirisi => CariTipi.Musteri,
             KolayIslemTuru.GiderFatura or KolayIslemTuru.OdemeGirisi => CariTipi.Tedarikci,
             KolayIslemTuru.AvansGirisi => CariTipi.Personel,
+            KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel => CariTipi.Personel,
+            KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Cari => CariTipi.Tedarikci,
             KolayIslemTuru.MahsupKaydi => (CariTipi?)null, // Mahsup için tüm cariler
             _ => (CariTipi?)null
         };
@@ -748,6 +794,8 @@
                 KolayIslemTuru.GelirFatura or KolayIslemTuru.TahsilatGirisi => CariTipi.Musteri,
                 KolayIslemTuru.GiderFatura or KolayIslemTuru.OdemeGirisi => CariTipi.Tedarikci,
                 KolayIslemTuru.AvansGirisi => CariTipi.Personel,
+                KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel => CariTipi.Personel,
+                KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Cari => CariTipi.Tedarikci,
                 _ => CariTipi.Musteri
             },
             Unvan = cariArama // Arama kutusundaki metni varsayılan ünvan yap

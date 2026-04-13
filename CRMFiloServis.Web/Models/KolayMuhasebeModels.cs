@@ -51,6 +51,7 @@ public class KolayMuhasebeGiris
     // Masraf için
     public int? MasrafKalemiId { get; set; }
     public int? AracId { get; set; }  // Araç masrafı ise
+    public MasrafOdemeKaynagi MasrafOdemeKaynagi { get; set; } = MasrafOdemeKaynagi.KasaBanka;
 
     // Açıklama
     public string? Aciklama { get; set; }
@@ -138,4 +139,11 @@ public enum OdemeYontemi
     Cek = 3,
     KrediKarti = 4,
     Diger = 99
+}
+
+public enum MasrafOdemeKaynagi
+{
+    KasaBanka = 1,
+    Personel = 2,
+    Cari = 3
 }

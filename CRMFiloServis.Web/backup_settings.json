@@ -1,7 +1,11 @@
 {
   "AutoBackupEnabled": true,
   "AutoBackupIntervalHours": 6,
+  "ScheduleType": 1,
+  "ScheduledHour": 3,
+  "ScheduledMinute": 0,
+  "WeeklyBackupDay": 0,
   "KeepBackupCount": 30,
   "BackupFolder": "database",
-  "LastBackupTime": "2026-04-10T15:59:04.2286554+03:00"
+  "LastBackupTime": "2026-04-13T09:36:54.3850844+03:00"
 }

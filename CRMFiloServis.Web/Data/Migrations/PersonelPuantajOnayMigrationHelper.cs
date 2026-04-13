@@ -16,17 +16,19 @@ public static class PersonelPuantajOnayMigrationHelper
                 var sql = @"
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'PersonelPuantajlar' AND column_name = 'OnayDurumu') THEN
-        ALTER TABLE ""PersonelPuantajlar"" ADD COLUMN ""OnayDurumu"" integer NOT NULL DEFAULT 0;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'PersonelPuantajlar' AND column_name = 'OnaylayanKullanici') THEN
-        ALTER TABLE ""PersonelPuantajlar"" ADD COLUMN ""OnaylayanKullanici"" text NULL;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'PersonelPuantajlar' AND column_name = 'OnayTarihi') THEN
-        ALTER TABLE ""PersonelPuantajlar"" ADD COLUMN ""OnayTarihi"" timestamp without time zone NULL;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'PersonelPuantajlar' AND column_name = 'OnayNotu') THEN
-        ALTER TABLE ""PersonelPuantajlar"" ADD COLUMN ""OnayNotu"" text NULL;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PersonelPuantajlar') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'PersonelPuantajlar' AND column_name = 'OnayDurumu') THEN
+            ALTER TABLE ""PersonelPuantajlar"" ADD COLUMN ""OnayDurumu"" integer NOT NULL DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'PersonelPuantajlar' AND column_name = 'OnaylayanKullanici') THEN
+            ALTER TABLE ""PersonelPuantajlar"" ADD COLUMN ""OnaylayanKullanici"" text NULL;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'PersonelPuantajlar' AND column_name = 'OnayTarihi') THEN
+            ALTER TABLE ""PersonelPuantajlar"" ADD COLUMN ""OnayTarihi"" timestamp without time zone NULL;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'PersonelPuantajlar' AND column_name = 'OnayNotu') THEN
+            ALTER TABLE ""PersonelPuantajlar"" ADD COLUMN ""OnayNotu"" text NULL;
+        END IF;
     END IF;
 END $$;";
 

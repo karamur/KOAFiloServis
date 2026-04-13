@@ -1,6 +1,8 @@
 ﻿using CRMFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
+#pragma warning disable EF1002 // Migration helper - SQL komutları güvenli, kullanıcı girdisi yok
+
 namespace CRMFiloServis.Web.Data.Migrations;
 
 /// <summary>

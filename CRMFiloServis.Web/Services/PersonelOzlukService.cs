@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using System.Data;
 
 namespace CRMFiloServis.Web.Services;
 
@@ -93,11 +94,16 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task SeedDefaultEvrakTanimlariAsync()
     {
-        if (await _context.OzlukEvrakTanimlari.AnyAsync())
-            return;
-
-        var defaultEvraklar = new List<OzlukEvrakTanim>
+        try
         {
+            if (!await TableExistsAsync("OzlukEvrakTanimlari"))
+                return;
+
+            if (await _context.OzlukEvrakTanimlari.AnyAsync())
+                return;
+
+            var defaultEvraklar = new List<OzlukEvrakTanim>
+            {
             // Kimlik Belgeleri
             new() { EvrakAdi = "Nüfus Cüzdanı Fotokopisi", Kategori = OzlukEvrakKategori.KimlikBelgeleri, SiraNo = 1, Zorunlu = true },
             new() { EvrakAdi = "İkametgah Belgesi", Kategori = OzlukEvrakKategori.KimlikBelgeleri, SiraNo = 2, Zorunlu = true },
@@ -140,15 +146,55 @@ public class PersonelOzlukService : IPersonelOzlukService
             new() { EvrakAdi = "Banka Hesap Bilgileri (IBAN)", Kategori = OzlukEvrakKategori.Diger, SiraNo = 1, Zorunlu = true },
             new() { EvrakAdi = "AGİ Formu", Kategori = OzlukEvrakKategori.Diger, SiraNo = 2, Zorunlu = true },
             new() { EvrakAdi = "Engellilik Belgesi", Kategori = OzlukEvrakKategori.Diger, SiraNo = 3, Zorunlu = false },
-        };
+            };
 
-        foreach (var evrak in defaultEvraklar)
-        {
-            evrak.CreatedAt = DateTime.UtcNow;
+            foreach (var evrak in defaultEvraklar)
+            {
+                evrak.CreatedAt = DateTime.UtcNow;
+            }
+
+            _context.OzlukEvrakTanimlari.AddRange(defaultEvraklar);
+            await _context.SaveChangesAsync();
         }
+        catch
+        {
+            // Startup sırasında tablo/kolon eksikliği varsa uygulamayı düşürme.
+        }
+    }
 
-        _context.OzlukEvrakTanimlari.AddRange(defaultEvraklar);
-        await _context.SaveChangesAsync();
+    private async Task<bool> TableExistsAsync(string tableName)
+    {
+        var connection = _context.Database.GetDbConnection();
+        var closeAfter = connection.State != ConnectionState.Open;
+
+        if (closeAfter)
+            await connection.OpenAsync();
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+
+            if (_context.Database.IsNpgsql())
+            {
+                command.CommandText = $"SELECT to_regclass('\"{tableName}\"') IS NOT NULL";
+            }
+            else if (_context.Database.IsSqlite())
+            {
+                command.CommandText = $"SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '{tableName}')";
+            }
+            else
+            {
+                return true;
+            }
+
+            var result = await command.ExecuteScalarAsync();
+            return result != null && Convert.ToBoolean(result);
+        }
+        finally
+        {
+            if (closeAfter)
+                await connection.CloseAsync();
+        }
     }
 
     #endregion

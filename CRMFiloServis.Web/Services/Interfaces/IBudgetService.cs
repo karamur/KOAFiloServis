@@ -89,6 +89,11 @@ public class TaksitliOdemeRequest
     public int TaksitSayisi { get; set; }
     public string? Notlar { get; set; }
     public int? FirmaId { get; set; }
+    public int? BagliBankaHesapId { get; set; }
+    public decimal? KrediAnaParaTutari { get; set; }
+    public decimal? KrediNetGecenTutar { get; set; }
+    public decimal PesinFaizTutari { get; set; }
+    public decimal PesinMasrafTutari { get; set; }
     public List<TaksitDetayRequest> TaksitPlani { get; set; } = new();
 }
 
@@ -107,6 +112,8 @@ public class OdemeYapRequest
     public DateTime OdemeTarihi { get; set; } = DateTime.Today;
     public decimal? KismiOdemeTutari { get; set; }
     public Guid? KrediTaksitGrupId { get; set; } // Kredi kartı için ilişkili kredi
+    public int? KrediKartiOdemeAy { get; set; }
+    public int? KrediKartiOdemeYil { get; set; }
 
     // Cari Mahsup için
     public int? CariId { get; set; }

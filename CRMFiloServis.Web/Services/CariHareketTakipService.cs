@@ -57,6 +57,12 @@ public class CariHareketTakipService : ICariHareketTakipService
                 .Where(h => h.IslemTarihi >= baslangic && h.IslemTarihi <= bitis)
                 .ToListAsync();
 
+            var aracMasraflari = await _context.AracMasraflari
+                .AsNoTracking()
+                .Where(m => !m.IsDeleted && m.CariId == cari.Id)
+                .Where(m => m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis)
+                .ToListAsync();
+
             // Borç hesapla (Giden faturalar = Müşteriden alacak = Borçlu)
             var borcFaturalar = faturalar.Where(f => f.FaturaYonu == FaturaYonu.Giden).Sum(f => f.GenelToplam);
             // Alacak hesapla (Gelen faturalar = Tedarikçiye borç veya tahsilatlar)
@@ -68,7 +74,7 @@ public class CariHareketTakipService : ICariHareketTakipService
             var odemelerToplam = odemeler.Where(h => h.HareketTipi == HareketTipi.Cikis).Sum(h => h.Tutar);
 
             var toplamBorc = borcFaturalar;
-            var toplamAlacak = alacakFaturalar + tahsilatlar - odemelerToplam;
+            var toplamAlacak = alacakFaturalar + tahsilatlar - odemelerToplam + aracMasraflari.Sum(m => m.Tutar);
 
             // Vadesi geçmiş hesapla
             var vadesiGecmisFaturalar = faturalar
@@ -87,7 +93,8 @@ public class CariHareketTakipService : ICariHareketTakipService
             // Son işlem tarihi
             var sonFaturaTarihi = faturalar.Any() ? faturalar.Max(f => f.FaturaTarihi) : (DateTime?)null;
             var sonOdemeTarihi = odemeler.Any() ? odemeler.Max(h => h.IslemTarihi) : (DateTime?)null;
-            var sonIslemTarihi = new[] { sonFaturaTarihi, sonOdemeTarihi }.Where(d => d.HasValue).DefaultIfEmpty().Max();
+            var sonMasrafTarihi = aracMasraflari.Any() ? aracMasraflari.Max(m => m.MasrafTarihi) : (DateTime?)null;
+            var sonIslemTarihi = new[] { sonFaturaTarihi, sonOdemeTarihi, sonMasrafTarihi }.Where(d => d.HasValue).DefaultIfEmpty().Max();
 
             // Ortalama ödeme süresi
             var ortalamaOdemeSuresi = HesaplaOrtalamaOdemeSuresi(faturalar, odemeler);
@@ -192,12 +199,21 @@ public class CariHareketTakipService : ICariHareketTakipService
             .OrderBy(h => h.IslemTarihi)
             .ToListAsync();
 
+        var aracMasraflari = await _context.AracMasraflari
+            .AsNoTracking()
+            .Include(m => m.Arac)
+            .Include(m => m.MasrafKalemi)
+            .Where(m => !m.IsDeleted && m.CariId == cariId)
+            .Where(m => m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis)
+            .OrderBy(m => m.MasrafTarihi)
+            .ToListAsync();
+
         // Borç/Alacak hesapla
         rapor.ToplamBorc = faturalar.Where(f => f.FaturaYonu == FaturaYonu.Giden).Sum(f => f.GenelToplam);
         var alacakFaturalar = faturalar.Where(f => f.FaturaYonu == FaturaYonu.Gelen).Sum(f => f.GenelToplam);
         var tahsilatlar = odemeler.Where(h => h.HareketTipi == HareketTipi.Giris).Sum(h => h.Tutar);
         var odemelerToplam = odemeler.Where(h => h.HareketTipi == HareketTipi.Cikis).Sum(h => h.Tutar);
-        rapor.ToplamAlacak = alacakFaturalar + tahsilatlar - odemelerToplam;
+        rapor.ToplamAlacak = alacakFaturalar + tahsilatlar - odemelerToplam + aracMasraflari.Sum(m => m.Tutar);
 
         // Vade analizi
         var vadesiGelmemisFaturalar = faturalar
@@ -221,15 +237,15 @@ public class CariHareketTakipService : ICariHareketTakipService
         rapor.ToplamFaturaSayisi = faturalar.Count;
         rapor.AcikFaturaSayisi = faturalar.Count(f => f.KalanTutar > 0);
         rapor.VadesiGecmisFaturaSayisi = vadesiGecmisFaturalar.Count;
-        rapor.ToplamOdemeSayisi = odemeler.Count;
+        rapor.ToplamOdemeSayisi = odemeler.Count + aracMasraflari.Count;
 
         // Ortalama ödeme süresi
         rapor.OrtalamaOdemeSuresi = HesaplaOrtalamaOdemeSuresi(faturalar, odemeler);
 
         // Son işlemler
         rapor.SonFaturaTarihi = faturalar.Any() ? faturalar.Max(f => f.FaturaTarihi) : null;
-        rapor.SonOdemeTarihi = odemeler.Any() ? odemeler.Max(h => h.IslemTarihi) : null;
-        rapor.SonOdemeTutari = odemeler.Any() ? odemeler.OrderByDescending(h => h.IslemTarihi).First().Tutar : 0;
+        rapor.SonOdemeTarihi = odemeler.Any() ? odemeler.Max(h => h.IslemTarihi) : aracMasraflari.Any() ? aracMasraflari.Max(m => m.MasrafTarihi) : null;
+        rapor.SonOdemeTutari = odemeler.Any() ? odemeler.OrderByDescending(h => h.IslemTarihi).First().Tutar : aracMasraflari.Any() ? aracMasraflari.OrderByDescending(m => m.MasrafTarihi).First().Tutar : 0;
 
         // Risk skoru
         rapor.RiskSkoru = HesaplaRiskSkoru(rapor.NetBakiye, rapor.VadesiGecmisBakiye, rapor.VadesiGecmisFaturaSayisi);
@@ -306,6 +322,29 @@ public class CariHareketTakipService : ICariHareketTakipService
                 BelgeNo = odeme.BelgeNo,
                 Borc = isTahsilat ? 0 : odeme.Tutar,
                 Alacak = isTahsilat ? odeme.Tutar : 0
+            });
+        }
+
+        var aracMasraflari = await _context.AracMasraflari
+            .AsNoTracking()
+            .Include(m => m.Arac)
+            .Include(m => m.MasrafKalemi)
+            .Where(m => !m.IsDeleted && m.CariId == cariId)
+            .Where(m => m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis)
+            .ToListAsync();
+
+        foreach (var masraf in aracMasraflari)
+        {
+            hareketler.Add(new CariHareketDetay
+            {
+                Id = masraf.Id,
+                DetayUrl = $"/arac-masraflari/{masraf.Id}",
+                Tarih = masraf.MasrafTarihi,
+                HareketTipi = "Araç Masrafı",
+                Aciklama = $"{masraf.MasrafKalemi?.MasrafAdi ?? "Masraf"} - {masraf.Arac?.AktifPlaka ?? "Araç yok"}",
+                BelgeNo = masraf.BelgeNo,
+                Borc = 0,
+                Alacak = masraf.Tutar
             });
         }
 

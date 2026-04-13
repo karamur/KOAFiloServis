@@ -1,5 +1,6 @@
-using CRMFiloServis.Shared.Entities;
+Ôªøusing CRMFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace CRMFiloServis.Web.Data;
 
@@ -8,14 +9,14 @@ public static class DbSeeder
     public static async Task SeedAsync(ApplicationDbContext context)
     {
         // Firma
-        if (!await context.Firmalar.AnyAsync())
+        if (!await context.Firmalar.IgnoreQueryFilters().AnyAsync())
         {
             var firma = new Firma
             {
                 FirmaAdi = "Ana Firma",
                 VergiDairesi = "Merkez VD",
                 VergiNo = "1234567890",
-                Adres = "›stanbul, T¸rkiye",
+                Adres = "ƒ∞stanbul, T√ºrkiye",
                 Telefon = "+90 212 000 00 00",
                 Email = "info@firma.com",
                 VarsayilanFirma = true,
@@ -29,103 +30,110 @@ public static class DbSeeder
         }
 
         // Roller
-        if (!await context.Roller.AnyAsync())
+        if (!await context.Roller.IgnoreQueryFilters().AnyAsync())
         {
             var roller = new List<Rol>
             {
-                new Rol { RolAdi = "Admin", Aciklama = "Sistem yˆneticisi", CreatedAt = DateTime.UtcNow },
+                new Rol { RolAdi = "Admin", Aciklama = "Sistem y√∂neticisi", CreatedAt = DateTime.UtcNow },
                 new Rol { RolAdi = "Muhasebe", Aciklama = "Muhasebe personeli", CreatedAt = DateTime.UtcNow },
-                new Rol { RolAdi = "Kullanici", Aciklama = "Standart kullan˝c˝", CreatedAt = DateTime.UtcNow }
+                new Rol { RolAdi = "Kullanici", Aciklama = "Standart kullanƒ±cƒ±", CreatedAt = DateTime.UtcNow }
             };
             context.Roller.AddRange(roller);
             await context.SaveChangesAsync();
         }
 
         // Kullanici (Admin)
-        if (!await context.Kullanicilar.AnyAsync())
+        if (!await context.Kullanicilar.IgnoreQueryFilters().AnyAsync())
         {
-            var adminRol = await context.Roller.FirstAsync(r => r.RolAdi == "Admin");
-            var admin = new Kullanici
+            var adminRol = await context.Roller.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.RolAdi == "Admin");
+            if (adminRol is null)
             {
-                KullaniciAdi = "admin",
-                SifreHash = "admin123", // Production'da d¸zg¸n hash'lenmi˛ olmal˝
-                AdSoyad = "Sistem Yˆneticisi",
-                Email = "admin@firma.com",
-                RolId = adminRol.Id,
-                Aktif = true,
-                CreatedAt = DateTime.UtcNow
-            };
-            context.Kullanicilar.Add(admin);
-            await context.SaveChangesAsync();
+                Console.WriteLine("‚ö†Ô∏è Admin rol√º bulunamadƒ±, admin kullanƒ±cƒ± olu≈üturulamadƒ±.");
+            }
+            else
+            {
+                var admin = new Kullanici
+                {
+                    KullaniciAdi = "admin",
+                    SifreHash = "admin123", // Production'da d√ºzg√ºn hash'lenmi≈ü olmalƒ±
+                    AdSoyad = "Sistem Y√∂neticisi",
+                    Email = "admin@firma.com",
+                    RolId = adminRol.Id,
+                    Aktif = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.Kullanicilar.Add(admin);
+                await context.SaveChangesAsync();
+            }
         }
 
-        // Muhasebe Hesap Plan˝ (Tek D¸zen Hesap Plan˝)
-        if (!await context.MuhasebeHesaplari.AnyAsync())
+        // Muhasebe Hesap Planƒ± (Tek D√ºzen Hesap Planƒ±)
+        if (!await context.MuhasebeHesaplari.IgnoreQueryFilters().AnyAsync())
         {
             var hesaplar = new List<MuhasebeHesap>
             {
-                // 1XX - D÷NEN VARLIKLAR
+                // 1XX - D√ñNEN VARLIKLAR
                 new MuhasebeHesap { HesapKodu = "100", HesapAdi = "Kasa", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
                 new MuhasebeHesap { HesapKodu = "100.01", HesapAdi = "TL Kasa", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, Aktif = true, CreatedAt = DateTime.UtcNow },
-                new MuhasebeHesap { HesapKodu = "100.02", HesapAdi = "Dˆviz Kasa", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "100.02", HesapAdi = "D√∂viz Kasa", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, Aktif = true, CreatedAt = DateTime.UtcNow },
 
                 new MuhasebeHesap { HesapKodu = "102", HesapAdi = "Bankalar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
                 new MuhasebeHesap { HesapKodu = "102.01", HesapAdi = "TL Banka", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "120", HesapAdi = "Al˝c˝lar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
-                new MuhasebeHesap { HesapKodu = "120.01", HesapAdi = "M¸˛teriler", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "120", HesapAdi = "Alƒ±cƒ±lar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "120.01", HesapAdi = "M√º≈üteriler", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
 
                 new MuhasebeHesap { HesapKodu = "153", HesapAdi = "Ticari Mallar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, Aktif = true, CreatedAt = DateTime.UtcNow },
 
                 // 2XX - DURAN VARLIKLAR
-                new MuhasebeHesap { HesapKodu = "253", HesapAdi = "Ta˛˝tlar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DuranVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
-                new MuhasebeHesap { HesapKodu = "253.01", HesapAdi = "AraÁlar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DuranVarliklar, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "253", HesapAdi = "Ta≈üƒ±tlar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DuranVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "253.01", HesapAdi = "Ara√ßlar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DuranVarliklar, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "257", HesapAdi = "Birikmi˛ Amortismanlar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DuranVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "257", HesapAdi = "Birikmi≈ü Amortismanlar", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DuranVarliklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                // 3XX - KISA VADEL› YABANCI KAYNAKLAR
-                new MuhasebeHesap { HesapKodu = "320", HesapAdi = "Sat˝c˝lar", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
-                new MuhasebeHesap { HesapKodu = "320.01", HesapAdi = "TedarikÁiler", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                // 3XX - KISA VADELƒ∞ YABANCI KAYNAKLAR
+                new MuhasebeHesap { HesapKodu = "320", HesapAdi = "Satƒ±cƒ±lar", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "320.01", HesapAdi = "Tedarik√ßiler", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "360", HesapAdi = "÷denecek Vergi ve Fonlar", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "360", HesapAdi = "√ñdenecek Vergi ve Fonlar", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
                 new MuhasebeHesap { HesapKodu = "360.01", HesapAdi = "KDV Borcu", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "361", HesapAdi = "÷denecek Sosyal G¸v. Kes.", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "361", HesapAdi = "√ñdenecek Sosyal G√ºv. Kes.", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "370", HesapAdi = "Dˆnem Kar˝ Vergi ve Dier Yasal Y¸k. Kar˛˝l˝˝", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "370", HesapAdi = "D√∂nem Karƒ± Vergi ve Diƒüer Yasal Y√ºk. Kar≈üƒ±lƒ±ƒüƒ±", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.KisaVadeliYabanciKaynaklar, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                // 5XX - ÷ZKAYNAK
+                // 5XX - √ñZKAYNAK
                 new MuhasebeHesap { HesapKodu = "500", HesapAdi = "Sermaye", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.Ozkaynaklar, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "590", HesapAdi = "Dˆnem Net Kar˝/Zarar˝", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.Ozkaynaklar, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "590", HesapAdi = "D√∂nem Net Karƒ±/Zararƒ±", HesapTuru = HesapTuru.Pasif, HesapGrubu = HesapGrubu.Ozkaynaklar, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                // 6XX - GEL›R HESAPLARI
-                new MuhasebeHesap { HesapKodu = "600", HesapAdi = "Yurt ›Ái Sat˝˛lar", HesapTuru = HesapTuru.Gelir, HesapGrubu = HesapGrubu.GelirTablosu, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                // 6XX - GELƒ∞R HESAPLARI
+                new MuhasebeHesap { HesapKodu = "600", HesapAdi = "Yurt ƒ∞√ßi Satƒ±≈ülar", HesapTuru = HesapTuru.Gelir, HesapGrubu = HesapGrubu.GelirTablosu, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
                 new MuhasebeHesap { HesapKodu = "600.01", HesapAdi = "Servis Gelirleri", HesapTuru = HesapTuru.Gelir, HesapGrubu = HesapGrubu.GelirTablosu, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "602", HesapAdi = "Dier Gelirler", HesapTuru = HesapTuru.Gelir, HesapGrubu = HesapGrubu.GelirTablosu, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "602", HesapAdi = "Diƒüer Gelirler", HesapTuru = HesapTuru.Gelir, HesapGrubu = HesapGrubu.GelirTablosu, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                // 7XX - G›DER HESAPLARI
-                new MuhasebeHesap { HesapKodu = "710", HesapAdi = "Direkt ›lk Madde ve Malzeme Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
+                // 7XX - Gƒ∞DER HESAPLARI
+                new MuhasebeHesap { HesapKodu = "710", HesapAdi = "Direkt ƒ∞lk Madde ve Malzeme Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "720", HesapAdi = "Direkt ›˛Áilik Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
-                new MuhasebeHesap { HesapKodu = "720.01", HesapAdi = "ﬁofˆr Maa˛lar˝", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "720", HesapAdi = "Direkt ƒ∞≈ü√ßilik Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "720.01", HesapAdi = "≈ûof√∂r Maa≈ülarƒ±", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "730", HesapAdi = "Genel ‹retim Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
-                new MuhasebeHesap { HesapKodu = "730.01", HesapAdi = "Yak˝t Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
-                new MuhasebeHesap { HesapKodu = "730.02", HesapAdi = "AraÁ Bak˝m Onar˝m", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "730", HesapAdi = "Genel √úretim Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "730.01", HesapAdi = "Yakƒ±t Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "730.02", HesapAdi = "Ara√ß Bakƒ±m Onarƒ±m", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
                 new MuhasebeHesap { HesapKodu = "730.03", HesapAdi = "Sigorta Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "750", HesapAdi = "Ara˛t˝rma ve Geli˛tirme Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "750", HesapAdi = "Ara≈ütƒ±rma ve Geli≈ütirme Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "760", HesapAdi = "Pazarlama Sat˝˛ ve Da˝t˝m Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "760", HesapAdi = "Pazarlama Satƒ±≈ü ve Daƒüƒ±tƒ±m Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
                 new MuhasebeHesap { HesapKodu = "760.01", HesapAdi = "Reklam Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
 
-                new MuhasebeHesap { HesapKodu = "770", HesapAdi = "Genel Yˆnetim Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "770", HesapAdi = "Genel Y√∂netim Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
                 new MuhasebeHesap { HesapKodu = "770.01", HesapAdi = "Kira Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
                 new MuhasebeHesap { HesapKodu = "770.02", HesapAdi = "Elektrik Su Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
-                new MuhasebeHesap { HesapKodu = "770.03", HesapAdi = "Haberle˛me Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
-                new MuhasebeHesap { HesapKodu = "770.04", HesapAdi = "K˝rtasiye Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "770.03", HesapAdi = "Haberle≈üme Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
+                new MuhasebeHesap { HesapKodu = "770.04", HesapAdi = "Kƒ±rtasiye Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow },
 
                 new MuhasebeHesap { HesapKodu = "780", HesapAdi = "Finansman Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, AltHesapVar = true, Aktif = true, CreatedAt = DateTime.UtcNow },
                 new MuhasebeHesap { HesapKodu = "780.01", HesapAdi = "Kredi Faiz Giderleri", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari, Aktif = true, CreatedAt = DateTime.UtcNow }
@@ -134,11 +142,11 @@ public static class DbSeeder
             context.MuhasebeHesaplari.AddRange(hesaplar);
             await context.SaveChangesAsync();
 
-            // Parent-child ili˛kilerini g¸ncelle
+            // Parent-child ili≈ükilerini g√ºncelle
             foreach (var hesap in hesaplar.Where(h => h.HesapKodu.Contains(".")))
             {
                 var parentKod = hesap.HesapKodu.Substring(0, hesap.HesapKodu.LastIndexOf('.'));
-                var parent = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == parentKod);
+                var parent = await context.MuhasebeHesaplari.IgnoreQueryFilters().FirstOrDefaultAsync(h => h.HesapKodu == parentKod);
                 if (parent != null)
                 {
                     hesap.UstHesapId = parent.Id;
@@ -147,37 +155,37 @@ public static class DbSeeder
             await context.SaveChangesAsync();
         }
 
-        // B¸tÁe Masraf Kalemleri
-        if (!await context.BudgetMasrafKalemleri.AnyAsync())
+        // B√ºt√ße Masraf Kalemleri
+        if (!await context.BudgetMasrafKalemleri.IgnoreQueryFilters().AnyAsync())
         {
             var masrafKalemleri = new List<BudgetMasrafKalemi>
             {
-                new BudgetMasrafKalemi { KalemAdi = "Yak˝t", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new BudgetMasrafKalemi { KalemAdi = "AraÁ Bak˝m/Onar˝m", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new BudgetMasrafKalemi { KalemAdi = "AraÁ Sigorta", Aktif = true, CreatedAt = DateTime.UtcNow },
+                new BudgetMasrafKalemi { KalemAdi = "Yakƒ±t", Aktif = true, CreatedAt = DateTime.UtcNow },
+                new BudgetMasrafKalemi { KalemAdi = "Ara√ß Bakƒ±m/Onarƒ±m", Aktif = true, CreatedAt = DateTime.UtcNow },
+                new BudgetMasrafKalemi { KalemAdi = "Ara√ß Sigorta", Aktif = true, CreatedAt = DateTime.UtcNow },
                 new BudgetMasrafKalemi { KalemAdi = "MTV", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new BudgetMasrafKalemi { KalemAdi = "ﬁofˆr Maa˛lar˝", Aktif = true, CreatedAt = DateTime.UtcNow },
+                new BudgetMasrafKalemi { KalemAdi = "≈ûof√∂r Maa≈ülarƒ±", Aktif = true, CreatedAt = DateTime.UtcNow },
                 new BudgetMasrafKalemi { KalemAdi = "Kira", Aktif = true, CreatedAt = DateTime.UtcNow },
                 new BudgetMasrafKalemi { KalemAdi = "Elektrik", Aktif = true, CreatedAt = DateTime.UtcNow },
                 new BudgetMasrafKalemi { KalemAdi = "Su", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new BudgetMasrafKalemi { KalemAdi = "Doalgaz", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new BudgetMasrafKalemi { KalemAdi = "›nternet", Aktif = true, CreatedAt = DateTime.UtcNow },
+                new BudgetMasrafKalemi { KalemAdi = "Doƒüalgaz", Aktif = true, CreatedAt = DateTime.UtcNow },
+                new BudgetMasrafKalemi { KalemAdi = "ƒ∞nternet", Aktif = true, CreatedAt = DateTime.UtcNow },
                 new BudgetMasrafKalemi { KalemAdi = "Telefon", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new BudgetMasrafKalemi { KalemAdi = "K˝rtasiye", Aktif = true, CreatedAt = DateTime.UtcNow },
+                new BudgetMasrafKalemi { KalemAdi = "Kƒ±rtasiye", Aktif = true, CreatedAt = DateTime.UtcNow },
                 new BudgetMasrafKalemi { KalemAdi = "Temizlik", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new BudgetMasrafKalemi { KalemAdi = "Muhasebe/Dan˝˛manl˝k", Aktif = true, CreatedAt = DateTime.UtcNow },
+                new BudgetMasrafKalemi { KalemAdi = "Muhasebe/Danƒ±≈ümanlƒ±k", Aktif = true, CreatedAt = DateTime.UtcNow },
                 new BudgetMasrafKalemi { KalemAdi = "Reklam/Pazarlama", Aktif = true, CreatedAt = DateTime.UtcNow },
                 new BudgetMasrafKalemi { KalemAdi = "Kredi Taksiti", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new BudgetMasrafKalemi { KalemAdi = "Vergi/SGK ÷demeleri", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new BudgetMasrafKalemi { KalemAdi = "Dier", Aktif = true, CreatedAt = DateTime.UtcNow }
+                new BudgetMasrafKalemi { KalemAdi = "Vergi/SGK √ñdemeleri", Aktif = true, CreatedAt = DateTime.UtcNow },
+                new BudgetMasrafKalemi { KalemAdi = "Diƒüer", Aktif = true, CreatedAt = DateTime.UtcNow }
             };
 
             context.BudgetMasrafKalemleri.AddRange(masrafKalemleri);
             await context.SaveChangesAsync();
         }
 
-        // AraÁ Markalar˝
-        if (!await context.AracMarkalari.AnyAsync())
+        // Ara√ß Markalarƒ±
+        if (!await context.AracMarkalari.IgnoreQueryFilters().AnyAsync())
         {
             var markalar = new List<AracMarka>
             {
@@ -195,32 +203,39 @@ public static class DbSeeder
             await context.SaveChangesAsync();
         }
 
-        // AraÁ Modelleri
-        if (!await context.AracModelleri.AnyAsync())
+        // Ara√ß Modelleri
+        if (!await context.AracModelleri.IgnoreQueryFilters().AnyAsync())
         {
-            var mercedes = await context.AracMarkalari.FirstAsync(m => m.MarkaAdi == "Mercedes-Benz");
-            var ford = await context.AracMarkalari.FirstAsync(m => m.MarkaAdi == "Ford");
-            var vw = await context.AracMarkalari.FirstAsync(m => m.MarkaAdi == "Volkswagen");
+            var mercedes = await context.AracMarkalari.IgnoreQueryFilters().FirstOrDefaultAsync(m => m.MarkaAdi == "Mercedes-Benz");
+            var ford = await context.AracMarkalari.IgnoreQueryFilters().FirstOrDefaultAsync(m => m.MarkaAdi == "Ford");
+            var vw = await context.AracMarkalari.IgnoreQueryFilters().FirstOrDefaultAsync(m => m.MarkaAdi == "Volkswagen");
 
-            var modeller = new List<AracModelTanim>
+            // Markalar yoksa model ekleme
+            if (mercedes is null || ford is null || vw is null)
             {
-                new AracModelTanim { MarkaId = mercedes.Id, ModelAdi = "Sprinter", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new AracModelTanim { MarkaId = mercedes.Id, ModelAdi = "Tourismo", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new AracModelTanim { MarkaId = ford.Id, ModelAdi = "Transit", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new AracModelTanim { MarkaId = ford.Id, ModelAdi = "Transit Custom", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new AracModelTanim { MarkaId = vw.Id, ModelAdi = "Crafter", Aktif = true, CreatedAt = DateTime.UtcNow },
-                new AracModelTanim { MarkaId = vw.Id, ModelAdi = "Caravelle", Aktif = true, CreatedAt = DateTime.UtcNow }
-            };
+                Console.WriteLine("‚ö†Ô∏è Ara√ß markalarƒ± bulunamadƒ±, modeller eklenemedi.");
+            }
+            else
+            {
+                var modeller = new List<AracModelTanim>
+                {
+                    new AracModelTanim { MarkaId = mercedes.Id, ModelAdi = "Sprinter", Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new AracModelTanim { MarkaId = mercedes.Id, ModelAdi = "Tourismo", Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new AracModelTanim { MarkaId = ford.Id, ModelAdi = "Transit", Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new AracModelTanim { MarkaId = ford.Id, ModelAdi = "Transit Custom", Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new AracModelTanim { MarkaId = vw.Id, ModelAdi = "Crafter", Aktif = true, CreatedAt = DateTime.UtcNow },
+                    new AracModelTanim { MarkaId = vw.Id, ModelAdi = "Caravelle", Aktif = true, CreatedAt = DateTime.UtcNow }
+                };
 
-            context.AracModelleri.AddRange(modeller);
-            await context.SaveChangesAsync();
+                context.AracModelleri.AddRange(modeller);
+                await context.SaveChangesAsync();
+            }
         }
 
-        // Banka Hesaplar˝
-        if (!await context.BankaHesaplari.AnyAsync())
+        // Banka Hesaplarƒ±
+        var bankaHesapSet = context.Set<BankaHesap>();
+        if (!await TableHasAnyRowsAsync(context, "BankaHesaplari"))
         {
-            var firma = await context.Firmalar.FirstAsync();
-            
             var hesaplar = new List<BankaHesap>
             {
                 new BankaHesap 
@@ -235,9 +250,9 @@ public static class DbSeeder
                 new BankaHesap 
                 { 
                     HesapKodu = "BANKA01",
-                    HesapAdi = "Ziraat Bankas˝ Ticari Hesap", 
+                    HesapAdi = "Ziraat Bankasƒ± Ticari Hesap", 
                     HesapTipi = HesapTipi.VadesizHesap,
-                    BankaAdi = "Ziraat Bankas˝",
+                    BankaAdi = "Ziraat Bankasƒ±",
                     SubeKodu = "001",
                     HesapNo = "1234567890",
                     Iban = "TR000000000000000000000000",
@@ -246,24 +261,25 @@ public static class DbSeeder
                     CreatedAt = DateTime.UtcNow 
                 }
             };
-            
-            context.BankaHesaplari.AddRange(hesaplar);
+
+            bankaHesapSet.AddRange(hesaplar);
             await context.SaveChangesAsync();
         }
 
-        // Gelen Faturalar˝ E-Fatura olarak g¸ncelle
+        // Gelen Faturalarƒ± E-Fatura olarak g√ºncelle
         await UpdateGelenFaturalarToEFaturaAsync(context);
 
-        Console.WriteLine("? Seed verileri ba˛ar˝yla eklendi!");
+        Console.WriteLine("? Seed verileri ba≈üarƒ±yla eklendi!");
     }
 
     /// <summary>
-    /// T¸m gelen faturalar˝ E-Fatura olarak g¸nceller
+    /// T√ºm gelen faturalarƒ± E-Fatura olarak g√ºnceller
     /// </summary>
     public static async Task UpdateGelenFaturalarToEFaturaAsync(ApplicationDbContext context)
     {
         var gelenFaturalar = await context.Faturalar
-            .Where(f => f.FaturaYonu == FaturaYonu.Gelen && f.EFaturaTipi != EFaturaTipi.EFatura)
+            .IgnoreQueryFilters()
+            .Where(f => !f.IsDeleted && f.FaturaYonu == FaturaYonu.Gelen && f.EFaturaTipi != EFaturaTipi.EFatura)
             .ToListAsync();
 
         if (gelenFaturalar.Any())
@@ -275,7 +291,46 @@ public static class DbSeeder
             }
 
             await context.SaveChangesAsync();
-            Console.WriteLine($"? {gelenFaturalar.Count} adet gelen fatura E-Fatura olarak g¸ncellendi!");
+            Console.WriteLine($"? {gelenFaturalar.Count} adet gelen fatura E-Fatura olarak g√ºncellendi!");
+        }
+    }
+
+    private static async Task<bool> TableHasAnyRowsAsync(ApplicationDbContext context, string tableName)
+    {
+        var connection = context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+
+        if (shouldClose)
+        {
+            await connection.OpenAsync();
+        }
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+
+            if (context.Database.IsNpgsql())
+            {
+                command.CommandText = $"SELECT CASE WHEN to_regclass('\"{tableName}\"') IS NULL THEN FALSE ELSE EXISTS (SELECT 1 FROM \"{tableName}\") END";
+            }
+            else if (context.Database.IsSqlite())
+            {
+                command.CommandText = $"SELECT CASE WHEN EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '{tableName}') THEN EXISTS (SELECT 1 FROM \"{tableName}\") ELSE 0 END";
+            }
+            else
+            {
+                return await context.Set<BankaHesap>().IgnoreQueryFilters().AnyAsync();
+            }
+
+            var result = await command.ExecuteScalarAsync();
+            return result != null && Convert.ToBoolean(result);
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
         }
     }
 }

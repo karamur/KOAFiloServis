@@ -131,63 +131,97 @@
             }
 
             <div class="login-form">
-                <div class="form-floating mb-3">
-                    <input type="text" class="form-control" id="kullaniciAdi" placeholder="Kullanici Adi"
-                           @bind="kullaniciAdi" @bind:event="oninput" @onkeypress="HandleKeyPress" autocomplete="username" />
-                    <label for="kullaniciAdi"><i class="bi bi-person me-2"></i>Kullanici Adi</label>
-                </div>
-
-                <div class="form-floating mb-3">
-                    <input type="@(showPassword ? "text" : "password")" class="form-control" id="sifre" placeholder="Sifre"
-                           @bind="sifre" @bind:event="oninput" @onkeypress="HandleKeyPress" autocomplete="current-password" />
-                    <label for="sifre"><i class="bi bi-lock me-2"></i>Sifre</label>
-                    <button type="button" class="password-toggle" @onclick="() => showPassword = !showPassword">
-                        <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
-                    </button>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="beniHatirla" @bind="beniHatirla" />
-                        <label class="form-check-label" for="beniHatirla">Beni Hatirla</label>
+                @if (!ikiFaktorDogrulamaBekleniyor)
+                {
+                    <div class="form-floating mb-3">
+                        <input type="text" class="form-control" id="kullaniciAdi" placeholder="Kullanici Adi"
+                               @bind="kullaniciAdi" @bind:event="oninput" @onkeypress="HandleKeyPress" autocomplete="username" />
+                        <label for="kullaniciAdi"><i class="bi bi-person me-2"></i>Kullanici Adi</label>
                     </div>
-                    <a href="#" class="forgot-password" @onclick="SifremiUnuttum" @onclick:preventDefault>Sifremi Unuttum</a>
-                </div>
 
-                @if (showForgotPasswordPanel)
+                    <div class="form-floating mb-3">
+                        <input type="@(showPassword ? "text" : "password")" class="form-control" id="sifre" placeholder="Sifre"
+                               @bind="sifre" @bind:event="oninput" @onkeypress="HandleKeyPress" autocomplete="current-password" />
+                        <label for="sifre"><i class="bi bi-lock me-2"></i>Sifre</label>
+                        <button type="button" class="password-toggle" @onclick="() => showPassword = !showPassword">
+                            <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                        </button>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="beniHatirla" @bind="beniHatirla" />
+                            <label class="form-check-label" for="beniHatirla">Beni Hatirla</label>
+                        </div>
+                        <a href="#" class="forgot-password" @onclick="SifremiUnuttum" @onclick:preventDefault>Sifremi Unuttum</a>
+                    </div>
+
+                    @if (showForgotPasswordPanel)
+                    {
+                        <div class="alert alert-info">
+                            <div class="mb-2 fw-semibold">Şifre Sıfırlama</div>
+                            <div class="mb-2">
+                                <input type="text" class="form-control" placeholder="Kullanıcı adı veya e-posta"
+                                       @bind="forgotPasswordInput" @bind:event="oninput" />
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-primary" @onclick="SifreSifirlamaTalebiGonderAsync" disabled="@forgotPasswordLoading">
+                                    @if (forgotPasswordLoading)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    Gönder
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="KapatSifrePaneli">Vazgeç</button>
+                            </div>
+                            <small class="d-block mt-2 text-muted">Eşleşen aktif kullanıcı ve kayıtlı e-posta varsa geçici şifre gönderilir.</small>
+                        </div>
+                    }
+
+                    <button class="btn btn-primary btn-login w-100" @onclick="GirisYapAsync" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Giris Yapiliyor...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-box-arrow-in-right me-2"></i>
+                            <span>Giris Yap</span>
+                        }
+                    </button>
+                }
+                else
                 {
                     <div class="alert alert-info">
-                        <div class="mb-2 fw-semibold">Şifre Sıfırlama</div>
-                        <div class="mb-2">
-                            <input type="text" class="form-control" placeholder="Kullanıcı adı veya e-posta"
-                                   @bind="forgotPasswordInput" @bind:event="oninput" />
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-primary" @onclick="SifreSifirlamaTalebiGonderAsync" disabled="@forgotPasswordLoading">
-                                @if (forgotPasswordLoading)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-1"></span>
-                                }
-                                Gönder
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="KapatSifrePaneli">Vazgeç</button>
-                        </div>
-                        <small class="d-block mt-2 text-muted">Eşleşen aktif kullanıcı ve kayıtlı e-posta varsa geçici şifre gönderilir.</small>
+                        <div class="fw-semibold mb-1">İki Faktörlü Doğrulama</div>
+                        <div class="small">@(ikiFaktorHedefi ?? "Authenticator uygulamanız") üzerinden üretilen 6 haneli kodu girin.</div>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input type="text" class="form-control" id="ikiFaktorKodu" placeholder="123456"
+                               @bind="ikiFaktorKodu" @bind:event="oninput" @onkeypress="HandleKeyPress" autocomplete="one-time-code" maxlength="6" />
+                        <label for="ikiFaktorKodu"><i class="bi bi-shield-lock me-2"></i>Doğrulama Kodu</label>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary btn-login w-100" @onclick="IkiFaktorGirisiTamamlaAsync" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Dogrulaniyor...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-shield-check me-2"></i>
+                                <span>Kodu Doğrula</span>
+                            }
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="IkiFaktorAdiminiIptalEt" disabled="@isLoading">
+                            <i class="bi bi-arrow-left me-1"></i>Geri Dön
+                        </button>
                     </div>
                 }
-
-                <button class="btn btn-primary btn-login w-100" @onclick="GirisYapAsync" disabled="@isLoading">
-                    @if (isLoading)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                        <span>Giris Yapiliyor...</span>
-                    }
-                    else
-                    {
-                        <i class="bi bi-box-arrow-in-right me-2"></i>
-                        <span>Giris Yap</span>
-                    }
-                </button>
             </div>
         }
 
@@ -475,6 +509,10 @@
     private bool isLoading = false;
     private bool forgotPasswordLoading = false;
     private bool showForgotPasswordPanel = false;
+    private bool ikiFaktorDogrulamaBekleniyor = false;
+    private int? bekleyenIkiFaktorKullaniciId;
+    private string? ikiFaktorHedefi;
+    private string ikiFaktorKodu = "";
     private string? errorMessage;
     private string? successMessage;
     private string forgotPasswordInput = "";
@@ -556,7 +594,16 @@
 
             var sonuc = await KullaniciService.GirisYapAsync(kullaniciAdi, sifre);
 
-            if (sonuc.Basarili)
+            if (sonuc.IkiFaktorGerekli && sonuc.BekleyenKullaniciId.HasValue)
+            {
+                bekleyenIkiFaktorKullaniciId = sonuc.BekleyenKullaniciId;
+                ikiFaktorHedefi = sonuc.IkiFaktorHedefi;
+                ikiFaktorKodu = string.Empty;
+                ikiFaktorDogrulamaBekleniyor = true;
+                sifre = string.Empty;
+                errorMessage = sonuc.Mesaj;
+            }
+            else if (sonuc.Basarili)
             {
                 await HatirlamaTercihiniKaydetAsync();
 
@@ -592,8 +639,69 @@
     {
         if (e.Key == "Enter")
         {
-            await GirisYapAsync();
+            if (ikiFaktorDogrulamaBekleniyor)
+            {
+                await IkiFaktorGirisiTamamlaAsync();
+            }
+            else
+            {
+                await GirisYapAsync();
+            }
         }
+    }
+
+    private async Task IkiFaktorGirisiTamamlaAsync()
+    {
+        if (isLoading || !bekleyenIkiFaktorKullaniciId.HasValue)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ikiFaktorKodu))
+        {
+            errorMessage = "Doğrulama kodu zorunludur!";
+            return;
+        }
+
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var sonuc = await KullaniciService.IkiFaktorGirisiTamamlaAsync(bekleyenIkiFaktorKullaniciId.Value, ikiFaktorKodu);
+            if (sonuc.Basarili)
+            {
+                await HatirlamaTercihiniKaydetAsync();
+                successMessage = "Giriş başarılı! Yönlendiriliyorsunuz...";
+                StateHasChanged();
+                await Task.Delay(150);
+                Navigation.NavigateTo(GetSafeReturnUrl(), forceLoad: false);
+            }
+            else
+            {
+                errorMessage = sonuc.Mesaj ?? "Doğrulama başarısız!";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Bir hata oluştu: " + ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void IkiFaktorAdiminiIptalEt()
+    {
+        ikiFaktorDogrulamaBekleniyor = false;
+        bekleyenIkiFaktorKullaniciId = null;
+        ikiFaktorHedefi = null;
+        ikiFaktorKodu = string.Empty;
+        errorMessage = null;
+        successMessage = null;
     }
 
     private void SifremiUnuttum()

@@ -51,7 +51,7 @@ public class OllamaService : IOllamaService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Ollama bağlantı kontrolü başarısız: {BaseUrl}", _baseUrl);
+            _logger.LogInformation("Ollama bağlantı kontrolü başarısız: {BaseUrl} - {Mesaj}", _baseUrl, ex.Message);
             return false;
         }
     }

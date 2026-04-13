@@ -65,7 +65,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -146,7 +146,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -265,20 +265,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             });
         }
 
-        // Ödeme hesabı - 100 Kasa veya 102 Banka ALACAK
-        var odemeHesapKodu = "100.01"; // Varsayılan kasa
-        var odemeHesapAdi = "Kasa";
-
-        if (giris.BankaHesapId.HasValue)
-        {
-            var bankaHesap = await _context.BankaHesaplari.AsNoTracking()
-                .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
-            if (bankaHesap != null)
-            {
-                odemeHesapAdi = bankaHesap.HesapAdi;
-                odemeHesapKodu = bankaHesap.VarsayilanMuhasebeKodu ?? GetBankaHesapKodu(bankaHesap.HesapTipi);
-            }
-        }
+        var (odemeHesapKodu, odemeHesapAdi, odemeCariId, odemeCariUnvan) = await GetMasrafOdemeHesabiAsync(giris);
 
         kalemler.Add(new MuhasebeKalemOnizleme
         {
@@ -288,7 +275,9 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             HesapId = await GetHesapIdAsync(odemeHesapKodu),
             Borc = 0,
             Alacak = giris.GenelToplam,
-            Aciklama = $"Masraf ödemesi: {giris.BelgeNo}"
+            Aciklama = $"Masraf ödemesi: {giris.BelgeNo}",
+            CariId = odemeCariId,
+            CariUnvan = odemeCariUnvan
         });
 
         return kalemler;
@@ -331,7 +320,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -367,7 +356,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -430,7 +419,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -597,8 +586,13 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 sonuc.Uyarilar.Add($"Yeni cari oluşturuldu: {yeniCari.Unvan}");
             }
 
+            if (CariMuhasebeEslemeGerekliMi(giris) && giris.CariId.HasValue)
+            {
+                await _cariService.EnsureMuhasebeHesapAsync(giris.CariId.Value);
+            }
+
             // Önizleme oluştur (verilmemişse)
-            var onizleme = manuelOnizleme ?? await OnizlemeOlusturAsync(giris);
+            var onizleme = await OnizlemeOlusturAsync(giris);
 
             // Dengeli mi kontrol et
             if (!onizleme.Dengeli)
@@ -776,7 +770,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         }
 
         // Banka hareketi oluştur (ödeme yapıldıysa)
-        if (giris.BankaHesapId.HasValue)
+        if (giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.KasaBanka && giris.BankaHesapId.HasValue)
         {
             var hareket = new BankaKasaHareket
             {
@@ -797,7 +791,12 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         }
 
         sonuc.Basarili = true;
-        sonuc.Mesaj = "Masraf ve muhasebe kaydı oluşturuldu.";
+        sonuc.Mesaj = giris.MasrafOdemeKaynagi switch
+        {
+            MasrafOdemeKaynagi.Personel => "Masraf personel alacağı olarak muhasebeleştirildi.",
+            MasrafOdemeKaynagi.Cari => "Masraf cari alacağı olarak muhasebeleştirildi.",
+            _ => "Masraf ve muhasebe kaydı oluşturuldu."
+        };
         return sonuc;
     }
 
@@ -1037,7 +1036,73 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         _context.Cariler.Add(cari);
         await _context.SaveChangesAsync();
+
+        if (tip == CariTipi.Personel)
+        {
+            cari = await _cariService.EnsureMuhasebeHesapAsync(cari.Id);
+        }
+
         return cari;
+    }
+
+    private async Task<(string HesapKodu, string HesapAdi, int? CariId, string? CariUnvan)> GetMasrafOdemeHesabiAsync(KolayMuhasebeGiris giris)
+    {
+        if (giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.KasaBanka)
+        {
+            var odemeHesapKodu = "100.01";
+            var odemeHesapAdi = "Kasa";
+
+            if (giris.BankaHesapId.HasValue)
+            {
+                var bankaHesap = await _context.BankaHesaplari.AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
+                if (bankaHesap != null)
+                {
+                    odemeHesapAdi = bankaHesap.HesapAdi;
+                    odemeHesapKodu = bankaHesap.VarsayilanMuhasebeKodu ?? GetBankaHesapKodu(bankaHesap.HesapTipi);
+                }
+            }
+
+            return (odemeHesapKodu, odemeHesapAdi, null, null);
+        }
+
+        if (!giris.CariId.HasValue)
+        {
+            return giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel
+                ? ("335.01", "Personele Borçlar", null, null)
+                : ("320.01", "Satıcılar", null, null);
+        }
+
+        var cari = await _context.Cariler
+            .AsNoTracking()
+            .Include(c => c.MuhasebeHesap)
+            .FirstOrDefaultAsync(c => c.Id == giris.CariId.Value);
+
+        if (cari == null)
+        {
+            return giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel
+                ? ("335.01", "Personele Borçlar", giris.CariId, giris.CariUnvan)
+                : ("320.01", "Satıcılar", giris.CariId, giris.CariUnvan);
+        }
+
+        var varsayilanKod = giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel
+            ? "335.01"
+            : cari.CariTipi == CariTipi.Personel
+                ? "335.01"
+                : "320.01";
+
+        var hesapKodu = cari.MuhasebeHesap?.HesapKodu ?? varsayilanKod;
+        var hesapAdi = cari.MuhasebeHesap?.HesapAdi
+            ?? (giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel ? $"Personele Borçlar - {cari.Unvan}" : $"Cari Alacak - {cari.Unvan}");
+
+        return (hesapKodu, hesapAdi, cari.Id, cari.Unvan);
+    }
+
+    private static bool CariMuhasebeEslemeGerekliMi(KolayMuhasebeGiris giris)
+    {
+        return giris.CariId.HasValue &&
+               (giris.IslemTuru == KolayIslemTuru.AvansGirisi
+                || (giris.IslemTuru == KolayIslemTuru.MasrafGirisi && giris.MasrafOdemeKaynagi != MasrafOdemeKaynagi.KasaBanka));
     }
 
     public async Task<Cari> HizliCariOlusturDetayliAsync(HizliCariModel model)
@@ -1067,6 +1132,12 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         _context.Cariler.Add(cari);
         await _context.SaveChangesAsync();
+
+        if (model.CariTipi == CariTipi.Personel)
+        {
+            cari = await _cariService.EnsureMuhasebeHesapAsync(cari.Id);
+        }
+
         return cari;
     }
 

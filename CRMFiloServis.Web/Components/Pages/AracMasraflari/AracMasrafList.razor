@@ -43,6 +43,8 @@
                                 <th>Masraf Kalemi</th>
                                 <th>Tutar</th>
                                 <th>Belge No</th>
+                                <th>Ödemeyi Yapan</th>
+                                <th>Muhasebe Fişi</th>
                                 <th>Güzergah</th>
                                 <th>Arıza Kaynaklı</th>
                                 <th style="width: 120px;">İşlemler</th>
@@ -171,11 +173,11 @@
     private static string GetMuhatapText(AracMasraf masraf)
     {
         if (masraf.Sofor != null)
-            return $"Personel: {masraf.Sofor.TamAd}";
+            return $"Personel cebinden: {masraf.Sofor.TamAd}";
 
         if (masraf.Cari != null)
-            return $"Cari: {masraf.Cari.Unvan}";
+            return $"Cari cebinden: {masraf.Cari.Unvan}";
 
-        return "Kasa / Genel";
+        return "Kasa";
     }
 }

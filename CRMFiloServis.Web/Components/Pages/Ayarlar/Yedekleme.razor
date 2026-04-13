@@ -1,6 +1,7 @@
 ﻿@page "/ayarlar/yedekleme"
 @using CRMFiloServis.Web.Helpers
 @using CRMFiloServis.Web.Services
+@using System.Globalization
 @using Microsoft.AspNetCore.Components.Forms
 @inject IBackupService BackupService
 @inject IWebHostEnvironment Environment
@@ -82,11 +83,24 @@
                             <td>
                                 @if (settings.AutoBackupEnabled)
                                 {
-                                    <span class="badge bg-success">Aktif - Her @settings.AutoBackupIntervalHours saat</span>
+                                    <span class="badge bg-success">@GetScheduleSummary()</span>
                                 }
                                 else
                                 {
                                     <span class="badge bg-secondary">Pasif</span>
+                                }
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sonraki Çalışma:</strong></td>
+                            <td>
+                                @if (GetNextBackupTime() is DateTime nextBackup)
+                                {
+                                    @nextBackup.ToString("dd.MM.yyyy HH:mm")
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Planlı değil</span>
                                 }
                             </td>
                         </tr>
@@ -108,9 +122,45 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Yedekleme Araligi (Saat)</label>
-                        <input type="number" class="form-control" @bind="settings.AutoBackupIntervalHours" min="1" max="168" />
+                        <label class="form-label">Planlama Tipi</label>
+                        <select class="form-select" @bind="settings.ScheduleType">
+                            <option value="@BackupScheduleType.Daily">Günlük</option>
+                            <option value="@BackupScheduleType.Weekly">Haftalık</option>
+                            <option value="@BackupScheduleType.Interval">Saat Bazlı</option>
+                        </select>
                     </div>
+                    @if (settings.ScheduleType == BackupScheduleType.Interval)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Yedekleme Araligi (Saat)</label>
+                            <input type="number" class="form-control" @bind="settings.AutoBackupIntervalHours" min="1" max="168" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Saat</label>
+                                <input type="number" class="form-control" @bind="settings.ScheduledHour" min="0" max="23" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Dakika</label>
+                                <input type="number" class="form-control" @bind="settings.ScheduledMinute" min="0" max="59" />
+                            </div>
+                        </div>
+                    }
+                    @if (settings.ScheduleType == BackupScheduleType.Weekly)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Haftalık Gün</label>
+                            <select class="form-select" @bind="settings.WeeklyBackupDay">
+                                @foreach (var day in Enum.GetValues<DayOfWeek>())
+                                {
+                                    <option value="@day">@GetDayName(day)</option>
+                                }
+                            </select>
+                        </div>
+                    }
                     <div class="mb-3">
                         <label class="form-label">Saklanacak Yedek Sayisi</label>
                         <input type="number" class="form-control" @bind="settings.KeepBackupCount" min="1" max="100" />
@@ -477,6 +527,11 @@
     {
         try
         {
+            settings.ScheduledHour = Math.Clamp(settings.ScheduledHour, 0, 23);
+            settings.ScheduledMinute = Math.Clamp(settings.ScheduledMinute, 0, 59);
+            settings.AutoBackupIntervalHours = Math.Clamp(settings.AutoBackupIntervalHours, 1, 168);
+            settings.KeepBackupCount = Math.Clamp(settings.KeepBackupCount, 1, 100);
+
             await BackupService.SaveSettingsAsync(settings);
             ToastService.ShowSuccess("Ayarlar kaydedildi.");
         }
@@ -764,5 +819,22 @@
         return fileName.EndsWith(".db", StringComparison.OrdinalIgnoreCase) ||
                (fileName.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) && 
                 (fileName.Contains("PostgreSQL") || fileName.Contains("SQLite")));
+    }
+
+    private DateTime? GetNextBackupTime() => settings.GetNextBackupTime();
+
+    private string GetScheduleSummary()
+    {
+        return settings.ScheduleType switch
+        {
+            BackupScheduleType.Interval => $"Aktif - Her {settings.AutoBackupIntervalHours} saat",
+            BackupScheduleType.Weekly => $"Aktif - Her {GetDayName(settings.WeeklyBackupDay)} {settings.ScheduledHour:00}:{settings.ScheduledMinute:00}",
+            _ => $"Aktif - Her gün {settings.ScheduledHour:00}:{settings.ScheduledMinute:00}"
+        };
+    }
+
+    private static string GetDayName(DayOfWeek day)
+    {
+        return CultureInfo.GetCultureInfo("tr-TR").DateTimeFormat.GetDayName(day);
     }
 }

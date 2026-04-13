@@ -18,8 +18,7 @@ public class SoforService : ISoforService
 
     public async Task<List<Sofor>> GetAllAsync()
     {
-        var personeller = await _context.Soforler
-            .AsNoTracking()
+        var personeller = await QuerySoforler()
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
             .ToListAsync();
@@ -30,8 +29,7 @@ public class SoforService : ISoforService
 
     public async Task<List<Sofor>> GetActiveAsync()
     {
-        var personeller = await _context.Soforler
-            .AsNoTracking()
+        var personeller = await QuerySoforler()
             .Where(s => s.Aktif)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -43,16 +41,14 @@ public class SoforService : ISoforService
 
     public async Task<int> GetActiveCountAsync()
     {
-        return await _context.Soforler
-            .AsNoTracking()
+        return await QuerySoforler()
             .Where(s => s.Aktif)
             .CountAsync();
     }
 
     public async Task<Sofor?> GetByIdAsync(int id)
     {
-        var sofor = await _context.Soforler
-            .AsNoTracking()
+        var sofor = await QuerySoforler()
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (sofor != null)
@@ -63,8 +59,10 @@ public class SoforService : ISoforService
 
     public async Task<Sofor> CreateAsync(Sofor sofor)
     {
+        NormalizeSofor(sofor);
         ApplyMaasHesaplama(sofor);
         SyncBordroFlags(sofor);
+        await ValidateSoforAsync(sofor);
 
         // Muhasebe hesabı oluştur veya eşleştir
         await OtomatikMuhasebeHesabiOlusturAsync(sofor);
@@ -76,8 +74,13 @@ public class SoforService : ISoforService
 
     public async Task<Sofor> UpdateAsync(Sofor sofor)
     {
+        NormalizeSofor(sofor);
+        ApplyMaasHesaplama(sofor);
+        SyncBordroFlags(sofor);
+        await ValidateSoforAsync(sofor);
+
         // Global NoTracking ayarı nedeniyle explicit tracking kullan
-        var existing = await _context.Soforler
+        var existing = await QuerySoforler(asNoTracking: false)
             .FirstOrDefaultAsync(s => s.Id == sofor.Id);
 
         if (existing == null)
@@ -109,10 +112,8 @@ public class SoforService : ISoforService
         existing.BrutMaas = sofor.BrutMaas;
         existing.ResmiNetMaas = sofor.ResmiNetMaas;
         existing.DigerMaas = sofor.DigerMaas;
-        ApplyMaasHesaplama(existing);
         existing.SGKBordroDahilMi = sofor.SGKBordroDahilMi;
         existing.BordroTipiPersonel = sofor.BordroTipiPersonel;
-        SyncBordroFlags(existing);
         existing.BankaAdi = sofor.BankaAdi;
         existing.IBAN = sofor.IBAN;
         existing.MuhasebeHesapId = sofor.MuhasebeHesapId;
@@ -129,9 +130,10 @@ public class SoforService : ISoforService
 
     public async Task DeleteAsync(int id)
     {
-        var sofor = await _context.Soforler.FirstOrDefaultAsync(s => s.Id == id);
+        var sofor = await QuerySoforler(asNoTracking: false).FirstOrDefaultAsync(s => s.Id == id);
         if (sofor != null)
         {
+            sofor.Aktif = false;
             sofor.IsDeleted = true;
             sofor.UpdatedAt = DateTime.UtcNow;
             _context.Soforler.Update(sofor);
@@ -149,6 +151,7 @@ public class SoforService : ISoforService
         var prefix = GetKodPrefix(gorev);
         var lastKod = await _context.Soforler
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(s => s.SoforKodu.StartsWith(prefix + "-"))
             .OrderByDescending(s => s.SoforKodu)
             .Select(s => s.SoforKodu)
@@ -178,8 +181,7 @@ public class SoforService : ISoforService
     // Görev bazlı filtreleme metodları
     public async Task<List<Sofor>> GetByGorevAsync(PersonelGorev gorev)
     {
-        var personeller = await _context.Soforler
-            .AsNoTracking()
+        var personeller = await QuerySoforler()
             .Where(s => s.Gorev == gorev)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -191,8 +193,7 @@ public class SoforService : ISoforService
 
     public async Task<List<Sofor>> GetActiveSoforlerAsync()
     {
-        var personeller = await _context.Soforler
-            .AsNoTracking()
+        var personeller = await QuerySoforler()
             .Where(s => s.Aktif && s.Gorev == PersonelGorev.Sofor)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -204,8 +205,7 @@ public class SoforService : ISoforService
 
     public async Task<List<Sofor>> GetActiveByGorevAsync(PersonelGorev gorev)
     {
-        var personeller = await _context.Soforler
-            .AsNoTracking()
+        var personeller = await QuerySoforler()
             .Where(s => s.Aktif && s.Gorev == gorev)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -214,6 +214,65 @@ public class SoforService : ISoforService
         personeller.ForEach(NormalizeMaasBilgileri);
         return personeller;
     }
+
+    private IQueryable<Sofor> QuerySoforler(bool asNoTracking = true)
+    {
+        var query = _context.Soforler.Where(s => !s.IsDeleted);
+        return asNoTracking ? query.AsNoTracking() : query;
+    }
+
+    private async Task ValidateSoforAsync(Sofor sofor)
+    {
+        if (string.IsNullOrWhiteSpace(sofor.SoforKodu))
+            throw new InvalidOperationException("Personel kodu zorunludur.");
+
+        if (string.IsNullOrWhiteSpace(sofor.Ad) || string.IsNullOrWhiteSpace(sofor.Soyad))
+            throw new InvalidOperationException("Ad ve Soyad zorunludur.");
+
+        if (sofor.IseBaslamaTarihi.HasValue && sofor.IstenAyrilmaTarihi.HasValue && sofor.IstenAyrilmaTarihi < sofor.IseBaslamaTarihi)
+            throw new InvalidOperationException("İşten çıkış tarihi işe başlama tarihinden önce olamaz.");
+
+        if (sofor.SGKBordroDahilMi && sofor.BordroTipiPersonel == PersonelBordroTipi.Yok)
+            throw new InvalidOperationException("SGK bordroya dahil personel için bordro tipi seçilmelidir.");
+
+        if (!string.IsNullOrWhiteSpace(sofor.TcKimlikNo))
+        {
+            if (sofor.TcKimlikNo.Length != 11 || !sofor.TcKimlikNo.All(char.IsDigit))
+                throw new InvalidOperationException("TC Kimlik No 11 haneli olmalıdır.");
+
+            var tcKimlikKullanimda = await QuerySoforler()
+                .AnyAsync(s => s.Id != sofor.Id && s.TcKimlikNo == sofor.TcKimlikNo);
+
+            if (tcKimlikKullanimda)
+                throw new InvalidOperationException($"'{sofor.TcKimlikNo}' TC Kimlik No zaten kullanımda.");
+        }
+
+        var kodKullanimda = await QuerySoforler()
+            .AnyAsync(s => s.Id != sofor.Id && s.SoforKodu == sofor.SoforKodu);
+
+        if (kodKullanimda)
+            throw new InvalidOperationException($"'{sofor.SoforKodu}' personel kodu zaten kullanımda.");
+    }
+
+    private static void NormalizeSofor(Sofor sofor)
+    {
+        sofor.SoforKodu = string.IsNullOrWhiteSpace(sofor.SoforKodu) ? string.Empty : sofor.SoforKodu.Trim().ToUpperInvariant();
+        sofor.Ad = string.IsNullOrWhiteSpace(sofor.Ad) ? string.Empty : sofor.Ad.Trim();
+        sofor.Soyad = string.IsNullOrWhiteSpace(sofor.Soyad) ? string.Empty : sofor.Soyad.Trim();
+        sofor.TcKimlikNo = NormalizeNullableText(sofor.TcKimlikNo)?.Replace(" ", string.Empty);
+        sofor.Telefon = NormalizeNullableText(sofor.Telefon);
+        sofor.Email = NormalizeNullableText(sofor.Email);
+        sofor.Adres = NormalizeNullableText(sofor.Adres);
+        sofor.Departman = NormalizeNullableText(sofor.Departman);
+        sofor.Pozisyon = NormalizeNullableText(sofor.Pozisyon);
+        sofor.EhliyetNo = NormalizeNullableText(sofor.EhliyetNo);
+        sofor.BankaAdi = NormalizeNullableText(sofor.BankaAdi);
+        sofor.IBAN = NormalizeNullableText(sofor.IBAN)?.Replace(" ", string.Empty).ToUpperInvariant();
+        sofor.Notlar = NormalizeNullableText(sofor.Notlar);
+    }
+
+    private static string? NormalizeNullableText(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static void NormalizeMaasBilgileri(Sofor sofor)
     {

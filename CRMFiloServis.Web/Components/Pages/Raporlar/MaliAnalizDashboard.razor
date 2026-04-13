@@ -1,10 +1,14 @@
 ﻿@page "/mali-analiz"
 @page "/muhasebe/analiz"
 @using CRMFiloServis.Web.Services
+@using CRMFiloServis.Web.Services.Interfaces
 @using CRMFiloServis.Shared.Entities
 @using Models = CRMFiloServis.Web.Models
 @inject IMaliAnalizService MaliAnalizService
 @inject IMuhasebeService MuhasebeService
+@inject IDataExportService DataExportService
+@inject IToastService ToastService
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Mali Analiz Dashboard</PageTitle>
@@ -28,6 +32,12 @@
             </select>
             <button class="btn btn-outline-dark" onclick="window.print()">
                 <i class="bi bi-printer"></i>
+            </button>
+            <button class="btn btn-outline-success" @onclick="ExportCsvAsync">
+                <i class="bi bi-filetype-csv"></i>
+            </button>
+            <button class="btn btn-outline-primary" @onclick="ExportJsonAsync">
+                <i class="bi bi-filetype-json"></i>
             </button>
         </div>
     </div>
@@ -1123,6 +1133,44 @@
         ? (AyniAyNetKarFarki / Math.Abs(trendAyniAyGecenYil.NetKar)) * 100
         : 0;
 
+    private async Task ExportCsvAsync()
+    {
+        try
+        {
+            var rows = GetExportRows();
+            var bytes = DataExportService.ExportToCsv(rows);
+            await JS.InvokeVoidAsync("downloadFileFromBytes", GetExportFileName("csv"), "text/csv", bytes);
+            ToastService.ShowSuccess("CSV dışa aktarımı tamamlandı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"CSV export hatası: {ex.Message}");
+        }
+    }
+
+    private async Task ExportJsonAsync()
+    {
+        try
+        {
+            var payload = new
+            {
+                Sekme = aktifSekme,
+                Yil = secilenYil,
+                Ay = secilenAy,
+                OlusturulmaTarihi = DateTime.UtcNow,
+                Veriler = GetExportRows()
+            };
+
+            var bytes = DataExportService.ExportToJson(payload);
+            await JS.InvokeVoidAsync("downloadFileFromBytes", GetExportFileName("json"), "application/json", bytes);
+            ToastService.ShowSuccess("JSON dışa aktarımı tamamlandı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"JSON export hatası: {ex.Message}");
+        }
+    }
+
     private List<TrendKarsilastirmaSatiri> GetTrendKarsilastirmaSatirlari()
     {
         var aylar = Enumerable.Range(1, 12)
@@ -1146,6 +1194,101 @@
             };
         }).ToList();
     }
+
+    private List<MaliAnalizExportSatiri> GetExportRows()
+    {
+        var rows = new List<MaliAnalizExportSatiri>();
+
+        switch (aktifSekme)
+        {
+            case "genel" when dashboard != null:
+                rows.AddRange(new[]
+                {
+                    new MaliAnalizExportSatiri { Sekme = "Genel", Grup = "Özet", Etiket = "Toplam Gelir", Deger = dashboard.ToplamGelir },
+                    new MaliAnalizExportSatiri { Sekme = "Genel", Grup = "Özet", Etiket = "Toplam Gider", Deger = dashboard.ToplamGider },
+                    new MaliAnalizExportSatiri { Sekme = "Genel", Grup = "Özet", Etiket = "Net Kar", Deger = dashboard.NetKar },
+                    new MaliAnalizExportSatiri { Sekme = "Genel", Grup = "Özet", Etiket = "Karlılık Oranı", Deger = dashboard.KarlilikOrani }
+                });
+
+                rows.Add(CreateSegmentRow("Genel", "Segment", "Özmal", dashboard.OzmalAracAnaliz.Gelir, dashboard.OzmalAracAnaliz.Gider));
+                rows.Add(CreateSegmentRow("Genel", "Segment", "Kiralık", dashboard.KiralikAracAnaliz.Gelir, dashboard.KiralikAracAnaliz.Gider));
+                rows.Add(CreateSegmentRow("Genel", "Segment", "Komisyon", dashboard.KomisyonAnaliz.Gelir, dashboard.KomisyonAnaliz.Gider));
+                break;
+
+            case "trend":
+                rows.AddRange(GetTrendKarsilastirmaSatirlari().Select(x => new MaliAnalizExportSatiri
+                {
+                    Sekme = "Trend",
+                    Grup = "Yıllık Karşılaştırma",
+                    Etiket = x.AyEtiketi,
+                    Deger = x.BuYilNetKar,
+                    KarsilastirmaDegeri = x.GecenYilNetKar,
+                    Fark = x.Fark,
+                    Oran = x.DegisimOrani
+                }));
+                break;
+
+            case "dupont":
+                rows.AddRange(new[]
+                {
+                    new MaliAnalizExportSatiri { Sekme = "DuPont", Grup = "Rasyo", Etiket = "Net Kar Marjı", Deger = NetKarMarji },
+                    new MaliAnalizExportSatiri { Sekme = "DuPont", Grup = "Rasyo", Etiket = "Aktif Devir Hızı", Deger = AktifDevirHizi },
+                    new MaliAnalizExportSatiri { Sekme = "DuPont", Grup = "Rasyo", Etiket = "Özkaynak Çarpanı", Deger = OzkaynakCarpani },
+                    new MaliAnalizExportSatiri { Sekme = "DuPont", Grup = "Likidite", Etiket = "Cari Oran", Deger = CariOran },
+                    new MaliAnalizExportSatiri { Sekme = "DuPont", Grup = "Likidite", Etiket = "Asit Test Oranı", Deger = AsitTestOrani },
+                    new MaliAnalizExportSatiri { Sekme = "DuPont", Grup = "Likidite", Etiket = "Nakit Oranı", Deger = NakitOrani }
+                });
+                break;
+
+            default:
+                if (gelirGiderRapor != null)
+                {
+                    rows.AddRange(gelirGiderRapor.Gelirler.Select(x => new MaliAnalizExportSatiri
+                    {
+                        Sekme = aktifSekme,
+                        Grup = "Gelir",
+                        Etiket = x.HesapAdi,
+                        Deger = x.Tutar
+                    }));
+
+                    rows.AddRange(gelirGiderRapor.Giderler.Select(x => new MaliAnalizExportSatiri
+                    {
+                        Sekme = aktifSekme,
+                        Grup = "Gider",
+                        Etiket = x.HesapAdi,
+                        Deger = x.Tutar
+                    }));
+                }
+                break;
+        }
+
+        if (aktifSekme == "swot")
+        {
+            rows.AddRange(SWOTAnalizi.Guc.Select(x => new MaliAnalizExportSatiri { Sekme = "SWOT", Grup = "Güçlü Yön", Etiket = x }));
+            rows.AddRange(SWOTAnalizi.Zayif.Select(x => new MaliAnalizExportSatiri { Sekme = "SWOT", Grup = "Zayıf Yön", Etiket = x }));
+            rows.AddRange(SWOTAnalizi.Firsat.Select(x => new MaliAnalizExportSatiri { Sekme = "SWOT", Grup = "Fırsat", Etiket = x }));
+            rows.AddRange(SWOTAnalizi.Tehtid.Select(x => new MaliAnalizExportSatiri { Sekme = "SWOT", Grup = "Tehdit", Etiket = x }));
+        }
+
+        return rows;
+    }
+
+    private MaliAnalizExportSatiri CreateSegmentRow(string sekme, string grup, string etiket, decimal gelir, decimal gider)
+    {
+        return new MaliAnalizExportSatiri
+        {
+            Sekme = sekme,
+            Grup = grup,
+            Etiket = etiket,
+            Deger = gelir,
+            KarsilastirmaDegeri = gider,
+            Fark = gelir - gider,
+            Oran = gelir != 0 ? ((gelir - gider) / gelir) * 100 : 0
+        };
+    }
+
+    private string GetExportFileName(string extension)
+        => $"MaliAnaliz_{aktifSekme}_{secilenYil}_{(secilenAy > 0 ? secilenAy : 0):00}.{extension}";
 
     private string GetAyAdi(int ay) => new DateTime(secilenYil, ay, 1).ToString("MMMM");
 
@@ -1174,5 +1317,16 @@
         public decimal GecenYilNetKar { get; set; }
         public decimal Fark { get; set; }
         public decimal DegisimOrani { get; set; }
+    }
+
+    private sealed class MaliAnalizExportSatiri
+    {
+        public string Sekme { get; set; } = string.Empty;
+        public string Grup { get; set; } = string.Empty;
+        public string Etiket { get; set; } = string.Empty;
+        public decimal Deger { get; set; }
+        public decimal KarsilastirmaDegeri { get; set; }
+        public decimal Fark { get; set; }
+        public decimal Oran { get; set; }
     }
 }
