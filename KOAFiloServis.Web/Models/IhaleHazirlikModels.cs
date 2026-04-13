@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 
 namespace KOAFiloServis.Web.Models;
 
@@ -146,4 +146,99 @@ public class IhaleTeklifKarsilastirmaDto
     public decimal SolKarMarjiOrani { get; set; }
     public decimal SagKarMarjiOrani { get; set; }
     public decimal KarMarjiOraniFarki { get; set; }
+}
+
+public class IhaleGerceklesenAnalizOzet
+{
+    public int ProjeId { get; set; }
+    public DateTime AnalizBaslangicTarihi { get; set; }
+    public DateTime AnalizBitisTarihi { get; set; }
+    public int GecenAySayisi { get; set; }
+    public int ToplamGerceklesenSeferSayisi { get; set; }
+
+    public decimal PlanlananToplamMaliyet { get; set; }
+    public decimal GerceklesenToplamMaliyet { get; set; }
+    public decimal MaliyetSapmasi { get; set; }
+    public decimal MaliyetSapmaOrani { get; set; }
+
+    public decimal PlanlananToplamTeklif { get; set; }
+    public decimal GerceklesenToplamGelir { get; set; }
+    public decimal GelirSapmasi { get; set; }
+    public decimal GelirSapmaOrani { get; set; }
+
+    public decimal PlanlananToplamKar { get; set; }
+    public decimal GerceklesenToplamKar { get; set; }
+    public decimal KarSapmasi { get; set; }
+    public decimal KarSapmaOrani { get; set; }
+    public int AktifSozlesmeRevizyonSayisi { get; set; }
+    public decimal ToplamRevizyonBedelFarki { get; set; }
+    public int ToplamRevizyonSureFarkiAy { get; set; }
+    public decimal RevizyonEtkiliPlanlananTeklif { get; set; }
+    public decimal RevizyonEtkiliGelirSapmasi { get; set; }
+    public decimal TeklifDogrulukSkoru { get; set; }
+    public string RiskSeviyesi { get; set; } = "Dusuk";
+
+    public List<IhaleGerceklesenKalemAnalizi> Kalemler { get; set; } = [];
+    public List<IhaleSozlesmeRevizyonEtkisiOzet> AktifRevizyonlar { get; set; } = [];
+}
+
+public class IhaleGerceklesenKalemAnalizi
+{
+    public int KalemId { get; set; }
+    public string HatAdi { get; set; } = string.Empty;
+    public string SahiplikDurumu { get; set; } = string.Empty;
+    public int GecenAySayisi { get; set; }
+    public int GerceklesenSeferSayisi { get; set; }
+
+    public decimal PlanlananMaliyet { get; set; }
+    public decimal GerceklesenMaliyet { get; set; }
+    public decimal MaliyetSapmasi { get; set; }
+
+    public decimal PlanlananTeklif { get; set; }
+    public decimal GerceklesenGelir { get; set; }
+    public decimal GelirSapmasi { get; set; }
+
+    public decimal PlanlananKar { get; set; }
+    public decimal GerceklesenKar { get; set; }
+    public decimal KarSapmasi { get; set; }
+    public decimal TeklifDogrulukSkoru { get; set; }
+    public string RiskSeviyesi { get; set; } = "Dusuk";
+}
+
+public class IhaleSozlesmeRevizyonEtkisiOzet
+{
+    public string RevizyonNo { get; set; } = string.Empty;
+    public string Tip { get; set; } = string.Empty;
+    public string Baslik { get; set; } = string.Empty;
+    public DateTime RevizyonTarihi { get; set; }
+    public DateTime? YurutmeTarihi { get; set; }
+    public decimal BedelFarki { get; set; }
+    public int SureFarkiAy { get; set; }
+}
+
+public class IhaleOperasyonDashboardOzet
+{
+    public int KazanilanProjeSayisi { get; set; }
+    public int AnalizEdilenProjeSayisi { get; set; }
+    public int RiskliProjeSayisi { get; set; }
+    public int RevizyonluProjeSayisi { get; set; }
+    public int SureUzatimliProjeSayisi { get; set; }
+    public decimal OrtalamaTeklifDogrulukSkoru { get; set; }
+    public decimal ToplamKarSapmasi { get; set; }
+    public decimal EnKotusuKarSapmasi { get; set; }
+    public decimal ToplamRevizyonBedelFarki { get; set; }
+    public List<IhaleRiskliProjeOzet> RiskliProjeler { get; set; } = [];
+}
+
+public class IhaleRiskliProjeOzet
+{
+    public int ProjeId { get; set; }
+    public string ProjeKodu { get; set; } = string.Empty;
+    public string ProjeAdi { get; set; } = string.Empty;
+    public decimal TeklifDogrulukSkoru { get; set; }
+    public decimal KarSapmasi { get; set; }
+    public decimal MaliyetSapmaOrani { get; set; }
+    public int AktifRevizyonSayisi { get; set; }
+    public decimal ToplamRevizyonBedelFarki { get; set; }
+    public string RiskSeviyesi { get; set; } = "Dusuk";
 }

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KOAFiloServis.Shared.Entities;
@@ -56,6 +56,32 @@ public class IhaleProje : BaseEntity
     // Navigation
     public virtual ICollection<IhaleGuzergahKalem> Kalemler { get; set; } = new List<IhaleGuzergahKalem>();
     public virtual ICollection<IhaleTeklifVersiyon> TeklifVersiyonlari { get; set; } = new List<IhaleTeklifVersiyon>();
+    public virtual ICollection<IhaleSozlesmeRevizyon> SozlesmeRevizyonlari { get; set; } = new List<IhaleSozlesmeRevizyon>();
+}
+
+public class IhaleSozlesmeRevizyon : BaseEntity
+{
+    public int IhaleProjeId { get; set; }
+    public virtual IhaleProje IhaleProje { get; set; } = null!;
+
+    public IhaleSozlesmeRevizyonTipi RevizyonTipi { get; set; } = IhaleSozlesmeRevizyonTipi.SozlesmeRevizyonu;
+
+    [Required]
+    [StringLength(50)]
+    public string RevizyonNo { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(250)]
+    public string Baslik { get; set; } = string.Empty;
+
+    [StringLength(2000)]
+    public string? Aciklama { get; set; }
+
+    public DateTime RevizyonTarihi { get; set; } = DateTime.Today;
+    public DateTime? YurutmeTarihi { get; set; }
+    public decimal BedelFarki { get; set; }
+    public int SureFarkiAy { get; set; }
+    public bool Aktif { get; set; } = true;
 }
 
 /// <summary>
@@ -186,4 +212,12 @@ public enum AracSahiplikKalem
     Ozmal = 1,
     Kiralik = 2,
     Komisyon = 3
+}
+
+public enum IhaleSozlesmeRevizyonTipi
+{
+    SozlesmeRevizyonu = 1,
+    EkProtokol = 2,
+    FiyatFarki = 3,
+    SureUzatimi = 4
 }

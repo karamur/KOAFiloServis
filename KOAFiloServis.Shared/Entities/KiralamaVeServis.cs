@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace KOAFiloServis.Shared.Entities;
 
@@ -14,7 +14,7 @@ public class KiralamaArac : BaseEntity
     /// Kiralayan cari (ara� sahibi)
     /// </summary>
     [Required]
-    public int Kiralay�c�CariId { get; set; }
+    public int KiralayiciCariId { get; set; }
 
     [Required]
     [StringLength(15)]
@@ -76,7 +76,7 @@ public class KiralamaArac : BaseEntity
 
     // Navigation
     public virtual Firma? Firma { get; set; }
-    public virtual Cari? Kiralay�c�Cari { get; set; }
+    public virtual Cari? KiralayiciCari { get; set; }
     public virtual ICollection<ServisCalismaKiralama> ServisCalismalari { get; set; } = new List<ServisCalismaKiralama>();
 }
 
@@ -178,7 +178,7 @@ public enum AracSahiplikTuru
     /// <summary>
     /// Kiral�k ara�
     /// </summary>
-    Kiral�kArac = 2
+    KiralikArac = 2
 }
 
 /// <summary>

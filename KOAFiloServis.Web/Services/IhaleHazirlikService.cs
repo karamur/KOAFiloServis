@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -296,6 +296,63 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         return mevcut;
     }
 
+    public async Task<List<IhaleSozlesmeRevizyon>> GetSozlesmeRevizyonlariAsync(int ihaleProjeId)
+    {
+        return await _context.IhaleSozlesmeRevizyonlari
+            .Where(x => x.IhaleProjeId == ihaleProjeId)
+            .OrderByDescending(x => x.RevizyonTarihi)
+            .ThenByDescending(x => x.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IhaleSozlesmeRevizyon> AddSozlesmeRevizyonAsync(IhaleSozlesmeRevizyon revizyon)
+    {
+        var proje = await _context.IhaleProjeleri.FindAsync(revizyon.IhaleProjeId);
+        if (proje == null)
+            throw new Exception("Proje bulunamadı.");
+
+        if (string.IsNullOrWhiteSpace(revizyon.RevizyonNo))
+            revizyon.RevizyonNo = await GetSonrakiRevizyonNoAsync(revizyon.IhaleProjeId);
+
+        revizyon.CreatedAt = DateTime.UtcNow;
+        _context.IhaleSozlesmeRevizyonlari.Add(revizyon);
+        await _context.SaveChangesAsync();
+        return revizyon;
+    }
+
+    public async Task<IhaleSozlesmeRevizyon> UpdateSozlesmeRevizyonAsync(IhaleSozlesmeRevizyon revizyon)
+    {
+        var mevcut = await _context.IhaleSozlesmeRevizyonlari.FindAsync(revizyon.Id);
+        if (mevcut == null)
+            throw new Exception("Sözleşme revizyon kaydı bulunamadı.");
+
+        mevcut.RevizyonTipi = revizyon.RevizyonTipi;
+        mevcut.RevizyonNo = revizyon.RevizyonNo;
+        mevcut.Baslik = revizyon.Baslik;
+        mevcut.Aciklama = revizyon.Aciklama;
+        mevcut.RevizyonTarihi = revizyon.RevizyonTarihi;
+        mevcut.YurutmeTarihi = revizyon.YurutmeTarihi;
+        mevcut.BedelFarki = revizyon.BedelFarki;
+        mevcut.SureFarkiAy = revizyon.SureFarkiAy;
+        mevcut.Aktif = revizyon.Aktif;
+        mevcut.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return mevcut;
+    }
+
+    public async Task<bool> DeleteSozlesmeRevizyonAsync(int revizyonId)
+    {
+        var mevcut = await _context.IhaleSozlesmeRevizyonlari.FindAsync(revizyonId);
+        if (mevcut == null)
+            return false;
+
+        mevcut.IsDeleted = true;
+        mevcut.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<bool> DeleteKalemAsync(int kalemId)
     {
         var kalem = await _context.IhaleGuzergahKalemleri.FindAsync(kalemId);
@@ -507,6 +564,352 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         }
 
         return ozet;
+    }
+
+    public async Task<IhaleGerceklesenAnalizOzet> GetProjeGerceklesenAnalizAsync(int projeId)
+    {
+        var proje = await GetProjeByIdAsync(projeId);
+        if (proje == null)
+            throw new Exception("Proje bulunamadı.");
+
+        var analizBaslangic = proje.BaslangicTarihi.Date;
+        var analizBitis = proje.BitisTarihi.Date < DateTime.Today ? proje.BitisTarihi.Date : DateTime.Today;
+
+        if (analizBitis < analizBaslangic)
+        {
+            return new IhaleGerceklesenAnalizOzet
+            {
+                ProjeId = projeId,
+                AnalizBaslangicTarihi = analizBaslangic,
+                AnalizBitisTarihi = analizBaslangic
+            };
+        }
+
+        var gecenAySayisi = GetInclusiveMonthCount(analizBaslangic, analizBitis);
+        var aktifKalemler = proje.Kalemler.Where(k => !k.IsDeleted).ToList();
+        var aktifRevizyonlar = await _context.IhaleSozlesmeRevizyonlari
+            .AsNoTracking()
+            .Where(x => x.IhaleProjeId == proje.Id && x.Aktif)
+            .OrderByDescending(x => x.RevizyonTarihi)
+            .ToListAsync();
+
+        var sonuc = new IhaleGerceklesenAnalizOzet
+        {
+            ProjeId = proje.Id,
+            AnalizBaslangicTarihi = analizBaslangic,
+            AnalizBitisTarihi = analizBitis,
+            GecenAySayisi = gecenAySayisi,
+            AktifSozlesmeRevizyonSayisi = aktifRevizyonlar.Count,
+            ToplamRevizyonBedelFarki = aktifRevizyonlar.Sum(x => x.BedelFarki),
+            ToplamRevizyonSureFarkiAy = aktifRevizyonlar.Sum(x => x.SureFarkiAy),
+            AktifRevizyonlar = aktifRevizyonlar.Select(x => new IhaleSozlesmeRevizyonEtkisiOzet
+            {
+                RevizyonNo = x.RevizyonNo,
+                Tip = GetSozlesmeRevizyonTipiMetni(x.RevizyonTipi),
+                Baslik = x.Baslik,
+                RevizyonTarihi = x.RevizyonTarihi,
+                YurutmeTarihi = x.YurutmeTarihi,
+                BedelFarki = x.BedelFarki,
+                SureFarkiAy = x.SureFarkiAy
+            }).ToList()
+        };
+
+        foreach (var kalem in aktifKalemler)
+        {
+            var servisler = await GetKalemServisCalismalariAsync(kalem, analizBaslangic, analizBitis);
+            var gerceklesenSeferSayisi = servisler.Count(s => s.Durum == CalismaDurum.Tamamlandi);
+            var aktifAySayisi = servisler
+                .Where(s => s.Durum == CalismaDurum.Tamamlandi)
+                .Select(s => GetMonthKey(s.CalismaTarihi))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+
+            var gerceklesenYakitMaliyeti = gerceklesenSeferSayisi * kalem.MesafeKm * kalem.YakitTuketimi / 100m * kalem.YakitFiyati;
+            var gerceklesenAracMasrafi = await GetGerceklesenAracMasrafiAsync(kalem, analizBaslangic, analizBitis);
+            var gerceklesenSoforMaliyeti = await GetGerceklesenSoforMaliyetiAsync(kalem, analizBaslangic, analizBitis, gecenAySayisi);
+            var gerceklesenKiraKomisyon = kalem.SahiplikDurumu switch
+            {
+                AracSahiplikKalem.Kiralik => kalem.AylikKiraBedeli * gecenAySayisi,
+                AracSahiplikKalem.Komisyon => kalem.SeferBasiKomisyon * gerceklesenSeferSayisi,
+                _ => 0m
+            };
+            var gerceklesenAmortisman = kalem.SahiplikDurumu == AracSahiplikKalem.Ozmal
+                ? kalem.AylikAmortisman * gecenAySayisi
+                : 0m;
+
+            var gerceklesenToplamMaliyet = gerceklesenYakitMaliyeti + gerceklesenAracMasrafi + gerceklesenSoforMaliyeti + gerceklesenKiraKomisyon + gerceklesenAmortisman;
+            var gerceklesenGelir = servisler
+                .Where(s => s.Durum == CalismaDurum.Tamamlandi)
+                .Sum(s => s.Fiyat ?? s.Guzergah?.BirimFiyat ?? 0m);
+
+            var planlananMaliyet = kalem.AylikMaliyet * gecenAySayisi;
+            var planlananTeklif = kalem.AylikTeklifFiyati * gecenAySayisi;
+            var planlananKar = planlananTeklif - planlananMaliyet;
+            var gerceklesenKar = gerceklesenGelir - gerceklesenToplamMaliyet;
+            var maliyetSapmasi = gerceklesenToplamMaliyet - planlananMaliyet;
+            var gelirSapmasi = gerceklesenGelir - planlananTeklif;
+            var karSapmasi = gerceklesenKar - planlananKar;
+            var maliyetSapmaOrani = planlananMaliyet > 0 ? maliyetSapmasi / planlananMaliyet * 100m : 0m;
+            var gelirSapmaOrani = planlananTeklif > 0 ? gelirSapmasi / planlananTeklif * 100m : 0m;
+            var karSapmaOrani = planlananKar != 0 ? karSapmasi / Math.Abs(planlananKar) * 100m : 0m;
+            var kalemDogrulukSkoru = HesaplaTeklifDogrulukSkoru(maliyetSapmaOrani, gelirSapmaOrani, karSapmaOrani);
+            var kalemRiskSeviyesi = HesaplaRiskSeviyesi(kalemDogrulukSkoru, maliyetSapmaOrani, karSapmasi);
+
+            sonuc.Kalemler.Add(new IhaleGerceklesenKalemAnalizi
+            {
+                KalemId = kalem.Id,
+                HatAdi = kalem.HatAdi,
+                SahiplikDurumu = kalem.SahiplikDurumu.ToString(),
+                GecenAySayisi = gecenAySayisi,
+                GerceklesenSeferSayisi = gerceklesenSeferSayisi,
+                PlanlananMaliyet = planlananMaliyet,
+                GerceklesenMaliyet = gerceklesenToplamMaliyet,
+                MaliyetSapmasi = maliyetSapmasi,
+                PlanlananTeklif = planlananTeklif,
+                GerceklesenGelir = gerceklesenGelir,
+                GelirSapmasi = gelirSapmasi,
+                PlanlananKar = planlananKar,
+                GerceklesenKar = gerceklesenKar,
+                KarSapmasi = karSapmasi,
+                TeklifDogrulukSkoru = kalemDogrulukSkoru,
+                RiskSeviyesi = kalemRiskSeviyesi
+            });
+
+            sonuc.ToplamGerceklesenSeferSayisi += gerceklesenSeferSayisi;
+        }
+
+        sonuc.PlanlananToplamMaliyet = sonuc.Kalemler.Sum(x => x.PlanlananMaliyet);
+        sonuc.GerceklesenToplamMaliyet = sonuc.Kalemler.Sum(x => x.GerceklesenMaliyet);
+        sonuc.MaliyetSapmasi = sonuc.GerceklesenToplamMaliyet - sonuc.PlanlananToplamMaliyet;
+        sonuc.MaliyetSapmaOrani = sonuc.PlanlananToplamMaliyet > 0
+            ? sonuc.MaliyetSapmasi / sonuc.PlanlananToplamMaliyet * 100m
+            : 0m;
+
+        sonuc.PlanlananToplamTeklif = sonuc.Kalemler.Sum(x => x.PlanlananTeklif);
+        sonuc.GerceklesenToplamGelir = sonuc.Kalemler.Sum(x => x.GerceklesenGelir);
+        sonuc.GelirSapmasi = sonuc.GerceklesenToplamGelir - sonuc.PlanlananToplamTeklif;
+        sonuc.GelirSapmaOrani = sonuc.PlanlananToplamTeklif > 0
+            ? sonuc.GelirSapmasi / sonuc.PlanlananToplamTeklif * 100m
+            : 0m;
+        sonuc.RevizyonEtkiliPlanlananTeklif = sonuc.PlanlananToplamTeklif + sonuc.ToplamRevizyonBedelFarki;
+        sonuc.RevizyonEtkiliGelirSapmasi = sonuc.GerceklesenToplamGelir - sonuc.RevizyonEtkiliPlanlananTeklif;
+
+        sonuc.PlanlananToplamKar = sonuc.Kalemler.Sum(x => x.PlanlananKar);
+        sonuc.GerceklesenToplamKar = sonuc.Kalemler.Sum(x => x.GerceklesenKar);
+        sonuc.KarSapmasi = sonuc.GerceklesenToplamKar - sonuc.PlanlananToplamKar;
+        sonuc.KarSapmaOrani = sonuc.PlanlananToplamKar != 0
+            ? sonuc.KarSapmasi / Math.Abs(sonuc.PlanlananToplamKar) * 100m
+            : 0m;
+
+        sonuc.TeklifDogrulukSkoru = sonuc.Kalemler.Any()
+            ? Math.Round(sonuc.Kalemler.Average(x => x.TeklifDogrulukSkoru), 1)
+            : HesaplaTeklifDogrulukSkoru(sonuc.MaliyetSapmaOrani, sonuc.GelirSapmaOrani, sonuc.KarSapmaOrani);
+        sonuc.RiskSeviyesi = HesaplaRiskSeviyesi(sonuc.TeklifDogrulukSkoru, sonuc.MaliyetSapmaOrani, sonuc.KarSapmasi);
+
+        return sonuc;
+    }
+
+    public async Task<IhaleOperasyonDashboardOzet> GetOperasyonDashboardOzetAsync()
+    {
+        var kazanilanProjeler = await _context.IhaleProjeleri
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted && p.Durum == IhaleProjeDurum.Kazanildi)
+            .OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt)
+            .ToListAsync();
+
+        var sonuc = new IhaleOperasyonDashboardOzet
+        {
+            KazanilanProjeSayisi = kazanilanProjeler.Count
+        };
+
+        foreach (var proje in kazanilanProjeler)
+        {
+            var analiz = await GetProjeGerceklesenAnalizAsync(proje.Id);
+            if (analiz.GecenAySayisi == 0 && analiz.ToplamGerceklesenSeferSayisi == 0)
+                continue;
+
+            sonuc.AnalizEdilenProjeSayisi++;
+            sonuc.ToplamKarSapmasi += analiz.KarSapmasi;
+            sonuc.ToplamRevizyonBedelFarki += analiz.ToplamRevizyonBedelFarki;
+            sonuc.EnKotusuKarSapmasi = sonuc.AnalizEdilenProjeSayisi == 1
+                ? analiz.KarSapmasi
+                : Math.Min(sonuc.EnKotusuKarSapmasi, analiz.KarSapmasi);
+
+            if (string.Equals(analiz.RiskSeviyesi, "Yuksek", StringComparison.OrdinalIgnoreCase))
+                sonuc.RiskliProjeSayisi++;
+
+            if (analiz.AktifSozlesmeRevizyonSayisi > 0)
+                sonuc.RevizyonluProjeSayisi++;
+
+            if (analiz.ToplamRevizyonSureFarkiAy > 0)
+                sonuc.SureUzatimliProjeSayisi++;
+
+            sonuc.RiskliProjeler.Add(new IhaleRiskliProjeOzet
+            {
+                ProjeId = proje.Id,
+                ProjeKodu = proje.ProjeKodu,
+                ProjeAdi = proje.ProjeAdi,
+                TeklifDogrulukSkoru = analiz.TeklifDogrulukSkoru,
+                KarSapmasi = analiz.KarSapmasi,
+                MaliyetSapmaOrani = analiz.MaliyetSapmaOrani,
+                AktifRevizyonSayisi = analiz.AktifSozlesmeRevizyonSayisi,
+                ToplamRevizyonBedelFarki = analiz.ToplamRevizyonBedelFarki,
+                RiskSeviyesi = analiz.RiskSeviyesi
+            });
+        }
+
+        sonuc.OrtalamaTeklifDogrulukSkoru = sonuc.RiskliProjeler.Any()
+            ? sonuc.RiskliProjeler.Average(x => x.TeklifDogrulukSkoru)
+            : 0m;
+
+        sonuc.RiskliProjeler = sonuc.RiskliProjeler
+            .OrderBy(x => x.TeklifDogrulukSkoru)
+            .ThenBy(x => x.KarSapmasi)
+            .Take(5)
+            .ToList();
+
+        return sonuc;
+    }
+
+    private async Task<List<ServisCalisma>> GetKalemServisCalismalariAsync(IhaleGuzergahKalem kalem, DateTime baslangic, DateTime bitis)
+    {
+        var query = _context.ServisCalismalari
+            .AsNoTracking()
+            .Include(s => s.Guzergah)
+            .Where(s => !s.IsDeleted && s.CalismaTarihi >= baslangic && s.CalismaTarihi <= bitis);
+
+        if (kalem.GuzergahId.HasValue)
+        {
+            query = query.Where(s => s.GuzergahId == kalem.GuzergahId.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(kalem.HatAdi))
+        {
+            query = query.Where(s => s.Guzergah.GuzergahAdi == kalem.HatAdi);
+        }
+
+        if (kalem.AracId.HasValue)
+            query = query.Where(s => s.AracId == kalem.AracId.Value || s.GuzergahId == kalem.GuzergahId);
+
+        return await query.ToListAsync();
+    }
+
+    private async Task<decimal> GetGerceklesenAracMasrafiAsync(IhaleGuzergahKalem kalem, DateTime baslangic, DateTime bitis)
+    {
+        var query = _context.AracMasraflari
+            .AsNoTracking()
+            .Where(m => !m.IsDeleted && m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis);
+
+        if (kalem.GuzergahId.HasValue)
+        {
+            query = query.Where(m => m.GuzergahId == kalem.GuzergahId.Value);
+        }
+        else if (kalem.AracId.HasValue)
+        {
+            query = query.Where(m => m.AracId == kalem.AracId.Value);
+        }
+        else
+        {
+            return 0m;
+        }
+
+        return await query.SumAsync(m => (decimal?)m.Tutar) ?? 0m;
+    }
+
+    private async Task<decimal> GetGerceklesenSoforMaliyetiAsync(IhaleGuzergahKalem kalem, DateTime baslangic, DateTime bitis, int gecenAySayisi)
+    {
+        if (!kalem.SoforId.HasValue)
+            return 0m;
+
+        var aktifAylar = GetMonthKeysBetween(baslangic, bitis).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var maaslar = await _context.PersonelMaaslari
+            .AsNoTracking()
+            .Where(x => !x.IsDeleted && x.SoforId == kalem.SoforId.Value)
+            .ToListAsync();
+
+        var gerceklesenMaasToplami = maaslar
+            .Where(x => aktifAylar.Contains(GetMonthKey(x.Yil, x.Ay)))
+            .Sum(x => x.BrutMaas + x.SGKIsverenPayi + x.ToplamEklemeler);
+
+        if (gerceklesenMaasToplami > 0)
+            return gerceklesenMaasToplami;
+
+        return kalem.SoforToplamMaliyet * gecenAySayisi;
+    }
+
+    private static int GetInclusiveMonthCount(DateTime baslangic, DateTime bitis)
+    {
+        if (bitis < baslangic)
+            return 0;
+
+        return ((bitis.Year - baslangic.Year) * 12) + bitis.Month - baslangic.Month + 1;
+    }
+
+    private static IEnumerable<string> GetMonthKeysBetween(DateTime baslangic, DateTime bitis)
+    {
+        if (bitis < baslangic)
+            yield break;
+
+        var cursor = new DateTime(baslangic.Year, baslangic.Month, 1);
+        var end = new DateTime(bitis.Year, bitis.Month, 1);
+
+        while (cursor <= end)
+        {
+            yield return GetMonthKey(cursor);
+            cursor = cursor.AddMonths(1);
+        }
+    }
+
+    private static string GetMonthKey(DateTime tarih) => $"{tarih.Year:D4}-{tarih.Month:D2}";
+
+    private static string GetMonthKey(int yil, int ay) => $"{yil:D4}-{ay:D2}";
+
+    private async Task<string> GetSonrakiRevizyonNoAsync(int ihaleProjeId)
+    {
+        var mevcutNumaralar = await _context.IhaleSozlesmeRevizyonlari
+            .Where(x => x.IhaleProjeId == ihaleProjeId)
+            .Select(x => x.RevizyonNo)
+            .ToListAsync();
+
+        var sonSira = mevcutNumaralar
+            .Select(x => Regex.Match(x ?? string.Empty, @"(\d+)$"))
+            .Where(m => m.Success)
+            .Select(m => int.Parse(m.Groups[1].Value))
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return $"REV-{sonSira + 1:D2}";
+    }
+
+    private static string GetSozlesmeRevizyonTipiMetni(IhaleSozlesmeRevizyonTipi tip)
+    {
+        return tip switch
+        {
+            IhaleSozlesmeRevizyonTipi.SozlesmeRevizyonu => "Sözleşme Revizyonu",
+            IhaleSozlesmeRevizyonTipi.EkProtokol => "Ek Protokol",
+            IhaleSozlesmeRevizyonTipi.FiyatFarki => "Fiyat Farkı",
+            IhaleSozlesmeRevizyonTipi.SureUzatimi => "Süre Uzatımı",
+            _ => "-"
+        };
+    }
+
+    private static decimal HesaplaTeklifDogrulukSkoru(decimal maliyetSapmaOrani, decimal gelirSapmaOrani, decimal karSapmaOrani)
+    {
+        var maliyetSkoru = Math.Max(0m, 100m - Math.Abs(maliyetSapmaOrani));
+        var gelirSkoru = Math.Max(0m, 100m - Math.Abs(gelirSapmaOrani));
+        var karSkoru = Math.Max(0m, 100m - Math.Abs(karSapmaOrani));
+
+        return Math.Round((maliyetSkoru * 0.45m) + (gelirSkoru * 0.20m) + (karSkoru * 0.35m), 1);
+    }
+
+    private static string HesaplaRiskSeviyesi(decimal teklifDogrulukSkoru, decimal maliyetSapmaOrani, decimal karSapmasi)
+    {
+        if (teklifDogrulukSkoru < 60m || karSapmasi < 0 || maliyetSapmaOrani > 15m)
+            return "Yuksek";
+
+        if (teklifDogrulukSkoru < 80m || maliyetSapmaOrani > 7.5m)
+            return "Orta";
+
+        return "Dusuk";
     }
 
     // ===== AI Tahmin =====

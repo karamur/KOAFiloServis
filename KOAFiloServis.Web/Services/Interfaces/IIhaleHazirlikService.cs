@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Models;
 
 namespace KOAFiloServis.Web.Services;
@@ -19,9 +19,17 @@ public interface IIhaleHazirlikService
     Task<IhaleGuzergahKalem> UpdateKalemAsync(IhaleGuzergahKalem kalem);
     Task<bool> DeleteKalemAsync(int kalemId);
 
+    // Sözleşme revizyon / ek protokol
+    Task<List<IhaleSozlesmeRevizyon>> GetSozlesmeRevizyonlariAsync(int ihaleProjeId);
+    Task<IhaleSozlesmeRevizyon> AddSozlesmeRevizyonAsync(IhaleSozlesmeRevizyon revizyon);
+    Task<IhaleSozlesmeRevizyon> UpdateSozlesmeRevizyonAsync(IhaleSozlesmeRevizyon revizyon);
+    Task<bool> DeleteSozlesmeRevizyonAsync(int revizyonId);
+
     // Hesaplamalar
     Task HesaplaKalemMaliyetAsync(IhaleGuzergahKalem kalem, IhaleProje proje);
     Task<IhaleProjeOzet> GetProjeOzetAsync(int projeId);
+    Task<IhaleGerceklesenAnalizOzet> GetProjeGerceklesenAnalizAsync(int projeId);
+    Task<IhaleOperasyonDashboardOzet> GetOperasyonDashboardOzetAsync();
     List<AylikProjeksiyon> HesaplaEnflasyonluProjeksiyon(IhaleGuzergahKalem kalem, IhaleProje proje);
 
     // AI Tahmin
