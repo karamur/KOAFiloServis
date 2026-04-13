@@ -77,3 +77,4 @@ deploy/Uploads/**
 !deploy/Uploads/.gitkeep
 publish/
 CRMFiloServis-Release.zip
+KOAFiloServis.Installer/Payload/koafiloservis-package.zip

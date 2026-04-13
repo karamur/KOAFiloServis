@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -199,7 +199,7 @@ class Program
         var current = new DirectoryInfo(_executableDirectory);
         while (current != null)
         {
-            if (File.Exists(Path.Combine(current.FullName, "CRMFiloServis.slnx")) ||
+            if (File.Exists(Path.Combine(current.FullName, "KOAFiloServis.slnx")) ||
                 Directory.Exists(Path.Combine(current.FullName, ".git")))
             {
                 return current.FullName;

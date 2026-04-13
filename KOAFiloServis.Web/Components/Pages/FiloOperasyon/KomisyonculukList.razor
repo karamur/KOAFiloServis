@@ -1,0 +1,334 @@
+@page "/filo-operasyon/komisyonculuk"
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@inject IFiloOperasyonService FiloOperasyonService
+@inject ICariService CariService
+@inject NavigationManager NavigationManager
+@inject IToastService ToastService
+
+<PageTitle>Komisyonculuk İş Takibi | KOA Filo Servis</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="/filo-operasyon">Filo Operasyon</a></li>
+                    <li class="breadcrumb-item active">Komisyonculuk</li>
+                </ol>
+            </nav>
+            <h3 class="mb-0">
+                <i class="bi bi-briefcase me-2"></i>Komisyonculuk İş Takibi
+            </h3>
+        </div>
+        <div>
+            <button class="btn btn-primary" @onclick="YeniIs">
+                <i class="bi bi-plus-lg me-1"></i> Yeni İş
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtreler -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Durum</label>
+                    <select class="form-select" @bind="_filtreDurum">
+                        <option value="">Tümü</option>
+                        <option value="@KomisyonculukIsDurum.Aktif">Aktif</option>
+                        <option value="@KomisyonculukIsDurum.Beklemede">Beklemede</option>
+                        <option value="@KomisyonculukIsDurum.Tamamlandi">Tamamlandı</option>
+                        <option value="@KomisyonculukIsDurum.IptalEdildi">İptal Edildi</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Müşteri</label>
+                    <select class="form-select" @bind="_filtreMusteriId">
+                        <option value="">Tümü</option>
+                        @foreach (var cari in _cariler.Where(c => c.CariTipi == CariTipi.Musteri || c.CariTipi == CariTipi.MusteriTedarikci))
+                        {
+                            <option value="@cari.Id">@cari.Unvan</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Başlangıç</label>
+                    <input type="date" class="form-control" @bind="_filtreBaslangic" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Bitiş</label>
+                    <input type="date" class="form-control" @bind="_filtreBitis" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary w-100" @onclick="FiltreTemizle">
+                        <i class="bi bi-x-circle me-1"></i> Temizle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+        </div>
+    }
+    else if (!_filtrelenmisIsler.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Kayıtlı komisyonculuk işi bulunamadı.
+        </div>
+    }
+    else
+    {
+        <!-- Özet -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Toplam İş</h6>
+                        <h4 class="mb-0">@_filtrelenmisIsler.Count</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h6>Toplam Gelir</h6>
+                        <h4 class="mb-0">@_filtrelenmisIsler.Sum(i => i.ToplamTutar).ToString("N2") ₺</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body text-center">
+                        <h6>Toplam Maliyet</h6>
+                        <h4 class="mb-0">@_filtrelenmisIsler.SelectMany(i => i.Atamalar).Sum(a => a.ToplamMaliyet).ToString("N2") ₺</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h6>Net Kar</h6>
+                        @{
+                            var toplamGelir = _filtrelenmisIsler.Sum(i => i.ToplamTutar);
+                            var toplamMaliyet = _filtrelenmisIsler.SelectMany(i => i.Atamalar).Sum(a => a.ToplamMaliyet);
+                            var netKar = toplamGelir - toplamMaliyet;
+                        }
+                        <h4 class="mb-0">@netKar.ToString("N2") ₺</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste -->
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>İş Kodu</th>
+                            <th>Müşteri</th>
+                            <th>İş Tipi</th>
+                            <th>Başlangıç</th>
+                            <th>Bitiş</th>
+                            <th class="text-end">Alınan Bedel</th>
+                            <th class="text-end">Maliyet</th>
+                            <th class="text-end">Kar</th>
+                            <th>Durum</th>
+                            <th>Fatura</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var iS in _filtrelenmisIsler)
+                        {
+                            var maliyet = iS.Atamalar.Sum(a => a.ToplamMaliyet);
+                            var kar = iS.ToplamTutar - maliyet;
+                            <tr>
+                                <td>
+                                    <a href="/filo-operasyon/komisyonculuk/@iS.Id" class="fw-bold text-decoration-none">
+                                        @iS.IsKodu
+                                    </a>
+                                </td>
+                                <td>@(iS.MusteriCari?.Unvan ?? "-")</td>
+                                <td>
+                                    <span class="badge bg-secondary">@GetIsTipiText(iS.IsTipi)</span>
+                                </td>
+                                <td>@iS.BaslangicTarihi.ToString("dd.MM.yyyy")</td>
+                                <td>@(iS.BitisTarihi?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                <td class="text-end fw-bold text-success">@iS.ToplamTutar.ToString("N2") ₺</td>
+                                <td class="text-end text-danger">@maliyet.ToString("N2") ₺</td>
+                                <td class="text-end @(kar >= 0 ? "text-success" : "text-danger") fw-bold">
+                                    @kar.ToString("N2") ₺
+                                </td>
+                                <td>
+                                    <span class="badge @GetDurumBadgeClass(iS.Durum)">
+                                        @GetDurumText(iS.Durum)
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (iS.FaturaKesildi)
+                                    {
+                                        <i class="bi bi-check-circle text-success" title="Fatura kesildi"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-exclamation-circle text-warning" title="Fatura bekliyor"></i>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="/filo-operasyon/komisyonculuk/@iS.Id" class="btn btn-outline-primary" title="Detay">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="/filo-operasyon/komisyonculuk/@iS.Id/duzenle" class="btn btn-outline-secondary" title="Düzenle">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger" title="Sil" @onclick="() => SilOnay(iS)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Silme Onay Modal -->
+@if (_silinecekIs != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">İş Silme Onayı</h5>
+                    <button type="button" class="btn-close" @onclick="() => _silinecekIs = null"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>@_silinecekIs.IsKodu</strong> kodlu işi silmek istediğinize emin misiniz?</p>
+                    <p class="text-muted mb-0">Bu işlem geri alınamaz.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => _silinecekIs = null">İptal</button>
+                    <button type="button" class="btn btn-danger" @onclick="Sil">
+                        <i class="bi bi-trash me-1"></i> Sil
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private List<KomisyonculukIs> _isler = new();
+    private List<Cari> _cariler = new();
+    private KomisyonculukIs? _silinecekIs;
+
+    // Filtreler
+    private KomisyonculukIsDurum? _filtreDurum;
+    private int? _filtreMusteriId;
+    private DateTime? _filtreBaslangic;
+    private DateTime? _filtreBitis;
+
+    private List<KomisyonculukIs> _filtrelenmisIsler => _isler
+        .Where(i => !_filtreDurum.HasValue || i.Durum == _filtreDurum.Value)
+        .Where(i => !_filtreMusteriId.HasValue || i.MusteriCariId == _filtreMusteriId.Value)
+        .Where(i => !_filtreBaslangic.HasValue || i.BaslangicTarihi >= _filtreBaslangic.Value)
+        .Where(i => !_filtreBitis.HasValue || i.BaslangicTarihi <= _filtreBitis.Value)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _isler = await FiloOperasyonService.GetKomisyonculukIslerAsync();
+            _cariler = await CariService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Veri yüklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void YeniIs()
+    {
+        NavigationManager.NavigateTo("/filo-operasyon/komisyonculuk/yeni");
+    }
+
+    private void FiltreTemizle()
+    {
+        _filtreDurum = null;
+        _filtreMusteriId = null;
+        _filtreBaslangic = null;
+        _filtreBitis = null;
+    }
+
+    private void SilOnay(KomisyonculukIs iS)
+    {
+        _silinecekIs = iS;
+    }
+
+    private async Task Sil()
+    {
+        if (_silinecekIs == null) return;
+
+        try
+        {
+            await FiloOperasyonService.DeleteKomisyonculukIsAsync(_silinecekIs.Id);
+            _isler.Remove(_silinecekIs);
+            ToastService.ShowSuccess("İş başarıyla silindi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Silme hatası: {ex.Message}");
+        }
+        finally
+        {
+            _silinecekIs = null;
+        }
+    }
+
+    private string GetIsTipiText(KomisyonculukIsTipi tip) => tip switch
+    {
+        KomisyonculukIsTipi.SoforluArac => "Şoförlü Araç",
+        KomisyonculukIsTipi.SoforsuzArac => "Şoförsüz Araç",
+        KomisyonculukIsTipi.SadeceArac => "Sadece Araç",
+        KomisyonculukIsTipi.PersonelServisi => "Personel Servisi",
+        KomisyonculukIsTipi.Transfer => "Transfer",
+        _ => tip.ToString()
+    };
+
+    private string GetDurumText(KomisyonculukIsDurum durum) => durum switch
+    {
+        KomisyonculukIsDurum.Aktif => "Aktif",
+        KomisyonculukIsDurum.Beklemede => "Beklemede",
+        KomisyonculukIsDurum.Tamamlandi => "Tamamlandı",
+        KomisyonculukIsDurum.IptalEdildi => "İptal",
+        _ => durum.ToString()
+    };
+
+    private string GetDurumBadgeClass(KomisyonculukIsDurum durum) => durum switch
+    {
+        KomisyonculukIsDurum.Aktif => "bg-success",
+        KomisyonculukIsDurum.Beklemede => "bg-warning",
+        KomisyonculukIsDurum.Tamamlandi => "bg-primary",
+        KomisyonculukIsDurum.IptalEdildi => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

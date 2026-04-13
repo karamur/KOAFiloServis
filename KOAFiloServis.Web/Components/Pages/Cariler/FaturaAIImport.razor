@@ -1,0 +1,818 @@
+@page "/fatura-ai-import"
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Models
+@using KOAFiloServis.Web.Services
+@inject IFaturaAIImportService AiImportService
+@inject IOllamaService OllamaService
+@inject ICariService CariService
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>AI Fatura Import - Koa Filo Servis</PageTitle>
+
+<div class="container-fluid">
+    <!-- Başlık -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1">
+                <i class="bi bi-robot me-2"></i>AI Destekli Fatura Import
+            </h4>
+            <small class="text-muted">XML/PDF faturalarını yapay zeka ile analiz edin, cari ve güzergah eşleştirmesi yapın</small>
+        </div>
+        <div>
+            <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/faturalar")'>
+                <i class="bi bi-arrow-left me-1"></i> Faturalar
+            </button>
+        </div>
+    </div>
+
+    @if (!aiAktif)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>Ollama AI bağlantısı kurulamadı.</strong> AI sınıflandırma özellikleri çalışmayacak.
+            Fatura XML parse işlemi devam edecek ancak kalem tipi tespiti yapılamaz.
+        </div>
+    }
+
+    <!-- Adım Göstergesi -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-center">
+                @for (int i = 1; i <= 4; i++)
+                {
+                    var step = i;
+                    <div class="text-center mx-3">
+                        <div class="rounded-circle d-inline-flex align-items-center justify-content-center @(aktifAdim >= step ? "bg-primary text-white" : "bg-light text-muted")"
+                             style="width:40px;height:40px;font-weight:bold;">@step</div>
+                        <div class="small mt-1 @(aktifAdim >= step ? "text-primary fw-bold" : "text-muted")">
+                            @(step switch { 1 => "Dosya Yükle", 2 => "Cari Kontrol", 3 => "Kalem Analizi", _ => "Kaydet" })
+                        </div>
+                    </div>
+                    if (step < 4)
+                    {
+                        <div class="d-flex align-items-center mx-1">
+                            <i class="bi bi-chevron-right @(aktifAdim > step ? "text-primary" : "text-muted")"></i>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (yukleniyor)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+            <p class="mt-2 text-muted">@yukleniyorMesaj</p>
+        </div>
+    }
+    else
+    {
+        @switch (aktifAdim)
+        {
+            case 1:
+                @DosyaYukleAdimi()
+                break;
+            case 2:
+                @CariKontrolAdimi()
+                break;
+            case 3:
+                @KalemAnaliziAdimi()
+                break;
+            case 4:
+                @KaydetAdimi()
+                break;
+        }
+    }
+</div>
+
+@* =================== ADIM 1: Dosya Yükle =================== *@
+@code {
+    private RenderFragment DosyaYukleAdimi() => __builder =>
+    {
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-body p-5">
+                        <div class="text-center mb-4">
+                            <i class="bi bi-cloud-arrow-up display-1 text-primary"></i>
+                            <h5 class="mt-3">E-Fatura XML Dosyası Yükleyin</h5>
+                            <p class="text-muted">UBL 2.1 formatında XML dosyalarını destekler</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <InputFile OnChange="DosyaSecildi" accept=".xml" class="form-control form-control-lg" />
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(hataMesaji))
+                        {
+                            <div class="alert alert-danger">
+                                <i class="bi bi-x-circle me-2"></i>@hataMesaji
+                            </div>
+                        }
+
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-info-circle me-2"></i>Nasıl Çalışır?</h6>
+                            <ol class="mb-0 small">
+                                <li><strong>XML Yükleme:</strong> E-fatura XML dosyanızı yükleyin</li>
+                                <li><strong>Cari Kontrol:</strong> AI satıcı/alıcıyı tespit eder, cari kartını eşleştirir veya yeni oluşturma önerir</li>
+                                <li><strong>Kalem Analizi:</strong> Fatura kalemlerini AI sınıflandırır (hizmet/mal/kiralama), güzergah ve stok eşleştirir</li>
+                                <li><strong>Kaydet:</strong> Düzeltmelerinizi yapın, onaylayın → fatura + güzergah + cari oluşturulur</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    };
+}
+
+@* =================== ADIM 2: Cari Kontrol =================== *@
+@code {
+    private RenderFragment CariKontrolAdimi() => __builder =>
+    {
+        if (analizSonuc == null) return;
+
+        <div class="row">
+            <!-- Fatura Özet -->
+            <div class="col-lg-5 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-receipt me-2"></i>Fatura Bilgileri
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm mb-0">
+                            <tr><th style="width:40%">Fatura No</th><td>@analizSonuc.FaturaNo</td></tr>
+                            <tr><th>ETTN</th><td class="small">@analizSonuc.EttnNo</td></tr>
+                            <tr><th>Tarih</th><td>@analizSonuc.FaturaTarihi?.ToString("dd.MM.yyyy")</td></tr>
+                            <tr><th>Vade</th><td>@(analizSonuc.VadeTarihi?.ToString("dd.MM.yyyy") ?? "-")</td></tr>
+                            <tr><th>Tip</th><td><span class="badge bg-secondary">@analizSonuc.EFaturaTipi</span></td></tr>
+                            <tr><th>Ara Toplam</th><td>@analizSonuc.AraToplam.ToString("N2") ₺</td></tr>
+                            <tr><th>KDV</th><td>@analizSonuc.KdvTutar.ToString("N2") ₺</td></tr>
+                            @if (analizSonuc.TevkifatliMi)
+                            {
+                                <tr><th>Tevkifat</th><td class="text-warning">%@analizSonuc.TevkifatOrani (@analizSonuc.TevkifatKodu)</td></tr>
+                            }
+                            <tr class="table-primary"><th>Genel Toplam</th><td class="fw-bold">@analizSonuc.GenelToplam.ToString("N2") ₺</td></tr>
+                            <tr><th>Kalem Sayısı</th><td>@analizSonuc.Kalemler.Count</td></tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Satıcı Bilgisi -->
+                <div class="card shadow-sm mt-3">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="bi bi-building me-2"></i>Satıcı (XML'den)
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm mb-0">
+                            <tr><th style="width:40%">Unvan</th><td>@analizSonuc.SaticiBilgi.Unvan</td></tr>
+                            <tr><th>Vergi No</th><td>@(analizSonuc.SaticiBilgi.VergiNo ?? analizSonuc.SaticiBilgi.TcKimlikNo ?? "-")</td></tr>
+                            <tr><th>Vergi Dairesi</th><td>@(analizSonuc.SaticiBilgi.VergiDairesi ?? "-")</td></tr>
+                            <tr><th>Adres</th><td class="small">@(analizSonuc.SaticiBilgi.Adres ?? "-")</td></tr>
+                            <tr><th>İl/İlçe</th><td>@(analizSonuc.SaticiBilgi.Il ?? "-") / @(analizSonuc.SaticiBilgi.Ilce ?? "-")</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cari Eşleştirme -->
+            <div class="col-lg-7 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header @(analizSonuc.CariEslesme.CariMevcut ? "bg-success" : "bg-warning") text-white">
+                        <i class="bi @(analizSonuc.CariEslesme.CariMevcut ? "bi-check-circle" : "bi-person-plus") me-2"></i>
+                        @(analizSonuc.CariEslesme.CariMevcut ? "Cari Eşleşti" : "Yeni Cari Oluşturulacak")
+                    </div>
+                    <div class="card-body">
+                        @if (analizSonuc.CariEslesme.CariMevcut)
+                        {
+                            <div class="alert alert-success">
+                                <i class="bi bi-check2-circle me-2"></i>
+                                <strong>Eşleşme bulundu</strong> (@analizSonuc.CariEslesme.EslesmeYontemi)
+                            </div>
+                            <table class="table table-sm">
+                                <tr><th style="width:30%">Cari Kodu</th><td>@analizSonuc.CariEslesme.MevcutCariKodu</td></tr>
+                                <tr><th>Unvan</th><td>@analizSonuc.CariEslesme.MevcutCariUnvan</td></tr>
+                            </table>
+
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" @bind="farkliCariSec" id="farkliCariCheck" />
+                                <label class="form-check-label" for="farkliCariCheck">Farklı bir cari ile eşleştir</label>
+                            </div>
+
+                            @if (farkliCariSec)
+                            {
+                                <div class="mt-2">
+                                    <select class="form-select" @onchange="FarkliCariSecildi">
+                                        <option value="">-- Cari Seçin --</option>
+                                        @if (tumCariler != null)
+                                        {
+                                            @foreach (var c in tumCariler)
+                                            {
+                                                <option value="@c.Id">@c.CariKodu - @c.Unvan</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                Cari bulunamadı. Aşağıdaki bilgilerle yeni cari oluşturulacak.
+                            </div>
+
+                            @if (analizSonuc.CariEslesme.YeniCariOnerisi != null)
+                            {
+                                var yeni = analizSonuc.CariEslesme.YeniCariOnerisi;
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small">Cari Kodu</label>
+                                        <input type="text" class="form-control form-control-sm" @bind="yeni.CariKodu" />
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label small">Unvan</label>
+                                        <input type="text" class="form-control form-control-sm" @bind="yeni.Unvan" />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small">Cari Tipi</label>
+                                        <select class="form-select form-select-sm" @bind="yeni.CariTipi">
+                                            @foreach (var tip in Enum.GetValues<CariTipi>())
+                                            {
+                                                <option value="@tip">@tip</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small">Vergi No</label>
+                                        <input type="text" class="form-control form-control-sm" @bind="yeni.VergiNo" />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small">Vergi Dairesi</label>
+                                        <input type="text" class="form-control form-control-sm" @bind="yeni.VergiDairesi" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Telefon</label>
+                                        <input type="text" class="form-control form-control-sm" @bind="yeni.Telefon" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Email</label>
+                                        <input type="text" class="form-control form-control-sm" @bind="yeni.Email" />
+                                    </div>
+                                </div>
+                            }
+
+                            <hr />
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="mevcutCariSec" id="mevcutCariCheck" />
+                                <label class="form-check-label" for="mevcutCariCheck">Mevcut bir cari ile eşleştir (yeni oluşturma)</label>
+                            </div>
+                            @if (mevcutCariSec)
+                            {
+                                <div class="mt-2">
+                                    <select class="form-select" @onchange="MevcutCariSecildi">
+                                        <option value="">-- Cari Seçin --</option>
+                                        @if (tumCariler != null)
+                                        {
+                                            @foreach (var c in tumCariler)
+                                            {
+                                                <option value="@c.Id">@c.CariKodu - @c.Unvan</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- İleri/Geri -->
+                <div class="d-flex justify-content-between mt-3">
+                    <button class="btn btn-outline-secondary" @onclick="() => aktifAdim = 1">
+                        <i class="bi bi-arrow-left me-1"></i> Geri
+                    </button>
+                    <button class="btn btn-primary" @onclick="Adim3Gec">
+                        Kalem Analizi <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    };
+}
+
+@* =================== ADIM 3: Kalem Analizi =================== *@
+@code {
+    private RenderFragment KalemAnaliziAdimi() => __builder =>
+    {
+        if (analizSonuc == null) return;
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-cpu me-2"></i>AI Kalem Sınıflandırması</span>
+                <span class="badge bg-light text-primary">@analizSonuc.Kalemler.Count kalem</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:5%">#</th>
+                                <th style="width:25%">Açıklama</th>
+                                <th style="width:6%">Miktar</th>
+                                <th style="width:6%">Birim</th>
+                                <th style="width:8%">B.Fiyat</th>
+                                <th style="width:8%">Toplam</th>
+                                <th style="width:14%">AI Tipi</th>
+                                <th style="width:14%">Düzelt</th>
+                                <th style="width:14%">Eşleşme</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var kalem in analizSonuc.Kalemler)
+                            {
+                                <tr>
+                                    <td>@kalem.SiraNo</td>
+                                    <td>
+                                        <span class="small">@kalem.Aciklama</span>
+                                        @if (!string.IsNullOrEmpty(kalem.UrunKodu))
+                                        {
+                                            <br /><span class="badge bg-light text-dark">@kalem.UrunKodu</span>
+                                        }
+                                    </td>
+                                    <td>@kalem.Miktar.ToString("N2")</td>
+                                    <td>@kalem.Birim</td>
+                                    <td>@kalem.BirimFiyat.ToString("N2")</td>
+                                    <td class="fw-bold">@kalem.ToplamTutar.ToString("N2")</td>
+                                    <td>
+                                        <span class="badge @GetKalemTipiBadge(kalem.AIKalemTipi)">
+                                            @GetKalemTipiMetin(kalem.AIKalemTipi)
+                                        </span>
+                                        @if (kalem.AIAltTipi != null)
+                                        {
+                                            <br /><span class="badge bg-light text-dark small">@GetAltTipiMetin(kalem.AIAltTipi.Value)</span>
+                                        }
+                                        <br />
+                                        <span class="small text-muted">Güven: %@kalem.AIGuvenSkoru</span>
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="kalem.KullaniciKalemTipi"
+                                                @bind:after="() => KalemTipiDegisti(kalem)">
+                                            @foreach (var tip in Enum.GetValues<FaturaKalemTipi>())
+                                            {
+                                                <option value="@tip">@GetKalemTipiMetin(tip)</option>
+                                            }
+                                        </select>
+                                        <select class="form-select form-select-sm mt-1" @bind="kalem.KullaniciAltTipi">
+                                            <option value="">Alt tip seçin</option>
+                                            @foreach (var altTip in GetUygunAltTipler(kalem.KullaniciKalemTipi))
+                                            {
+                                                <option value="@altTip">@GetAltTipiMetin(altTip)</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        @if (kalem.GuzergahEslesme != null)
+                                        {
+                                            @if (kalem.GuzergahEslesme.GuzergahMevcut)
+                                            {
+                                                <span class="badge bg-success small">
+                                                    <i class="bi bi-geo-alt me-1"></i>@kalem.GuzergahEslesme.MevcutGuzergahAdi
+                                                </span>
+                                            }
+                                            else if (kalem.GuzergahEslesme.BenzerGuzergahlar.Any())
+                                            {
+                                                <select class="form-select form-select-sm" @onchange="e => GuzergahSecildi(kalem, e)">
+                                                    <option value="yeni">+ Yeni Güzergah</option>
+                                                    @foreach (var b in kalem.GuzergahEslesme.BenzerGuzergahlar)
+                                                    {
+                                                        <option value="@b.GuzergahId">@b.GuzergahAdi (%@b.BenzerlikSkoru)</option>
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-info small">
+                                                    <i class="bi bi-plus me-1"></i>Yeni güzergah
+                                                </span>
+                                            }
+                                        }
+                                        @if (kalem.StokEslesme != null)
+                                        {
+                                            @if (kalem.StokEslesme.StokMevcut)
+                                            {
+                                                <span class="badge bg-success small">
+                                                    <i class="bi bi-box me-1"></i>@kalem.StokEslesme.MevcutStokAdi
+                                                </span>
+                                            }
+                                            else if (kalem.StokEslesme.BenzerStoklar.Any())
+                                            {
+                                                <select class="form-select form-select-sm" @onchange="e => StokSecildi(kalem, e)">
+                                                    <option value="">Stok seçin</option>
+                                                    @foreach (var b in kalem.StokEslesme.BenzerStoklar)
+                                                    {
+                                                        <option value="@b.StokId">@b.StokAdi (%@b.BenzerlikSkoru)</option>
+                                                    }
+                                                </select>
+                                            }
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr class="fw-bold">
+                                <td colspan="5" class="text-end">Toplam:</td>
+                                <td>@analizSonuc.GenelToplam.ToString("N2") ₺</td>
+                                <td colspan="3"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(analizSonuc.AIYorum))
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-robot me-2"></i>
+                <strong>AI Yorumu:</strong> @analizSonuc.AIYorum
+            </div>
+        }
+
+        <!-- Oluşturulacak Güzergahlar Özet -->
+        @if (GetYeniGuzergahKalemler().Any())
+        {
+            <div class="alert alert-warning">
+                <h6><i class="bi bi-geo-alt me-2"></i>Oluşturulacak Yeni Güzergahlar (@GetYeniGuzergahKalemler().Count)</h6>
+                <ul class="mb-0 small">
+                    @foreach (var k in GetYeniGuzergahKalemler())
+                    {
+                        <li>
+                            <strong>@(k.GuzergahEslesme!.OnerilenGuzergahAdi)</strong>
+                            - Birim Fiyat: @k.BirimFiyat.ToString("N2") ₺, Miktar: @k.Miktar
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <div class="d-flex justify-content-between">
+            <button class="btn btn-outline-secondary" @onclick="() => aktifAdim = 2">
+                <i class="bi bi-arrow-left me-1"></i> Geri
+            </button>
+            <button class="btn btn-success btn-lg" @onclick="Adim4Gec">
+                <i class="bi bi-check-circle me-1"></i> Onayla ve Kaydet
+            </button>
+        </div>
+    };
+}
+
+@* =================== ADIM 4: Kaydet =================== *@
+@code {
+    private RenderFragment KaydetAdimi() => __builder =>
+    {
+        @if (kaydetSonuc != null)
+        {
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card shadow-sm">
+                        <div class="card-body text-center p-5">
+                            @if (kaydetSonuc.Basarili)
+                            {
+                                <i class="bi bi-check-circle-fill display-1 text-success"></i>
+                                <h4 class="mt-3 text-success">Fatura Başarıyla Kaydedildi!</h4>
+                                <p class="text-muted">@kaydetSonuc.Mesaj</p>
+
+                                @if (kaydetSonuc.Uyarilar.Any())
+                                {
+                                    <div class="alert alert-info text-start mt-3">
+                                        <h6>İşlem Detayları:</h6>
+                                        <ul class="mb-0 small">
+                                            @foreach (var uyari in kaydetSonuc.Uyarilar)
+                                            {
+                                                <li>@uyari</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+
+                                <div class="mt-4">
+                                    <button class="btn btn-primary me-2" @onclick='() => Navigation.NavigateTo($"/faturalar/{kaydetSonuc.FaturaId}")'>
+                                        <i class="bi bi-receipt me-1"></i> Faturayı Görüntüle
+                                    </button>
+                                    <button class="btn btn-outline-primary me-2" @onclick="YeniImport">
+                                        <i class="bi bi-plus-circle me-1"></i> Yeni Fatura Yükle
+                                    </button>
+                                    <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/faturalar")'>
+                                        <i class="bi bi-list me-1"></i> Fatura Listesi
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <i class="bi bi-x-circle-fill display-1 text-danger"></i>
+                                <h4 class="mt-3 text-danger">Kaydetme Başarısız</h4>
+                                <p class="text-muted">@kaydetSonuc.Mesaj</p>
+                                <button class="btn btn-primary mt-3" @onclick="() => aktifAdim = 3">
+                                    <i class="bi bi-arrow-left me-1"></i> Geri Dön
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    };
+}
+
+@code {
+    private int aktifAdim = 1;
+    private bool yukleniyor;
+    private string yukleniyorMesaj = "Yükleniyor...";
+    private string? hataMesaji;
+    private bool aiAktif;
+
+    private FaturaAIAnalizSonuc? analizSonuc;
+    private FaturaAIKaydetSonuc? kaydetSonuc;
+
+    private bool farkliCariSec;
+    private bool mevcutCariSec;
+    private List<Cari>? tumCariler;
+
+    protected override async Task OnInitializedAsync()
+    {
+        aiAktif = await OllamaService.BaglantiKontrolAsync();
+    }
+
+    private async Task DosyaSecildi(InputFileChangeEventArgs e)
+    {
+        hataMesaji = null;
+        var dosya = e.File;
+
+        if (dosya == null) return;
+
+        if (!dosya.Name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+        {
+            hataMesaji = "Sadece XML dosyaları desteklenir.";
+            return;
+        }
+
+        if (dosya.Size > 10 * 1024 * 1024) // 10MB
+        {
+            hataMesaji = "Dosya boyutu 10MB'ı geçemez.";
+            return;
+        }
+
+        yukleniyor = true;
+        yukleniyorMesaj = "XML dosyası analiz ediliyor...";
+        StateHasChanged();
+
+        try
+        {
+            using var stream = dosya.OpenReadStream(10 * 1024 * 1024);
+            using var reader = new StreamReader(stream);
+            var xmlIcerik = await reader.ReadToEndAsync();
+
+            yukleniyorMesaj = "Fatura bilgileri çıkarılıyor...";
+            StateHasChanged();
+
+            analizSonuc = await AiImportService.AnalizEtXmlAsync(xmlIcerik, dosya.Name);
+
+            if (!analizSonuc.AnalizBasarili)
+            {
+                hataMesaji = analizSonuc.HataMesaji;
+                yukleniyor = false;
+                return;
+            }
+
+            // Tüm carileri yükle (eşleştirme için)
+            tumCariler = await CariService.GetAllAsync();
+
+            aktifAdim = 2;
+        }
+        catch (Exception ex)
+        {
+            hataMesaji = $"Dosya okuma hatası: {ex.Message}";
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
+    }
+
+    private void FarkliCariSecildi(ChangeEventArgs e)
+    {
+        if (analizSonuc == null || !int.TryParse(e.Value?.ToString(), out var cariId)) return;
+
+        var cari = tumCariler?.FirstOrDefault(c => c.Id == cariId);
+        if (cari != null)
+        {
+            analizSonuc.CariEslesme.CariMevcut = true;
+            analizSonuc.CariEslesme.MevcutCariId = cari.Id;
+            analizSonuc.CariEslesme.MevcutCariUnvan = cari.Unvan;
+            analizSonuc.CariEslesme.MevcutCariKodu = cari.CariKodu;
+            analizSonuc.CariEslesme.YeniCariOlusturulacak = false;
+        }
+    }
+
+    private void MevcutCariSecildi(ChangeEventArgs e)
+    {
+        if (analizSonuc == null || !int.TryParse(e.Value?.ToString(), out var cariId)) return;
+
+        var cari = tumCariler?.FirstOrDefault(c => c.Id == cariId);
+        if (cari != null)
+        {
+            analizSonuc.CariEslesme.CariMevcut = true;
+            analizSonuc.CariEslesme.MevcutCariId = cari.Id;
+            analizSonuc.CariEslesme.MevcutCariUnvan = cari.Unvan;
+            analizSonuc.CariEslesme.MevcutCariKodu = cari.CariKodu;
+            analizSonuc.CariEslesme.YeniCariOlusturulacak = false;
+        }
+    }
+
+    private async Task Adim3Gec()
+    {
+        if (analizSonuc == null) return;
+
+        yukleniyor = true;
+        yukleniyorMesaj = "AI kalem sınıflandırması yapılıyor...";
+        StateHasChanged();
+
+        try
+        {
+            // Kalem sınıflandırması AI tarafından zaten yapıldı, ek analiz gerekirse burada
+            aktifAdim = 3;
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
+    }
+
+    private async Task Adim4Gec()
+    {
+        if (analizSonuc == null) return;
+
+        yukleniyor = true;
+        yukleniyorMesaj = "Fatura ve ilişkili kayıtlar oluşturuluyor...";
+        StateHasChanged();
+
+        try
+        {
+            kaydetSonuc = await AiImportService.KaydetAsync(analizSonuc, null);
+            aktifAdim = 4;
+        }
+        catch (Exception ex)
+        {
+            kaydetSonuc = new FaturaAIKaydetSonuc
+            {
+                Basarili = false,
+                Mesaj = $"Hata: {ex.Message}"
+            };
+            aktifAdim = 4;
+        }
+        finally
+        {
+            yukleniyor = false;
+        }
+    }
+
+    private void YeniImport()
+    {
+        aktifAdim = 1;
+        analizSonuc = null;
+        kaydetSonuc = null;
+        hataMesaji = null;
+        farkliCariSec = false;
+        mevcutCariSec = false;
+    }
+
+    private void KalemTipiDegisti(FaturaAIKalem kalem)
+    {
+        kalem.KullaniciDuzeltti = true;
+        // Alt tipi sıfırla
+        kalem.KullaniciAltTipi = null;
+    }
+
+    private void GuzergahSecildi(FaturaAIKalem kalem, ChangeEventArgs e)
+    {
+        if (kalem.GuzergahEslesme == null) return;
+        var val = e.Value?.ToString();
+
+        if (val == "yeni" || string.IsNullOrEmpty(val))
+        {
+            kalem.GuzergahEslesme.GuzergahMevcut = false;
+            kalem.GuzergahEslesme.YeniGuzergahOlusturulacak = true;
+            return;
+        }
+
+        if (int.TryParse(val, out var guzergahId))
+        {
+            var benzer = kalem.GuzergahEslesme.BenzerGuzergahlar.FirstOrDefault(b => b.GuzergahId == guzergahId);
+            if (benzer != null)
+            {
+                kalem.GuzergahEslesme.GuzergahMevcut = true;
+                kalem.GuzergahEslesme.MevcutGuzergahId = benzer.GuzergahId;
+                kalem.GuzergahEslesme.MevcutGuzergahAdi = benzer.GuzergahAdi;
+                kalem.GuzergahEslesme.MevcutGuzergahKodu = benzer.GuzergahKodu;
+                kalem.GuzergahEslesme.MevcutBirimFiyat = benzer.BirimFiyat;
+                kalem.GuzergahEslesme.YeniGuzergahOlusturulacak = false;
+            }
+        }
+    }
+
+    private void StokSecildi(FaturaAIKalem kalem, ChangeEventArgs e)
+    {
+        if (kalem.StokEslesme == null) return;
+
+        if (int.TryParse(e.Value?.ToString(), out var stokId))
+        {
+            var benzer = kalem.StokEslesme.BenzerStoklar.FirstOrDefault(b => b.StokId == stokId);
+            if (benzer != null)
+            {
+                kalem.StokEslesme.StokMevcut = true;
+                kalem.StokEslesme.MevcutStokId = benzer.StokId;
+                kalem.StokEslesme.MevcutStokKodu = benzer.StokKodu;
+                kalem.StokEslesme.MevcutStokAdi = benzer.StokAdi;
+                kalem.StokEslesme.MevcutFiyat = benzer.Fiyat;
+            }
+        }
+    }
+
+    #region Helper Metotlar
+
+    private List<FaturaAIKalem> GetYeniGuzergahKalemler()
+    {
+        if (analizSonuc == null) return [];
+        return analizSonuc.Kalemler
+            .Where(k => k.GuzergahEslesme != null && k.GuzergahEslesme.YeniGuzergahOlusturulacak && !k.GuzergahEslesme.GuzergahMevcut)
+            .ToList();
+    }
+
+    private static string GetKalemTipiBadge(FaturaKalemTipi tip)
+    {
+        return tip switch
+        {
+            FaturaKalemTipi.Hizmet => "bg-primary",
+            FaturaKalemTipi.Mal => "bg-warning text-dark",
+            FaturaKalemTipi.Servis => "bg-info",
+            FaturaKalemTipi.Arac => "bg-dark",
+            FaturaKalemTipi.Demirbas => "bg-secondary",
+            _ => "bg-light text-dark"
+        };
+    }
+
+    private static string GetKalemTipiMetin(FaturaKalemTipi tip)
+    {
+        return tip switch
+        {
+            FaturaKalemTipi.Hizmet => "Hizmet",
+            FaturaKalemTipi.Mal => "Mal",
+            FaturaKalemTipi.Servis => "Servis",
+            FaturaKalemTipi.Arac => "Araç",
+            FaturaKalemTipi.Demirbas => "Demirbaş",
+            _ => "Diğer"
+        };
+    }
+
+    private static string GetAltTipiMetin(FaturaKalemAltTipi altTip)
+    {
+        return altTip switch
+        {
+            FaturaKalemAltTipi.TasimaHizmeti => "Taşıma Hizmeti",
+            FaturaKalemAltTipi.KiralamaHizmeti => "Kiralama",
+            FaturaKalemAltTipi.DanismanlikHizmeti => "Danışmanlık",
+            FaturaKalemAltTipi.TicariMal => "Ticari Mal",
+            FaturaKalemAltTipi.YedekParca => "Yedek Parça",
+            FaturaKalemAltTipi.SarfMalzeme => "Sarf Malzeme",
+            FaturaKalemAltTipi.BakimOnarim => "Bakım/Onarım",
+            FaturaKalemAltTipi.Kasko => "Kasko",
+            FaturaKalemAltTipi.Sigorta => "Sigorta",
+            FaturaKalemAltTipi.Muayene => "Muayene",
+            FaturaKalemAltTipi.Lastik => "Lastik",
+            FaturaKalemAltTipi.Yakit => "Yakıt",
+            _ => "Diğer"
+        };
+    }
+
+    private static List<FaturaKalemAltTipi> GetUygunAltTipler(FaturaKalemTipi tip)
+    {
+        return tip switch
+        {
+            FaturaKalemTipi.Hizmet => [FaturaKalemAltTipi.TasimaHizmeti, FaturaKalemAltTipi.KiralamaHizmeti, FaturaKalemAltTipi.DanismanlikHizmeti],
+            FaturaKalemTipi.Mal => [FaturaKalemAltTipi.TicariMal, FaturaKalemAltTipi.YedekParca, FaturaKalemAltTipi.SarfMalzeme],
+            FaturaKalemTipi.Servis => [FaturaKalemAltTipi.BakimOnarim, FaturaKalemAltTipi.Kasko, FaturaKalemAltTipi.Sigorta, FaturaKalemAltTipi.Muayene, FaturaKalemAltTipi.Lastik, FaturaKalemAltTipi.Yakit],
+            FaturaKalemTipi.Demirbas => [FaturaKalemAltTipi.AracDemirbas, FaturaKalemAltTipi.OfisEkipmani, FaturaKalemAltTipi.MakinaTechizat, FaturaKalemAltTipi.DigerDemirbas],
+            FaturaKalemTipi.Arac => [FaturaKalemAltTipi.AracSatis, FaturaKalemAltTipi.AracAlis],
+            _ => [FaturaKalemAltTipi.Diger]
+        };
+    }
+
+    #endregion
+}

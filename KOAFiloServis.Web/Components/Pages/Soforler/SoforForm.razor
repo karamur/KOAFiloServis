@@ -1,0 +1,899 @@
+@page "/soforler/yeni"
+@page "/soforler/{Id:int}"
+@page "/personel/yeni"
+@page "/personel/{Id:int}"
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject ISoforService SoforService
+@inject IMuhasebeService MuhasebeService
+@inject IPersonelOzlukService OzlukService
+@inject ISecureFileService SecureFileService
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEdit ? "Personel Düzenle" : "Yeni Personel")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-person-badge me-2"></i>@(IsEdit ? "Personel Düzenle" : "Yeni Personel")</h3>
+        <button class="btn btn-secondary" @onclick="Geri">
+            <i class="bi bi-arrow-left me-1"></i>Geri
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="sofor" OnValidSubmit="Kaydet">
+                <DataAnnotationsValidator />
+
+                <!-- Temel Bilgiler -->
+                <h5 class="text-primary mb-3"><i class="bi bi-person me-2"></i>Temel Bilgiler</h5>
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label class="form-label">Sıralama No</label>
+                            <InputNumber @bind-Value="sofor.SiralamaNo" class="form-control" />
+                            <small class="text-muted">Bordro sıralama için</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label class="form-label">Personel Kodu *</label>
+                            <InputText @bind-Value="sofor.SoforKodu" class="form-control" readonly="@IsEdit" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Ad *</label>
+                            <InputText @bind-Value="sofor.Ad" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Soyad *</label>
+                            <InputText @bind-Value="sofor.Soyad" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label class="form-label">TC Kimlik No</label>
+                            <InputText @bind-Value="sofor.TcKimlikNo" class="form-control" maxlength="11" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Görev *</label>
+                            <InputSelect @bind-Value="sofor.Gorev" class="form-select" @bind-Value:after="GorevDegisti">
+                                @foreach (PersonelGorev gorev in Enum.GetValues(typeof(PersonelGorev)))
+                                {
+                                    <option value="@gorev">@GetGorevAdi(gorev)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Departman</label>
+                            <InputText @bind-Value="sofor.Departman" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Pozisyon</label>
+                            <InputText @bind-Value="sofor.Pozisyon" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">İşe Başlama Tarihi</label>
+                            <InputDate @bind-Value="sofor.IseBaslamaTarihi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">İşten Çıkış Tarihi</label>
+                            <InputDate @bind-Value="sofor.IstenAyrilmaTarihi" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">SGK Çıkış Tarihi</label>
+                            <InputDate @bind-Value="sofor.SgkCikisTarihi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Telefon</label>
+                            <InputText @bind-Value="sofor.Telefon" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText @bind-Value="sofor.Email" class="form-control" type="email" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Adres</label>
+                            <InputText @bind-Value="sofor.Adres" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Şoför Belgeleri (Sadece Şoför seçiliyse göster) -->
+                @if (sofor.Gorev == PersonelGorev.Sofor)
+                {
+                    <hr />
+                    <h5 class="text-primary mb-3"><i class="bi bi-file-earmark-text me-2"></i>Şoför Belgeleri</h5>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Ehliyet No</label>
+                                <InputText @bind-Value="sofor.EhliyetNo" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Ehliyet Geçerlilik</label>
+                                <InputDate @bind-Value="sofor.EhliyetGecerlilikTarihi" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">SRC Belgesi Geçerlilik</label>
+                                <InputDate @bind-Value="sofor.SrcBelgesiGecerlilikTarihi" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Psikoteknik Geçerlilik</label>
+                                <InputDate @bind-Value="sofor.PsikoteknikGecerlilikTarihi" class="form-control" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Sağlık Raporu Geçerlilik</label>
+                                <InputDate @bind-Value="sofor.SaglikRaporuGecerlilikTarihi" class="form-control" />
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Maaş ve Banka Bilgileri -->
+                <hr />
+                <h5 class="text-primary mb-3"><i class="bi bi-cash-stack me-2"></i>Maaş ve Banka Bilgileri</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Brüt Maaş Hesaplama Tipi</label>
+                            <InputSelect @bind-Value="sofor.BrutMaasHesaplamaTipi" class="form-select" @bind-Value:after="BrutMaasHesaplaAsync">
+                                <option value="@BrutMaasHesaplamaTipi.Manuel">Manuel Giriş</option>
+                                <option value="@BrutMaasHesaplamaTipi.Saatlik">Saatlik Ücret</option>
+                                <option value="@BrutMaasHesaplamaTipi.Gunluk">Günlük Ücret</option>
+                                <option value="@BrutMaasHesaplamaTipi.Aylik">Aylık Ücret</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                    @if (sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)
+                    {
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">@GetCalismaMiktariLabel()</label>
+                                <InputNumber @bind-Value="sofor.CalismaMiktari" class="form-control" @bind-Value:after="BrutMaasHesaplaAsync" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">@GetBirimUcretLabel()</label>
+                                <InputNumber @bind-Value="sofor.BirimUcret" class="form-control" @bind-Value:after="BrutMaasHesaplaAsync" />
+                            </div>
+                        </div>
+                    }
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Brüt Maaş (₺)</label>
+                            <InputNumber @bind-Value="sofor.BrutMaas" class="form-control" readonly="@(sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)" @bind-Value:after="BrutMaasHesaplaAsync" />
+                            @if (sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)
+                            {
+                                <small class="text-muted">Hesaplanan: @sofor.CalismaMiktari x @sofor.BirimUcret = @sofor.BrutMaas.ToString("N2")</small>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Resmi Net Maaş (₺) *</label>
+                            <InputNumber @bind-Value="sofor.ResmiNetMaas" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Diğer Maaş (₺)</label>
+                            <InputNumber @bind-Value="sofor.DigerMaas" class="form-control" />
+                            <small class="text-muted">Kuruş farkı veya ekleme için negatif değer kullanılabilir.</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Net Maaş (₺)</label>
+                            <input type="text" class="form-control bg-light" readonly value="@((sofor.ResmiNetMaas + sofor.DigerMaas).ToString("N2"))" />
+                            <small class="text-muted">Resmi Net + Diğer = Net Maaş</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Banka Adı</label>
+                            <InputText @bind-Value="sofor.BankaAdi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">IBAN</label>
+                            <InputText @bind-Value="sofor.IBAN" class="form-control" placeholder="TR00 0000 0000 0000 0000 0000 00" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <div class="form-check form-switch mt-4">
+                                <InputCheckbox @bind-Value="sofor.SGKBordroDahilMi" class="form-check-input" id="sgkBordro" />
+                                <label class="form-check-label" for="sgkBordro">
+                                    <strong>SGK Bordro Düzenlensin</strong>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    @if (sofor.SGKBordroDahilMi)
+                    {
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Bordro Tipi *</label>
+                                <InputSelect @bind-Value="sofor.BordroTipiPersonel" class="form-select" @bind-Value:after="BordroTipiDegisti">
+                                    <option value="@PersonelBordroTipi.Normal">Normal</option>
+                                    <option value="@PersonelBordroTipi.Arge">ARGE</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Muhasebe Hesap Entegrasyonu -->
+                <hr />
+                <h5 class="text-primary mb-3"><i class="bi bi-calculator me-2"></i>Muhasebe Hesap Entegrasyonu</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Muhasebe Hesabı</label>
+                            <div class="input-group">
+                                <InputSelect @bind-Value="sofor.MuhasebeHesapId" class="form-select">
+                                    <option value="">-- Otomatik Oluşturulsun --</option>
+                                    @foreach (var hesap in muhasebeHesaplari)
+                                    {
+                                        <option value="@hesap.Id">@hesap.HesapKodu - @hesap.HesapAdi</option>
+                                    }
+                                </InputSelect>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="HesaplariYenile" title="Hesapları Yenile">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">
+                                @if (!IsEdit || !sofor.MuhasebeHesapId.HasValue)
+                                {
+                                    <text>Boş bırakılırsa "335.@(sofor.SoforKodu)" kodu ile otomatik oluşturulur.</text>
+                                }
+                                else
+                                {
+                                    <text>Personel için muhasebe işlemlerinde bu hesap kullanılır.</text>
+                                }
+                            </small>
+                        </div>
+                    </div>
+                    @if (sofor.MuhasebeHesapId.HasValue)
+                    {
+                        var secilenHesap = muhasebeHesaplari.FirstOrDefault(h => h.Id == sofor.MuhasebeHesapId);
+                        @if (secilenHesap != null)
+                        {
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Hesap Bilgisi</label>
+                                    <div class="alert alert-info py-2 mb-0">
+                                        <small>
+                                            <strong>@secilenHesap.HesapKodu</strong> - @secilenHesap.HesapAdi
+                                            <br />
+                                            <span class="text-muted">@secilenHesap.HesapGrubu</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                @* ARGE Personeli Uyarıları *@
+                @if (sofor.SGKBordroDahilMi && sofor.BordroTipiPersonel == PersonelBordroTipi.Arge)
+                {
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-lightbulb me-2"></i>ARGE Personeli - Yasal Mevzuat Uyarıları</h6>
+                        <ul class="mb-0 small">
+                            <li>ARGE personeli 5746 sayılı Ar-Ge Faaliyetlerinin Desteklenmesi Hakkında Kanun kapsamında değerlendirilmektedir.</li>
+                            <li>ARGE personeli için SGK işveren payı desteği (%100'e kadar) uygulanabilir.</li>
+                            <li>Gelir vergisi stopaj teşviki uygulanabilir (Ar-Ge merkezleri için %100, diğerleri için %80).</li>
+                            <li>Personelin ARGE faaliyetlerinde çalıştığını belgeleyen kayıtlar düzenli tutulmalıdır.</li>
+                            <li>ARGE projelerinde çalışma süreleri ve saatleri ayrı takip edilmelidir.</li>
+                        </ul>
+                        @if (string.IsNullOrWhiteSpace(sofor.TcKimlikNo))
+                        {
+                            <div class="mt-2 text-danger">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                <strong>Uyarı:</strong> ARGE personeli için TC Kimlik No zorunludur!
+                            </div>
+                        }
+                    </div>
+                }
+
+                <!-- Durum ve Notlar -->
+                <hr />
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <div class="form-check form-switch mt-4">
+                                <InputCheckbox @bind-Value="sofor.Aktif" class="form-check-input" id="aktif" />
+                                <label class="form-check-label" for="aktif">
+                                    <strong>@(sofor.Aktif ? "Aktif" : "Pasif")</strong>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-10">
+                        <div class="mb-3">
+                            <label class="form-label">Notlar</label>
+                            <InputTextArea @bind-Value="sofor.Notlar" class="form-control" rows="2" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="Geri">
+                        <i class="bi bi-x-lg me-1"></i>İptal
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    @* Özlük Belgeleri Bölümü - Sadece Düzenleme Modunda *@
+    @if (IsEdit)
+    {
+        <div class="card mt-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-folder-fill me-2"></i>Özlük Belgeleri</h5>
+                <a href="/ebys/ozluk-dosyasi/@Id" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>Tüm Evraklar (EBYS)
+                </a>
+            </div>
+            <div class="card-body">
+                @if (evrakDurumuYukleniyor)
+                {
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Yükleniyor...</span>
+                        </div>
+                    </div>
+                }
+                else if (evrakDurumu == null)
+                {
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Özlük evrak durumu yüklenemedi.
+                    </div>
+                }
+                else
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar @GetProgressBarClass(evrakDurumu.TamamlanmaYuzdesi)" 
+                                     role="progressbar" 
+                                     style="width: @evrakDurumu.TamamlanmaYuzdesi%"
+                                     aria-valuenow="@evrakDurumu.TamamlanmaYuzdesi" aria-valuemin="0" aria-valuemax="100">
+                                    %@evrakDurumu.TamamlanmaYuzdesi.ToString("F0")
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <span class="badge bg-success me-2">@evrakDurumu.TamamlananEvrak Tamamlanan</span>
+                            <span class="badge bg-danger">@evrakDurumu.EksikEvrak Eksik</span>
+                        </div>
+                    </div>
+
+                    @* Şoför Belgeleri (Ehliyet, SRC, Psikoteknik) - Hızlı Erişim *@
+                    @if (sofor.Gorev == PersonelGorev.Sofor)
+                    {
+                        <h6 class="text-primary mb-3"><i class="bi bi-card-checklist me-2"></i>Şoför Belgeleri (Hızlı Erişim)</h6>
+                        <div class="row g-3 mb-4">
+                            @foreach (var evrak in evrakDurumu.Evraklar.Where(e => e.Kategori == OzlukEvrakKategori.SoforBelgeleri))
+                            {
+                                <div class="col-md-4">
+                                    <div class="card h-100 @(evrak.Tamamlandi ? "border-success" : "border-warning")">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="card-title mb-1">@evrak.EvrakAdi</h6>
+                                                    @if (evrak.Tamamlandi)
+                                                    {
+                                                        <small class="text-success">
+                                                            <i class="bi bi-check-circle me-1"></i>
+                                                            @(evrak.TamamlanmaTarihi?.ToString("dd.MM.yyyy") ?? "Yüklendi")
+                                                        </small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="text-warning">
+                                                            <i class="bi bi-exclamation-circle me-1"></i>Eksik
+                                                        </small>
+                                                    }
+                                                </div>
+                                                <div>
+                                                    @if (evrak.Tamamlandi && !string.IsNullOrWhiteSpace(evrak.DosyaYolu))
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EvrakDosyaIndir(evrak)" title="İndir">
+                                                            <i class="bi bi-download"></i>
+                                                        </button>
+                                                    }
+                                                    <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => EvrakYukleModalAc(evrak)" title="Yükle">
+                                                        <i class="bi bi-upload"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @* Diğer Önemli Belgeler *@
+                    <h6 class="text-secondary mb-3"><i class="bi bi-file-earmark-text me-2"></i>Diğer Önemli Belgeler</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Belge</th>
+                                    <th>Kategori</th>
+                                    <th>Durum</th>
+                                    <th class="text-end">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var evrak in evrakDurumu.Evraklar.Where(e => e.Kategori != OzlukEvrakKategori.SoforBelgeleri).Take(10))
+                                {
+                                    <tr>
+                                        <td>
+                                            @evrak.EvrakAdi
+                                            @if (evrak.Zorunlu)
+                                            {
+                                                <span class="badge bg-danger ms-1">Zorunlu</span>
+                                            }
+                                        </td>
+                                        <td><span class="badge bg-secondary">@GetKategoriAdi(evrak.Kategori)</span></td>
+                                        <td>
+                                            @if (evrak.Tamamlandi)
+                                            {
+                                                <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Tamam</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-warning"><i class="bi bi-exclamation-circle-fill me-1"></i>Eksik</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-success" @onclick="() => EvrakYukleModalAc(evrak)" title="Yükle">
+                                                <i class="bi bi-upload"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@* Evrak Yükleme Modal *@
+@if (showEvrakYukleModal && seciliEvrakDetay != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-upload me-2"></i>@seciliEvrakDetay.EvrakAdi Yükle</h5>
+                    <button type="button" class="btn-close" @onclick="EvrakYukleModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>@sofor.TamAd</strong> için <strong>@seciliEvrakDetay.EvrakAdi</strong> belgesi yükleyin.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dosya Seçin *</label>
+                        <InputFile OnChange="OnEvrakDosyaSecildi" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+                        <small class="text-muted">PDF, JPG, PNG, DOC formatları desteklenir. Maks 10MB.</small>
+                    </div>
+                    @if (secilenEvrakDosya != null)
+                    {
+                        <div class="alert alert-success">
+                            <i class="bi bi-file-earmark-check me-2"></i>
+                            @secilenEvrakDosya.Name (@FormatDosyaBoyutu(secilenEvrakDosya.Size))
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="EvrakYukleModalKapat">İptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="EvrakDosyaYukle" disabled="@(secilenEvrakDosya == null || evrakYukleniyor)">
+                        @if (evrakYukleniyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-upload me-1"></i>Yükle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Sofor sofor = new();
+    private bool IsEdit => Id.HasValue;
+    private decimal ToplamNetMaas => sofor.ResmiNetMaas + sofor.DigerMaas;
+    private List<MuhasebeHesap> muhasebeHesaplari = new();
+
+    // Özlük Evrak Yönetimi
+    private PersonelOzlukEvrakDurum? evrakDurumu;
+    private bool evrakDurumuYukleniyor = false;
+    private bool showEvrakYukleModal = false;
+    private OzlukEvrakDetay? seciliEvrakDetay;
+    private IBrowserFile? secilenEvrakDosya;
+    private bool evrakYukleniyor = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await HesaplariYukle();
+
+        if (IsEdit)
+        {
+            var existing = await SoforService.GetByIdAsync(Id!.Value);
+            if (existing != null)
+            {
+                sofor = existing;
+                await EvrakDurumuYukle();
+            }
+            else
+            {
+                Navigation.NavigateTo("/personel");
+            }
+        }
+        else
+        {
+            sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
+            sofor.Aktif = true;
+            sofor.Gorev = PersonelGorev.Sofor;
+        }
+    }
+
+    private async Task HesaplariYukle()
+    {
+        muhasebeHesaplari = await SoforService.GetPersonelMuhasebeHesaplariAsync();
+    }
+
+    private async Task HesaplariYenile()
+    {
+        await HesaplariYukle();
+        ToastService.ShowInfo("Muhasebe hesapları yenilendi.");
+    }
+
+    private async Task Kaydet()
+    {
+        if (string.IsNullOrWhiteSpace(sofor.Ad) || string.IsNullOrWhiteSpace(sofor.Soyad))
+        {
+            ToastService.ShowWarning("Ad ve Soyad alanları zorunludur!");
+            return;
+        }
+
+        // ARGE personeli için TC Kimlik No zorunlu
+        if (sofor.SGKBordroDahilMi && sofor.BordroTipiPersonel == PersonelBordroTipi.Arge)
+        {
+            if (string.IsNullOrWhiteSpace(sofor.TcKimlikNo))
+            {
+                ToastService.ShowError("ARGE personeli için TC Kimlik No zorunludur! Yasal mevzuat gereği ARGE çalışanlarının kimlik bilgileri eksiksiz olmalıdır.");
+                return;
+            }
+
+            if (sofor.TcKimlikNo.Length != 11 || !sofor.TcKimlikNo.All(char.IsDigit))
+            {
+                ToastService.ShowError("TC Kimlik No 11 haneli olmalıdır!");
+                return;
+            }
+        }
+
+        // SGK bordro dahilse ama tipi Yok seçiliyse uyar
+        if (sofor.SGKBordroDahilMi && sofor.BordroTipiPersonel == PersonelBordroTipi.Yok)
+        {
+            sofor.BordroTipiPersonel = PersonelBordroTipi.Normal;
+        }
+
+        // SGK bordro dahil değilse tipi Yok yap
+        if (!sofor.SGKBordroDahilMi)
+        {
+            sofor.BordroTipiPersonel = PersonelBordroTipi.Yok;
+        }
+
+        await BrutMaasHesaplaAsync();
+        sofor.NetMaas = YuvarlaPara(sofor.ResmiNetMaas + sofor.DigerMaas);
+
+        try
+        {
+            if (IsEdit)
+            {
+                await SoforService.UpdateAsync(sofor);
+                ToastService.ShowSuccess($"{sofor.TamAd} başarıyla güncellendi.");
+            }
+            else
+            {
+                await SoforService.CreateAsync(sofor);
+                ToastService.ShowSuccess($"{sofor.TamAd} başarıyla eklendi.");
+            }
+            Navigation.NavigateTo("/personel");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Kayıt sırasında hata oluştu: {ex.Message}");
+        }
+    }
+
+    private void Geri()
+    {
+        Navigation.NavigateTo("/personel");
+    }
+
+    private async Task GorevDegisti()
+    {
+        if (!IsEdit)
+        {
+            sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
+        }
+    }
+
+    private void BordroTipiDegisti()
+    {
+        // ARGE seçildiğinde uyarı göster
+        if (sofor.BordroTipiPersonel == PersonelBordroTipi.Arge)
+        {
+            if (string.IsNullOrWhiteSpace(sofor.TcKimlikNo))
+            {
+                ToastService.ShowWarning("ARGE personeli için TC Kimlik No zorunludur! Lütfen doldurun.");
+            }
+            // Eski ArgePersoneli alanını da güncelle (geriye dönük uyumluluk)
+            sofor.ArgePersoneli = true;
+        }
+        else
+        {
+            sofor.ArgePersoneli = false;
+        }
+    }
+
+    private Task BrutMaasHesaplaAsync()
+    {
+        sofor.CalismaMiktari = YuvarlaPara(sofor.CalismaMiktari);
+        sofor.BirimUcret = YuvarlaPara(sofor.BirimUcret);
+
+        if (sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)
+        {
+            sofor.BrutMaas = YuvarlaPara(sofor.CalismaMiktari * sofor.BirimUcret);
+        }
+        else
+        {
+            sofor.BrutMaas = YuvarlaPara(sofor.BrutMaas);
+        }
+
+        sofor.ResmiNetMaas = YuvarlaPara(sofor.ResmiNetMaas);
+        sofor.DigerMaas = YuvarlaPara(sofor.DigerMaas);
+        sofor.NetMaas = YuvarlaPara(sofor.ResmiNetMaas + sofor.DigerMaas);
+
+        return Task.CompletedTask;
+    }
+
+    private static decimal YuvarlaPara(decimal value)
+        => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    private string GetGorevAdi(PersonelGorev gorev)
+    {
+        return gorev switch
+        {
+            PersonelGorev.Sofor => "Şoför",
+            PersonelGorev.OfisCalisani => "Ofis Çalışanı",
+            PersonelGorev.Muhasebe => "Muhasebe",
+            PersonelGorev.Yonetici => "Yönetici",
+            PersonelGorev.Teknik => "Teknik",
+            PersonelGorev.Diger => "Diğer",
+            _ => gorev.ToString()
+        };
+    }
+
+    private string GetCalismaMiktariLabel()
+    {
+        return sofor.BrutMaasHesaplamaTipi switch
+        {
+            BrutMaasHesaplamaTipi.Saatlik => "Çalışılan Saat",
+            BrutMaasHesaplamaTipi.Gunluk => "Çalışılan Gün",
+            BrutMaasHesaplamaTipi.Aylik => "Çalışılan Ay",
+            _ => "Miktar"
+        };
+    }
+
+    private string GetBirimUcretLabel()
+    {
+        return sofor.BrutMaasHesaplamaTipi switch
+        {
+            BrutMaasHesaplamaTipi.Saatlik => "Saatlik Ücret (₺)",
+            BrutMaasHesaplamaTipi.Gunluk => "Günlük Ücret (₺)",
+            BrutMaasHesaplamaTipi.Aylik => "Aylık Ücret (₺)",
+            _ => "Birim Ücret (₺)"
+        };
+    }
+
+    #region Özlük Evrak İşlemleri
+
+    private async Task EvrakDurumuYukle()
+    {
+        if (!IsEdit) return;
+        evrakDurumuYukleniyor = true;
+        try
+        {
+            evrakDurumu = await OzlukService.GetPersonelEvrakDurumuAsync(Id!.Value);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Evrak durumu yüklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            evrakDurumuYukleniyor = false;
+        }
+    }
+
+    private void EvrakYukleModalAc(OzlukEvrakDetay evrak)
+    {
+        seciliEvrakDetay = evrak;
+        secilenEvrakDosya = null;
+        showEvrakYukleModal = true;
+    }
+
+    private void EvrakYukleModalKapat()
+    {
+        showEvrakYukleModal = false;
+        seciliEvrakDetay = null;
+        secilenEvrakDosya = null;
+    }
+
+    private void OnEvrakDosyaSecildi(InputFileChangeEventArgs e)
+    {
+        secilenEvrakDosya = e.File;
+    }
+
+    private async Task EvrakDosyaYukle()
+    {
+        if (secilenEvrakDosya == null || seciliEvrakDetay == null) return;
+
+        evrakYukleniyor = true;
+        try
+        {
+            await using var stream = secilenEvrakDosya.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            var relativePath = await SecureFileService.SaveEncryptedAsync(
+                $"ozluk/{Id}",
+                secilenEvrakDosya.Name,
+                memoryStream.ToArray());
+
+            await OzlukService.EvrakDosyaYukle(Id!.Value, seciliEvrakDetay.EvrakTanimId, relativePath);
+
+            ToastService.ShowSuccess($"{seciliEvrakDetay.EvrakAdi} başarıyla yüklendi.");
+            EvrakYukleModalKapat();
+            await EvrakDurumuYukle();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Dosya yüklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            evrakYukleniyor = false;
+        }
+    }
+
+    private async Task EvrakDosyaIndir(OzlukEvrakDetay evrak)
+    {
+        if (string.IsNullOrWhiteSpace(evrak.DosyaYolu)) return;
+
+        try
+        {
+            var content = await SecureFileService.ReadDecryptedAsync(evrak.DosyaYolu);
+            if (content == null)
+            {
+                ToastService.ShowWarning("Dosya bulunamadı.");
+                return;
+            }
+
+            var fileName = Path.GetFileName(evrak.DosyaYolu);
+            var extension = Path.GetExtension(fileName).TrimStart('.').ToLower();
+            var mimeType = GetMimeType(extension);
+
+            await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(content), mimeType);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Dosya indirilirken hata: {ex.Message}");
+        }
+    }
+
+    private string GetProgressBarClass(decimal yuzde)
+    {
+        if (yuzde >= 80) return "bg-success";
+        if (yuzde >= 50) return "bg-warning";
+        return "bg-danger";
+    }
+
+    private string GetKategoriAdi(OzlukEvrakKategori kategori) => kategori switch
+    {
+        OzlukEvrakKategori.Genel => "Genel",
+        OzlukEvrakKategori.KimlikBelgeleri => "Kimlik",
+        OzlukEvrakKategori.EgitimBelgeleri => "Eğitim",
+        OzlukEvrakKategori.SaglikBelgeleri => "Sağlık",
+        OzlukEvrakKategori.SoforBelgeleri => "Şoför",
+        OzlukEvrakKategori.SGKBelgeleri => "SGK",
+        OzlukEvrakKategori.IseGirisBelgeleri => "İşe Giriş",
+        OzlukEvrakKategori.Diger => "Diğer",
+        _ => kategori.ToString()
+    };
+
+    private string FormatDosyaBoyutu(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+
+    private string GetMimeType(string extension) => extension.ToLower() switch
+    {
+        "pdf" => "application/pdf",
+        "jpg" or "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "doc" => "application/msword",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        _ => "application/octet-stream"
+    };
+
+    #endregion
+}

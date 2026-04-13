@@ -1,0 +1,950 @@
+@page "/muhasebe/kolay-giris"
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@using KOAFiloServis.Web.Models
+@inject IKolayMuhasebeService KolayMuhasebeService
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Kolay Muhasebe Girişi</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-journal-plus me-2"></i>Kolay Muhasebe Girişi</h3>
+        <a href="/muhasebe" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Muhasebe
+        </a>
+    </div>
+
+    <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Basit Giriş:</strong> Muhasebe bilgisi gerekmeden fatura, masraf ve ödeme girişi yapın. 
+        Sistem otomatik olarak muhasebe kaydını oluşturur.
+    </div>
+
+    <div class="row">
+        <!-- Sol Panel: Giriş Formu -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-pencil-square me-2"></i>İşlem Bilgileri
+                </div>
+                <div class="card-body">
+                    <!-- İşlem Türü -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">İşlem Türü *</label>
+                        <div class="btn-group w-100 flex-wrap" role="group">
+                            @foreach (var islem in islemTurleri)
+                            {
+                                <input type="radio" class="btn-check" name="islemTuru" id="@($"islem_{islem.Tur}")"
+                                       checked="@(giris.IslemTuru == islem.Tur)"
+                                       @onchange="() => IslemTuruDegisti(islem.Tur)" />
+                                <label class="btn btn-outline-@islem.Renk" for="@($"islem_{islem.Tur}")">
+                                    <i class="bi @islem.Ikon me-1"></i>@islem.Ad
+                                </label>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- İşlem Tarihi -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">İşlem Tarihi *</label>
+                            <input type="date" class="form-control" @bind="giris.IslemTarihi" @bind:after="OnizlemeGuncelle" />
+                        </div>
+
+                        <!-- Belge No -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Belge No (Fatura/Fiş No)</label>
+                            <input type="text" class="form-control" @bind="giris.BelgeNo" placeholder="Ör: FTR-2024-001" />
+                        </div>
+                    </div>
+
+                    <!-- Cari Seçimi -->
+                    @if (CariGerekliMi)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">@CariBaslik *</label>
+                            <div class="input-group">
+                                @if (giris.CariId.HasValue && secilenCari != null)
+                                {
+                                    <span class="form-control">@secilenCari.CariKodu - @secilenCari.Unvan</span>
+                                    <button class="btn btn-outline-secondary" @onclick="CariTemizle" title="Temizle">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <input type="text" class="form-control" @bind="cariArama" @bind:after="CariAra"
+                                           placeholder="Cari ara..." />
+                                    <button class="btn btn-outline-success" @onclick="HizliCariModalAc" title="Yeni Cari/Tedarikçi/Personel Ekle">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                }
+                            </div>
+
+                            @if (!giris.CariId.HasValue && !string.IsNullOrWhiteSpace(cariArama) && cariArama.Length >= 2)
+                            {
+                                @if (arananCariler.Any())
+                                {
+                                    <div class="list-group mt-1" style="max-height: 200px; overflow-y: auto;">
+                                        @foreach (var cari in arananCariler)
+                                        {
+                                            <button type="button" class="list-group-item list-group-item-action py-1"
+                                                    @onclick="() => CariSec(cari)">
+                                                <small>
+                                                    <strong>@cari.CariKodu</strong> - @cari.Unvan
+                                                    <span class="badge bg-@GetCariTipRenk(cari.CariTipi) float-end">@GetCariTipAdi(cari.CariTipi)</span>
+                                                </small>
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-warning mt-1 py-1 small">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>
+                                        "@cariArama" için sonuç bulunamadı. 
+                                        <strong class="text-primary" role="button" @onclick="HizliCariModalAc">Yeni ekle?</strong>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+
+                    <!-- Masraf Kalemi -->
+                    @if (giris.IslemTuru == KolayIslemTuru.MasrafGirisi)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Masrafı Kim Ödedi?</label>
+                            <div class="btn-group w-100" role="group">
+                                <button type="button"
+                                        class="btn @(giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.KasaBanka ? "btn-warning" : "btn-outline-warning")"
+                                        @onclick="() => MasrafOdemeKaynagiDegisti(MasrafOdemeKaynagi.KasaBanka)">
+                                    <i class="bi bi-bank me-1"></i>Kasa / Banka
+                                </button>
+                                <button type="button"
+                                        class="btn @(giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel ? "btn-info" : "btn-outline-info")"
+                                        @onclick="() => MasrafOdemeKaynagiDegisti(MasrafOdemeKaynagi.Personel)">
+                                    <i class="bi bi-person-badge me-1"></i>Personel Cebinden
+                                </button>
+                                <button type="button"
+                                        class="btn @(giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Cari ? "btn-secondary" : "btn-outline-secondary")"
+                                        @onclick="() => MasrafOdemeKaynagiDegisti(MasrafOdemeKaynagi.Cari)">
+                                    <i class="bi bi-building me-1"></i>Cari Cebinden
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Masraf Kalemi</label>
+                                <select class="form-select" @bind="giris.MasrafKalemiId" @bind:after="OnizlemeGuncelle">
+                                    <option value="">-- Seçin --</option>
+                                    @foreach (var kalem in masrafKalemleri)
+                                    {
+                                        <option value="@kalem.Id">@kalem.Ad</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Araç (Opsiyonel)</label>
+                                <select class="form-select" @bind="giris.AracId">
+                                    <option value="">-- Araç Yok --</option>
+                                    @foreach (var arac in araclar)
+                                    {
+                                        <option value="@arac.Id">@arac.AktifPlaka</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Banka Hesabı -->
+                    @if (BankaGerekliMi)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">@BankaBaslik *</label>
+                            <select class="form-select" @bind="giris.BankaHesapId" @bind:after="OnizlemeGuncelle">
+                                <option value="">-- Hesap Seçin --</option>
+                                @foreach (var hesap in bankaHesaplar)
+                                {
+                                    <option value="@hesap.Id">
+                                        @hesap.HesapAdi (@hesap.Bakiye.ToString("N2") TL)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <hr />
+
+                    <!-- Tutar Bilgileri -->
+                    <h6><i class="bi bi-currency-exchange me-1"></i>Tutar Bilgileri</h6>
+
+                    <!-- KDV Dahil/Hariç Seçimi -->
+                    <div class="mb-3">
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" 
+                                    class="btn @(giris.KdvDahilMi ? "btn-outline-secondary" : "btn-primary")"
+                                    @onclick="() => KdvDurumDegistir(false)">
+                                <i class="bi bi-plus-circle me-1"></i>KDV Hariç
+                                <small class="d-block text-muted">Tutar + KDV</small>
+                            </button>
+                            <button type="button" 
+                                    class="btn @(giris.KdvDahilMi ? "btn-success" : "btn-outline-secondary")"
+                                    @onclick="() => KdvDurumDegistir(true)">
+                                <i class="bi bi-check-circle me-1"></i>KDV Dahil
+                                <small class="d-block text-muted">Tutardan KDV çıkar</small>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">
+                                @(giris.KdvDahilMi ? "Girilen Tutar (KDV Dahil)" : "Ara Toplam (KDV Hariç)")
+                            </label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" class="form-control" @bind="girilenTutar" 
+                                       @bind:after="TutarHesapla" />
+                                <span class="input-group-text">TL</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">KDV Oranı %</label>
+                            <select class="form-select" @bind="giris.KdvOrani" @bind:after="TutarHesapla">
+                                <option value="0">%0 (KDV Yok)</option>
+                                <option value="1">%1</option>
+                                <option value="10">%10</option>
+                                <option value="20">%20</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">KDV Tutar</label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" class="form-control bg-light" @bind="giris.KdvTutar" readonly />
+                                <span class="input-group-text">TL</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Ara Toplam (KDV Hariç)</label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" class="form-control bg-light" @bind="giris.AraToplam" readonly />
+                                <span class="input-group-text">TL</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold text-success">Genel Toplam (KDV Dahil)</label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" class="form-control form-control-lg fw-bold text-success bg-light" 
+                                       @bind="giris.GenelToplam" readonly />
+                                <span class="input-group-text">TL</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Vade Tarihi</label>
+                            <input type="date" class="form-control" @bind="giris.VadeTarihi" />
+                        </div>
+                    </div>
+
+                    <!-- Tevkifat -->
+                    @if (TevkifatGosterilsinMi)
+                    {
+                        <div class="card mb-3 bg-light">
+                            <div class="card-body py-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" @bind="giris.TevkifatliMi" 
+                                           @bind:after="TevkifatHesapla" id="tevkifatCheck" />
+                                    <label class="form-check-label" for="tevkifatCheck">Tevkifatlı Fatura</label>
+                                </div>
+                                @if (giris.TevkifatliMi)
+                                {
+                                    <div class="row mt-2">
+                                        <div class="col-md-4">
+                                            <select class="form-select form-select-sm" @bind="giris.TevkifatOrani" @bind:after="TevkifatHesapla">
+                                                <option value="20">2/10 (%20)</option>
+                                                <option value="30">3/10 (%30)</option>
+                                                <option value="50">5/10 (%50)</option>
+                                                <option value="70">7/10 (%70)</option>
+                                                <option value="90">9/10 (%90)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <input type="text" class="form-control form-control-sm" @bind="giris.TevkifatKodu" placeholder="Tevkifat Kodu" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <input type="number" step="0.01" class="form-control form-control-sm" @bind="giris.TevkifatTutar" readonly />
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Açıklama -->
+                    <div class="mb-3">
+                        <label class="form-label">Açıklama</label>
+                        <textarea class="form-control" rows="2" @bind="giris.Aciklama" placeholder="İşlem açıklaması..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ Panel: Muhasebe Önizleme -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-journal-text me-2"></i>Muhasebe Kaydı Önizleme</span>
+                    <button class="btn btn-sm btn-outline-light" @onclick="OnizlemeGuncelle" title="Yenile">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if (onizleme != null)
+                    {
+                        <div class="d-flex justify-content-between mb-2">
+                            <small class="text-muted">Fiş No: <strong>@onizleme.FisNo</strong></small>
+                            <small class="text-muted">Tarih: <strong>@onizleme.FisTarihi.ToString("dd.MM.yyyy")</strong></small>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered mb-2">
+                                <thead class="table-secondary">
+                                    <tr>
+                                        <th style="width: 35%;">Hesap</th>
+                                        <th class="text-end" style="width: 25%;">Borç</th>
+                                        <th class="text-end" style="width: 25%;">Alacak</th>
+                                        <th style="width: 15%;">Düzenle</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var kalem in onizleme.Kalemler)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @if (kalem.DuzenlendiMi)
+                                                {
+                                                    <select class="form-select form-select-sm" @bind="kalem.HesapKodu">
+                                                        @foreach (var hesap in muhasebeHesaplar)
+                                                        {
+                                                            <option value="@hesap.HesapKodu">@hesap.HesapKodu - @hesap.HesapAdi</option>
+                                                        }
+                                                    </select>
+                                                }
+                                                else
+                                                {
+                                                    <small>
+                                                        <strong>@kalem.HesapKodu</strong><br />
+                                                        <span class="text-muted">@kalem.HesapAdi</span>
+                                                        @if (!string.IsNullOrEmpty(kalem.CariUnvan))
+                                                        {
+                                                            <br /><span class="badge bg-info">@kalem.CariUnvan</span>
+                                                        }
+                                                    </small>
+                                                }
+                                            </td>
+                                            <td class="text-end">
+                                                @if (kalem.Borc > 0)
+                                                {
+                                                    <span class="text-danger fw-bold">@kalem.Borc.ToString("N2")</span>
+                                                }
+                                            </td>
+                                            <td class="text-end">
+                                                @if (kalem.Alacak > 0)
+                                                {
+                                                    <span class="text-success fw-bold">@kalem.Alacak.ToString("N2")</span>
+                                                }
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => kalem.DuzenlendiMi = !kalem.DuzenlendiMi">
+                                                    <i class="bi @(kalem.DuzenlendiMi ? "bi-check" : "bi-pencil")"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot class="table-dark">
+                                    <tr>
+                                        <th>TOPLAM</th>
+                                        <th class="text-end">@onizleme.ToplamBorc.ToString("N2")</th>
+                                        <th class="text-end">@onizleme.ToplamAlacak.ToString("N2")</th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        @if (!onizleme.Dengeli)
+                        {
+                            <div class="alert alert-danger py-2 mb-2">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                <strong>UYARI:</strong> Borç-Alacak dengeli değil! 
+                                Fark: @Math.Abs(onizleme.ToplamBorc - onizleme.ToplamAlacak).ToString("N2") TL
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-success py-2 mb-2">
+                                <i class="bi bi-check-circle me-1"></i>
+                                Muhasebe kaydı dengeli. Kaydedilebilir.
+                            </div>
+                        }
+
+                        <p class="text-muted mb-3"><small>@onizleme.Aciklama</small></p>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-journal-x display-4"></i>
+                            <p>Formu doldurun, önizleme otomatik oluşturulacak.</p>
+                        </div>
+                    }
+
+                    <hr />
+
+                    <!-- Kaydet Butonu -->
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success btn-lg" @onclick="Kaydet" 
+                                disabled="@(!KaydetAktifMi || isKaydediliyor)">
+                            @if (isKaydediliyor)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-check-circle me-2"></i>Muhasebeleştir ve Kaydet
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="Temizle">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Formu Temizle
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Son Kayıtlar -->
+            @if (sonKayitlar.Any())
+            {
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <i class="bi bi-clock-history me-2"></i>Son Kayıtlar
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var kayit in sonKayitlar.Take(5))
+                        {
+                            <li class="list-group-item py-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>
+                                        <span class="badge bg-@kayit.Renk me-1">@kayit.Tip</span>
+                                        @kayit.Aciklama
+                                    </span>
+                                    <span class="fw-bold">@kayit.Tutar.ToString("N2") TL</span>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Hızlı Cari Ekleme Modal -->
+@if (hizliCariModalAcik)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Hızlı Cari/Tedarikçi/Personel Ekle</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="HizliCariModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Cari Tipi Seçimi -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cari Tipi *</label>
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" 
+                                    class="btn @(yeniCariModel.CariTipi == CariTipi.Musteri ? "btn-primary" : "btn-outline-primary")"
+                                    @onclick="() => yeniCariModel.CariTipi = CariTipi.Musteri">
+                                <i class="bi bi-person me-1"></i>Müşteri
+                            </button>
+                            <button type="button" 
+                                    class="btn @(yeniCariModel.CariTipi == CariTipi.Tedarikci ? "btn-warning" : "btn-outline-warning")"
+                                    @onclick="() => yeniCariModel.CariTipi = CariTipi.Tedarikci">
+                                <i class="bi bi-truck me-1"></i>Tedarikçi
+                            </button>
+                            <button type="button" 
+                                    class="btn @(yeniCariModel.CariTipi == CariTipi.Personel ? "btn-info" : "btn-outline-info")"
+                                    @onclick="() => yeniCariModel.CariTipi = CariTipi.Personel">
+                                <i class="bi bi-person-badge me-1"></i>Personel
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Ünvan -->
+                    <div class="mb-3">
+                        <label class="form-label">Ünvan / Ad Soyad *</label>
+                        <input type="text" class="form-control" @bind="yeniCariModel.Unvan" 
+                               placeholder="Firma adı veya kişi adı..." autofocus />
+                    </div>
+
+                    <div class="row">
+                        <!-- Vergi No / TC -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">@(yeniCariModel.CariTipi == CariTipi.Personel ? "TC Kimlik No" : "Vergi No")</label>
+                            <input type="text" class="form-control" @bind="yeniCariModel.VergiNo" 
+                                   placeholder="@(yeniCariModel.CariTipi == CariTipi.Personel ? "TC Kimlik" : "Vergi numarası")" />
+                        </div>
+
+                        <!-- Telefon -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Telefon</label>
+                            <input type="tel" class="form-control" @bind="yeniCariModel.Telefon" 
+                                   placeholder="05XX XXX XXXX" />
+                        </div>
+                    </div>
+
+                    <!-- E-posta -->
+                    <div class="mb-3">
+                        <label class="form-label">E-posta</label>
+                        <input type="email" class="form-control" @bind="yeniCariModel.Email" 
+                               placeholder="ornek@firma.com" />
+                    </div>
+
+                    @if (yeniCariModel.CariTipi != CariTipi.Personel)
+                    {
+                        <!-- Adres (Firma için) -->
+                        <div class="mb-3">
+                            <label class="form-label">Adres</label>
+                            <textarea class="form-control" rows="2" @bind="yeniCariModel.Adres" 
+                                      placeholder="Açık adres..."></textarea>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HizliCariModalKapat">
+                        <i class="bi bi-x-lg me-1"></i>İptal
+                    </button>
+                    <button type="button" class="btn btn-success" @onclick="HizliCariKaydet"
+                            disabled="@(string.IsNullOrWhiteSpace(yeniCariModel.Unvan) || hizliCariKaydediliyor)">
+                        @if (hizliCariKaydediliyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-check-lg me-1"></i>Kaydet ve Seç
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private KolayMuhasebeGiris giris = new();
+    private MuhasebeOnizleme? onizleme;
+    private List<Cari> arananCariler = new();
+    private Cari? secilenCari;
+    private string cariArama = "";
+    private bool isKaydediliyor = false;
+
+    // KDV Dahil/Hariç için girilen tutar
+    private decimal girilenTutar = 0;
+
+    // Hızlı Cari Ekleme Modal
+    private bool hizliCariModalAcik = false;
+    private bool hizliCariKaydediliyor = false;
+    private HizliCariModel yeniCariModel = new();
+
+    // Dropdown verileri
+    private List<MasrafKalemiBasit> masrafKalemleri = new();
+    private List<BankaHesapBasit> bankaHesaplar = new();
+    private List<Arac> araclar = new();
+    private List<MuhasebeHesap> muhasebeHesaplar = new();
+
+    // Son kayıtlar
+    private List<SonKayitItem> sonKayitlar = new();
+
+    private List<IslemTuruItem> islemTurleri = new()
+    {
+        new("Gider Fatura", KolayIslemTuru.GiderFatura, "danger", "bi-file-earmark-minus"),
+        new("Gelir Fatura", KolayIslemTuru.GelirFatura, "success", "bi-file-earmark-plus"),
+        new("Masraf", KolayIslemTuru.MasrafGirisi, "warning", "bi-cash-stack"),
+        new("Tahsilat", KolayIslemTuru.TahsilatGirisi, "primary", "bi-wallet2"),
+        new("Ödeme", KolayIslemTuru.OdemeGirisi, "info", "bi-credit-card"),
+        new("Avans", KolayIslemTuru.AvansGirisi, "secondary", "bi-person-badge"),
+        new("Mahsup", KolayIslemTuru.MahsupKaydi, "dark", "bi-arrow-left-right")
+    };
+
+    // Computed properties
+    private bool CariGerekliMi => giris.IslemTuru != KolayIslemTuru.MasrafGirisi
+                                  || giris.MasrafOdemeKaynagi != MasrafOdemeKaynagi.KasaBanka;
+    
+    private string CariBaslik => giris.IslemTuru switch
+    {
+        KolayIslemTuru.GelirFatura or KolayIslemTuru.TahsilatGirisi => "Müşteri",
+        KolayIslemTuru.GiderFatura or KolayIslemTuru.OdemeGirisi => "Tedarikçi",
+        KolayIslemTuru.AvansGirisi => "Personel",
+        KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel => "Personel",
+        KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Cari => "Cari",
+        KolayIslemTuru.MahsupKaydi => "Cari (Mahsup)",
+        _ => "Cari"
+    };
+
+    private bool BankaGerekliMi => giris.IslemTuru is KolayIslemTuru.TahsilatGirisi or KolayIslemTuru.OdemeGirisi
+                                   or KolayIslemTuru.AvansGirisi or KolayIslemTuru.MahsupKaydi
+                                   || (giris.IslemTuru == KolayIslemTuru.MasrafGirisi && giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.KasaBanka);
+
+    private string BankaBaslik => giris.IslemTuru switch
+    {
+        KolayIslemTuru.TahsilatGirisi => "Tahsilat Hesabı (Kasa/Banka)",
+        KolayIslemTuru.OdemeGirisi or KolayIslemTuru.AvansGirisi => "Ödeme Hesabı (Kasa/Banka)",
+        KolayIslemTuru.MahsupKaydi => "Mahsup Hesabı (Kasa/Banka)",
+        _ => "Banka/Kasa Hesabı"
+    };
+
+    private bool TevkifatGosterilsinMi => giris.IslemTuru is KolayIslemTuru.GelirFatura or KolayIslemTuru.GiderFatura;
+
+    private bool KaydetAktifMi => onizleme != null && onizleme.Dengeli && giris.GenelToplam > 0 
+                                  && (!CariGerekliMi || giris.CariId.HasValue || !string.IsNullOrWhiteSpace(cariArama))
+                                  && (!BankaGerekliMi || giris.BankaHesapId.HasValue);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDropdownData();
+        await OnizlemeGuncelle();
+    }
+
+    private async Task LoadDropdownData()
+    {
+        masrafKalemleri = await KolayMuhasebeService.GetMasrafKalemleriAsync();
+        bankaHesaplar = await KolayMuhasebeService.GetBankaHesaplariAsync();
+        araclar = await KolayMuhasebeService.GetAraclarAsync();
+        muhasebeHesaplar = await KolayMuhasebeService.GetMuhasebeHesaplariAsync();
+    }
+
+    private async Task IslemTuruDegisti(KolayIslemTuru yeniTur)
+    {
+        giris.IslemTuru = yeniTur;
+        giris.MasrafOdemeKaynagi = MasrafOdemeKaynagi.KasaBanka;
+
+        // Cari tipi ayarla
+        giris.YeniCariTipi = yeniTur switch
+        {
+            KolayIslemTuru.GelirFatura or KolayIslemTuru.TahsilatGirisi => CariTipi.Musteri,
+            KolayIslemTuru.GiderFatura or KolayIslemTuru.OdemeGirisi => CariTipi.Tedarikci,
+            KolayIslemTuru.AvansGirisi => CariTipi.Personel,
+            KolayIslemTuru.MahsupKaydi => null, // Mahsup için herhangi bir cari tipi olabilir
+            _ => null
+        };
+
+        // Cari seçimini temizle (tip değiştiğinde)
+        secilenCari = null;
+        giris.CariId = null;
+        giris.CariUnvan = null;
+        cariArama = "";
+        arananCariler = new();
+
+        await OnizlemeGuncelle();
+    }
+
+    private async Task MasrafOdemeKaynagiDegisti(MasrafOdemeKaynagi yeniKaynak)
+    {
+        giris.MasrafOdemeKaynagi = yeniKaynak;
+
+        secilenCari = null;
+        giris.CariId = null;
+        giris.CariUnvan = null;
+        cariArama = "";
+        arananCariler = new();
+
+        if (yeniKaynak == MasrafOdemeKaynagi.KasaBanka)
+        {
+            giris.YeniCariTipi = null;
+        }
+
+        await OnizlemeGuncelle();
+    }
+
+    private void KdvDurumDegistir(bool kdvDahil)
+    {
+        giris.KdvDahilMi = kdvDahil;
+        TutarHesapla();
+    }
+
+    private void TutarHesapla()
+    {
+        if (giris.KdvDahilMi)
+        {
+            // KDV Dahil: Girilen tutardan KDV'yi çıkar
+            // Genel Toplam = girilenTutar
+            // Ara Toplam = girilenTutar / (1 + KDV Oranı / 100)
+            // KDV Tutar = Genel Toplam - Ara Toplam
+            if (giris.KdvOrani > 0)
+            {
+                giris.GenelToplam = girilenTutar;
+                giris.AraToplam = Math.Round(girilenTutar / (1 + giris.KdvOrani / 100), 2);
+                giris.KdvTutar = Math.Round(giris.GenelToplam - giris.AraToplam, 2);
+            }
+            else
+            {
+                // KDV oranı 0 ise
+                giris.GenelToplam = girilenTutar;
+                giris.AraToplam = girilenTutar;
+                giris.KdvTutar = 0;
+            }
+        }
+        else
+        {
+            // KDV Hariç: Girilen tutara KDV ekle
+            // Ara Toplam = girilenTutar
+            // KDV Tutar = Ara Toplam * KDV Oranı / 100
+            // Genel Toplam = Ara Toplam + KDV Tutar
+            giris.AraToplam = girilenTutar;
+            giris.KdvTutar = Math.Round(giris.AraToplam * giris.KdvOrani / 100, 2);
+            giris.GenelToplam = giris.AraToplam + giris.KdvTutar;
+        }
+
+        TevkifatHesapla();
+    }
+
+    private async Task TevkifatHesapla()
+    {
+        if (giris.TevkifatliMi && giris.KdvTutar > 0)
+        {
+            giris.TevkifatTutar = Math.Round(giris.KdvTutar * giris.TevkifatOrani / 100, 2);
+        }
+        else
+        {
+            giris.TevkifatTutar = 0;
+        }
+        await OnizlemeGuncelle();
+    }
+
+    private async Task OnizlemeGuncelle()
+    {
+        if (giris.GenelToplam > 0)
+        {
+            onizleme = await KolayMuhasebeService.OnizlemeOlusturAsync(giris);
+        }
+        else
+        {
+            onizleme = null;
+        }
+    }
+
+    private async Task CariAra()
+    {
+        if (string.IsNullOrWhiteSpace(cariArama) || cariArama.Length < 2)
+        {
+            arananCariler = new();
+            return;
+        }
+
+        // İşlem türüne göre öncelikli tip belirle
+        var tip = giris.IslemTuru switch
+        {
+            KolayIslemTuru.GelirFatura or KolayIslemTuru.TahsilatGirisi => CariTipi.Musteri,
+            KolayIslemTuru.GiderFatura or KolayIslemTuru.OdemeGirisi => CariTipi.Tedarikci,
+            KolayIslemTuru.AvansGirisi => CariTipi.Personel,
+            KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel => CariTipi.Personel,
+            KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Cari => CariTipi.Tedarikci,
+            KolayIslemTuru.MahsupKaydi => (CariTipi?)null, // Mahsup için tüm cariler
+            _ => (CariTipi?)null
+        };
+
+        // Önce işlem türüne uygun carilerde ara
+        arananCariler = await KolayMuhasebeService.GetCarilerAsync(tip, cariArama);
+
+        // Sonuç yoksa tüm carilerde ara
+        if (!arananCariler.Any() && tip.HasValue)
+        {
+            arananCariler = await KolayMuhasebeService.GetCarilerAsync(null, cariArama);
+        }
+    }
+
+    private async Task CariSec(Cari cari)
+    {
+        secilenCari = cari;
+        giris.CariId = cari.Id;
+        giris.CariUnvan = cari.Unvan;
+        arananCariler = new();
+        cariArama = "";
+        await OnizlemeGuncelle();
+    }
+
+    private async Task CariTemizle()
+    {
+        secilenCari = null;
+        giris.CariId = null;
+        giris.CariUnvan = null;
+        cariArama = "";
+        await OnizlemeGuncelle();
+    }
+
+    private void HizliCariModalAc()
+    {
+        // Varsayılan tip ayarla
+        yeniCariModel = new HizliCariModel
+        {
+            CariTipi = giris.IslemTuru switch
+            {
+                KolayIslemTuru.GelirFatura or KolayIslemTuru.TahsilatGirisi => CariTipi.Musteri,
+                KolayIslemTuru.GiderFatura or KolayIslemTuru.OdemeGirisi => CariTipi.Tedarikci,
+                KolayIslemTuru.AvansGirisi => CariTipi.Personel,
+                KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel => CariTipi.Personel,
+                KolayIslemTuru.MasrafGirisi when giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Cari => CariTipi.Tedarikci,
+                _ => CariTipi.Musteri
+            },
+            Unvan = cariArama // Arama kutusundaki metni varsayılan ünvan yap
+        };
+        hizliCariModalAcik = true;
+    }
+
+    private void HizliCariModalKapat()
+    {
+        hizliCariModalAcik = false;
+        yeniCariModel = new();
+    }
+
+    private async Task HizliCariKaydet()
+    {
+        if (string.IsNullOrWhiteSpace(yeniCariModel.Unvan)) return;
+
+        hizliCariKaydediliyor = true;
+
+        try
+        {
+            var yeniCari = await KolayMuhasebeService.HizliCariOlusturDetayliAsync(yeniCariModel);
+
+            // Seç
+            secilenCari = yeniCari;
+            giris.CariId = yeniCari.Id;
+            giris.CariUnvan = yeniCari.Unvan;
+            cariArama = "";
+            arananCariler = new();
+
+            ToastService.ShowSuccess($"'{yeniCari.Unvan}' ({GetCariTipAdi(yeniCari.CariTipi)}) oluşturuldu. Kod: {yeniCari.CariKodu}");
+
+            HizliCariModalKapat();
+            await OnizlemeGuncelle();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Cari oluşturulamadı: {ex.Message}");
+        }
+        finally
+        {
+            hizliCariKaydediliyor = false;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        if (!KaydetAktifMi) return;
+
+        isKaydediliyor = true;
+
+        try
+        {
+            var sonuc = await KolayMuhasebeService.KaydetAsync(giris, onizleme);
+
+            if (sonuc.Basarili)
+            {
+                ToastService.ShowSuccess(sonuc.Mesaj);
+
+                // Son kayıtlara ekle
+                sonKayitlar.Insert(0, new SonKayitItem
+                {
+                    Tip = GetIslemTuruAdi(giris.IslemTuru),
+                    Aciklama = giris.CariUnvan ?? giris.BelgeNo ?? giris.Aciklama ?? "-",
+                    Tutar = giris.GenelToplam,
+                    Renk = GetIslemRenk(giris.IslemTuru)
+                });
+
+                // Uyarıları göster
+                foreach (var uyari in sonuc.Uyarilar)
+                {
+                    ToastService.ShowWarning(uyari);
+                }
+
+                // Formu temizle
+                Temizle();
+            }
+            else
+            {
+                ToastService.ShowError(sonuc.Mesaj);
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isKaydediliyor = false;
+        }
+    }
+
+    private void Temizle()
+    {
+        var eskiTur = giris.IslemTuru;
+        giris = new KolayMuhasebeGiris { IslemTuru = eskiTur };
+        girilenTutar = 0;
+        secilenCari = null;
+        cariArama = "";
+        arananCariler = new();
+        onizleme = null;
+    }
+
+    private string GetCariTipAdi(CariTipi tip) => tip switch
+    {
+        CariTipi.Musteri => "Müşteri",
+        CariTipi.Tedarikci => "Tedarikçi",
+        CariTipi.MusteriTedarikci => "Müş/Ted",
+        CariTipi.Personel => "Personel",
+        _ => tip.ToString()
+    };
+
+    private string GetCariTipRenk(CariTipi tip) => tip switch
+    {
+        CariTipi.Musteri => "primary",
+        CariTipi.Tedarikci => "warning",
+        CariTipi.MusteriTedarikci => "info",
+        CariTipi.Personel => "success",
+        _ => "secondary"
+    };
+
+    private string GetIslemTuruAdi(KolayIslemTuru tur) => tur switch
+    {
+        KolayIslemTuru.GelirFatura => "Gelir",
+        KolayIslemTuru.GiderFatura => "Gider",
+        KolayIslemTuru.MasrafGirisi => "Masraf",
+        KolayIslemTuru.TahsilatGirisi => "Tahsilat",
+        KolayIslemTuru.OdemeGirisi => "Ödeme",
+        KolayIslemTuru.AvansGirisi => "Avans",
+        KolayIslemTuru.MahsupKaydi => "Mahsup",
+        _ => tur.ToString()
+    };
+
+    private string GetIslemRenk(KolayIslemTuru tur) => tur switch
+    {
+        KolayIslemTuru.GelirFatura or KolayIslemTuru.TahsilatGirisi => "success",
+        KolayIslemTuru.GiderFatura or KolayIslemTuru.OdemeGirisi => "danger",
+        KolayIslemTuru.MasrafGirisi => "warning",
+        KolayIslemTuru.MahsupKaydi => "dark",
+        _ => "secondary"
+    };
+
+    // Helper classes
+    private record IslemTuruItem(string Ad, KolayIslemTuru Tur, string Renk, string Ikon);
+    private record SonKayitItem
+    {
+        public string Tip { get; init; } = "";
+        public string Aciklama { get; init; } = "";
+        public decimal Tutar { get; init; }
+        public string Renk { get; init; } = "secondary";
+    }
+}

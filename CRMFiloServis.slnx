@@ -1,7 +1,0 @@
-<Solution>
-  <Project Path="CRMFiloServis.Installer/CRMFiloServis.Installer.csproj" />
-  <Project Path="CRMFiloServis.LisansDesktop/CRMFiloServis.LisansDesktop.csproj" />
-  <Project Path="CRMFiloServis.Mobile/CRMFiloServis.Mobile.csproj" />
-  <Project Path="CRMFiloServis.Shared/CRMFiloServis.Shared.csproj" />
-  <Project Path="CRMFiloServis.Web/CRMFiloServis.Web.csproj" />
-</Solution>

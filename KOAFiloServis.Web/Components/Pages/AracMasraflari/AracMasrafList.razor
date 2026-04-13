@@ -1,0 +1,183 @@
+@page "/arac-masraflari"
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@inject IAracMasrafService AracMasrafService
+@inject NavigationManager Navigation
+@inject IToastService ToastService
+@rendermode InteractiveServer
+
+<PageTitle>Araç Masrafları</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-cash-stack me-2"></i>Araç Masrafları</h3>
+        <button class="btn btn-primary" @onclick="YeniMasraf">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Masraf
+        </button>
+    </div>
+
+    @if (masraflar == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+        </div>
+    }
+    else if (!masraflar.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>Henüz araç masraf kaydı bulunmamaktadır.
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Plaka</th>
+                                <th>Masraf Kalemi</th>
+                                <th>Tutar</th>
+                                <th>Belge No</th>
+                                <th>Ödemeyi Yapan</th>
+                                <th>Muhasebe Fişi</th>
+                                <th>Güzergah</th>
+                                <th>Arıza Kaynaklı</th>
+                                <th style="width: 120px;">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var masraf in masraflar)
+                            {
+                                <tr class="@(masraf.ArizaKaynaklimi ? "table-warning" : "")">
+                                    <td><strong>@masraf.MasrafTarihi.ToString("dd.MM.yyyy")</strong></td>
+                                    <td>@masraf.Arac?.AktifPlaka</td>
+                                    <td>@masraf.MasrafKalemi?.MasrafAdi</td>
+                                    <td><strong>@masraf.Tutar.ToString("N2") ₺</strong></td>
+                                    <td>@masraf.BelgeNo</td>
+                                    <td>@GetMuhatapText(masraf)</td>
+                                    <td>
+                                        @if (masraf.MuhasebeFisId.HasValue)
+                                        {
+                                            <span class="badge bg-success">Oluşturuldu</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Yok</span>
+                                        }
+                                    </td>
+                                    <td>@masraf.Guzergah?.GuzergahAdi</td>
+                                    <td>
+                                        @if (masraf.ArizaKaynaklimi)
+                                        {
+                                            <span class="badge bg-warning text-dark">Evet</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Hayır</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(masraf.Id)" title="Düzenle">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(masraf)" title="Sil">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showDeleteModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Silme Onayı</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Bu masraf kaydını silmek istediğinize emin misiniz?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteModal = false">İptal</button>
+                    <button type="button" class="btn btn-danger" @onclick="Sil">Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AracMasraf>? masraflar;
+    private bool showDeleteModal = false;
+    private AracMasraf? silinecekMasraf;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        masraflar = await AracMasrafService.GetAllAsync();
+    }
+
+    private void YeniMasraf()
+    {
+        Navigation.NavigateTo("/arac-masraflari/yeni");
+    }
+
+    private void Duzenle(int id)
+    {
+        Navigation.NavigateTo($"/arac-masraflari/{id}");
+    }
+
+    private void SilOnay(AracMasraf masraf)
+    {
+        silinecekMasraf = masraf;
+        showDeleteModal = true;
+    }
+
+    private async Task Sil()
+    {
+        if (silinecekMasraf != null)
+        {
+            try
+            {
+                await AracMasrafService.DeleteAsync(silinecekMasraf.Id);
+                ToastService.ShowSuccess("Masraf kaydı ve bağlı muhasebe fişi silindi.");
+                await LoadData();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError($"Hata: {ex.Message}");
+            }
+        }
+        showDeleteModal = false;
+        silinecekMasraf = null;
+    }
+
+    private static string GetMuhatapText(AracMasraf masraf)
+    {
+        if (masraf.Sofor != null)
+            return $"Personel cebinden: {masraf.Sofor.TamAd}";
+
+        if (masraf.Cari != null)
+            return $"Cari cebinden: {masraf.Cari.Unvan}";
+
+        return "Kasa";
+    }
+}

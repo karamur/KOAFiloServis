@@ -1,0 +1,273 @@
+@page "/cariler/yeni"
+@page "/cariler/{Id:int}"
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@inject ICariService CariService
+@inject IMuhasebeService MuhasebeService
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEdit ? "Cari Duzenle" : "Yeni Cari")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-person-plus me-2"></i>@(IsEdit ? "Cari Duzenle" : "Yeni Cari")</h3>
+        <button class="btn btn-secondary" @onclick="Geri">
+            <i class="bi bi-arrow-left me-1"></i>Geri
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="cari" OnValidSubmit="Kaydet">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Cari Kodu *</label>
+                            <InputText @bind-Value="cari.CariKodu" class="form-control" />
+                            <small class="text-muted">Muhasebe hesap kodu aşağıda gösterilir. Hesap planında kayıt varsa otomatik getirilir.</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Cari Tipi *</label>
+                            <InputSelect @bind-Value="cari.CariTipi" class="form-select">
+                                @foreach (CariTipi tip in Enum.GetValues(typeof(CariTipi)))
+                                {
+                                    <option value="@tip">@GetTipText(tip)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Durum</label>
+                            <div class="form-check form-switch mt-2">
+                                <InputCheckbox @bind-Value="cari.Aktif" class="form-check-input" id="aktifCheck" />
+                                <label class="form-check-label" for="aktifCheck">@(cari.Aktif ? "Aktif" : "Pasif")</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Unvan *</label>
+                    <InputText @bind-Value="cari.Unvan" class="form-control" />
+                    <ValidationMessage For="@(() => cari.Unvan)" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Vergi Dairesi</label>
+                            <InputText @bind-Value="cari.VergiDairesi" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Vergi No (VKN)</label>
+                            <InputText @bind-Value="cari.VergiNo" class="form-control" maxlength="11"
+                                       placeholder="10 veya 11 hane" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">TC Kimlik No</label>
+                            <InputText @bind-Value="cari.TcKimlikNo" class="form-control" maxlength="11"
+                                       placeholder="11 hane" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Telefon</label>
+                            <InputText @bind-Value="cari.Telefon" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText @bind-Value="cari.Email" class="form-control" type="email" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Yetkili Kisi</label>
+                            <InputText @bind-Value="cari.YetkiliKisi" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Adres</label>
+                    <InputTextArea @bind-Value="cari.Adres" class="form-control" rows="2" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Muhasebe Hesap Kodu</label>
+                            <input type="text" class="form-control bg-light" value="@GetMuhasebeHesapGosterim()" readonly />
+                            <small class="text-muted">
+                                @GetMuhasebeAciklama()
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Hesap Kodu Düzeltme</label>
+                            <InputSelect @bind-Value="cari.MuhasebeHesapId" class="form-select">
+                                <option value="">-- Otomatik Oluştur --</option>
+                                @if (muhasebeHesaplar != null)
+                                {
+                                    @foreach (var hesap in muhasebeHesaplar)
+                                    {
+                                        <option value="@hesap.Id">@hesap.HesapKodu - @hesap.HesapAdi</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <small class="text-muted">Hesap planında açılmış kod varsa seçin, yoksa `Otomatik Oluştur` bırakın.</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Notlar</label>
+                            <InputTextArea @bind-Value="cari.Notlar" class="form-control" rows="2" />
+                        </div>
+                    </div>
+                </div>
+
+                @if (cari.CariTipi == CariTipi.Personel)
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Personel carisi icin <strong>335.XX.PRSXXXXX</strong> formatinda muhasebe hesabi otomatik
+                        olusturulacaktir.
+                    </div>
+                }
+
+                <hr />
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="Geri">
+                        <i class="bi bi-x-lg me-1"></i>Iptal
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Cari cari = new() { Aktif = true };
+    private List<MuhasebeHesap>? muhasebeHesaplar;
+    private bool IsEdit => Id.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var tumHesaplar = await MuhasebeService.GetHesapPlaniAsync();
+            muhasebeHesaplar = tumHesaplar
+                .Where(h => h.HesapKodu.StartsWith("120.") || h.HesapKodu.StartsWith("320.") || h.HesapKodu.StartsWith("335."))
+                .OrderBy(h => h.HesapKodu)
+                .ToList();
+        }
+        catch { }
+
+        if (IsEdit)
+        {
+            var existing = await CariService.GetByIdAsync(Id!.Value);
+            if (existing != null)
+            {
+                cari = existing;
+            }
+            else
+            {
+                Navigation.NavigateTo("/cariler");
+            }
+        }
+        else
+        {
+            cari.CariKodu = await CariService.GenerateNextKodAsync();
+            cari.CariTipi = CariTipi.Musteri;
+            cari.Aktif = true;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        if (string.IsNullOrWhiteSpace(cari.Unvan))
+        {
+            ToastService.ShowWarning("Unvan alani zorunludur!");
+            return;
+        }
+
+        try
+        {
+            if (IsEdit)
+            {
+                await CariService.UpdateAsync(cari);
+                ToastService.ShowSuccess($"{cari.Unvan} basariyla guncellendi.");
+            }
+            else
+            {
+                await CariService.CreateAsync(cari);
+                ToastService.ShowSuccess($"{cari.Unvan} basariyla olusturuldu.");
+            }
+            Navigation.NavigateTo("/cariler");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private void Geri() => Navigation.NavigateTo("/cariler");
+
+    private string GetTipText(CariTipi tip) => tip switch
+    {
+        CariTipi.Musteri => "Musteri",
+        CariTipi.Tedarikci => "Tedarikci",
+        CariTipi.MusteriTedarikci => "Musteri + Tedarikci",
+        CariTipi.Personel => "Personel",
+        _ => tip.ToString()
+    };
+    
+    private string GetMuhasebeAciklama() => cari.CariTipi switch
+    {
+        CariTipi.Musteri => "Hesap plan kodu yoksa otomatik olusturulur (120.01.xxx)",
+        CariTipi.Tedarikci => "Hesap plan kodu yoksa otomatik olusturulur (320.01.xxx)",
+        CariTipi.Personel => "Hesap plan kodu yoksa otomatik olusturulur (335.XX.xxx)",
+        _ => "Hesap plan kodu yoksa otomatik olusturulur"
+    };
+
+    private string GetMuhasebeHesapGosterim()
+    {
+        if (muhasebeHesaplar == null)
+        {
+            return "Otomatik Olusturulacak";
+        }
+
+        if (cari.MuhasebeHesapId.HasValue)
+        {
+            var bagliHesap = muhasebeHesaplar.FirstOrDefault(h => h.Id == cari.MuhasebeHesapId.Value);
+            if (bagliHesap != null)
+            {
+                return $"{bagliHesap.HesapKodu} - {bagliHesap.HesapAdi}";
+            }
+        }
+
+        return "Otomatik Olusturulacak";
+    }
+}

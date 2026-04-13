@@ -1,0 +1,436 @@
+@page "/belge-uyarilari"
+@using KOAFiloServis.Web.Services
+@inject IBelgeUyariService BelgeUyariService
+@inject IExcelService ExcelService
+@inject IPdfService PdfService
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Belge Sure Uyarilari</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="bi bi-file-earmark-medical me-2"></i>Belge Sure Uyarilari</h3>
+        <div class="d-flex gap-2">
+            <select class="form-select" style="width: 180px;" @bind="gunFiltre" @bind:after="YenileAsync">
+                <option value="7">7 Gun Icinde</option>
+                <option value="15">15 Gun Icinde</option>
+                <option value="30">30 Gun Icinde</option>
+                <option value="60">60 Gun Icinde</option>
+                <option value="90">90 Gun Icinde</option>
+            </select>
+            <button class="btn btn-danger" @onclick="PdfExport" disabled="@(uyarilar == null || !FiltrelenmisTumUyarilar.Any())">
+                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </button>
+            <button class="btn btn-success" @onclick="ExcelExport" disabled="@(uyarilar == null || !FiltrelenmisTumUyarilar.Any())">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </button>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">Kaynak</label>
+                    <select class="form-select form-select-sm" @bind="kaynakFiltre">
+                        <option value="Tumu">Tümü</option>
+                        <option value="Personel">Personel</option>
+                        <option value="Araç">Araç</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">Seviye</label>
+                    <select class="form-select form-select-sm" @bind="seviyeFiltre">
+                        <option value="Tumu">Tümü</option>
+                        <option value="Kritik">Süresi Geçmiş</option>
+                        <option value="Acil">7 Gün İçinde</option>
+                        <option value="Uyari">Yaklaşan</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small mb-1">Arama</label>
+                    <input type="text" class="form-control form-control-sm" @bind="aramaMetni" @bind:event="oninput" placeholder="Belge türü, personel veya plaka ara..." />
+                </div>
+                <div class="col-md-12 text-end">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="FiltreleriTemizle" disabled="@(!FiltreVarMi)">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Filtreleri Temizle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (uyarilar != null)
+    {
+        <!-- Ozet Kartlari -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-danger text-white h-100">
+                    <div class="card-body text-center">
+                        <h1 class="mb-0">@FiltrelenmisTumUyarilar.Count(u => u.Seviye == BelgeUyariSeviye.Kritik)</h1>
+                        <small>Suresi Gecmis</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-dark h-100">
+                    <div class="card-body text-center">
+                        <h1 class="mb-0">@FiltrelenmisTumUyarilar.Count(u => u.Seviye == BelgeUyariSeviye.Acil)</h1>
+                        <small>7 Gun Icinde</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white h-100">
+                    <div class="card-body text-center">
+                        <h1 class="mb-0">@FiltrelenmisTumUyarilar.Count(u => u.Seviye == BelgeUyariSeviye.Uyari)</h1>
+                        <small>30 Gun Icinde</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body text-center">
+                        <h1 class="mb-0">@FiltrelenmisTumUyarilar.Count</h1>
+                        <small>Toplam Uyari</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Personel Belgeleri -->
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="bi bi-person-badge me-2"></i>Personel Belgeleri</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (FiltrelenmisPersonelUyarilari.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Personel</th>
+                                            <th>Belge</th>
+                                            <th>Bitis</th>
+                                            <th class="text-center">Durum</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var u in FiltrelenmisPersonelUyarilari)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <a href="@u.DetayUrl" class="text-decoration-none">
+                                                        <strong>@u.Baslik</strong>
+                                                    </a>
+                                                </td>
+                                                <td>@u.BelgeTuru</td>
+                                                <td>@u.BitisTarihi.ToString("dd.MM.yyyy")</td>
+                                                <td class="text-center">
+                                                    <span class="badge @u.SeviyeClass">
+                                                        @if (u.KalanGun < 0)
+                                                        {
+                                                            @(Math.Abs(u.KalanGun) + " gun gecti")
+                                                        }
+                                                        else
+                                                        {
+                                                            @(u.KalanGun + " gun")
+                                                        }
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-success py-4">
+                                <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
+                                <p class="mb-0 mt-2">Personel belgeleri guncel!</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Arac Belgeleri -->
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Arac Belgeleri</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (FiltrelenmisAracUyarilari.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Plaka</th>
+                                            <th>Belge</th>
+                                            <th>Bitis</th>
+                                            <th class="text-center">Durum</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var u in FiltrelenmisAracUyarilari)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <a href="@u.DetayUrl" class="text-decoration-none">
+                                                        <strong>@u.Baslik</strong>
+                                                    </a>
+                                                </td>
+                                                <td>@u.BelgeTuru</td>
+                                                <td>@u.BitisTarihi.ToString("dd.MM.yyyy")</td>
+                                                <td class="text-center">
+                                                    <span class="badge @u.SeviyeClass">
+                                                        @if (u.KalanGun < 0)
+                                                        {
+                                                            @(Math.Abs(u.KalanGun) + " gun gecti")
+                                                        }
+                                                        else
+                                                        {
+                                                            @(u.KalanGun + " gun")
+                                                        }
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-success py-4">
+                                <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
+                                <p class="mb-0 mt-2">Arac belgeleri guncel!</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Tum Uyarilar</h6>
+                <span class="badge bg-dark">@FiltrelenmisTumUyarilar.Count kayıt</span>
+            </div>
+            <div class="card-body p-0">
+                @if (FiltrelenmisTumUyarilar.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Kaynak</th>
+                                    <th>Belge Türü</th>
+                                    <th>Ad / Plaka</th>
+                                    <th>Bitiş</th>
+                                    <th class="text-center">Durum</th>
+                                    <th class="text-center">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var uyari in FiltrelenmisTumUyarilar)
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="badge @(uyari.Kaynak == "Personel" ? "bg-primary" : "bg-success")">@uyari.Kaynak</span>
+                                        </td>
+                                        <td>@uyari.BelgeTuru</td>
+                                        <td><strong>@uyari.Baslik</strong></td>
+                                        <td>@uyari.BitisTarihi.ToString("dd.MM.yyyy")</td>
+                                        <td class="text-center">
+                                            <span class="badge @uyari.SeviyeClass">
+                                                @(uyari.KalanGun < 0 ? $"{Math.Abs(uyari.KalanGun)} gün geçti" : $"{uyari.KalanGun} gün")
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <a class="btn btn-sm btn-outline-primary" href="@uyari.DetayUrl">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-muted py-4">Filtreye uygun uyarı bulunamadı.</div>
+                }
+            </div>
+        </div>
+
+        <!-- Belge Turu Bazinda Ozet -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Belge Turu Ozeti</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="p-3 border rounded @(uyarilar.EhliyetUyarilari.Any(u => u.KalanGun < 0) ? "border-danger" : "")">
+                            <i class="bi bi-card-text" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2 mb-0">@uyarilar.EhliyetUyarilari.Count</h4>
+                            <small class="text-muted">Ehliyet</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="p-3 border rounded @(uyarilar.SrcUyarilari.Any(u => u.KalanGun < 0) ? "border-danger" : "")">
+                            <i class="bi bi-file-earmark-check" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2 mb-0">@uyarilar.SrcUyarilari.Count</h4>
+                            <small class="text-muted">SRC Belgesi</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="p-3 border rounded @(uyarilar.PsikoteknikUyarilari.Any(u => u.KalanGun < 0) ? "border-danger" : "")">
+                            <i class="bi bi-clipboard2-pulse" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2 mb-0">@uyarilar.PsikoteknikUyarilari.Count</h4>
+                            <small class="text-muted">Psikoteknik</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="p-3 border rounded @(uyarilar.MuayeneUyarilari.Any(u => u.KalanGun < 0) ? "border-danger" : "")">
+                            <i class="bi bi-wrench-adjustable" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2 mb-0">@uyarilar.MuayeneUyarilari.Count</h4>
+                            <small class="text-muted">Muayene</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="p-3 border rounded @(uyarilar.KaskoUyarilari.Any(u => u.KalanGun < 0) ? "border-danger" : "")">
+                            <i class="bi bi-shield-check" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2 mb-0">@uyarilar.KaskoUyarilari.Count</h4>
+                            <small class="text-muted">Kasko</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="p-3 border rounded @(uyarilar.TrafikSigortasiUyarilari.Any(u => u.KalanGun < 0) ? "border-danger" : "")">
+                            <i class="bi bi-shield-exclamation" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2 mb-0">@uyarilar.TrafikSigortasiUyarilari.Count</h4>
+                            <small class="text-muted">Trafik Sigortasi</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="p-3 border rounded @(uyarilar.DigerAracEvrakUyarilari.Any(u => u.KalanGun < 0) ? "border-danger" : "")">
+                            <i class="bi bi-folder2-open" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2 mb-0">@uyarilar.DigerAracEvrakUyarilari.Count</h4>
+                            <small class="text-muted">Diger Evraklar</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private BelgeUyariOzet? uyarilar;
+    private bool isLoading = true;
+    private int gunFiltre = 30;
+    private string kaynakFiltre = "Tumu";
+    private string seviyeFiltre = "Tumu";
+    private string aramaMetni = string.Empty;
+
+    private bool FiltreVarMi => kaynakFiltre != "Tumu"
+        || seviyeFiltre != "Tumu"
+        || !string.IsNullOrWhiteSpace(aramaMetni);
+
+    private List<BelgeUyari> FiltrelenmisPersonelUyarilari => FiltreUygula(
+        (uyarilar?.EhliyetUyarilari ?? new List<BelgeUyari>())
+        .Concat(uyarilar?.SrcUyarilari ?? new List<BelgeUyari>())
+        .Concat(uyarilar?.PsikoteknikUyarilari ?? new List<BelgeUyari>())
+        .Concat(uyarilar?.SaglikRaporuUyarilari ?? new List<BelgeUyari>()));
+
+    private List<BelgeUyari> FiltrelenmisAracUyarilari => FiltreUygula(
+        (uyarilar?.MuayeneUyarilari ?? new List<BelgeUyari>())
+        .Concat(uyarilar?.KaskoUyarilari ?? new List<BelgeUyari>())
+        .Concat(uyarilar?.TrafikSigortasiUyarilari ?? new List<BelgeUyari>())
+        .Concat(uyarilar?.DigerAracEvrakUyarilari ?? new List<BelgeUyari>()));
+
+    private List<BelgeUyari> FiltrelenmisTumUyarilar => FiltreUygula(uyarilar?.TumUyarilar ?? new List<BelgeUyari>());
+
+    protected override async Task OnInitializedAsync()
+    {
+        await YenileAsync();
+    }
+
+    private async Task YenileAsync()
+    {
+        isLoading = true;
+        try
+        {
+            uyarilar = await BelgeUyariService.GetBelgeUyarilarAsync(gunFiltre);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ExcelExport()
+    {
+        if (FiltrelenmisTumUyarilar.Any())
+        {
+            var excelBytes = ExcelService.ExportBelgeUyarilari(FiltrelenmisTumUyarilar);
+            var fileName = "BelgeUyarilari_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx";
+            var base64 = Convert.ToBase64String(excelBytes);
+            await JS.InvokeVoidAsync("downloadFile", fileName, base64, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+    }
+
+    private async Task PdfExport()
+    {
+        if (FiltrelenmisTumUyarilar.Any())
+        {
+            var pdfBytes = PdfService.GenerateBelgeUyariRaporuPdf(FiltrelenmisTumUyarilar);
+            var fileName = "BelgeUyarilari_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf";
+            var base64 = Convert.ToBase64String(pdfBytes);
+            await JS.InvokeVoidAsync("downloadFile", fileName, base64, "application/pdf");
+        }
+    }
+
+    private void FiltreleriTemizle()
+    {
+        kaynakFiltre = "Tumu";
+        seviyeFiltre = "Tumu";
+        aramaMetni = string.Empty;
+    }
+
+    private List<BelgeUyari> FiltreUygula(IEnumerable<BelgeUyari> kaynak)
+    {
+        return kaynak
+            .Where(u => kaynakFiltre == "Tumu" || u.Kaynak == kaynakFiltre)
+            .Where(u => seviyeFiltre switch
+            {
+                "Kritik" => u.Seviye == BelgeUyariSeviye.Kritik,
+                "Acil" => u.Seviye == BelgeUyariSeviye.Acil,
+                "Uyari" => u.Seviye == BelgeUyariSeviye.Uyari,
+                _ => true
+            })
+            .Where(u => string.IsNullOrWhiteSpace(aramaMetni)
+                || u.Baslik.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase)
+                || u.BelgeTuru.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase)
+                || u.Kaynak.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(u => u.KalanGun)
+            .ThenBy(u => u.Baslik)
+            .ToList();
+    }
+}

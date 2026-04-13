@@ -1,0 +1,229 @@
+@page "/giris"
+@using KOAFiloServis.Mobile.Services
+@inject IApiService ApiService
+@inject NavigationManager Navigation
+
+<div class="container-fluid p-3">
+    <div class="d-flex flex-column justify-content-center" style="min-height: 85vh;">
+        <!-- Logo ve Başlık -->
+        <div class="text-center mb-5">
+            <div class="rounded-circle bg-primary mx-auto d-flex align-items-center justify-content-center" 
+                 style="width: 80px; height: 80px;">
+                <i class="bi bi-truck text-white" style="font-size: 2.5rem;"></i>
+            </div>
+            <h4 class="mt-3">Filo Servis</h4>
+            <p class="text-muted">Şoför Mobil Uygulaması</p>
+        </div>
+
+        <!-- Giriş Formu -->
+        <div class="card">
+            <div class="card-body p-4">
+                @if (!string.IsNullOrEmpty(_hataMesaji))
+                {
+                    <div class="alert alert-danger mb-3">
+                        <i class="bi bi-exclamation-circle me-2"></i>
+                        @_hataMesaji
+                    </div>
+                }
+
+                <EditForm Model="@_model" OnValidSubmit="GirisYapAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label">Sunucu Adresi</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-server"></i>
+                            </span>
+                            <InputText @bind-Value="_sunucuAdresi"
+                                       class="form-control"
+                                       placeholder="192.168.1.112:5190"
+                                       disabled="@_yukleniyor" />
+                            <button type="button" class="btn btn-outline-secondary" @onclick="VarsayilanSunucuyuUygula" disabled="@_yukleniyor">
+                                192.168.1.112:5190
+                            </button>
+                        </div>
+                        <small class="text-muted">Gerekirse IP:Port girin. Örnek: 192.168.1.112:5190</small>
+                        <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="BaglantiyiTestEtAsync" disabled="@_yukleniyor">
+                                @if (_baglantiTestEdiliyor)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                    <span>Test ediliyor...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-wifi me-1"></i>
+                                    <span>Bağlantıyı Test Et</span>
+                                }
+                            </button>
+                            @if (!string.IsNullOrWhiteSpace(_baglantiDurumu))
+                            {
+                                <span class="small @(_baglantiBasarili ? "text-success" : "text-danger")">
+                                    <i class="bi @(_baglantiBasarili ? "bi-check-circle" : "bi-x-circle") me-1"></i>
+                                    @_baglantiDurumu
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Kullanıcı Adı</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-person"></i>
+                            </span>
+                            <InputText @bind-Value="_model.KullaniciAdi" 
+                                       class="form-control" 
+                                       placeholder="Kullanıcı adınız"
+                                       disabled="@_yukleniyor" />
+                        </div>
+                        <ValidationMessage For="@(() => _model.KullaniciAdi)" class="text-danger small" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Şifre</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-lock"></i>
+                            </span>
+                            <InputText @bind-Value="_model.Sifre" 
+                                       type="@(_sifreGoster ? "text" : "password")"
+                                       class="form-control" 
+                                       placeholder="Şifreniz"
+                                       disabled="@_yukleniyor" />
+                            <button type="button" class="btn btn-outline-secondary" @onclick="SifreGosterToggle">
+                                <i class="bi @(_sifreGoster ? "bi-eye-slash" : "bi-eye")"></i>
+                            </button>
+                        </div>
+                        <ValidationMessage For="@(() => _model.Sifre)" class="text-danger small" />
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="beniHatirla" @bind="_model.BeniHatirla" />
+                            <label class="form-check-label" for="beniHatirla">Beni Hatırla</label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2" disabled="@_yukleniyor">
+                        @if (_yukleniyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Giriş yapılıyor...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-box-arrow-in-right me-2"></i>
+                            <span>Giriş Yap</span>
+                        }
+                    </button>
+                </EditForm>
+            </div>
+        </div>
+
+        <!-- Alt Bilgi -->
+        <div class="text-center mt-4">
+            <small class="text-muted">
+                Şifrenizi mi unuttunuz?<br/>
+                Yöneticinizle iletişime geçin.
+            </small>
+        </div>
+    </div>
+</div>
+
+@code {
+    private GirisModel _model = new();
+    private bool _yukleniyor;
+    private string? _hataMesaji;
+    private bool _sifreGoster;
+    private string _sunucuAdresi = "192.168.1.112:5190";
+    private bool _baglantiTestEdiliyor;
+    private bool _baglantiBasarili;
+    private string? _baglantiDurumu;
+
+    private class GirisModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Kullanıcı adı gerekli")]
+        public string KullaniciAdi { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Şifre gerekli")]
+        public string Sifre { get; set; } = string.Empty;
+
+        public bool BeniHatirla { get; set; } = true;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _sunucuAdresi = await ApiService.GetSunucuAdresiAsync();
+    }
+
+    private async Task GirisYapAsync()
+    {
+        _hataMesaji = null;
+        _yukleniyor = true;
+
+        try
+        {
+            await ApiService.SetSunucuAdresiAsync(_sunucuAdresi);
+            var sonuc = await ApiService.GirisYapAsync(_model.KullaniciAdi, _model.Sifre);
+
+            if (sonuc?.Basarili == true)
+            {
+                Navigation.NavigateTo("/", replace: true);
+            }
+            else
+            {
+                _hataMesaji = sonuc?.Mesaj ?? "Giriş başarısız. Lütfen bilgilerinizi kontrol edin.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _hataMesaji = "Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.";
+            Console.WriteLine($"Giriş hatası: {ex.Message}");
+        }
+        finally
+        {
+            _yukleniyor = false;
+        }
+    }
+
+    private async Task BaglantiyiTestEtAsync()
+    {
+        _hataMesaji = null;
+        _baglantiDurumu = null;
+        _baglantiBasarili = false;
+        _baglantiTestEdiliyor = true;
+
+        try
+        {
+            await ApiService.SetSunucuAdresiAsync(_sunucuAdresi);
+            var sonuc = await ApiService.BaglantiyiTestEtAsync();
+            _baglantiBasarili = sonuc;
+            _baglantiDurumu = sonuc
+                ? "Sunucuya bağlanıldı"
+                : "Sunucuya bağlanılamadı";
+        }
+        catch (Exception ex)
+        {
+            _baglantiBasarili = false;
+            _baglantiDurumu = $"Bağlantı hatası: {ex.Message}";
+        }
+        finally
+        {
+            _baglantiTestEdiliyor = false;
+        }
+    }
+
+    private void SifreGosterToggle()
+    {
+        _sifreGoster = !_sifreGoster;
+    }
+
+    private void VarsayilanSunucuyuUygula()
+    {
+        _sunucuAdresi = "192.168.1.112:5190";
+        _hataMesaji = null;
+        _baglantiDurumu = null;
+    }
+}
