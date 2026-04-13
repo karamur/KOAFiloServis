@@ -1,6 +1,8 @@
 ﻿using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Data;
+using System.Data.Common;
 using CRMFiloServis.Shared.Entities;
 using CRMFiloServis.Web.Data;
 using CRMFiloServis.Web.Helpers;
@@ -369,50 +371,150 @@ public class BackupService : IBackupService
     {
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var provider = GetCurrentDatabaseProvider();
+        var connection = context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
 
-        var cariler = await context.Cariler.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var araclar = await context.Araclar.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var soforler = await context.Soforler.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var guzergahlar = await context.Guzergahlar.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var faturalar = await context.Faturalar.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var faturaKalemleri = await context.FaturaKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var bankaHesaplari = await context.BankaHesaplari.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var bankaKasaHareketleri = await context.BankaKasaHareketleri.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var budgetOdemeler = await context.BudgetOdemeler.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var budgetMasrafKalemleri = await context.BudgetMasrafKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var servisCalismalari = await context.ServisCalismalari.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var aracMasraflari = await context.AracMasraflari.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var masrafKalemleri = await context.MasrafKalemleri.IgnoreQueryFilters().AsNoTracking().ToListAsync();
-        var firmalar = await context.Firmalar.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        if (shouldClose)
+            await connection.OpenAsync();
 
-        var backup = new
+        try
         {
-            ExportDate = DateTime.UtcNow,
-            DatabaseProvider = GetCurrentDatabaseProvider(),
-            Firmalar = firmalar,
-            Cariler = cariler,
-            Araclar = araclar,
-            Soforler = soforler,
-            Guzergahlar = guzergahlar,
-            Faturalar = faturalar,
-            FaturaKalemleri = faturaKalemleri,
-            BankaHesaplari = bankaHesaplari,
-            BankaKasaHareketleri = bankaKasaHareketleri,
-            BudgetOdemeler = budgetOdemeler,
-            BudgetMasrafKalemleri = budgetMasrafKalemleri,
-            ServisCalismalari = servisCalismalari,
-            AracMasraflari = aracMasraflari,
-            MasrafKalemleri = masrafKalemleri
+            var tables = await GetUserTablesAsync(connection, provider);
+            var exportedTables = new List<object>(tables.Count);
+
+            foreach (var table in tables)
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = $"SELECT * FROM {BuildQualifiedTableName(table, provider)}";
+
+                await using var reader = await command.ExecuteReaderAsync();
+                var rows = new List<Dictionary<string, object?>>();
+
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object?>(reader.FieldCount, StringComparer.OrdinalIgnoreCase);
+                    for (var i = 0; i < reader.FieldCount; i++)
+                    {
+                        row[reader.GetName(i)] = ReadBackupValue(reader, i);
+                    }
+
+                    rows.Add(row);
+                }
+
+                exportedTables.Add(new
+                {
+                    Schema = table.Schema,
+                    TableName = table.Name,
+                    RowCount = rows.Count,
+                    Rows = rows
+                });
+            }
+
+            var backup = new
+            {
+                ExportDateUtc = DateTime.UtcNow,
+                DatabaseProvider = provider,
+                BackupType = "FullLogicalJson",
+                TableCount = exportedTables.Count,
+                Tables = exportedTables
+            };
+
+            var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            });
+
+            await File.WriteAllTextAsync(filePath, json);
+        }
+        finally
+        {
+            if (shouldClose)
+                await connection.CloseAsync();
+        }
+    }
+
+    private async Task<List<BackupTableDefinition>> GetUserTablesAsync(DbConnection connection, string provider)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = provider.ToUpperInvariant() switch
+        {
+            "POSTGRESQL" => @"
+                SELECT table_schema, table_name
+                FROM information_schema.tables
+                WHERE table_type = 'BASE TABLE'
+                  AND table_schema = current_schema()
+                ORDER BY table_schema, table_name",
+            "MYSQL" => @"
+                SELECT table_schema, table_name
+                FROM information_schema.tables
+                WHERE table_type = 'BASE TABLE'
+                  AND table_schema = DATABASE()
+                ORDER BY table_schema, table_name",
+            "MSSQL" or "SQLSERVER" => @"
+                SELECT s.name AS table_schema, t.name AS table_name
+                FROM sys.tables t
+                INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+                WHERE t.is_ms_shipped = 0
+                ORDER BY s.name, t.name",
+            _ => @"
+                SELECT NULL AS table_schema, name AS table_name
+                FROM sqlite_master
+                WHERE type = 'table'
+                  AND name NOT LIKE 'sqlite_%'
+                ORDER BY name"
         };
 
-        var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions
+        var tables = new List<BackupTableDefinition>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
         {
-            WriteIndented = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        });
+            var schema = reader.IsDBNull(0) ? null : reader.GetString(0);
+            var name = reader.GetString(1);
+            tables.Add(new BackupTableDefinition(schema, name));
+        }
 
-        await File.WriteAllTextAsync(filePath, json);
+        return tables;
     }
+
+    private static string BuildQualifiedTableName(BackupTableDefinition table, string provider)
+    {
+        var tableName = QuoteIdentifier(table.Name, provider);
+        return string.IsNullOrWhiteSpace(table.Schema)
+            ? tableName
+            : $"{QuoteIdentifier(table.Schema, provider)}.{tableName}";
+    }
+
+    private static string QuoteIdentifier(string identifier, string provider)
+    {
+        return provider.ToUpperInvariant() switch
+        {
+            "MSSQL" or "SQLSERVER" => $"[{identifier.Replace("]", "]]", StringComparison.Ordinal)}]",
+            "MYSQL" => $"`{identifier.Replace("`", "``", StringComparison.Ordinal)}`",
+            _ => $"\"{identifier.Replace("\"", "\"\"", StringComparison.Ordinal)}\""
+        };
+    }
+
+    private static object? ReadBackupValue(DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+            return null;
+
+        var value = reader.GetValue(ordinal);
+        return value switch
+        {
+            byte[] bytes => Convert.ToBase64String(bytes),
+            char ch => ch.ToString(),
+            Guid guid => guid.ToString(),
+            TimeSpan timeSpan => timeSpan.ToString(),
+            DateOnly dateOnly => dateOnly.ToString("O"),
+            TimeOnly timeOnly => timeOnly.ToString("O"),
+            _ => value
+        };
+    }
+
+    private sealed record BackupTableDefinition(string? Schema, string Name);
 
     private Dictionary<string, string> ParseConnectionString(string connectionString)
     {
