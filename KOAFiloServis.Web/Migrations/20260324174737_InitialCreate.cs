@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -918,7 +918,7 @@ namespace KOAFiloServis.Web.Migrations
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
                     FirmaId = table.Column<int>(type: "INTEGER", nullable: false),
-                    Kiralay�c�CariId = table.Column<int>(type: "INTEGER", nullable: false),
+                    KiralayiciCariId = table.Column<int>(type: "INTEGER", nullable: false),
                     Plaka = table.Column<string>(type: "TEXT", maxLength: 15, nullable: false),
                     Marka = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     Model = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -943,8 +943,8 @@ namespace KOAFiloServis.Web.Migrations
                 {
                     table.PrimaryKey("PK_KiralamaAraclar", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_KiralamaAraclar_Cariler_Kiralay�c�CariId",
-                        column: x => x.Kiralay�c�CariId,
+                        name: "FK_KiralamaAraclar_Cariler_KiralayiciCariId",
+                        column: x => x.KiralayiciCariId,
                         principalTable: "Cariler",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
