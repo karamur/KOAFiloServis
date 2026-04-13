@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -159,7 +159,7 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
         // Y�ll�k izinse, izin hakk�ndan d��
         if (izin.IzinTipi == IzinTipi.YillikIzin && izin.Durum == IzinDurum.Onaylandi)
         {
-            await UpdateIzinHakkiKullan�mAsync(izin.SoforId, izin.BaslangicTarihi.Year, izin.ToplamGun);
+            await UpdateIzinHakkiKullanimAsync(izin.SoforId, izin.BaslangicTarihi.Year, izin.ToplamGun);
         }
 
         return izin;
@@ -194,7 +194,7 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
             // Y�ll�k izinse kullan�m� g�ncelle
             if (izin.IzinTipi == IzinTipi.YillikIzin)
             {
-                await UpdateIzinHakkiKullan�mAsync(izin.SoforId, izin.BaslangicTarihi.Year, izin.ToplamGun);
+                await UpdateIzinHakkiKullanimAsync(izin.SoforId, izin.BaslangicTarihi.Year, izin.ToplamGun);
             }
 
             await _context.SaveChangesAsync();
@@ -212,7 +212,7 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
         }
     }
 
-    private async Task UpdateIzinHakkiKullan�mAsync(int soforId, int yil, int gun)
+    private async Task UpdateIzinHakkiKullanimAsync(int soforId, int yil, int gun)
     {
         var izinHakki = await GetIzinHakkiAsync(soforId, yil);
         if (izinHakki != null)

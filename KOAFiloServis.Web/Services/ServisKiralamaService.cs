@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
@@ -22,7 +22,7 @@ public class ServisKiralamaService : IServisKiralamaService
     {
         using var context = await _contextFactory.CreateDbContextAsync();
         return await context.KiralamaAraclar
-            .Include(k => k.Kiralay�c�Cari)
+            .Include(k => k.KiralayiciCari)
             .Where(k => k.FirmaId == firmaId && !k.IsDeleted)
             .OrderByDescending(k => k.KiralamaBaslangic)
             .ToListAsync();
@@ -34,7 +34,7 @@ public class ServisKiralamaService : IServisKiralamaService
         var bugun = DateTime.Today;
 
         return await context.KiralamaAraclar
-            .Include(k => k.Kiralay�c�Cari)
+            .Include(k => k.KiralayiciCari)
             .Where(k => k.FirmaId == firmaId && 
                        k.Aktif && 
                        !k.IsDeleted &&
@@ -48,7 +48,7 @@ public class ServisKiralamaService : IServisKiralamaService
     {
         using var context = await _contextFactory.CreateDbContextAsync();
         return await context.KiralamaAraclar
-            .Include(k => k.Kiralay�c�Cari)
+            .Include(k => k.KiralayiciCari)
             .FirstOrDefaultAsync(k => k.Id == id && !k.IsDeleted);
     }
 
@@ -91,7 +91,7 @@ public class ServisKiralamaService : IServisKiralamaService
         using var context = await _contextFactory.CreateDbContextAsync();
         return await context.ServisCalismaKiralamalar
             .Include(s => s.Arac)
-            .Include(s => s.KiralamaArac).ThenInclude(k => k!.Kiralay�c�Cari)
+            .Include(s => s.KiralamaArac).ThenInclude(k => k!.KiralayiciCari)
             .Include(s => s.Sofor)
             .Include(s => s.Guzergah)
             .Include(s => s.MusteriFirma)
@@ -173,7 +173,7 @@ public class ServisKiralamaService : IServisKiralamaService
         if (calisma == null) throw new Exception("Servis �al��mas� bulunamad�");
 
         // Kiral�k ara� ise kira bedelini hesapla
-        if (calisma.AracSahiplikTuru == AracSahiplikTuru.Kiral�kArac && calisma.KiralamaArac != null)
+        if (calisma.AracSahiplikTuru == AracSahiplikTuru.KiralikArac && calisma.KiralamaArac != null)
         {
             // Sefer ba��na bedel varsa
             if (calisma.KiralamaArac.SeferBasinaKiraBedeli.HasValue)
@@ -502,7 +502,7 @@ public class ServisKiralamaService : IServisKiralamaService
             worksheet.Cells[row, 1].Value = a.Plaka;
             worksheet.Cells[row, 2].Value = $"{a.Marka} {a.Model}";
             worksheet.Cells[row, 3].Value = a.AracTipi.ToString();
-            worksheet.Cells[row, 4].Value = a.Kiralay�c�Cari?.Unvan;
+            worksheet.Cells[row, 4].Value = a.KiralayiciCari?.Unvan;
             worksheet.Cells[row, 5].Value = a.KiralamaBaslangic.ToString("dd.MM.yyyy");
             worksheet.Cells[row, 6].Value = a.KiralamaBitis?.ToString("dd.MM.yyyy");
             worksheet.Cells[row, 7].Value = a.GunlukKiraBedeli;
@@ -621,7 +621,7 @@ public class ServisKiralamaService : IServisKiralamaService
             .Where(s => s.FirmaId == firmaId &&
                        s.CalismaTarihi >= baslangic &&
                        s.CalismaTarihi <= bitis &&
-                       s.AracSahiplikTuru == AracSahiplikTuru.Kiral�kArac &&
+                       s.AracSahiplikTuru == AracSahiplikTuru.KiralikArac &&
                        !s.IsDeleted)
             .SumAsync(s => s.AracKiraBedeli ?? 0);
     }
