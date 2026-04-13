@@ -66,6 +66,325 @@ Sorun çıkaran, tekrar kontrol edilmesi gereken veya teknik risk barındıran k
 
 ## İstek Kayıtları
 
+### Kayıt 157 - Fatura Listesinde Firma/Yön Rozetlerinin Güçlendirilmesi
+**Talep:**
+- Aynı `FaturaNo` değerinin çoklu firma ve yön yapısında listede daha kolay ayırt edilebilmesi.
+
+**Yapılanlar:**
+- `FaturaList.razor` içinde `Fatura No` kolonu genişletildi.
+- Fatura numarasının altına görünür rozetler eklendi:
+  - firma adı
+  - yön (`Kesilen` / `Gelen`)
+  - firmalar arası rozet bilgisi
+- Firma kolonunda karşı firma bilgisi badge olarak daha görünür hale getirildi.
+- Cari kolonuna kısa kimlik satırı eklendi (`Firma • Yön`).
+
+**Doğrulama:**
+- `run_build` başarılı
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Components/Pages/Faturalar/FaturaList.razor`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 156 - Fatura UI'da Çakışma Hatalarının Kullanıcıya Gösterilmesi
+**Talep:**
+- Çoklu firma ve yön bazlı fatura kurallarında servis/veritabanı çakışmalarının kullanıcı ekranında daha anlaşılır görünmesi.
+
+**Yapılanlar:**
+- `FaturaService` içinde `DbUpdateException` yakalanarak benzersizlik hataları kullanıcı dostu `InvalidOperationException` mesajına çevrildi.
+- `FirmaId + FaturaYonu + FaturaNo` unique index çakışmaları için özel mesaj üretimi eklendi.
+- `FaturaForm.razor` içinde kayıt/güncelleme sırasında servis katmanından dönen doğrulama/çakışma mesajları form içine yansıtıldı.
+- `GidenFaturalar.razor` manuel kayıt modalında servis hataları toast yerine modal içi uyarı olarak gösterilir hale getirildi.
+- `GelenFaturalar.razor` manuel kayıt modalında servis hataları toast yerine modal içi uyarı olarak gösterilir hale getirildi.
+
+**Doğrulama:**
+- `run_build` başarılı
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Services/FaturaService.cs`
+- `KOAFiloServis.Web/Components/Pages/Faturalar/FaturaForm.razor`
+- `KOAFiloServis.Web/Components/Pages/EFatura/GidenFaturalar.razor`
+- `KOAFiloServis.Web/Components/Pages/EFatura/GelenFaturalar.razor`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 155 - Faturalar API Çoklu Firma/Yön Doğrulama Uyumu
+**Talep:**
+- UI tarafında tamamlanan çoklu firma ve yön bazlı fatura kurallarının `FaturalarController` API uçlarına da yansıtılması.
+
+**Yapılanlar:**
+- `FaturalarController.GetAll` içine `yon` ve `firmaId` query filtreleri eklendi.
+- `GetByNo` endpoint'i firma ve yön bazlı aramayı destekleyecek şekilde genişletildi.
+- `GetById` artık detaylı yükleme akışını kullanıyor (`GetByIdWithKalemlerAsync`).
+- API dönüş DTO'larına eklendi:
+  - `FaturaYonu`
+  - `FirmaId`
+  - `FirmaAdi`
+  - `FirmalarArasiFatura`
+  - `KarsiFirmaId`
+  - `KarsiFirmaAdi`
+- `FaturaCreateDto` çoklu firma akışını destekleyecek şekilde genişletildi:
+  - `FaturaYonu`
+  - `Durum`
+  - `FirmaId`
+  - `FirmalarArasiFatura`
+  - `KarsiFirmaId`
+- `Create` endpoint'ine eklendi:
+  - firma zorunluluğu
+  - firmalar arası karşı firma doğrulaması
+  - tip + yön parse mantığı
+  - servis katmanından gelen çakışma hatalarını `409 Conflict` olarak döndürme
+- `UpdateDurum` endpoint'ine servis kaynaklı doğrulama/çakışma hataları için `409 Conflict` dönüşü eklendi.
+- Controller içinde tekrar eden API dönüşümlerini sadeleştirmek için `MapFaturaDto` ve `MapFaturaDetayDto` yardımcı metodları eklendi.
+
+**Doğrulama:**
+- `run_build` başarılı
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Controllers/FaturalarController.cs`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 154 - Fatura Numara Tekilliği İçin Veritabanı Seviyesi Koruma
+**Talep:**
+- Çoklu firma fatura akışında `FaturaNo + FaturaYonu + FirmaId` kombinasyonunun veritabanı seviyesinde de korunması.
+
+**Yapılanlar:**
+- `ApplicationDbContext` içinde `Fatura` entity benzersizlik tanımı güncellendi.
+- Eski global `FaturaNo` unique index kaldırılıp model tarafında `FirmaId + FaturaYonu + FaturaNo` benzersiz index tanımlandı.
+- SQLite için `IsDeleted = 0` filtreli unique index tanımı eklendi.
+- PostgreSQL için `"IsDeleted" = false` filtreli unique index tanımı eklendi.
+- `DbInitializer` içine startup sırasında çalışan `EnsureFaturaFirmaYonUniqueIndexAsync` yardımcı akışı eklendi.
+- Bu akış ile:
+  - eski `IX_Faturalar_FaturaNo` index'i düşürülüyor
+  - yeni `IX_Faturalar_FirmaId_FaturaYonu_FaturaNo` unique index'i oluşturuluyor
+
+**Doğrulama:**
+- `run_build` başarılı
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Data/ApplicationDbContext.cs`
+- `KOAFiloServis.Web/Data/DbInitializer.cs`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 153 - Fatura Detay Ekranında Firma/Yön Görünürlüğü
+**Talep:**
+- Çoklu firma fatura akışında `FaturaDetay` ekranında firma, yön ve karşı firma bilgilerinin görünür olması.
+
+**Yapılanlar:**
+- `FaturaService.GetByIdAsync` içine `Firma` ve `KarsiFirma` include'ları eklendi.
+- `FaturaService.GetByIdWithKalemlerAsync` içine:
+  - `Firma` include'u
+  - `KarsiFirma` include'u
+  - ödeme hareketleri için `BankaHesap` include'u
+  eklendi.
+- `FaturaDetay.razor` ekranında gösterime eklendi:
+  - fatura yönü (`Kesilen` / `Gelen`)
+  - firma adı
+  - firmalar arası fatura rozeti
+  - karşı firma adı
+
+**Doğrulama:**
+- `run_build` başarılı
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Services/FaturaService.cs`
+- `KOAFiloServis.Web/Components/Pages/Faturalar/FaturaDetay.razor`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 152 - Gelen/Kesilen Fatura Modallarında Tutarlılık İyileştirmesi
+**Talep:**
+- `GidenFaturalar` ve `GelenFaturalar` içindeki manuel fatura modallarında firma/cari/karşı firma seçimlerinin daha tutarlı çalışması.
+
+**Yapılanlar:**
+- `GidenFaturalar.razor` içinde manuel kayıt modalına form içi uyarı alanı eklendi.
+- `GidenFaturalar.razor` içinde:
+  - firma değişince geçersiz cari seçimi temizleniyor
+  - karşı firma aynı firmaysa sıfırlanıyor
+  - yeni kayıtta fatura numarası yeniden üretiliyor
+  - firma seçilmeden numara üretimi engelleniyor
+- `GelenFaturalar.razor` içinde manuel kayıt modalına form içi uyarı alanı eklendi.
+- `GelenFaturalar.razor` içinde:
+  - firma değişince geçersiz tedarikçi/cari seçimi temizleniyor
+  - karşı firma aynı firmaysa sıfırlanıyor
+  - yeni kayıtta fatura numarası yeniden üretiliyor
+  - firma seçilmeden numara üretimi engelleniyor
+- Her iki modalda da sessiz `return` yerine kullanıcıya görünür doğrulama mesajları eklendi.
+
+**Doğrulama:**
+- `run_build` başarılı
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Components/Pages/EFatura/GidenFaturalar.razor`
+- `KOAFiloServis.Web/Components/Pages/EFatura/GelenFaturalar.razor`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 151 - Fatura Formu Tutarlılık ve Form İçi Doğrulama İyileştirmesi
+**Talep:**
+- Çoklu firma desteği sonrası `FaturaForm` ekranında yön/firma/tip/cari ilişkilerinin daha tutarlı çalışması.
+
+**Yapılanlar:**
+- `FaturaForm.razor` içine form içi uyarı mesaj alanı eklendi.
+- Fatura yönü değiştiğinde:
+  - geçersiz fatura tipi otomatik düzeltiliyor
+  - firma/yön ile uyumsuz cari seçimi temizleniyor
+  - yeni kayıtta numara yeniden üretiliyor
+- Firma değiştiğinde:
+  - firma ile uyumsuz cari temizleniyor
+  - karşı firma aynıysa sıfırlanıyor
+  - yeni kayıtta numara yeniden üretiliyor
+- Firmalar arası fatura checkbox durumu değiştiğinde karşı firma alanı güvenli şekilde temizleniyor.
+- `Fatura Tipi` seçenekleri artık seçilen yöne göre filtreleniyor:
+  - `Kesilen`: satış / satış iade / tevkifatlı
+  - `Gelen`: alış / alış iade / tevkifatlı
+- Sessiz `return` akışları yerine kullanıcıya görünür doğrulama mesajları eklendi.
+- Firma seçilmeden numara üretimi engellendi ve kullanıcı bilgilendirildi.
+
+**Doğrulama:**
+- `run_build` başarılı
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Components/Pages/Faturalar/FaturaForm.razor`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 150 - Genel Fatura Ekranlarında Çoklu Firma Desteği
+**Talep:**
+- Çoklu firma fatura yönetimi geliştirmesinin genel `Faturalar` liste/form ekranlarına da yayılması.
+
+**Yapılanlar:**
+- `FaturaFilterParams` içine `FirmaId` filtresi eklendi.
+- `FaturaService.GetPagedAsync` içine firma filtresi ve `Firma` include'u eklendi.
+- `FaturaForm.razor` güncellendi:
+  - firma seçimi
+  - fatura yönü seçimi
+  - firmalar arası fatura checkbox'ı
+  - karşı firma seçimi
+  - firma+yön bazlı numara üret butonu
+  - firma/yön bazlı cari seçenek filtresi
+- `FaturaList.razor` güncellendi:
+  - firma filtresi
+  - yön filtresi
+  - firma kolonu
+  - yön kolonu
+  - firmalar arası kayıtlarda karşı firma görünürlüğü
+
+**Doğrulama:**
+- `run_build` başarılı
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Services/Interfaces/IFaturaService.cs`
+- `KOAFiloServis.Web/Services/FaturaService.cs`
+- `KOAFiloServis.Web/Components/Pages/Faturalar/FaturaForm.razor`
+- `KOAFiloServis.Web/Components/Pages/Faturalar/FaturaList.razor`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 149 - Çoklu Firma Fatura Yönetimi (Kesilen / Gelen)
+**Talep:**
+- Kesilen ve gelen faturaların birden fazla firma bazında yönetilebilmesi.
+- Kesilen faturanın karşı firmada gelen fatura olarak değerlendirildiği akışta numara ve kayıt kontrollerinin buna göre yapılması.
+
+**Yapılanlar:**
+- `FaturaService` içinde fatura numarası üretimi `firma + yön` bazlı hale getirildi.
+- Fatura tekillik kontrolü artık global değil; `FaturaNo + FaturaYonu + FirmaId` kombinasyonuna göre çalışıyor.
+- Manuel kayıt ve import akışlarında aynı numaranın farklı firma veya karşı yönde kullanılabilmesi sağlandı.
+- `PrepareFaturaForSaveAsync` içine firmalar arası fatura doğrulamaları eklendi:
+  - kaynak firma zorunlu
+  - karşı firma zorunlu
+  - aynı firmanın karşı firma olarak seçilmesi engellendi
+- `UpdateAsync` içinde `FirmaId`, `FirmalarArasiFatura` ve `KarsiFirmaId` güncellemesi eklendi.
+- `CreateKarsiFirmaFaturasiAsync` içinde:
+  - hedef firmada aynı numara + karşı yön fatura varsa tekrar oluşturmak yerine eşleştirme yapılıyor
+  - karşı firmada oluşturulan cari artık hedef firma kapsamında aranıyor/oluşturuluyor
+- Excel ve XML import akışlarında:
+  - mevcut fatura kontrolü firma + yön bazlı yapılıyor
+  - cari eşleşmeleri hedef firma kapsamında çalışıyor
+  - otomatik oluşan cari kartlara ilgili `FirmaId` atanıyor
+- `GidenFaturalar.razor` manuel kayıt modalı güncellendi:
+  - firma seçimi
+  - firmalar arası fatura checkbox'ı
+  - karşı firma seçimi
+  - firma bazlı müşteri/cari filtreleme
+  - numara üret butonu
+- `GelenFaturalar.razor` manuel kayıt modalı güncellendi:
+  - firma seçimi
+  - firmalar arası fatura checkbox'ı
+  - karşı firma seçimi
+  - firma bazlı tedarikçi/cari filtreleme
+  - numara üret butonu
+
+**Doğrulama:**
+- `run_build` başarılı
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Services/Interfaces/IFaturaService.cs`
+- `KOAFiloServis.Web/Services/FaturaService.cs`
+- `KOAFiloServis.Web/Components/Pages/EFatura/GidenFaturalar.razor`
+- `KOAFiloServis.Web/Components/Pages/EFatura/GelenFaturalar.razor`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 148 - ROADMAP İhale Fazları Senkronizasyonu
+**Talep:**
+- İhale modülünde tamamlanan FAZ 8.5 ve 8.6 işlerinin yol haritasına işlenmesi.
+
+**Yapılanlar:**
+- `ROADMAP.md` içindeki `Son Güncellemeler` bölümü ihale teklif operasyonları ve gerçekleşen takip geliştirmeleriyle güncellendi.
+- `FAZ 8.5` tablosunda tamamlanan maddeler `✅ Tamamlandı` olarak işlendi.
+- `FAZ 8.6` tablosunda tamamlanan maddeler `✅ Tamamlandı` olarak işlendi.
+- `İhale Operasyon Dashboard Excel Export` çıktısı yol haritasına eklendi.
+- `FAZ 8'den Devam Önerisi` bölümü yeni operasyon detay raporları odağına göre güncellendi.
+
+**Etkilenen Dosyalar:**
+- `ROADMAP.md`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
+### Kayıt 147 - İhale Operasyon Dashboard Excel Export
+**Talep:**
+- İhale sonrası operasyon dashboard özetinin yönetim raporu olarak Excel'e indirilebilmesi.
+
+**Yapılanlar:**
+- `IhaleHazirlik.razor` içindeki `İhale Sonrası Operasyon Özeti` kartına `Excel` butonu eklendi.
+- `OperasyonDashboardExcelExportAsync` metodu eklendi.
+- Export içine özet metrikler dahil edildi:
+  - kazanılan / analiz edilen proje sayısı
+  - riskli proje sayısı
+  - revizyonlu proje sayısı
+  - süre uzatımlı proje sayısı
+  - ortalama teklif doğruluk skoru
+  - toplam revizyon bedel farkı
+  - toplam ve en kötü kâr sapması
+- Aynı export içine `Riskli Projeler` listesi de eklendi:
+  - proje kodu / proje adı
+  - risk seviyesi
+  - aktif revizyon sayısı
+  - teklif doğruluk skoru
+  - maliyet sapma oranı
+  - revizyon bedel farkı
+  - kâr sapması
+
+**Etkilenen Dosyalar:**
+- `KOAFiloServis.Web/Components/Pages/Ihale/IhaleHazirlik.razor`
+- `DEVELOPMENT.md`
+
+**Durum:** ✅ Tamamlandı
+
 ### Kayıt 133 - Redis Cache Entegrasyonu (FAZ 4.3)
 **Talep:**
 - Distributed cache sistemi ile sık kullanılan sorguları cache'leme

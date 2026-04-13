@@ -1,4 +1,5 @@
-@page "/efatura/gelen"
+﻿@page "/efatura/gelen"
+@using System.IO.Compression
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
@@ -28,6 +29,9 @@
             </button>
             <button class="btn btn-success" @onclick="ExcelExport" disabled="@(!filtreliFaturalar.Any())" title="Excel Indir">
                 <i class="bi bi-file-earmark-excel"></i>
+            </button>
+            <button class="btn btn-outline-danger" @onclick="FirmaBazliXmlPdfAktarAsync" disabled="@(!filtreliFaturalar.Any())" title="XML + PDF Aktar">
+                <i class="bi bi-file-zip"></i>
             </button>
         </div>
     </div>
@@ -376,11 +380,23 @@
                     <button type="button" class="btn-close" @onclick="ModalKapat"></button>
                 </div>
                 <div class="modal-body">
+                    @if (!string.IsNullOrWhiteSpace(faturaFormHataMesaji))
+                    {
+                        <div class="alert alert-warning py-2">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@faturaFormHataMesaji
+                        </div>
+                    }
+
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">Fatura No *</label>
-                                <input type="text" class="form-control" @bind="editFatura.FaturaNo" />
+                                <div class="input-group">
+                                    <input type="text" class="form-control" @bind="editFatura.FaturaNo" />
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="GelenFaturaNoUretAsync" title="Numara Üret">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -397,12 +413,44 @@
                         </div>
                     </div>
                     <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Firma *</label>
+                                <select class="form-select" @bind="editFatura.FirmaId" @bind:after="GelenFirmaDegistiAsync">
+                                    <option value="">Secin...</option>
+                                    @foreach (var firma in firmalar.Where(f => f.Aktif))
+                                    {
+                                        <option value="@firma.Id">@firma.FirmaAdi</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3 form-check mt-4 pt-2">
+                                <input class="form-check-input" type="checkbox" @bind="editFatura.FirmalarArasiFatura" @bind:after="GelenFirmalarArasiDurumDegisti" id="gelenFirmalarArasiFatura" />
+                                <label class="form-check-label" for="gelenFirmalarArasiFatura">Firmalar Arası Fatura</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Karşı Firma</label>
+                                <select class="form-select" @bind="editFatura.KarsiFirmaId" disabled="@(!editFatura.FirmalarArasiFatura)">
+                                    <option value="">Secin...</option>
+                                    @foreach (var firma in firmalar.Where(f => f.Aktif && (!editFatura.FirmaId.HasValue || f.Id != editFatura.FirmaId.Value)))
+                                    {
+                                        <option value="@firma.Id">@firma.FirmaAdi</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Tedarikci *</label>
                                 <select class="form-select" @bind="editFatura.CariId">
                                     <option value="0">Secin...</option>
-                                    @foreach (var cari in cariler)
+                                    @foreach (var cari in GetGelenCariSecenekleri())
                                     {
                                         <option value="@cari.Id">@cari.Unvan</option>
                                     }
@@ -997,6 +1045,7 @@
     private bool showCariKartModal = false;
     private Fatura editFatura = new();
     private Fatura? detayFatura;
+    private string? faturaFormHataMesaji;
 
     // Odeme Modal
     private Fatura? odemeFatura;
@@ -1100,21 +1149,26 @@
         Filtrele();
     }
 
-    private void YeniFaturaAc()
+    private async Task YeniFaturaAc()
     {
+        faturaFormHataMesaji = null;
+        var varsayilanFirmaId = filtreFirmaId > 0 ? filtreFirmaId : firmalar.FirstOrDefault(f => f.Aktif)?.Id;
         editFatura = new Fatura
         {
             FaturaTarihi = DateTime.Today,
             FaturaYonu = FaturaYonu.Gelen,
             FaturaTipi = FaturaTipi.AlisFaturasi,
             EFaturaTipi = EFaturaTipi.EArsiv,
-            Durum = FaturaDurum.Beklemede
+            Durum = FaturaDurum.Beklemede,
+            FirmaId = varsayilanFirmaId
         };
+        editFatura.FaturaNo = await FaturaService.GenerateNextFaturaNoAsync(editFatura.FaturaTipi, editFatura.FaturaYonu, editFatura.FirmaId);
         showFaturaModal = true;
     }
 
     private void FaturaDuzenle(Fatura fatura)
     {
+        faturaFormHataMesaji = null;
         editFatura = new Fatura
         {
             Id = fatura.Id,
@@ -1122,6 +1176,9 @@
             FaturaTarihi = fatura.FaturaTarihi,
             VadeTarihi = fatura.VadeTarihi,
             CariId = fatura.CariId,
+            FirmaId = fatura.FirmaId,
+            FirmalarArasiFatura = fatura.FirmalarArasiFatura,
+            KarsiFirmaId = fatura.KarsiFirmaId,
             EFaturaTipi = fatura.EFaturaTipi,
             AraToplam = fatura.AraToplam,
             KdvTutar = fatura.KdvTutar,
@@ -1132,7 +1189,58 @@
             FaturaYonu = FaturaYonu.Gelen,
             FaturaTipi = FaturaTipi.AlisFaturasi
         };
+        TemizleGelenFaturaSecimleri();
         showFaturaModal = true;
+    }
+
+    private IEnumerable<Cari> GetGelenCariSecenekleri()
+    {
+        return cariler.Where(c =>
+            (c.CariTipi == CariTipi.Tedarikci || c.CariTipi == CariTipi.MusteriTedarikci) &&
+            (!editFatura.FirmaId.HasValue || c.Id == editFatura.CariId || c.FirmaId == null || c.FirmaId == editFatura.FirmaId));
+    }
+
+    private async Task GelenFirmaDegistiAsync()
+    {
+        faturaFormHataMesaji = null;
+        TemizleGelenFaturaSecimleri();
+
+        if (editFatura.Id <= 0 && editFatura.FirmaId.HasValue)
+            editFatura.FaturaNo = await FaturaService.GenerateNextFaturaNoAsync(FaturaTipi.AlisFaturasi, FaturaYonu.Gelen, editFatura.FirmaId);
+    }
+
+    private void GelenFirmalarArasiDurumDegisti()
+    {
+        faturaFormHataMesaji = null;
+        if (!editFatura.FirmalarArasiFatura)
+            editFatura.KarsiFirmaId = null;
+
+        if (editFatura.KarsiFirmaId == editFatura.FirmaId)
+            editFatura.KarsiFirmaId = null;
+    }
+
+    private void TemizleGelenFaturaSecimleri()
+    {
+        if (!editFatura.FirmalarArasiFatura || editFatura.KarsiFirmaId == editFatura.FirmaId)
+            editFatura.KarsiFirmaId = null;
+
+        var seciliCariGecerli = editFatura.CariId > 0 && GetGelenCariSecenekleri().Any(c => c.Id == editFatura.CariId);
+        if (!seciliCariGecerli)
+            editFatura.CariId = 0;
+    }
+
+    private async Task GelenFaturaNoUretAsync()
+    {
+        faturaFormHataMesaji = null;
+
+        if (!editFatura.FirmaId.HasValue)
+        {
+            faturaFormHataMesaji = "Numara üretmeden önce firma seçiniz.";
+            return;
+        }
+
+        editFatura.FaturaNo = await FaturaService.GenerateNextFaturaNoAsync(FaturaTipi.AlisFaturasi, FaturaYonu.Gelen, editFatura.FirmaId);
+        StateHasChanged();
     }
 
     private async Task FaturaDetayAc(Fatura fatura)
@@ -1178,11 +1286,22 @@
 
     private async Task FaturaKaydet()
     {
-        if (string.IsNullOrWhiteSpace(editFatura.FaturaNo) || editFatura.CariId <= 0 || editFatura.GenelToplam <= 0)
+        faturaFormHataMesaji = null;
+
+        if (string.IsNullOrWhiteSpace(editFatura.FaturaNo) || editFatura.CariId <= 0 || editFatura.GenelToplam <= 0 || !editFatura.FirmaId.HasValue)
         {
-            ToastService.ShowWarning("Zorunlu alanlari doldurun!");
+            faturaFormHataMesaji = "Fatura no, firma, cari ve tutar alanlari zorunludur!";
             return;
         }
+
+        if (editFatura.FirmalarArasiFatura && (!editFatura.KarsiFirmaId.HasValue || editFatura.KarsiFirmaId == editFatura.FirmaId))
+        {
+            faturaFormHataMesaji = "Firmalar arası faturada farklı bir karşı firma seçin.";
+            return;
+        }
+
+        if (!editFatura.FirmalarArasiFatura)
+            editFatura.KarsiFirmaId = null;
 
         try
         {
@@ -1201,9 +1320,13 @@
             ModalKapat();
             await YenileAsync();
         }
+        catch (InvalidOperationException ex)
+        {
+            faturaFormHataMesaji = ex.Message;
+        }
         catch (Exception ex)
         {
-            ToastService.ShowError("Hata: " + ex.Message);
+            faturaFormHataMesaji = "Fatura kaydedilirken beklenmeyen bir hata oluştu.";
         }
     }
 
@@ -1463,6 +1586,96 @@
         {
             ToastService.ShowError("Hata: " + ex.Message);
         }
+    }
+
+    private async Task FirmaBazliXmlPdfAktarAsync()
+    {
+        if (!filtreliFaturalar.Any())
+        {
+            ToastService.ShowWarning("Aktarilacak fatura yok!");
+            return;
+        }
+
+        try
+        {
+            using var zipStream = new MemoryStream();
+
+            var xmlSayisi = 0;
+            var pdfSayisi = 0;
+            var dosyaliFaturaSayisi = 0;
+
+            using (var zip = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
+            {
+                foreach (var fatura in filtreliFaturalar)
+                {
+                    var firmaKlasoru = GetFaturaFirmaKlasoru(fatura);
+                    var faturaKlasoru = SanitizePathSegment($"{fatura.FaturaTarihi:yyyyMMdd}_{fatura.FaturaNo}");
+                    var hedefKlasor = $"{firmaKlasoru}/{faturaKlasoru}";
+
+                    var xmlDosya = await FaturaService.GetFaturaDosyaAsync(fatura.Id, FaturaDosyaTuru.Xml);
+                    var pdfDosya = await FaturaService.GetFaturaDosyaAsync(fatura.Id, FaturaDosyaTuru.Pdf);
+
+                    var buFaturadaDosyaVar = false;
+
+                    if (xmlDosya != null)
+                    {
+                        var xmlEntry = zip.CreateEntry($"{hedefKlasor}/{SanitizePathSegment(xmlDosya.FileName)}", CompressionLevel.Optimal);
+                        await using var xmlEntryStream = xmlEntry.Open();
+                        await xmlEntryStream.WriteAsync(xmlDosya.Content);
+                        xmlSayisi++;
+                        buFaturadaDosyaVar = true;
+                    }
+
+                    if (pdfDosya != null)
+                    {
+                        var pdfEntry = zip.CreateEntry($"{hedefKlasor}/{SanitizePathSegment(pdfDosya.FileName)}", CompressionLevel.Optimal);
+                        await using var pdfEntryStream = pdfEntry.Open();
+                        await pdfEntryStream.WriteAsync(pdfDosya.Content);
+                        pdfSayisi++;
+                        buFaturadaDosyaVar = true;
+                    }
+
+                    if (buFaturadaDosyaVar)
+                        dosyaliFaturaSayisi++;
+                }
+            }
+
+            if (xmlSayisi == 0 && pdfSayisi == 0)
+            {
+                ToastService.ShowWarning("Seçili faturalarda aktarılacak XML veya PDF bulunamadı.");
+                return;
+            }
+
+            var zipDosyaAdi = $"gelen_faturalar_xml_pdf_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+            await JS.InvokeVoidAsync("downloadFile", zipDosyaAdi, Convert.ToBase64String(zipStream.ToArray()), "application/zip");
+            ToastService.ShowSuccess($"{dosyaliFaturaSayisi} faturaya ait {xmlSayisi} XML ve {pdfSayisi} PDF aktarıldı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Aktarım hatası: {ex.Message}");
+        }
+    }
+
+    private string GetFaturaFirmaKlasoru(Fatura fatura)
+    {
+        var firmaId = fatura.FirmaId ?? fatura.Cari?.FirmaId;
+        var firmaAdi = firmalar.FirstOrDefault(x => x.Id == firmaId)?.FirmaAdi;
+
+        if (string.IsNullOrWhiteSpace(firmaAdi))
+            firmaAdi = "Firma_Bilinmiyor";
+
+        return SanitizePathSegment(firmaAdi);
+    }
+
+    private static string SanitizePathSegment(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "Bilinmiyor";
+
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitized = new string(value.Trim().Select(ch => invalidChars.Contains(ch) ? '_' : ch).ToArray());
+
+        return string.IsNullOrWhiteSpace(sanitized) ? "Bilinmiyor" : sanitized;
     }
 
     private void ModalKapat()

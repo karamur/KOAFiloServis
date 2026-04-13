@@ -1,9 +1,10 @@
-@page "/faturalar"
+﻿@page "/faturalar"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Models
 @using KOAFiloServis.Web.Components.Shared
 @inject IFaturaService FaturaService
+@inject IFirmaService FirmaService
 @inject NavigationManager Navigation
 @implements IDisposable
 @rendermode InteractiveServer
@@ -39,6 +40,22 @@
                     </select>
                 </div>
                 <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filtreYon" @bind:after="() => FiltreUygulaAninda()">
+                        <option value="">Tum Yönler</option>
+                        <option value="Giden">Kesilen</option>
+                        <option value="Gelen">Gelen</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filtreFirmaId" @bind:after="() => FiltreUygulaAninda()">
+                        <option value="">Tum Firmalar</option>
+                        @foreach (var firma in firmalar)
+                        {
+                            <option value="@firma.Id">@firma.FirmaAdi</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <select class="form-select form-select-sm" @bind="filtreDurum" @bind:after="() => FiltreUygulaAninda()">
                         <option value="">Tum Durumlar</option>
                         <option value="Beklemede">Beklemede</option>
@@ -47,10 +64,10 @@
                         <option value="IptalEdildi">Iptal</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-1">
                     <input type="date" class="form-control form-control-sm" @bind="baslangicTarih" @bind:after="() => FiltreUygulaAninda()" />
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-1">
                     <input type="date" class="form-control form-control-sm" @bind="bitisTarih" @bind:after="() => FiltreUygulaAninda()" />
                 </div>
                 <div class="col-md-1 text-end">
@@ -86,7 +103,9 @@
                             <tr>
                                 <th>Fatura No</th>
                                 <th>Tarih</th>
+                                <th>Firma</th>
                                 <th>Cari</th>
+                                <th>Yön</th>
                                 <th>Tip</th>
                                 <th class="text-end">Genel Toplam</th>
                                 <th class="text-end">Odenen</th>
@@ -99,9 +118,38 @@
                             @foreach (var fatura in pagedResult.Items)
                             {
                                 <tr>
-                                    <td><strong>@fatura.FaturaNo</strong></td>
+                                    <td>
+                                        <div><strong>@fatura.FaturaNo</strong></div>
+                                        <div class="d-flex flex-wrap gap-1 mt-1">
+                                            <span class="badge text-bg-light border">@(fatura.Firma?.FirmaAdi ?? "Firma Yok")</span>
+                                            <span class="badge @(fatura.FaturaYonu == FaturaYonu.Giden ? "bg-success" : "bg-primary")">
+                                                @(fatura.FaturaYonu == FaturaYonu.Giden ? "Kesilen" : "Gelen")
+                                            </span>
+                                            @if (fatura.FirmalarArasiFatura)
+                                            {
+                                                <span class="badge bg-info text-dark">Firmalar Arası</span>
+                                            }
+                                        </div>
+                                    </td>
                                     <td>@fatura.FaturaTarihi.ToString("dd.MM.yyyy")</td>
-                                    <td>@fatura.Cari?.Unvan</td>
+                                    <td>
+                                        <div>@(fatura.Firma?.FirmaAdi ?? "-")</div>
+                                        @if (fatura.FirmalarArasiFatura && fatura.KarsiFirma != null)
+                                        {
+                                            <div class="mt-1">
+                                                <span class="badge text-bg-secondary">Karşı: @fatura.KarsiFirma.FirmaAdi</span>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div>@fatura.Cari?.Unvan</div>
+                                        <small class="text-muted">@GetKisaKimlikMetni(fatura)</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(fatura.FaturaYonu == FaturaYonu.Giden ? "bg-success" : "bg-primary")">
+                                            @(fatura.FaturaYonu == FaturaYonu.Giden ? "Kesilen" : "Gelen")
+                                        </span>
+                                    </td>
                                     <td>
                                         <span class="badge @GetTipBadgeClass(fatura.FaturaTipi)">
                                             @GetTipText(fatura.FaturaTipi)
@@ -131,7 +179,7 @@
                         </tbody>
                         <tfoot class="table-secondary">
                             <tr>
-                                <td colspan="4"><strong>Sayfa Toplami (@pagedResult.Items.Count kayit)</strong></td>
+                                <td colspan="6"><strong>Sayfa Toplami (@pagedResult.Items.Count kayit)</strong></td>
                                 <td class="text-end"><strong>@pagedResult.Items.Sum(f => f.GenelToplam).ToString("N2") TL</strong></td>
                                 <td class="text-end text-success"><strong>@pagedResult.Items.Sum(f => f.OdenenTutar).ToString("N2") TL</strong></td>
                                 <td class="text-end text-danger"><strong>@pagedResult.Items.Sum(f => f.KalanTutar).ToString("N2") TL</strong></td>
@@ -179,6 +227,7 @@
     private bool isLoading = true;
     private bool showDeleteModal = false;
     private Fatura? silinecekFatura;
+    private List<Firma> firmalar = new();
 
     // Sayfalama
     private int currentPage = 1;
@@ -187,6 +236,8 @@
     // Filtre degiskenleri
     private string aramaMetni = "";
     private string filtreTip = "";
+    private string filtreYon = "";
+    private string filtreFirmaId = "";
     private string filtreDurum = "";
     private DateTime? baslangicTarih;
     private DateTime? bitisTarih;
@@ -196,6 +247,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        firmalar = await FirmaService.GetAktifFirmalarAsync();
         await LoadData();
     }
 
@@ -210,6 +262,8 @@
             PageSize = pageSize,
             SearchTerm = aramaMetni,
             FaturaTipi = string.IsNullOrEmpty(filtreTip) ? null : Enum.Parse<FaturaTipi>(filtreTip),
+            Yon = string.IsNullOrEmpty(filtreYon) ? null : Enum.Parse<FaturaYonu>(filtreYon),
+            FirmaId = string.IsNullOrEmpty(filtreFirmaId) ? null : int.Parse(filtreFirmaId),
             Durum = string.IsNullOrEmpty(filtreDurum) ? null : Enum.Parse<FaturaDurum>(filtreDurum),
             BaslangicTarih = baslangicTarih,
             BitisTarih = bitisTarih
@@ -249,6 +303,8 @@
     {
         aramaMetni = "";
         filtreTip = "";
+        filtreYon = "";
+        filtreFirmaId = "";
         filtreDurum = "";
         baslangicTarih = null;
         bitisTarih = null;
@@ -342,4 +398,11 @@
         FaturaDurum.IptalEdildi => "bg-danger",
         _ => "bg-secondary"
     };
+
+    private string GetKisaKimlikMetni(Fatura fatura)
+    {
+        var firmaAdi = fatura.Firma?.FirmaAdi ?? "Firma Yok";
+        var yonText = fatura.FaturaYonu == FaturaYonu.Giden ? "Kesilen" : "Gelen";
+        return $"{firmaAdi} • {yonText}";
+    }
 }

@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Data;
@@ -88,6 +88,9 @@ public static class DbInitializer
         {
             await EnsurePostgreSqlMissingColumnsAsync(context, configuration);
         }
+
+        // Fatura benzersiz index'ini firma+yön+numara bazında güvence altına al
+        await EnsureFaturaFirmaYonUniqueIndexAsync(context, dbProvider, configuration);
 
         // PiyasaKaynaklar tablosunu oluştur
         await EnsurePiyasaKaynaklarTableAsync(context, dbProvider, configuration);
@@ -219,6 +222,40 @@ ALTER COLUMN ""{escapedColumnName}"" SET DEFAULT {normalizedDefaultSql};";
         }
 
         return null;
+    }
+
+    private static async Task EnsureFaturaFirmaYonUniqueIndexAsync(ApplicationDbContext context, string dbProvider, IConfiguration configuration)
+    {
+        try
+        {
+            if (dbProvider == "PostgreSQL")
+            {
+                var connectionString = GetDefaultConnectionString(context, configuration);
+                await using var conn = new NpgsqlConnection(connectionString);
+                await conn.OpenAsync();
+
+                const string sql = @"
+DROP INDEX IF EXISTS ""IX_Faturalar_FaturaNo"";
+CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Faturalar_FirmaId_FaturaYonu_FaturaNo""
+ON ""Faturalar"" (""FirmaId"", ""FaturaYonu"", ""FaturaNo"")
+WHERE ""IsDeleted"" = false;";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            else if (dbProvider == "SQLite")
+            {
+                await context.Database.ExecuteSqlRawAsync(@"
+DROP INDEX IF EXISTS IX_Faturalar_FaturaNo;
+CREATE UNIQUE INDEX IF NOT EXISTS IX_Faturalar_FirmaId_FaturaYonu_FaturaNo
+ON Faturalar (FirmaId, FaturaYonu, FaturaNo)
+WHERE IsDeleted = 0;");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fatura benzersiz index düzeltmesi uygulanamadı: {ex.Message}");
+        }
     }
 
     private static async Task EnsurePiyasaKaynaklarTableAsync(ApplicationDbContext context, string dbProvider, IConfiguration configuration)

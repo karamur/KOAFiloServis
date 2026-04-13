@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using KOAFiloServis.Web.Services;
 using KOAFiloServis.Shared.Entities;
@@ -28,10 +28,12 @@ public class FaturalarController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? tip = null,
+        [FromQuery] string? yon = null,
         [FromQuery] string? durum = null,
         [FromQuery] DateTime? baslangic = null,
         [FromQuery] DateTime? bitis = null,
-        [FromQuery] int? cariId = null)
+        [FromQuery] int? cariId = null,
+        [FromQuery] int? firmaId = null)
     {
         var faturalar = await _faturaService.GetAllAsync();
         
@@ -43,6 +45,11 @@ public class FaturalarController : ControllerBase
         if (!string.IsNullOrEmpty(durum) && Enum.TryParse<FaturaDurum>(durum, true, out var faturaDurum))
         {
             faturalar = faturalar.Where(f => f.Durum == faturaDurum).ToList();
+        }
+
+        if (!string.IsNullOrEmpty(yon) && Enum.TryParse<FaturaYonu>(yon, true, out var faturaYonu))
+        {
+            faturalar = faturalar.Where(f => f.FaturaYonu == faturaYonu).ToList();
         }
 
         if (baslangic.HasValue)
@@ -60,23 +67,12 @@ public class FaturalarController : ControllerBase
             faturalar = faturalar.Where(f => f.CariId == cariId.Value).ToList();
         }
 
-        var result = faturalar.Select(f => new FaturaDto
+        if (firmaId.HasValue)
         {
-            Id = f.Id,
-            FaturaNo = f.FaturaNo,
-            FaturaTarihi = f.FaturaTarihi,
-            VadeTarihi = f.VadeTarihi,
-            FaturaTipi = f.FaturaTipi.ToString(),
-            Durum = f.Durum.ToString(),
-            CariId = f.CariId,
-            CariUnvan = f.Cari?.Unvan,
-            AraToplam = f.AraToplam,
-            KdvToplam = f.KdvTutar,
-            GenelToplam = f.GenelToplam,
-            OdenenTutar = f.OdenenTutar,
-            KalanTutar = f.GenelToplam - f.OdenenTutar,
-            Aciklama = f.Aciklama
-        });
+            faturalar = faturalar.Where(f => f.FirmaId == firmaId.Value).ToList();
+        }
+
+        var result = faturalar.Select(MapFaturaDto);
 
         return Ok(result);
     }
@@ -87,69 +83,37 @@ public class FaturalarController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var fatura = await _faturaService.GetByIdAsync(id);
+        var fatura = await _faturaService.GetByIdWithKalemlerAsync(id);
         if (fatura == null)
             return NotFound(new { Error = "Fatura bulunamadı" });
 
-        return Ok(new FaturaDetayDto
-        {
-            Id = fatura.Id,
-            FaturaNo = fatura.FaturaNo,
-            FaturaTarihi = fatura.FaturaTarihi,
-            VadeTarihi = fatura.VadeTarihi,
-            FaturaTipi = fatura.FaturaTipi.ToString(),
-            Durum = fatura.Durum.ToString(),
-            CariId = fatura.CariId,
-            CariUnvan = fatura.Cari?.Unvan,
-            AraToplam = fatura.AraToplam,
-            KdvToplam = fatura.KdvTutar,
-            GenelToplam = fatura.GenelToplam,
-            OdenenTutar = fatura.OdenenTutar,
-            KalanTutar = fatura.GenelToplam - fatura.OdenenTutar,
-            Aciklama = fatura.Aciklama,
-            Kalemler = fatura.FaturaKalemleri?.Select(k => new FaturaKalemDto
-            {
-                Id = k.Id,
-                Aciklama = k.Aciklama,
-                Miktar = k.Miktar,
-                BirimFiyat = k.BirimFiyat,
-                KdvOrani = k.KdvOrani,
-                Tutar = k.ToplamTutar,
-                KdvTutar = k.KdvTutar
-            }).ToList() ?? []
-        });
+        return Ok(MapFaturaDetayDto(fatura));
     }
 
     /// <summary>
     /// Fatura numarasıyla arar
     /// </summary>
     [HttpGet("no/{faturaNo}")]
-    public async Task<IActionResult> GetByNo(string faturaNo)
+    public async Task<IActionResult> GetByNo(string faturaNo, [FromQuery] string? yon = null, [FromQuery] int? firmaId = null)
     {
         var faturalar = await _faturaService.GetAllAsync();
-        var fatura = faturalar.FirstOrDefault(f => 
+        if (!string.IsNullOrEmpty(yon) && Enum.TryParse<FaturaYonu>(yon, true, out var faturaYonu))
+        {
+            faturalar = faturalar.Where(f => f.FaturaYonu == faturaYonu).ToList();
+        }
+
+        if (firmaId.HasValue)
+        {
+            faturalar = faturalar.Where(f => f.FirmaId == firmaId.Value).ToList();
+        }
+
+        var fatura = faturalar.FirstOrDefault(f =>
             f.FaturaNo != null && f.FaturaNo.Equals(faturaNo, StringComparison.OrdinalIgnoreCase));
         
         if (fatura == null)
             return NotFound(new { Error = "Fatura bulunamadı" });
 
-        return Ok(new FaturaDto
-        {
-            Id = fatura.Id,
-            FaturaNo = fatura.FaturaNo,
-            FaturaTarihi = fatura.FaturaTarihi,
-            VadeTarihi = fatura.VadeTarihi,
-            FaturaTipi = fatura.FaturaTipi.ToString(),
-            Durum = fatura.Durum.ToString(),
-            CariId = fatura.CariId,
-            CariUnvan = fatura.Cari?.Unvan,
-            AraToplam = fatura.AraToplam,
-            KdvToplam = fatura.KdvTutar,
-            GenelToplam = fatura.GenelToplam,
-            OdenenTutar = fatura.OdenenTutar,
-            KalanTutar = fatura.GenelToplam - fatura.OdenenTutar,
-            Aciklama = fatura.Aciklama
-        });
+        return Ok(MapFaturaDto(fatura));
     }
 
     /// <summary>
@@ -158,6 +122,9 @@ public class FaturalarController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] FaturaCreateDto dto)
     {
+        if (!dto.FirmaId.HasValue || dto.FirmaId.Value <= 0)
+            return BadRequest(new { Error = "Firma seçimi gereklidir" });
+
         if (dto.CariId <= 0)
             return BadRequest(new { Error = "Cari seçimi gereklidir" });
 
@@ -168,14 +135,26 @@ public class FaturalarController : ControllerBase
         if (!Enum.TryParse<FaturaTipi>(dto.FaturaTipi, true, out var faturaTipi))
             faturaTipi = FaturaTipi.SatisFaturasi;
 
+        if (!Enum.TryParse<FaturaYonu>(dto.FaturaYonu, true, out var faturaYonu))
+            faturaYonu = faturaTipi == FaturaTipi.AlisFaturasi || faturaTipi == FaturaTipi.AlisIadeFaturasi
+                ? FaturaYonu.Gelen
+                : FaturaYonu.Giden;
+
+        if (dto.FirmalarArasiFatura && (!dto.KarsiFirmaId.HasValue || dto.KarsiFirmaId == dto.FirmaId))
+            return BadRequest(new { Error = "Firmalar arası faturada farklı bir karşı firma seçilmelidir" });
+
         var fatura = new Fatura
         {
             FaturaNo = dto.FaturaNo ?? $"FTR-{DateTime.UtcNow:yyyyMMddHHmmss}",
             FaturaTarihi = dto.FaturaTarihi ?? DateTime.UtcNow,
             VadeTarihi = dto.VadeTarihi,
+            FaturaYonu = faturaYonu,
             FaturaTipi = faturaTipi,
-            Durum = FaturaDurum.Beklemede,
+            Durum = Enum.TryParse<FaturaDurum>(dto.Durum, true, out var faturaDurum) ? faturaDurum : FaturaDurum.Beklemede,
             CariId = dto.CariId,
+            FirmaId = dto.FirmaId,
+            FirmalarArasiFatura = dto.FirmalarArasiFatura,
+            KarsiFirmaId = dto.FirmalarArasiFatura ? dto.KarsiFirmaId : null,
             Aciklama = dto.Aciklama,
             FaturaKalemleri = dto.Kalemler?.Select(k => new FaturaKalem
             {
@@ -192,24 +171,16 @@ public class FaturalarController : ControllerBase
         fatura.KdvTutar = fatura.FaturaKalemleri.Sum(k => k.KdvTutar);
         fatura.GenelToplam = fatura.AraToplam + fatura.KdvTutar;
 
-        await _faturaService.CreateAsync(fatura);
-
-        return CreatedAtAction(nameof(GetById), new { id = fatura.Id }, new FaturaDto
+        try
         {
-            Id = fatura.Id,
-            FaturaNo = fatura.FaturaNo,
-            FaturaTarihi = fatura.FaturaTarihi,
-            VadeTarihi = fatura.VadeTarihi,
-            FaturaTipi = fatura.FaturaTipi.ToString(),
-            Durum = fatura.Durum.ToString(),
-            CariId = fatura.CariId,
-            AraToplam = fatura.AraToplam,
-            KdvToplam = fatura.KdvTutar,
-            GenelToplam = fatura.GenelToplam,
-            OdenenTutar = fatura.OdenenTutar,
-            KalanTutar = fatura.GenelToplam - fatura.OdenenTutar,
-            Aciklama = fatura.Aciklama
-        });
+            await _faturaService.CreateAsync(fatura);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { Error = ex.Message });
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = fatura.Id }, MapFaturaDto(fatura));
     }
 
     /// <summary>
@@ -226,7 +197,15 @@ public class FaturalarController : ControllerBase
             return BadRequest(new { Error = "Geçersiz durum" });
 
         fatura.Durum = yeniDurum;
-        await _faturaService.UpdateAsync(fatura);
+
+        try
+        {
+            await _faturaService.UpdateAsync(fatura);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { Error = ex.Message });
+        }
 
         return Ok(new { FaturaId = id, Durum = fatura.Durum.ToString() });
     }
@@ -308,6 +287,72 @@ public class FaturalarController : ControllerBase
             OdenmemisTutar = aylikFaturalar.Where(f => f.Durum != FaturaDurum.Odendi).Sum(f => f.GenelToplam - f.OdenenTutar)
         });
     }
+
+    private static FaturaDto MapFaturaDto(Fatura fatura)
+    {
+        return new FaturaDto
+        {
+            Id = fatura.Id,
+            FaturaNo = fatura.FaturaNo,
+            FaturaTarihi = fatura.FaturaTarihi,
+            VadeTarihi = fatura.VadeTarihi,
+            FaturaTipi = fatura.FaturaTipi.ToString(),
+            FaturaYonu = fatura.FaturaYonu.ToString(),
+            Durum = fatura.Durum.ToString(),
+            CariId = fatura.CariId,
+            CariUnvan = fatura.Cari?.Unvan,
+            FirmaId = fatura.FirmaId,
+            FirmaAdi = fatura.Firma?.FirmaAdi,
+            FirmalarArasiFatura = fatura.FirmalarArasiFatura,
+            KarsiFirmaId = fatura.KarsiFirmaId,
+            KarsiFirmaAdi = fatura.KarsiFirma?.FirmaAdi,
+            AraToplam = fatura.AraToplam,
+            KdvToplam = fatura.KdvTutar,
+            GenelToplam = fatura.GenelToplam,
+            OdenenTutar = fatura.OdenenTutar,
+            KalanTutar = fatura.GenelToplam - fatura.OdenenTutar,
+            Aciklama = fatura.Aciklama
+        };
+    }
+
+    private static FaturaDetayDto MapFaturaDetayDto(Fatura fatura)
+    {
+        var detay = new FaturaDetayDto();
+        var ozet = MapFaturaDto(fatura);
+
+        detay.Id = ozet.Id;
+        detay.FaturaNo = ozet.FaturaNo;
+        detay.FaturaTarihi = ozet.FaturaTarihi;
+        detay.VadeTarihi = ozet.VadeTarihi;
+        detay.FaturaTipi = ozet.FaturaTipi;
+        detay.FaturaYonu = ozet.FaturaYonu;
+        detay.Durum = ozet.Durum;
+        detay.CariId = ozet.CariId;
+        detay.CariUnvan = ozet.CariUnvan;
+        detay.FirmaId = ozet.FirmaId;
+        detay.FirmaAdi = ozet.FirmaAdi;
+        detay.FirmalarArasiFatura = ozet.FirmalarArasiFatura;
+        detay.KarsiFirmaId = ozet.KarsiFirmaId;
+        detay.KarsiFirmaAdi = ozet.KarsiFirmaAdi;
+        detay.AraToplam = ozet.AraToplam;
+        detay.KdvToplam = ozet.KdvToplam;
+        detay.GenelToplam = ozet.GenelToplam;
+        detay.OdenenTutar = ozet.OdenenTutar;
+        detay.KalanTutar = ozet.KalanTutar;
+        detay.Aciklama = ozet.Aciklama;
+        detay.Kalemler = fatura.FaturaKalemleri?.Select(k => new FaturaKalemDto
+        {
+            Id = k.Id,
+            Aciklama = k.Aciklama,
+            Miktar = k.Miktar,
+            BirimFiyat = k.BirimFiyat,
+            KdvOrani = k.KdvOrani,
+            Tutar = k.ToplamTutar,
+            KdvTutar = k.KdvTutar
+        }).ToList() ?? [];
+
+        return detay;
+    }
 }
 
 // DTO Modelleri
@@ -318,9 +363,15 @@ public class FaturaDto
     public DateTime FaturaTarihi { get; set; }
     public DateTime? VadeTarihi { get; set; }
     public string FaturaTipi { get; set; } = "";
+    public string FaturaYonu { get; set; } = "";
     public string Durum { get; set; } = "";
     public int CariId { get; set; }
     public string? CariUnvan { get; set; }
+    public int? FirmaId { get; set; }
+    public string? FirmaAdi { get; set; }
+    public bool FirmalarArasiFatura { get; set; }
+    public int? KarsiFirmaId { get; set; }
+    public string? KarsiFirmaAdi { get; set; }
     public decimal AraToplam { get; set; }
     public decimal KdvToplam { get; set; }
     public decimal GenelToplam { get; set; }
@@ -351,6 +402,11 @@ public class FaturaCreateDto
     public DateTime? FaturaTarihi { get; set; }
     public DateTime? VadeTarihi { get; set; }
     public string? FaturaTipi { get; set; }
+    public string? FaturaYonu { get; set; }
+    public string? Durum { get; set; }
+    public int? FirmaId { get; set; }
+    public bool FirmalarArasiFatura { get; set; }
+    public int? KarsiFirmaId { get; set; }
     public int CariId { get; set; }
     public string? Aciklama { get; set; }
     public List<FaturaKalemCreateDto>? Kalemler { get; set; }

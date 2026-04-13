@@ -1,4 +1,4 @@
-@page "/efatura/giden"
+﻿@page "/efatura/giden"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
@@ -333,11 +333,23 @@
                     <button type="button" class="btn-close" @onclick="ModalKapat"></button>
                 </div>
                 <div class="modal-body">
+                    @if (!string.IsNullOrWhiteSpace(faturaFormHataMesaji))
+                    {
+                        <div class="alert alert-warning py-2">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@faturaFormHataMesaji
+                        </div>
+                    }
+
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">Fatura No *</label>
-                                <input type="text" class="form-control" @bind="editFatura.FaturaNo" />
+                                <div class="input-group">
+                                    <input type="text" class="form-control" @bind="editFatura.FaturaNo" />
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="GidenFaturaNoUretAsync" title="Numara Üret">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -354,12 +366,44 @@
                         </div>
                     </div>
                     <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Firma *</label>
+                                <select class="form-select" @bind="editFatura.FirmaId" @bind:after="GidenFirmaDegistiAsync">
+                                    <option value="">Secin...</option>
+                                    @foreach (var firma in firmalar.Where(f => f.Aktif))
+                                    {
+                                        <option value="@firma.Id">@firma.FirmaAdi</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3 form-check mt-4 pt-2">
+                                <input class="form-check-input" type="checkbox" @bind="editFatura.FirmalarArasiFatura" @bind:after="GidenFirmalarArasiDurumDegisti" id="gidenFirmalarArasiFatura" />
+                                <label class="form-check-label" for="gidenFirmalarArasiFatura">Firmalar Arası Fatura</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Karşı Firma</label>
+                                <select class="form-select" @bind="editFatura.KarsiFirmaId" disabled="@(!editFatura.FirmalarArasiFatura)">
+                                    <option value="">Secin...</option>
+                                    @foreach (var firma in firmalar.Where(f => f.Aktif && (!editFatura.FirmaId.HasValue || f.Id != editFatura.FirmaId.Value)))
+                                    {
+                                        <option value="@firma.Id">@firma.FirmaAdi</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-5">
                             <div class="mb-3">
                                 <label class="form-label">Cari * <button class="btn btn-sm btn-outline-primary ms-2" @onclick="YeniCariAc"><i class="bi bi-plus"></i> Yeni</button></label>
                                 <select class="form-select" @bind="editFatura.CariId">
                                     <option value="0">Secin...</option>
-                                    @foreach (var cari in cariler.Where(c => c.CariTipi == CariTipi.Musteri || c.CariTipi == CariTipi.MusteriTedarikci))
+                                    @foreach (var cari in GetGidenCariSecenekleri())
                                     {
                                         <option value="@cari.Id">@cari.Unvan</option>
                                     }
@@ -1119,6 +1163,7 @@
     private Fatura editFatura = new();
     private Fatura? detayFatura;
     private Fatura? silinecekFatura;
+    private string? faturaFormHataMesaji;
 
     // Tahsilat
     private Fatura? tahsilatFatura;
@@ -1260,21 +1305,26 @@
         Filtrele();
     }
 
-    private void YeniFaturaAc()
+    private async Task YeniFaturaAc()
     {
+        faturaFormHataMesaji = null;
+        var varsayilanFirmaId = filtreFirmaId > 0 ? filtreFirmaId : firmalar.FirstOrDefault(f => f.Aktif)?.Id;
         editFatura = new Fatura
         {
             FaturaTarihi = DateTime.Today,
             FaturaYonu = FaturaYonu.Giden,
             FaturaTipi = FaturaTipi.SatisFaturasi,
             EFaturaTipi = EFaturaTipi.EFatura,
-            Durum = FaturaDurum.Beklemede
+            Durum = FaturaDurum.Beklemede,
+            FirmaId = varsayilanFirmaId
         };
+        editFatura.FaturaNo = await FaturaService.GenerateNextFaturaNoAsync(editFatura.FaturaTipi, editFatura.FaturaYonu, editFatura.FirmaId);
         showFaturaModal = true;
     }
 
     private void FaturaDuzenle(Fatura fatura)
     {
+        faturaFormHataMesaji = null;
         editFatura = new Fatura
         {
             Id = fatura.Id,
@@ -1282,6 +1332,9 @@
             FaturaTarihi = fatura.FaturaTarihi,
             VadeTarihi = fatura.VadeTarihi,
             CariId = fatura.CariId,
+            FirmaId = fatura.FirmaId,
+            FirmalarArasiFatura = fatura.FirmalarArasiFatura,
+            KarsiFirmaId = fatura.KarsiFirmaId,
             EFaturaTipi = fatura.EFaturaTipi,
             AraToplam = fatura.AraToplam,
             KdvTutar = fatura.KdvTutar,
@@ -1292,6 +1345,7 @@
             FaturaYonu = FaturaYonu.Giden,
             FaturaTipi = FaturaTipi.SatisFaturasi
         };
+        TemizleGidenFaturaSecimleri();
         showFaturaModal = true;
     }
 
@@ -1341,11 +1395,62 @@
         yeniCari = new Cari
         {
             CariTipi = CariTipi.Musteri,
-            Aktif = true
+            Aktif = true,
+            FirmaId = editFatura.FirmaId
         };
         secilenHesapId = 0;
         await LoadMusteriHesaplariAsync();
         showCariModal = true;
+    }
+
+    private IEnumerable<Cari> GetGidenCariSecenekleri()
+    {
+        return cariler.Where(c =>
+            (c.CariTipi == CariTipi.Musteri || c.CariTipi == CariTipi.MusteriTedarikci) &&
+            (!editFatura.FirmaId.HasValue || c.Id == editFatura.CariId || c.FirmaId == null || c.FirmaId == editFatura.FirmaId));
+    }
+
+    private async Task GidenFirmaDegistiAsync()
+    {
+        faturaFormHataMesaji = null;
+        TemizleGidenFaturaSecimleri();
+
+        if (editFatura.Id <= 0 && editFatura.FirmaId.HasValue)
+            editFatura.FaturaNo = await FaturaService.GenerateNextFaturaNoAsync(FaturaTipi.SatisFaturasi, FaturaYonu.Giden, editFatura.FirmaId);
+    }
+
+    private void GidenFirmalarArasiDurumDegisti()
+    {
+        faturaFormHataMesaji = null;
+        if (!editFatura.FirmalarArasiFatura)
+            editFatura.KarsiFirmaId = null;
+
+        if (editFatura.KarsiFirmaId == editFatura.FirmaId)
+            editFatura.KarsiFirmaId = null;
+    }
+
+    private void TemizleGidenFaturaSecimleri()
+    {
+        if (!editFatura.FirmalarArasiFatura || editFatura.KarsiFirmaId == editFatura.FirmaId)
+            editFatura.KarsiFirmaId = null;
+
+        var seciliCariGecerli = editFatura.CariId > 0 && GetGidenCariSecenekleri().Any(c => c.Id == editFatura.CariId);
+        if (!seciliCariGecerli)
+            editFatura.CariId = 0;
+    }
+
+    private async Task GidenFaturaNoUretAsync()
+    {
+        faturaFormHataMesaji = null;
+
+        if (!editFatura.FirmaId.HasValue)
+        {
+            faturaFormHataMesaji = "Numara üretmeden önce firma seçiniz.";
+            return;
+        }
+
+        editFatura.FaturaNo = await FaturaService.GenerateNextFaturaNoAsync(FaturaTipi.SatisFaturasi, FaturaYonu.Giden, editFatura.FirmaId);
+        StateHasChanged();
     }
 
     private async Task CariKaydet()
@@ -1463,11 +1568,22 @@
 
     private async Task FaturaKaydet()
     {
-        if (string.IsNullOrWhiteSpace(editFatura.FaturaNo) || editFatura.CariId <= 0 || editFatura.GenelToplam <= 0)
+        faturaFormHataMesaji = null;
+
+        if (string.IsNullOrWhiteSpace(editFatura.FaturaNo) || editFatura.CariId <= 0 || editFatura.GenelToplam <= 0 || !editFatura.FirmaId.HasValue)
         {
-            ToastService.ShowWarning("Zorunlu alanlari doldurun!");
+            faturaFormHataMesaji = "Fatura no, firma, cari ve tutar alanlari zorunludur!";
             return;
         }
+
+        if (editFatura.FirmalarArasiFatura && (!editFatura.KarsiFirmaId.HasValue || editFatura.KarsiFirmaId == editFatura.FirmaId))
+        {
+            faturaFormHataMesaji = "Firmalar arası faturada farklı bir karşı firma seçin.";
+            return;
+        }
+
+        if (!editFatura.FirmalarArasiFatura)
+            editFatura.KarsiFirmaId = null;
 
         try
         {
@@ -1486,9 +1602,13 @@
             ModalKapat();
             await YenileAsync();
         }
+        catch (InvalidOperationException ex)
+        {
+            faturaFormHataMesaji = ex.Message;
+        }
         catch (Exception ex)
         {
-            ToastService.ShowError("Hata: " + ex.Message);
+            faturaFormHataMesaji = "Fatura kaydedilirken beklenmeyen bir hata oluştu.";
         }
     }
 

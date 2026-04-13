@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Models;
 
 namespace KOAFiloServis.Web.Services;
@@ -18,7 +18,7 @@ public interface IFaturaService
     Task<Fatura> CreateAsync(Fatura fatura);
     Task<Fatura> UpdateAsync(Fatura fatura);
     Task DeleteAsync(int id);
-    Task<string> GenerateNextFaturaNoAsync(FaturaTipi tip);
+    Task<string> GenerateNextFaturaNoAsync(FaturaTipi tip, FaturaYonu? yon = null, int? firmaId = null);
     Task UpdateOdenenTutarAsync(int faturaId);
     
     // Muhasebe Fişi
@@ -107,6 +107,7 @@ public class FaturaFilterParams : PagingParameters
     public FaturaTipi? FaturaTipi { get; set; }
     public FaturaDurum? Durum { get; set; }
     public FaturaYonu? Yon { get; set; }
+    public int? FirmaId { get; set; }
     public int? CariId { get; set; }
     public DateTime? BaslangicTarih { get; set; }
     public DateTime? BitisTarih { get; set; }

@@ -1,4 +1,4 @@
-@page "/faturalar/detay/{Id:int}"
+﻿@page "/faturalar/detay/{Id:int}"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
@@ -143,6 +143,18 @@
                                         <td class="text-muted">Fatura Tipi:</td>
                                         <td><span class="badge @GetTipBadgeClass(fatura.FaturaTipi)">@GetTipText(fatura.FaturaTipi)</span></td>
                                     </tr>
+                                    <tr>
+                                        <td class="text-muted">Fatura Yönü:</td>
+                                        <td>
+                                            <span class="badge @(fatura.FaturaYonu == FaturaYonu.Giden ? "bg-success" : "bg-primary")">
+                                                @(fatura.FaturaYonu == FaturaYonu.Giden ? "Kesilen" : "Gelen")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Firma:</td>
+                                        <td>@(fatura.Firma?.FirmaAdi ?? "-")</td>
+                                    </tr>
                                 </table>
                             </div>
                             <div class="col-md-6">
@@ -158,6 +170,25 @@
                                     <tr>
                                         <td class="text-muted">Durum:</td>
                                         <td><span class="badge @GetDurumBadgeClass(fatura.Durum)">@GetDurumText(fatura.Durum)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Firma Tipi:</td>
+                                        <td>
+                                            @if (fatura.FirmalarArasiFatura)
+                                            {
+                                                <span>
+                                                    <span class="badge bg-info text-dark me-2">Firmalar Arası</span>
+                                                    @if (fatura.KarsiFirma != null)
+                                                    {
+                                                        <small class="text-muted">Karşı Firma: @fatura.KarsiFirma.FirmaAdi</small>
+                                                    }
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Standart</span>
+                                            }
+                                        </td>
                                     </tr>
                                 </table>
                             </div>

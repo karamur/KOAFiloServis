@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -220,6 +220,7 @@ public class ApplicationDbContext : DbContext
     // İhale Hazırlık Modülü
     public DbSet<IhaleProje> IhaleProjeleri { get; set; }
     public DbSet<IhaleGuzergahKalem> IhaleGuzergahKalemleri { get; set; }
+    public DbSet<IhaleSozlesmeRevizyon> IhaleSozlesmeRevizyonlari { get; set; }
     public DbSet<IhaleTeklifVersiyon> IhaleTeklifVersiyonlari { get; set; }
     public DbSet<IhaleTeklifKararLog> IhaleTeklifKararLoglari { get; set; }
 
@@ -537,7 +538,19 @@ public class ApplicationDbContext : DbContext
         // Fatura
         modelBuilder.Entity<Fatura>(entity =>
         {
-            entity.HasIndex(e => e.FaturaNo).IsUnique();
+            if (isSqlite)
+            {
+                entity.HasIndex(e => new { e.FirmaId, e.FaturaYonu, e.FaturaNo })
+                    .IsUnique()
+                    .HasFilter("IsDeleted = 0");
+            }
+            else
+            {
+                entity.HasIndex(e => new { e.FirmaId, e.FaturaYonu, e.FaturaNo })
+                    .IsUnique()
+                    .HasFilter("\"IsDeleted\" = false");
+            }
+
             entity.HasIndex(e => e.FaturaTarihi);
             entity.HasIndex(e => new { e.CariId, e.FaturaTarihi });
             entity.HasIndex(e => new { e.Durum, e.VadeTarihi });
@@ -1839,6 +1852,32 @@ public class ApplicationDbContext : DbContext
         });
 
         // İhale Teklif Versiyonları
+        modelBuilder.Entity<IhaleSozlesmeRevizyon>(entity =>
+        {
+            if (isSqlite)
+            {
+                entity.HasIndex(e => new { e.IhaleProjeId, e.RevizyonNo }).IsUnique();
+            }
+            else
+            {
+                entity.HasIndex(e => new { e.IhaleProjeId, e.RevizyonNo })
+                    .IsUnique()
+                    .HasFilter("\"IsDeleted\" = false");
+            }
+
+            entity.Property(e => e.RevizyonNo).HasMaxLength(50);
+            entity.Property(e => e.Baslik).HasMaxLength(250);
+            entity.Property(e => e.Aciklama).HasMaxLength(2000);
+            entity.Property(e => e.BedelFarki).HasPrecision(18, 2);
+
+            entity.HasOne(e => e.IhaleProje)
+                .WithMany(p => p.SozlesmeRevizyonlari)
+                .HasForeignKey(e => e.IhaleProjeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
         modelBuilder.Entity<IhaleTeklifVersiyon>(entity =>
         {
             if (isSqlite)

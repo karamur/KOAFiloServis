@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Helpers;
 using KOAFiloServis.Web.Models;
@@ -37,6 +37,7 @@ public class FaturaService : IFaturaService
         var query = _context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
+            .Include(f => f.Firma)
             .Include(f => f.KarsiFirma)
             .AsQueryable();
 
@@ -65,6 +66,11 @@ public class FaturaService : IFaturaService
         if (filter.Yon.HasValue)
         {
             query = query.Where(f => f.FaturaYonu == filter.Yon.Value);
+        }
+
+        if (filter.FirmaId.HasValue)
+        {
+            query = query.Where(f => f.FirmaId == filter.FirmaId.Value);
         }
 
         // Cari filtresi
@@ -166,6 +172,8 @@ public class FaturaService : IFaturaService
     {
         return await _context.Faturalar
             .Include(f => f.Cari)
+            .Include(f => f.Firma)
+            .Include(f => f.KarsiFirma)
             .FirstOrDefaultAsync(f => f.Id == id);
     }
 
@@ -173,86 +181,120 @@ public class FaturaService : IFaturaService
     {
         return await _context.Faturalar
             .Include(f => f.Cari)
+            .Include(f => f.Firma)
+            .Include(f => f.KarsiFirma)
             .Include(f => f.FaturaKalemleri)
             .Include(f => f.OdemeEslestirmeleri)
                 .ThenInclude(o => o.BankaKasaHareket)
+                    .ThenInclude(h => h.BankaHesap)
             .FirstOrDefaultAsync(f => f.Id == id);
     }
 
     public async Task<Fatura> CreateAsync(Fatura fatura)
     {
-        await PrepareFaturaForSaveAsync(fatura);
-
-        // Tutarları hesapla
-        CalculateTotals(fatura);
-
-        _context.Faturalar.Add(fatura);
-        await _context.SaveChangesAsync();
-
-        // Firmalar arası fatura ise karşı firmada eşleşen fatura oluştur
-        if (fatura.FirmalarArasiFatura && fatura.KarsiFirmaId.HasValue)
+        try
         {
-            await CreateKarsiFirmaFaturasiAsync(fatura);
+            await PrepareFaturaForSaveAsync(fatura);
+
+            // Tutarları hesapla
+            CalculateTotals(fatura);
+
+            _context.Faturalar.Add(fatura);
+            await _context.SaveChangesAsync();
+
+            // Firmalar arası fatura ise karşı firmada eşleşen fatura oluştur
+            if (fatura.FirmalarArasiFatura && fatura.KarsiFirmaId.HasValue)
+            {
+                await CreateKarsiFirmaFaturasiAsync(fatura);
+            }
+
+            // Otomatik muhasebe fişi oluştur (ayarlara göre)
+            await TryCreateMuhasebeFisiAsync(fatura);
+
+            return fatura;
         }
-
-        // Otomatik muhasebe fişi oluştur (ayarlara göre)
-        await TryCreateMuhasebeFisiAsync(fatura);
-
-        return fatura;
+        catch (DbUpdateException ex)
+        {
+            throw CreateFriendlyFaturaSaveException(ex, fatura);
+        }
     }
 
     public async Task<Fatura> UpdateAsync(Fatura fatura)
     {
-        var existing = await _context.Faturalar
-            .Include(f => f.FaturaKalemleri)
-            .FirstOrDefaultAsync(f => f.Id == fatura.Id);
+        try
+        {
+            var existing = await _context.Faturalar
+                .Include(f => f.FaturaKalemleri)
+                .FirstOrDefaultAsync(f => f.Id == fatura.Id);
 
-        if (existing == null) throw new Exception("Fatura bulunamadi");
+            if (existing == null) throw new Exception("Fatura bulunamadi");
 
-        // Mevcut entity'yi guncelle
-        await PrepareFaturaForSaveAsync(fatura);
+            // Mevcut entity'yi guncelle
+            await PrepareFaturaForSaveAsync(fatura);
 
-        existing.FaturaNo = fatura.FaturaNo;
-        existing.FaturaTarihi = fatura.FaturaTarihi;
-        existing.VadeTarihi = fatura.VadeTarihi;
-        existing.FaturaTipi = fatura.FaturaTipi;
-        existing.EFaturaTipi = fatura.EFaturaTipi;
-        existing.FaturaYonu = fatura.FaturaYonu;
-        existing.CariId = fatura.CariId;
-        existing.FirmaId = fatura.FirmaId;
-        existing.AraToplam = fatura.AraToplam;
-        existing.IskontoTutar = fatura.IskontoTutar;
-        existing.KdvOrani = fatura.KdvOrani;
-        existing.KdvTutar = fatura.KdvTutar;
-        existing.GenelToplam = fatura.GenelToplam;
-        existing.OdenenTutar = fatura.OdenenTutar;
-        existing.Durum = fatura.Durum;
-        existing.Aciklama = fatura.Aciklama;
-        existing.Notlar = fatura.Notlar;
-        existing.EttnNo = fatura.EttnNo;
-        existing.GibKodu = fatura.GibKodu;
-        existing.GibDurumu = fatura.GibDurumu;
-        existing.GibGonderimTarihi = fatura.GibGonderimTarihi;
-        existing.GibDurumGuncellemeTarihi = fatura.GibDurumGuncellemeTarihi;
-        existing.GibDurumMesaji = fatura.GibDurumMesaji;
-        existing.GibOnayTarihi = fatura.GibOnayTarihi;
-        existing.TevkifatliMi = fatura.TevkifatliMi;
-        existing.TevkifatOrani = fatura.TevkifatOrani;
-        existing.TevkifatKodu = fatura.TevkifatKodu;
-        existing.TevkifatTutar = fatura.TevkifatTutar;
-        existing.MuhasebeFisiOlusturuldu = fatura.MuhasebeFisiOlusturuldu;
-        existing.MuhasebeFisId = fatura.MuhasebeFisId;
-        existing.AracId = fatura.AracId;
-        existing.AracFaturasi = fatura.AracFaturasi;
-        existing.UpdatedAt = DateTime.UtcNow;
+            existing.FaturaNo = fatura.FaturaNo;
+            existing.FaturaTarihi = fatura.FaturaTarihi;
+            existing.VadeTarihi = fatura.VadeTarihi;
+            existing.FaturaTipi = fatura.FaturaTipi;
+            existing.EFaturaTipi = fatura.EFaturaTipi;
+            existing.FaturaYonu = fatura.FaturaYonu;
+            existing.CariId = fatura.CariId;
+            existing.FirmaId = fatura.FirmaId;
+            existing.AraToplam = fatura.AraToplam;
+            existing.IskontoTutar = fatura.IskontoTutar;
+            existing.KdvOrani = fatura.KdvOrani;
+            existing.KdvTutar = fatura.KdvTutar;
+            existing.GenelToplam = fatura.GenelToplam;
+            existing.OdenenTutar = fatura.OdenenTutar;
+            existing.Durum = fatura.Durum;
+            existing.Aciklama = fatura.Aciklama;
+            existing.Notlar = fatura.Notlar;
+            existing.EttnNo = fatura.EttnNo;
+            existing.GibKodu = fatura.GibKodu;
+            existing.GibDurumu = fatura.GibDurumu;
+            existing.GibGonderimTarihi = fatura.GibGonderimTarihi;
+            existing.GibDurumGuncellemeTarihi = fatura.GibDurumGuncellemeTarihi;
+            existing.GibDurumMesaji = fatura.GibDurumMesaji;
+            existing.GibOnayTarihi = fatura.GibOnayTarihi;
+            existing.TevkifatliMi = fatura.TevkifatliMi;
+            existing.TevkifatOrani = fatura.TevkifatOrani;
+            existing.TevkifatKodu = fatura.TevkifatKodu;
+            existing.TevkifatTutar = fatura.TevkifatTutar;
+            existing.MuhasebeFisiOlusturuldu = fatura.MuhasebeFisiOlusturuldu;
+            existing.MuhasebeFisId = fatura.MuhasebeFisId;
+            existing.AracId = fatura.AracId;
+            existing.AracFaturasi = fatura.AracFaturasi;
+            existing.UpdatedAt = DateTime.UtcNow;
 
-        // Tutarlari yeniden hesapla
-        CalculateTotals(existing);
+            // Tutarlari yeniden hesapla
+            CalculateTotals(existing);
 
-        // Context tracking için attach değil, zaten track ediliyor
-        _context.Entry(existing).State = EntityState.Modified;
-        await _context.SaveChangesAsync();
-        return existing;
+            // Context tracking için attach değil, zaten track ediliyor
+            _context.Entry(existing).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return existing;
+        }
+        catch (DbUpdateException ex)
+        {
+            throw CreateFriendlyFaturaSaveException(ex, fatura);
+        }
+    }
+
+    private static InvalidOperationException CreateFriendlyFaturaSaveException(DbUpdateException ex, Fatura fatura)
+    {
+        var dbMessage = ex.InnerException?.Message ?? ex.Message;
+
+        if (dbMessage.Contains("IX_Faturalar_FirmaId_FaturaYonu_FaturaNo", StringComparison.OrdinalIgnoreCase)
+            || dbMessage.Contains("Faturalar_FirmaId_FaturaYonu_FaturaNo", StringComparison.OrdinalIgnoreCase)
+            || dbMessage.Contains("UNIQUE constraint failed: Faturalar.FirmaId, Faturalar.FaturaYonu, Faturalar.FaturaNo", StringComparison.OrdinalIgnoreCase))
+        {
+            var firmaText = fatura.FirmaId.HasValue ? $"firma #{fatura.FirmaId.Value}" : "seçili firma";
+            var yonText = fatura.FaturaYonu == FaturaYonu.Giden ? "kesilen" : "gelen";
+            var faturaNo = string.IsNullOrWhiteSpace(fatura.FaturaNo) ? "(boş)" : fatura.FaturaNo;
+            return new InvalidOperationException($"{firmaText} için {yonText} yönde '{faturaNo}' numaralı fatura zaten kayıtlı.", ex);
+        }
+
+        return new InvalidOperationException("Fatura kaydı sırasında veritabanı hatası oluştu.", ex);
     }
 
     public async Task DeleteAsync(int id)
@@ -265,7 +307,7 @@ public class FaturaService : IFaturaService
         }
     }
 
-    public async Task<string> GenerateNextFaturaNoAsync(FaturaTipi tip)
+    public async Task<string> GenerateNextFaturaNoAsync(FaturaTipi tip, FaturaYonu? yon = null, int? firmaId = null)
     {
         var prefix = tip switch
         {
@@ -277,9 +319,17 @@ public class FaturaService : IFaturaService
         };
 
         var year = DateTime.Now.Year;
-        var lastFatura = await _context.Faturalar
+        var query = _context.Faturalar
             .IgnoreQueryFilters()
-            .Where(f => f.FaturaNo.StartsWith($"{prefix}-{year}"))
+            .Where(f => !f.IsDeleted && f.FaturaNo.StartsWith($"{prefix}-{year}"));
+
+        if (yon.HasValue)
+            query = query.Where(f => f.FaturaYonu == yon.Value);
+
+        if (firmaId.HasValue)
+            query = query.Where(f => f.FirmaId == firmaId.Value);
+
+        var lastFatura = await query
             .OrderByDescending(f => f.FaturaNo)
             .FirstOrDefaultAsync();
 
@@ -510,7 +560,7 @@ public class FaturaService : IFaturaService
                         continue;
                     }
 
-                    var existingFatura = await FindExistingFaturaAsync(faturaNo);
+                    var existingFatura = await FindExistingFaturaAsync(faturaNo, yon, firmaId);
                     if (existingFatura != null)
                     {
                         result.SkippedCount++;
@@ -572,14 +622,14 @@ public class FaturaService : IFaturaService
                     // Veritabaninda VKN ile ara
                     if (cari == null && !string.IsNullOrWhiteSpace(cariVkn) && cariVkn.Length >= 10)
                     {
-                        cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
+                        cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                     }
 
                     // Veritabaninda Unvan ile ara
                     if (cari == null && !string.IsNullOrWhiteSpace(cariUnvan))
                     {
                         cari = await _context.Cariler.FirstOrDefaultAsync(c =>
-                            c.Unvan.ToLower() == cariUnvan.ToLower());
+                            c.Unvan.ToLower() == cariUnvan.ToLower() && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                     }
 
                     // Hala bulunamadiysa yeni olustur
@@ -593,6 +643,7 @@ public class FaturaService : IFaturaService
                             CariKodu = uniqueCode,
                             Unvan = cariUnvan,
                             VergiNo = cariVkn ?? string.Empty,
+                            FirmaId = firmaId,
                             CariTipi = yon == FaturaYonu.Giden ? CariTipi.Musteri : CariTipi.Tedarikci,
                             Aktif = true,
                             CreatedAt = DateTime.UtcNow
@@ -728,14 +779,6 @@ public class FaturaService : IFaturaService
                     continue;
                 }
 
-                var existingFatura = await FindExistingFaturaAsync(faturaNo);
-                if (existingFatura != null)
-                {
-                    result.Errors.Add($"{file.FileName}: {faturaNo} no'lu fatura sistemde zaten var.");
-                    result.SkippedCount++;
-                    continue;
-                }
-
                 var ettn = GetValue(invoice, "UUID");
                 var profileId = GetValue(invoice, "ProfileID");
                 var invoiceTypeCode = GetValue(invoice, "InvoiceTypeCode");
@@ -813,6 +856,14 @@ public class FaturaService : IFaturaService
                 else if (aliciFirma != null && yon == FaturaYonu.Gelen && firmaId == null)
                 {
                     firmaId = aliciFirma.Id;
+                }
+
+                var existingFatura = await FindExistingFaturaAsync(faturaNo, yon, firmaId);
+                if (existingFatura != null)
+                {
+                    result.Errors.Add($"{file.FileName}: {faturaNo} no'lu {(yon == FaturaYonu.Giden ? "kesilen" : "gelen")} fatura seçilen firma için zaten var.");
+                    result.SkippedCount++;
+                    continue;
                 }
 
                 var targetNode = yon == FaturaYonu.Giden ? customerNode : supplierNode;
@@ -978,19 +1029,19 @@ public class FaturaService : IFaturaService
                 // TCKN ile ara
                 if (cari == null && !string.IsNullOrWhiteSpace(cariTcKimlikNo))
                 {
-                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.TcKimlikNo == cariTcKimlikNo);
+                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.TcKimlikNo == cariTcKimlikNo && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                 }
 
                 // VKN ile ara
                 if (cari == null && !string.IsNullOrWhiteSpace(cariVkn) && cariVkn.Length >= 10)
                 {
-                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.VergiNo == cariVkn);
+                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.VergiNo == cariVkn && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                 }
 
                 // Unvan ile ara
                 if (cari == null)
                 {
-                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Unvan.ToLower() == cariUnvan.ToLower());
+                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Unvan.ToLower() == cariUnvan.ToLower() && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                 }
 
                 // Mevcut cari varsa eksik bilgileri güncelle
@@ -1089,6 +1140,7 @@ public class FaturaService : IFaturaService
                         Unvan = cariUnvan,
                         VergiNo = cariVkn ?? string.Empty,
                         TcKimlikNo = cariTcKimlikNo ?? string.Empty,
+                        FirmaId = firmaId,
                         VergiDairesi = cariVergiDairesi,
                         Adres = cariAdres,
                         Il = cariIl,
@@ -1440,6 +1492,26 @@ public class FaturaService : IFaturaService
                 .FirstOrDefaultAsync();
         }
 
+        if (fatura.FirmalarArasiFatura)
+        {
+            if (!fatura.FirmaId.HasValue)
+                throw new InvalidOperationException("Firmalar arası faturada kaynak firma seçilmelidir.");
+
+            if (!fatura.KarsiFirmaId.HasValue)
+                throw new InvalidOperationException("Firmalar arası faturada karşı firma seçilmelidir.");
+
+            if (fatura.FirmaId == fatura.KarsiFirmaId)
+                throw new InvalidOperationException("Kaynak firma ile karşı firma aynı olamaz.");
+        }
+        else
+        {
+            fatura.KarsiFirmaId = null;
+        }
+
+        var ayniNumara = await FindExistingFaturaAsync(fatura.FaturaNo, fatura.FaturaYonu, fatura.FirmaId, fatura.Id > 0 ? fatura.Id : null);
+        if (ayniNumara != null)
+            throw new InvalidOperationException($"'{fatura.FaturaNo}' numaralı {(fatura.FaturaYonu == FaturaYonu.Giden ? "kesilen" : "gelen")} fatura seçilen firma için zaten kayıtlı.");
+
         if (fatura.CreatedAt == default)
             fatura.CreatedAt = DateTime.UtcNow;
 
@@ -1547,14 +1619,24 @@ public class FaturaService : IFaturaService
         return countryNames.Contains(upper);
     }
 
-    private async Task<Fatura?> FindExistingFaturaAsync(string faturaNo)
+    private async Task<Fatura?> FindExistingFaturaAsync(string faturaNo, FaturaYonu? yon = null, int? firmaId = null, int? excludeId = null)
     {
         var normalizedFaturaNo = NormalizeFaturaNo(faturaNo);
         if (string.IsNullOrWhiteSpace(normalizedFaturaNo))
             return null;
 
-        return await _context.Faturalar
-            .FirstOrDefaultAsync(f => f.FaturaNo == normalizedFaturaNo || f.FaturaNo == faturaNo);
+        var query = _context.Faturalar.Where(f => !f.IsDeleted);
+
+        if (yon.HasValue)
+            query = query.Where(f => f.FaturaYonu == yon.Value);
+
+        if (firmaId.HasValue)
+            query = query.Where(f => f.FirmaId == firmaId.Value);
+
+        if (excludeId.HasValue)
+            query = query.Where(f => f.Id != excludeId.Value);
+
+        return await query.FirstOrDefaultAsync(f => f.FaturaNo == normalizedFaturaNo || f.FaturaNo == faturaNo);
     }
 
     private async Task<string> GetUniqueCariCodeAsync(int startNum)
@@ -2865,8 +2947,22 @@ public class FaturaService : IFaturaService
             if (anaFirma == null || karsiFirma == null) return;
 
             // Karşı firmada ana firmayı temsil eden cari bul veya oluştur
+            var mevcutKarsiFatura = await _context.Faturalar
+                .FirstOrDefaultAsync(f => !f.IsDeleted &&
+                                          f.FirmaId == anaFatura.KarsiFirmaId &&
+                                          f.FaturaYonu == (anaFatura.FaturaYonu == FaturaYonu.Giden ? FaturaYonu.Gelen : FaturaYonu.Giden) &&
+                                          f.FaturaNo == anaFatura.FaturaNo);
+
+            if (mevcutKarsiFatura != null)
+            {
+                anaFatura.EslesenFaturaId = mevcutKarsiFatura.Id;
+                mevcutKarsiFatura.EslesenFaturaId = anaFatura.Id;
+                await _context.SaveChangesAsync();
+                return;
+            }
+
             var karsiFirmadakiCari = await _context.Cariler
-                .FirstOrDefaultAsync(c => c.VergiNo == anaFirma.VergiNo && !c.IsDeleted);
+                .FirstOrDefaultAsync(c => c.FirmaId == anaFatura.KarsiFirmaId && c.VergiNo == anaFirma.VergiNo && !c.IsDeleted);
 
             if (karsiFirmadakiCari == null)
             {
@@ -2877,6 +2973,7 @@ public class FaturaService : IFaturaService
                     CariKodu = cariKodu,
                     Unvan = anaFirma.FirmaAdi,
                     VergiNo = anaFirma.VergiNo ?? string.Empty,
+                    FirmaId = anaFatura.KarsiFirmaId,
                     VergiDairesi = anaFirma.VergiDairesi,
                     Adres = anaFirma.Adres,
                     Il = anaFirma.Il,
