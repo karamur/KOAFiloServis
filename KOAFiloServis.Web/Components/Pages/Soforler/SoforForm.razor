@@ -177,7 +177,7 @@
                 <div class="row">
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Brüt Maaş Hesaplama Tipi</label>
+                            <label class="form-label">Ücret Türü</label>
                             <InputSelect @bind-Value="sofor.BrutMaasHesaplamaTipi" class="form-select" @bind-Value:after="BrutMaasHesaplaAsync">
                                 <option value="@BrutMaasHesaplamaTipi.Manuel">Manuel Giriş</option>
                                 <option value="@BrutMaasHesaplamaTipi.Saatlik">Saatlik Ücret</option>
@@ -203,7 +203,7 @@
                     }
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Brüt Maaş (₺)</label>
+                            <label class="form-label">@GetBrutUcretLabel()</label>
                             <InputNumber @bind-Value="sofor.BrutMaas" class="form-control" readonly="@(sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)" @bind-Value:after="BrutMaasHesaplaAsync" />
                             @if (sofor.BrutMaasHesaplamaTipi != BrutMaasHesaplamaTipi.Manuel)
                             {
@@ -213,22 +213,30 @@
                     </div>
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Resmi Net Maaş (₺) *</label>
+                            <label class="form-label">Bankaya Yatan / Resmi Net Maaş (₺) *</label>
                             <InputNumber @bind-Value="sofor.ResmiNetMaas" class="form-control" />
+                            <small class="text-muted">Bordroda ve banka ödemesinde kullanılacak resmi net tutar.</small>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Diğer Maaş (₺)</label>
+                            <label class="form-label">Elden / Ek Ödeme Farkı (₺)</label>
                             <InputNumber @bind-Value="sofor.DigerMaas" class="form-control" />
-                            <small class="text-muted">Kuruş farkı veya ekleme için negatif değer kullanılabilir.</small>
+                            <small class="text-muted">Gerçek maaş ile bankaya yatan arasındaki fark. Negatif değer girilebilir.</small>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Net Maaş (₺)</label>
+                            <label class="form-label">Gerçek Maaş (₺)</label>
                             <input type="text" class="form-control bg-light" readonly value="@((sofor.ResmiNetMaas + sofor.DigerMaas).ToString("N2"))" />
-                            <small class="text-muted">Resmi Net + Diğer = Net Maaş</small>
+                            <small class="text-muted">Bankaya Yatan + Elden / Ek Ödeme = Gerçek Maaş</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Elden Ödenecek Önizleme (₺)</label>
+                            <input type="text" class="form-control bg-light" readonly value="@EldenOdenecekOnizleme.ToString("N2")" />
+                            <small class="text-muted">Şimdilik bankaya yatan hariç kalan maaş farkını gösterir.</small>
                         </div>
                     </div>
                 </div>
@@ -566,6 +574,7 @@
     private Sofor sofor = new();
     private bool IsEdit => Id.HasValue;
     private decimal ToplamNetMaas => sofor.ResmiNetMaas + sofor.DigerMaas;
+    private decimal EldenOdenecekOnizleme => YuvarlaPara(Math.Max(0, sofor.DigerMaas));
     private List<MuhasebeHesap> muhasebeHesaplari = new();
 
     // Özlük Evrak Yönetimi
@@ -762,6 +771,17 @@
             BrutMaasHesaplamaTipi.Gunluk => "Günlük Ücret (₺)",
             BrutMaasHesaplamaTipi.Aylik => "Aylık Ücret (₺)",
             _ => "Birim Ücret (₺)"
+        };
+    }
+
+    private string GetBrutUcretLabel()
+    {
+        return sofor.BrutMaasHesaplamaTipi switch
+        {
+            BrutMaasHesaplamaTipi.Saatlik => "Toplam Brüt Saatlik Ücret (₺)",
+            BrutMaasHesaplamaTipi.Gunluk => "Toplam Brüt Günlük Ücret (₺)",
+            BrutMaasHesaplamaTipi.Aylik => "Toplam Brüt Aylık Ücret (₺)",
+            _ => "Brüt Ücret (₺)"
         };
     }
 

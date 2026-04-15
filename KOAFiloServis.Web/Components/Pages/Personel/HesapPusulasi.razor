@@ -1,7 +1,8 @@
-@page "/personel/bordro/hesap-pusulasi"
+﻿@page "/personel/bordro/hesap-pusulasi"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
+@using Microsoft.AspNetCore.Components
 @inject IBordroService BordroService
 @inject IFirmaService FirmaService
 @inject IToastService ToastService
@@ -263,6 +264,10 @@
                                 <td>Net Maaş</td>
                                 <td class="tutar fw-bold">@detay.NetMaas.ToString("N2") ₺</td>
                             </tr>
+                            <tr>
+                                <td>Resmi / Banka Ödemesi</td>
+                                <td class="tutar">@detay.NetMaas.ToString("N2") ₺</td>
+                            </tr>
                             @if (detay.TopluMaas > 0 && detay.TopluMaas != detay.SgkMaasi)
                             {
                                 <tr>
@@ -317,6 +322,21 @@
                                 </tr>
                             </table>
                         }
+
+                        @if (detay.EkOdeme > 0)
+                        {
+                            <h6 class="kolon-baslik mt-2">ELDEN / FARK ÖDEMESİ</h6>
+                            <table class="detay-tablo">
+                                <tr>
+                                    <td>Toplu Maaş Farkı</td>
+                                    <td class="tutar">@detay.EkOdeme.ToString("N2") ₺</td>
+                                </tr>
+                                <tr class="toplam-satir">
+                                    <td>Elden / 2. Taksit</td>
+                                    <td class="tutar fw-bold">@detay.EkOdeme.ToString("N2") ₺</td>
+                                </tr>
+                            </table>
+                        }
                     </div>
 
                     <div class="detay-kolon">
@@ -352,7 +372,11 @@
                         <h6 class="kolon-baslik mt-2">ÖDEME BİLGİSİ</h6>
                         <table class="detay-tablo">
                             <tr>
-                                <td>Banka Ödemesi</td>
+                                <td>Planlanan Banka Ödemesi</td>
+                                <td class="tutar">@detay.NetMaas.ToString("N2") ₺</td>
+                            </tr>
+                            <tr>
+                                <td>Banka Ödeme Durumu</td>
                                 <td class="tutar">
                                     @if (detay.BankaOdemesiYapildi)
                                     {
@@ -367,7 +391,11 @@
                             @if (detay.EkOdeme > 0)
                             {
                                 <tr>
-                                    <td>Ek Ödeme</td>
+                                    <td>Planlanan Elden / Fark Ödemesi</td>
+                                    <td class="tutar">@detay.EkOdeme.ToString("N2") ₺</td>
+                                </tr>
+                                <tr>
+                                    <td>Elden / Fark Ödeme Durumu</td>
                                     <td class="tutar">
                                         @if (detay.EkOdemeYapildi)
                                         {
@@ -388,25 +416,33 @@
                 <div class="pusula-toplam">
                     <table class="toplam-tablo">
                         <tr>
-                            <td>Net Maaş</td>
+                            <td>Gerçek Maaş Toplamı</td>
+                            <td class="tutar">@((detay.NetMaas + detay.ToplamEkOdeme + detay.EkOdeme).ToString("N2")) ₺</td>
+                        </tr>
+                        <tr>
+                            <td>Bankaya Yatan / Resmi Net</td>
                             <td class="tutar">@detay.NetMaas.ToString("N2") ₺</td>
                         </tr>
                         @if (detay.ToplamEkOdeme > 0)
                         {
                             <tr>
-                                <td>Toplam Ek Ödemeler</td>
+                                <td>Yan Haklar / Toplam Ek Ödemeler</td>
                                 <td class="tutar">@detay.ToplamEkOdeme.ToString("N2") ₺</td>
                             </tr>
                         }
                         @if (detay.EkOdeme > 0)
                         {
                             <tr>
-                                <td>Ek Ödeme (Fark)</td>
+                                <td>Elden / Toplu Maaş Farkı</td>
                                 <td class="tutar">@detay.EkOdeme.ToString("N2") ₺</td>
                             </tr>
                         }
+                        <tr>
+                            <td>Toplam Kesinti</td>
+                            <td class="tutar text-danger">@detay.ToplamKesinti.ToString("N2") ₺</td>
+                        </tr>
                         <tr class="genel-toplam">
-                            <td>TOPLAM ÖDENECEK</td>
+                            <td>TOPLAM ÖDENECEK / PERSONEL ALACAĞI</td>
                             <td class="tutar">@detay.ToplamOdenecek.ToString("N2") ₺</td>
                         </tr>
                     </table>
@@ -441,6 +477,12 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "bordroId")]
+    public int? BordroIdQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "detayIds")]
+    public string? DetayIdsQuery { get; set; }
+
     private List<Firma> firmalar = new();
     private List<Bordro> bordrolar = new();
     private List<BordroDetay> detaylar = new();
@@ -460,6 +502,46 @@
     {
         firmalar = await FirmaService.GetAktifFirmalarAsync();
         await BordrolariYukle();
+        await QuerySecimiUygula();
+    }
+
+    private async Task QuerySecimiUygula()
+    {
+        if (!BordroIdQuery.HasValue)
+            return;
+
+        secilenBordroId = BordroIdQuery.Value;
+        await DetaylariYukle();
+
+        if (!detaylar.Any())
+            return;
+
+        var seciliDetayIdleri = (DetayIdsQuery ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => int.TryParse(x, out var id) ? id : 0)
+            .Where(id => id > 0)
+            .ToHashSet();
+
+        if (seciliDetayIdleri.Any())
+        {
+            foreach (var detay in detaylar)
+            {
+                detay.Secili = seciliDetayIdleri.Contains(detay.Id);
+            }
+
+            yazdirmaListesi = detaylar.Where(d => d.Secili).ToList();
+            tumSecili = detaylar.All(d => d.Secili);
+        }
+        else
+        {
+            foreach (var detay in detaylar)
+            {
+                detay.Secili = true;
+            }
+
+            yazdirmaListesi = detaylar.ToList();
+            tumSecili = true;
+        }
     }
 
     private async Task YilDegisti()

@@ -1,4 +1,4 @@
-@page "/personel/bordro/arge"
+﻿@page "/personel/bordro/arge"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
@@ -6,6 +6,7 @@
 @inject IFirmaService FirmaService
 @inject IToastService ToastService
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 @rendermode InteractiveServer
 
 <PageTitle>ARGE Bordro</PageTitle>
@@ -159,6 +160,8 @@
                                                         <li><a class="dropdown-item" @onclick="() => ExportBanka(bordro.Id)">Banka Ödeme Listesi</a></li>
                                                         <li><a class="dropdown-item" @onclick="() => ExportEkOdeme(bordro.Id)">Ek Ödeme Listesi</a></li>
                                                         <li><a class="dropdown-item" @onclick="() => ExportTumBordro(bordro.Id)">Tam Bordro</a></li>
+                                                         <li><a class="dropdown-item" @onclick="() => HesapPusulasinaGit(bordro)">Hesap Pusulası</a></li>
+                                                         <li><a class="dropdown-item" @onclick="() => BordroIcmalineGit(bordro)">Bordro İcmali</a></li>
                                                     </ul>
                                                 </div>
                                             </div>
@@ -263,6 +266,9 @@
                                                                 <i class="bi bi-pencil"></i>
                                                             </button>
                                                         }
+                                                         <button class="btn btn-outline-primary btn-sm" @onclick="() => TekilBordroAc(detay)" title="Tekil Bordro">
+                                                             <i class="bi bi-file-earmark-text"></i>
+                                                         </button>
                                                     </td>
                                                 </tr>
                                             }
@@ -288,6 +294,12 @@
                             }
                         </div>
                         <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-primary" @onclick="SecilenBordrolariAc">
+                                <i class="bi bi-file-earmark-text me-1"></i>Seçilenleri Bordrola
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="SecilenIcmalAc">
+                                <i class="bi bi-table me-1"></i>Seçilenleri İcmale Al
+                            </button>
                             <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
                         </div>
                     </div>
@@ -843,6 +855,64 @@
 
         bordroDetaylar = await BordroService.GetBordroDetaylarAsync(bordro.Id);
         StateHasChanged();
+    }
+
+    private void HesapPusulasinaGit(Bordro bordro)
+    {
+        Navigation.NavigateTo($"/personel/bordro/hesap-pusulasi?bordroId={bordro.Id}");
+    }
+
+    private void BordroIcmalineGit(Bordro bordro)
+    {
+        Navigation.NavigateTo($"/personel/bordro/icmal?bordroId={bordro.Id}");
+    }
+
+    private void TekilBordroAc(BordroDetay detay)
+    {
+        if (secilenBordro == null)
+            return;
+
+        Navigation.NavigateTo($"/personel/bordro/hesap-pusulasi?bordroId={secilenBordro.Id}&detayIds={detay.Id}");
+    }
+
+    private void TekilIcmalAc(BordroDetay detay)
+    {
+        if (secilenBordro == null)
+            return;
+
+        Navigation.NavigateTo($"/personel/bordro/icmal?bordroId={secilenBordro.Id}&detayIds={detay.Id}");
+    }
+
+    private void SecilenBordrolariAc()
+    {
+        if (secilenBordro == null || bordroDetaylar == null)
+            return;
+
+        var seciliIds = bordroDetaylar.Where(d => d.Secili).Select(d => d.Id).ToList();
+        if (!seciliIds.Any())
+        {
+            ToastService.ShowWarning("Lütfen en az bir personel seçiniz.");
+            return;
+        }
+
+        var detayIdListesi = string.Join(",", seciliIds);
+        Navigation.NavigateTo($"/personel/bordro/hesap-pusulasi?bordroId={secilenBordro.Id}&detayIds={detayIdListesi}");
+    }
+
+    private void SecilenIcmalAc()
+    {
+        if (secilenBordro == null || bordroDetaylar == null)
+            return;
+
+        var seciliIds = bordroDetaylar.Where(d => d.Secili).Select(d => d.Id).ToList();
+        if (!seciliIds.Any())
+        {
+            ToastService.ShowWarning("Lütfen en az bir personel seçiniz.");
+            return;
+        }
+
+        var detayIdListesi = string.Join(",", seciliIds);
+        Navigation.NavigateTo($"/personel/bordro/icmal?bordroId={secilenBordro.Id}&detayIds={detayIdListesi}");
     }
 
     private async Task OnaySayfasıAc(Bordro bordro)

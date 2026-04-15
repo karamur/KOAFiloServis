@@ -1,4 +1,4 @@
-@page "/personel/banka-odeme-listesi"
+﻿@page "/personel/banka-odeme-listesi"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
@@ -95,13 +95,12 @@
                                 <th>Ad Soyad</th>
                                 <th>Görev</th>
                                 <th>Banka / IBAN</th>
-                                <th class="text-end bg-info bg-opacity-10" style="width: 110px;" title="SGK'ya bildirilen maaş">SGK Maaş</th>
-                                <th class="text-end bg-warning bg-opacity-10" style="width: 110px;" title="SGK dışı ödeme (TopluMaaş - SGK Maaş)">Kalan Maaş</th>
-                                <th class="text-end bg-secondary bg-opacity-10" style="width: 110px;" title="SGK + Kalan toplam">Ara Toplam</th>
+                                <th class="text-end bg-secondary bg-opacity-10" style="width: 110px;" title="Personelin toplam gerçek maaşı">Gerçek Maaş</th>
+                                <th class="text-end bg-info bg-opacity-10" style="width: 110px;" title="Banka hesabına yatırılacak resmi net maaş">Bankaya Yatan</th>
                                 <th class="text-end text-warning" style="width: 90px;">Avans</th>
                                 <th class="text-end text-danger" style="width: 90px;">Kesinti</th>
-                                <th class="text-end text-success" style="width: 90px;">Alacak</th>
-                                <th class="text-end bg-success bg-opacity-25" style="width: 130px;"><strong>Ödenecek</strong></th>
+                                <th class="text-end text-success" style="width: 110px;">Personel Harcaması</th>
+                                <th class="text-end bg-success bg-opacity-25" style="width: 130px;"><strong>Elden Ödenecek</strong></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -133,21 +132,18 @@
                                             <span class="text-muted">-</span>
                                         }
                                     </td>
-                                    <td class="text-end bg-info bg-opacity-10">
-                                        <span title="SGK'ya bildirilen maaş">@FormatPara(item.SgkMaas)</span>
+                                    <td class="text-end bg-secondary bg-opacity-10">
+                                        <strong title="Gerçek maaş">@FormatPara(item.GercekMaas)</strong>
                                     </td>
-                                    <td class="text-end bg-warning bg-opacity-10">
-                                        @if (item.KalanMaas > 0)
+                                    <td class="text-end bg-info bg-opacity-10">
+                                        @if (item.BankayaYatan > 0)
                                         {
-                                            <span title="SGK dışı ödeme">@FormatPara(item.KalanMaas)</span>
+                                            <span title="Banka ödemesi">@FormatPara(item.BankayaYatan)</span>
                                         }
                                         else
                                         {
                                             <span class="text-muted">-</span>
                                         }
-                                    </td>
-                                    <td class="text-end bg-secondary bg-opacity-10">
-                                        <strong title="SGK + Kalan">@FormatPara(item.AraToplam)</strong>
                                     </td>
                                     <td class="text-end text-warning">
                                         @if (item.Avans > 0)
@@ -170,9 +166,9 @@
                                         }
                                     </td>
                                     <td class="text-end text-success">
-                                        @if (item.Alacak > 0)
+                                        @if (item.PersonelHarcamasi > 0)
                                         {
-                                            <span>+@FormatPara(item.Alacak)</span>
+                                            <span>+@FormatPara(item.PersonelHarcamasi)</span>
                                         }
                                         else
                                         {
@@ -180,7 +176,7 @@
                                         }
                                     </td>
                                     <td class="text-end bg-success bg-opacity-25">
-                                        <strong>@FormatPara(item.Odenecek)</strong>
+                                        <strong>@FormatPara(item.EldenOdenecek)</strong>
                                     </td>
                                 </tr>
                             }
@@ -188,13 +184,12 @@
                         <tfoot class="table-dark">
                             <tr>
                                 <td colspan="4" class="text-end"><strong>GENEL TOPLAM</strong></td>
-                                <td class="text-end bg-info"><strong>@FormatPara(personelListesi.Sum(p => p.SgkMaas))</strong></td>
-                                <td class="text-end bg-warning text-dark"><strong>@FormatPara(personelListesi.Sum(p => p.KalanMaas))</strong></td>
-                                <td class="text-end"><strong>@FormatPara(personelListesi.Sum(p => p.AraToplam))</strong></td>
+                                <td class="text-end"><strong>@FormatPara(personelListesi.Sum(p => p.GercekMaas))</strong></td>
+                                <td class="text-end bg-info"><strong>@FormatPara(personelListesi.Sum(p => p.BankayaYatan))</strong></td>
                                 <td class="text-end text-warning"><strong>-@FormatPara(personelListesi.Sum(p => p.Avans))</strong></td>
                                 <td class="text-end text-danger"><strong>-@FormatPara(personelListesi.Sum(p => p.Kesinti))</strong></td>
-                                <td class="text-end text-success"><strong>+@FormatPara(personelListesi.Sum(p => p.Alacak))</strong></td>
-                                <td class="text-end bg-success"><strong>@FormatPara(personelListesi.Sum(p => p.Odenecek))</strong></td>
+                                <td class="text-end text-success"><strong>+@FormatPara(personelListesi.Sum(p => p.PersonelHarcamasi))</strong></td>
+                                <td class="text-end bg-success"><strong>@FormatPara(personelListesi.Sum(p => p.EldenOdenecek))</strong></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -215,11 +210,10 @@
                                 <tr>
                                     <th>Görev</th>
                                     <th class="text-center">Kişi</th>
-                                    <th class="text-end">SGK Maaş</th>
-                                    <th class="text-end">Kalan Maaş</th>
-                                    <th class="text-end">Ara Toplam</th>
+                                     <th class="text-end">Gerçek Maaş</th>
+                                     <th class="text-end">Bankaya Yatan</th>
                                     <th class="text-end">Kesintiler</th>
-                                    <th class="text-end">Ödenecek</th>
+                                     <th class="text-end">Elden Ödenecek</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -230,11 +224,10 @@
                                             <span class="badge @ozet.BadgeClass">@ozet.GorevAdi</span>
                                         </td>
                                         <td class="text-center">@ozet.KisiSayisi</td>
-                                        <td class="text-end">@FormatPara(ozet.ToplamSgkMaas)</td>
-                                        <td class="text-end">@FormatPara(ozet.ToplamKalanMaas)</td>
-                                        <td class="text-end">@FormatPara(ozet.ToplamAraToplam)</td>
+                                        <td class="text-end">@FormatPara(ozet.ToplamGercekMaas)</td>
+                                        <td class="text-end">@FormatPara(ozet.ToplamBankayaYatan)</td>
                                         <td class="text-end text-danger">@FormatPara(ozet.ToplamKesinti)</td>
-                                        <td class="text-end"><strong>@FormatPara(ozet.ToplamOdenecek)</strong></td>
+                                        <td class="text-end"><strong>@FormatPara(ozet.ToplamEldenOdenecek)</strong></td>
                                     </tr>
                                 }
                             </tbody>
@@ -242,11 +235,10 @@
                                 <tr>
                                     <td><strong>TOPLAM</strong></td>
                                     <td class="text-center"><strong>@gorevOzetleri.Sum(g => g.KisiSayisi)</strong></td>
-                                    <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamSgkMaas))</strong></td>
-                                    <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamKalanMaas))</strong></td>
-                                    <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamAraToplam))</strong></td>
+                                     <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamGercekMaas))</strong></td>
+                                     <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamBankayaYatan))</strong></td>
                                     <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamKesinti))</strong></td>
-                                    <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamOdenecek))</strong></td>
+                                     <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamEldenOdenecek))</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -261,22 +253,15 @@
                     <div class="card-body">
                         <table class="table table-sm mb-0">
                             <tr class="table-info">
-                                <td><i class="bi bi-shield-check text-info me-2"></i>Toplam SGK Maaş</td>
-                                <td class="text-end"><strong>@FormatPara(personelListesi.Sum(p => p.SgkMaas))</strong></td>
+                                <td><i class="bi bi-wallet2 text-secondary me-2"></i>Toplam Gerçek Maaş</td>
+                                <td class="text-end"><strong>@FormatPara(personelListesi.Sum(p => p.GercekMaas))</strong></td>
+                            </tr>
+                            <tr class="table-info">
+                                <td><i class="bi bi-bank text-info me-2"></i>Toplam Bankaya Yatan</td>
+                                <td class="text-end"><strong>- @FormatPara(personelListesi.Sum(p => p.BankayaYatan))</strong></td>
                             </tr>
                             <tr class="table-warning">
-                                <td><i class="bi bi-plus-lg text-warning me-2"></i>Toplam Kalan Maaş (Ek Ödeme)</td>
-                                <td class="text-end"><strong>+ @FormatPara(personelListesi.Sum(p => p.KalanMaas))</strong></td>
-                            </tr>
-                            <tr class="table-secondary">
-                                <td><i class="bi bi-calculator text-secondary me-2"></i><strong>Ara Toplam (SGK + Kalan)</strong></td>
-                                <td class="text-end"><strong>= @FormatPara(personelListesi.Sum(p => p.AraToplam))</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="2"><hr class="my-1" /></td>
-                            </tr>
-                            <tr>
-                                <td><i class="bi bi-dash-circle text-warning me-2"></i>Toplam Avans Kesintisi</td>
+                                <td><i class="bi bi-dash-circle text-warning me-2"></i>Toplam Avans</td>
                                 <td class="text-end text-warning">- @FormatPara(personelListesi.Sum(p => p.Avans))</td>
                             </tr>
                             <tr>
@@ -284,12 +269,12 @@
                                 <td class="text-end text-danger">- @FormatPara(personelListesi.Sum(p => p.Kesinti))</td>
                             </tr>
                             <tr>
-                                <td><i class="bi bi-plus-circle text-success me-2"></i>Toplam Alacak</td>
-                                <td class="text-end text-success">+ @FormatPara(personelListesi.Sum(p => p.Alacak))</td>
+                                <td><i class="bi bi-plus-circle text-success me-2"></i>Toplam Personel Harcaması</td>
+                                <td class="text-end text-success">+ @FormatPara(personelListesi.Sum(p => p.PersonelHarcamasi))</td>
                             </tr>
                             <tr class="table-success">
-                                <td><strong><i class="bi bi-bank me-2"></i>Net Ödenecek Tutar</strong></td>
-                                <td class="text-end"><strong class="fs-5">@FormatPara(personelListesi.Sum(p => p.Odenecek))</strong></td>
+                                <td><strong><i class="bi bi-cash-coin me-2"></i>Elden Ödenecek Tutar</strong></td>
+                                <td class="text-end"><strong class="fs-5">@FormatPara(personelListesi.Sum(p => p.EldenOdenecek))</strong></td>
                             </tr>
                         </table>
                     </div>
@@ -319,7 +304,7 @@
                 <div class="modal-body">
                     <div class="alert alert-info mb-3">
                         <i class="bi bi-info-circle me-2"></i>
-                        <strong>@(new DateTime(secilenYil, secilenAy, 1).ToString("MMMM yyyy"))</strong> dönemi için <strong>@personelListesi!.Count</strong> personele toplam <strong>@FormatPara(personelListesi.Sum(p => p.Odenecek))</strong> maaş tahakkuku oluşturulacaktır.
+                        <strong>@(new DateTime(secilenYil, secilenAy, 1).ToString("MMMM yyyy"))</strong> dönemi için <strong>@personelListesi!.Count</strong> personele toplam <strong>@FormatPara(personelListesi.Sum(p => p.EldenOdenecek))</strong> elden ödeme tahakkuku oluşturulacaktır.
                     </div>
 
                     <div class="row mb-3">
@@ -341,9 +326,9 @@
                                         <input type="checkbox" class="form-check-input" checked="@TumunuSecildiMi()" @onchange="TumunuSecToggle" />
                                     </th>
                                     <th>Personel</th>
-                                    <th class="text-end">SGK Maaş</th>
-                                    <th class="text-end">Kalan</th>
-                                    <th class="text-end">Ödenecek</th>
+                                    <th class="text-end">Gerçek Maaş</th>
+                                    <th class="text-end">Bankaya Yatan</th>
+                                    <th class="text-end">Elden Ödenecek</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -354,18 +339,18 @@
                                             <input type="checkbox" class="form-check-input" @bind="item.Secili" />
                                         </td>
                                         <td>@item.Personel.TamAd</td>
-                                        <td class="text-end">@FormatPara(item.SgkMaas)</td>
-                                        <td class="text-end">@FormatPara(item.KalanMaas)</td>
-                                        <td class="text-end"><strong>@FormatPara(item.Odenecek)</strong></td>
+                                        <td class="text-end">@FormatPara(item.GercekMaas)</td>
+                                        <td class="text-end">@FormatPara(item.BankayaYatan)</td>
+                                        <td class="text-end"><strong>@FormatPara(item.EldenOdenecek)</strong></td>
                                     </tr>
                                 }
                             </tbody>
                             <tfoot class="table-warning">
                                 <tr>
                                     <td colspan="2"><strong>Seçili Toplam (@personelListesi.Count(p => p.Secili) kişi)</strong></td>
-                                    <td class="text-end"><strong>@FormatPara(personelListesi.Where(p => p.Secili).Sum(p => p.SgkMaas))</strong></td>
-                                    <td class="text-end"><strong>@FormatPara(personelListesi.Where(p => p.Secili).Sum(p => p.KalanMaas))</strong></td>
-                                    <td class="text-end"><strong>@FormatPara(personelListesi.Where(p => p.Secili).Sum(p => p.Odenecek))</strong></td>
+                                    <td class="text-end"><strong>@FormatPara(personelListesi.Where(p => p.Secili).Sum(p => p.GercekMaas))</strong></td>
+                                    <td class="text-end"><strong>@FormatPara(personelListesi.Where(p => p.Secili).Sum(p => p.BankayaYatan))</strong></td>
+                                    <td class="text-end"><strong>@FormatPara(personelListesi.Where(p => p.Secili).Sum(p => p.EldenOdenecek))</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -399,7 +384,7 @@
                 <div class="modal-body">
                     <div class="alert alert-primary mb-3">
                         <i class="bi bi-info-circle me-2"></i>
-                        <strong>@(new DateTime(secilenYil, secilenAy, 1).ToString("MMMM yyyy"))</strong> dönemi için <strong>@personelListesi!.Count</strong> personele toplam <strong>@FormatPara(personelListesi.Sum(p => p.Odenecek))</strong> ödeme yapılacaktır.
+                        <strong>@(new DateTime(secilenYil, secilenAy, 1).ToString("MMMM yyyy"))</strong> dönemi için <strong>@personelListesi!.Count</strong> personele toplam <strong>@FormatPara(personelListesi.Sum(p => p.BankayaYatan))</strong> banka ödemesi yapılacaktır.
                     </div>
 
                     <div class="row mb-3">
@@ -456,7 +441,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var item in personelListesi!.Where(p => p.Odenecek > 0))
+                                @foreach (var item in personelListesi!.Where(p => p.BankayaYatan > 0))
                                 {
                                     <tr class="@(string.IsNullOrWhiteSpace(item.Personel.IBAN) ? "table-danger" : "")">
                                         <td>
@@ -473,30 +458,30 @@
                                                 <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>IBAN Eksik</span>
                                             }
                                         </td>
-                                        <td class="text-end"><strong>@FormatPara(item.Odenecek)</strong></td>
+                                        <td class="text-end"><strong>@FormatPara(item.BankayaYatan)</strong></td>
                                     </tr>
                                 }
                             </tbody>
                             <tfoot class="table-primary">
                                 <tr>
-                                    <td colspan="3"><strong>Seçili Toplam (@personelListesi.Count(p => p.Secili && p.Odenecek > 0) kişi)</strong></td>
-                                    <td class="text-end"><strong>@FormatPara(personelListesi.Where(p => p.Secili && p.Odenecek > 0).Sum(p => p.Odenecek))</strong></td>
+                                    <td colspan="3"><strong>Seçili Toplam (@personelListesi.Count(p => p.Secili && p.BankayaYatan > 0) kişi)</strong></td>
+                                    <td class="text-end"><strong>@FormatPara(personelListesi.Where(p => p.Secili && p.BankayaYatan > 0).Sum(p => p.BankayaYatan))</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
 
-                    @if (personelListesi.Any(p => string.IsNullOrWhiteSpace(p.Personel.IBAN) && p.Odenecek > 0))
+                    @if (personelListesi.Any(p => string.IsNullOrWhiteSpace(p.Personel.IBAN) && p.BankayaYatan > 0))
                     {
                         <div class="alert alert-warning mt-3">
                             <i class="bi bi-exclamation-triangle me-2"></i>
-                            <strong>@personelListesi.Count(p => string.IsNullOrWhiteSpace(p.Personel.IBAN) && p.Odenecek > 0)</strong> personelin IBAN bilgisi eksik olduğu için ödeme listesine dahil edilemedi.
+                            <strong>@personelListesi.Count(p => string.IsNullOrWhiteSpace(p.Personel.IBAN) && p.BankayaYatan > 0)</strong> personelin IBAN bilgisi eksik olduğu için ödeme listesine dahil edilemedi.
                         </div>
                     }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="() => showOdemeModal = false">İptal</button>
-                    <button type="button" class="btn btn-primary" @onclick="TopluOdemeKaydet" disabled="@(secilenBankaHesapId == 0 || !personelListesi.Any(p => p.Secili && p.Odenecek > 0) || isProcessing)">
+                    <button type="button" class="btn btn-primary" @onclick="TopluOdemeKaydet" disabled="@(secilenBankaHesapId == 0 || !personelListesi.Any(p => p.Secili && p.BankayaYatan > 0) || isProcessing)">
                         @if (isProcessing)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -568,20 +553,14 @@
                 {
                     Personel = personel,
                     SiralamaNo = personel.SiralamaNo,
-                    // SGK Maaş ve Kalan Maaş ayrımı
-                    SgkMaas = personel.SgkMaasi,
-                    KalanMaas = personel.EkOdeme, // TopluMaas - SgkMaasi
-                    ResmiMaas = personel.ResmiNetMaas, // Geriye uyumluluk için
-                    Avans = finansOzet?.KalanAvans ?? 0, // Açık avanslar
-                    Kesinti = finansOzet?.KalanBorc > 0 ? finansOzet.KalanBorc : 0, // Personelden alınacak borçlar
-                    Alacak = finansOzet?.KalanBorc < 0 ? Math.Abs(finansOzet.KalanBorc) : 0 // Personele ödenecek (negatif borç = alacak)
+                    GercekMaas = personel.NetMaas,
+                    BankayaYatan = personel.ResmiNetMaas,
+                    Avans = finansOzet?.KalanAvans ?? 0,
+                    Kesinti = finansOzet?.KalanBorc > 0 ? finansOzet.KalanBorc : 0,
+                    PersonelHarcamasi = finansOzet?.KalanBorc < 0 ? Math.Abs(finansOzet.KalanBorc) : 0
                 };
 
-                // Ara Toplam = SGK Maaş + Kalan Maaş
-                item.AraToplam = item.SgkMaas + item.KalanMaas;
-
-                // Ödenecek = Ara Toplam - Avans - Kesinti + Alacak
-                item.Odenecek = item.AraToplam - item.Avans - item.Kesinti + item.Alacak;
+                item.EldenOdenecek = item.GercekMaas - item.BankayaYatan - item.Kesinti + item.PersonelHarcamasi - item.Avans;
 
                 personelListesi.Add(item);
             }
@@ -595,14 +574,12 @@
                     GorevAdi = GetGorevAdi(g.Key),
                     BadgeClass = GetGorevBadgeClass(g.Key),
                     KisiSayisi = g.Count(),
-                    ToplamSgkMaas = g.Sum(x => x.SgkMaas),
-                    ToplamKalanMaas = g.Sum(x => x.KalanMaas),
-                    ToplamAraToplam = g.Sum(x => x.AraToplam),
-                    ToplamResmiMaas = g.Sum(x => x.ResmiMaas),
+                    ToplamGercekMaas = g.Sum(x => x.GercekMaas),
+                    ToplamBankayaYatan = g.Sum(x => x.BankayaYatan),
                     ToplamAvans = g.Sum(x => x.Avans),
-                    ToplamKesinti = g.Sum(x => x.Avans + x.Kesinti),
-                    ToplamAlacak = g.Sum(x => x.Alacak),
-                    ToplamOdenecek = g.Sum(x => x.Odenecek)
+                    ToplamKesinti = g.Sum(x => x.Kesinti),
+                    ToplamPersonelHarcamasi = g.Sum(x => x.PersonelHarcamasi),
+                    ToplamEldenOdenecek = g.Sum(x => x.EldenOdenecek)
                 })
                 .OrderBy(g => g.Gorev)
                 .ToList();
@@ -661,25 +638,25 @@
                 worksheet.Cell(row, 3).Value = item.Personel.TamAd;
                 worksheet.Cell(row, 4).Value = GetGorevAdi(item.Personel.Gorev);
                 worksheet.Cell(row, 5).Value = item.Personel.IBAN ?? "";
-                worksheet.Cell(row, 6).Value = item.SgkMaas;
-                worksheet.Cell(row, 7).Value = item.KalanMaas;
-                worksheet.Cell(row, 8).Value = item.AraToplam;
+                worksheet.Cell(row, 6).Value = item.GercekMaas;
+                worksheet.Cell(row, 7).Value = item.BankayaYatan;
+                worksheet.Cell(row, 8).Value = item.PersonelHarcamasi;
                 worksheet.Cell(row, 9).Value = item.Avans;
                 worksheet.Cell(row, 10).Value = item.Kesinti;
-                worksheet.Cell(row, 11).Value = item.Alacak;
-                worksheet.Cell(row, 12).Value = item.Odenecek;
+                worksheet.Cell(row, 11).Value = item.PersonelHarcamasi;
+                worksheet.Cell(row, 12).Value = item.EldenOdenecek;
                 row++;
             }
 
             // Toplam satırı
             worksheet.Cell(row, 5).Value = "TOPLAM:";
-            worksheet.Cell(row, 6).Value = personelListesi.Sum(p => p.SgkMaas);
-            worksheet.Cell(row, 7).Value = personelListesi.Sum(p => p.KalanMaas);
-            worksheet.Cell(row, 8).Value = personelListesi.Sum(p => p.AraToplam);
+            worksheet.Cell(row, 6).Value = personelListesi.Sum(p => p.GercekMaas);
+            worksheet.Cell(row, 7).Value = personelListesi.Sum(p => p.BankayaYatan);
+            worksheet.Cell(row, 8).Value = personelListesi.Sum(p => p.PersonelHarcamasi);
             worksheet.Cell(row, 9).Value = personelListesi.Sum(p => p.Avans);
             worksheet.Cell(row, 10).Value = personelListesi.Sum(p => p.Kesinti);
-            worksheet.Cell(row, 11).Value = personelListesi.Sum(p => p.Alacak);
-            worksheet.Cell(row, 12).Value = personelListesi.Sum(p => p.Odenecek);
+            worksheet.Cell(row, 11).Value = personelListesi.Sum(p => p.PersonelHarcamasi);
+            worksheet.Cell(row, 12).Value = personelListesi.Sum(p => p.EldenOdenecek);
             worksheet.Range(row, 5, row, 12).Style.Font.Bold = true;
             worksheet.Range(row, 5, row, 12).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightYellow;
 
@@ -694,11 +671,11 @@
 
             worksheet.Cell(row, 1).Value = "Görev";
             worksheet.Cell(row, 2).Value = "Kişi Sayısı";
-            worksheet.Cell(row, 3).Value = "SGK Maaş";
-            worksheet.Cell(row, 4).Value = "Kalan Maaş";
-            worksheet.Cell(row, 5).Value = "Ara Toplam";
+            worksheet.Cell(row, 3).Value = "Gerçek Maaş";
+            worksheet.Cell(row, 4).Value = "Bankaya Yatan";
+            worksheet.Cell(row, 5).Value = "Personel Harcaması";
             worksheet.Cell(row, 6).Value = "Kesinti";
-            worksheet.Cell(row, 7).Value = "Ödenecek";
+            worksheet.Cell(row, 7).Value = "Elden Ödenecek";
             worksheet.Row(row).Style.Font.Bold = true;
             row++;
 
@@ -706,11 +683,11 @@
             {
                 worksheet.Cell(row, 1).Value = ozet.GorevAdi;
                 worksheet.Cell(row, 2).Value = ozet.KisiSayisi;
-                worksheet.Cell(row, 3).Value = ozet.ToplamSgkMaas;
-                worksheet.Cell(row, 4).Value = ozet.ToplamKalanMaas;
-                worksheet.Cell(row, 5).Value = ozet.ToplamAraToplam;
+                worksheet.Cell(row, 3).Value = ozet.ToplamGercekMaas;
+                worksheet.Cell(row, 4).Value = ozet.ToplamBankayaYatan;
+                worksheet.Cell(row, 5).Value = ozet.ToplamPersonelHarcamasi;
                 worksheet.Cell(row, 6).Value = ozet.ToplamKesinti;
-                worksheet.Cell(row, 7).Value = ozet.ToplamOdenecek;
+                worksheet.Cell(row, 7).Value = ozet.ToplamEldenOdenecek;
                 row++;
             }
 
@@ -738,25 +715,25 @@
         {
             if (personelListesi == null || !personelListesi.Any()) return;
 
-            var ibanliPersoneller = personelListesi.Where(p => !string.IsNullOrWhiteSpace(p.Personel.IBAN) && p.Odenecek > 0).ToList();
-            var ibansizPersoneller = personelListesi.Where(p => string.IsNullOrWhiteSpace(p.Personel.IBAN) && p.Odenecek > 0).ToList();
+            var ibanliPersoneller = personelListesi.Where(p => !string.IsNullOrWhiteSpace(p.Personel.IBAN) && p.BankayaYatan > 0).ToList();
+            var ibansizPersoneller = personelListesi.Where(p => string.IsNullOrWhiteSpace(p.Personel.IBAN) && p.BankayaYatan > 0).ToList();
 
             // Banka EFT dosyası oluştur (Türk bankaları genel format - semicolon delimited)
             var sb = new System.Text.StringBuilder();
             // Header: Tarih, Toplam Tutar, Toplam Adet
-            sb.AppendLine($"BASLIK;{DateTime.Now:dd.MM.yyyy};{ibanliPersoneller.Count};{ibanliPersoneller.Sum(p => p.Odenecek):F2};TRY;MAAS {new DateTime(secilenYil, secilenAy, 1):MMMM yyyy}");
+            sb.AppendLine($"BASLIK;{DateTime.Now:dd.MM.yyyy};{ibanliPersoneller.Count};{ibanliPersoneller.Sum(p => p.BankayaYatan):F2};TRY;MAAS {new DateTime(secilenYil, secilenAy, 1):MMMM yyyy}");
             sb.AppendLine("IBAN;AD_SOYAD;TUTAR;ACIKLAMA;PERSONEL_KODU");
 
             foreach (var item in ibanliPersoneller)
             {
-                var iban = item.Personel.IBAN!.Replace(" ", "").Trim();
+                var iban = item.Personel.IBAN!.Replace(" ", string.Empty).Trim();
                 var adSoyad = item.Personel.TamAd.Replace(";", " ");
                 var aciklama = $"{new DateTime(secilenYil, secilenAy, 1):yyyy-MM} Maas Odemesi";
-                sb.AppendLine($"{iban};{adSoyad};{item.Odenecek:F2};{aciklama};{item.Personel.SoforKodu}");
+                sb.AppendLine($"{iban};{adSoyad};{item.BankayaYatan:F2};{aciklama};{item.Personel.SoforKodu}");
             }
 
             // Toplam satırı
-            sb.AppendLine($"TOPLAM;;;{ibanliPersoneller.Sum(p => p.Odenecek):F2};;");
+            sb.AppendLine($"TOPLAM;;;{ibanliPersoneller.Sum(p => p.BankayaYatan):F2};;");
 
             var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
             var dosyaAdi = $"eft_maas_odeme_{secilenYil}_{secilenAy:00}.csv";
@@ -831,14 +808,12 @@
     {
         public Sofor Personel { get; set; } = null!;
         public int SiralamaNo { get; set; }
-        public decimal SgkMaas { get; set; } // SGK'ya bildirilen maaş
-        public decimal KalanMaas { get; set; } // Ek ödeme (TopluMaaş - SGK Maaş)
-        public decimal AraToplam { get; set; } // SGK + Kalan
-        public decimal ResmiMaas { get; set; } // Geriye uyumluluk
+        public decimal GercekMaas { get; set; }
+        public decimal BankayaYatan { get; set; }
         public decimal Avans { get; set; }
         public decimal Kesinti { get; set; }
-        public decimal Alacak { get; set; }
-        public decimal Odenecek { get; set; }
+        public decimal PersonelHarcamasi { get; set; }
+        public decimal EldenOdenecek { get; set; }
         public bool Secili { get; set; } = true; // Toplu işlemler için
     }
 
@@ -848,14 +823,12 @@
         public string GorevAdi { get; set; } = string.Empty;
         public string BadgeClass { get; set; } = string.Empty;
         public int KisiSayisi { get; set; }
-        public decimal ToplamSgkMaas { get; set; }
-        public decimal ToplamKalanMaas { get; set; }
-        public decimal ToplamAraToplam { get; set; }
-        public decimal ToplamResmiMaas { get; set; }
+        public decimal ToplamGercekMaas { get; set; }
+        public decimal ToplamBankayaYatan { get; set; }
         public decimal ToplamAvans { get; set; }
         public decimal ToplamKesinti { get; set; }
-        public decimal ToplamAlacak { get; set; }
-        public decimal ToplamOdenecek { get; set; }
+        public decimal ToplamPersonelHarcamasi { get; set; }
+        public decimal ToplamEldenOdenecek { get; set; }
     }
 
     #region Toplu Tahakkuk ve Ödeme İşlemleri
@@ -877,10 +850,10 @@
         odemeTarihi = DateTime.Today;
         odemeAciklama = $"{new DateTime(secilenYil, secilenAy, 1):MMMM yyyy} maaş ödemesi";
         odemeBelgeNo = $"MAAS-{secilenYil}{secilenAy:00}";
-        // Sadece IBAN'ı olan ve ödenecek tutarı 0'dan büyük olanları seç
+        // Sadece IBAN'ı olan ve bankaya yatan tutarı 0'dan büyük olanları seç
         foreach (var item in personelListesi!)
         {
-            item.Secili = !string.IsNullOrWhiteSpace(item.Personel.IBAN) && item.Odenecek > 0;
+            item.Secili = !string.IsNullOrWhiteSpace(item.Personel.IBAN) && item.BankayaYatan > 0;
         }
         showOdemeModal = true;
         await Task.CompletedTask;
@@ -946,13 +919,13 @@
                     SoforId = item.Personel.Id,
                     Yil = secilenYil,
                     Ay = secilenAy,
-                    BrutMaas = item.AraToplam, // SGK + Kalan toplam
-                    NetMaas = item.Odenecek,
+                    BrutMaas = item.GercekMaas,
+                    NetMaas = item.GercekMaas,
                     SGKIsciPayi = 0, // Hesaplama gerekiyorsa eklenebilir
                     SGKIsverenPayi = 0,
                     GelirVergisi = 0,
                     DamgaVergisi = 0,
-                    DigerEklemeler = item.KalanMaas,
+                    DigerEklemeler = item.PersonelHarcamasi,
                     Avans = item.Avans,
                     DigerKesintiler = item.Kesinti,
                     OdemeTarihi = null, // Henüz ödenmedi
@@ -988,7 +961,7 @@
             return;
         }
 
-        if (personelListesi == null || !personelListesi.Any(p => p.Secili && p.Odenecek > 0))
+        if (personelListesi == null || !personelListesi.Any(p => p.Secili && p.BankayaYatan > 0))
         {
             ToastService.ShowWarning("Lütfen en az bir personel seçin.");
             return;
@@ -997,8 +970,8 @@
         isProcessing = true;
         try
         {
-            var seciliPersoneller = personelListesi.Where(p => p.Secili && p.Odenecek > 0).ToList();
-            var toplamTutar = seciliPersoneller.Sum(p => p.Odenecek);
+            var seciliPersoneller = personelListesi.Where(p => p.Secili && p.BankayaYatan > 0).ToList();
+            var toplamTutar = seciliPersoneller.Sum(p => p.BankayaYatan);
             var secilenHesap = bankaHesaplari.First(h => h.Id == secilenBankaHesapId);
 
             // Toplu ödeme için grup ID oluştur
@@ -1052,9 +1025,9 @@
                         SoforId = item.Personel.Id,
                         Yil = secilenYil,
                         Ay = secilenAy,
-                        BrutMaas = item.AraToplam,
-                        NetMaas = item.Odenecek,
-                        DigerEklemeler = item.KalanMaas,
+                        BrutMaas = item.GercekMaas,
+                        NetMaas = item.GercekMaas,
+                        DigerEklemeler = item.PersonelHarcamasi,
                         Avans = item.Avans,
                         DigerKesintiler = item.Kesinti,
                         OdemeTarihi = odemeTarihi,
@@ -1089,7 +1062,7 @@
         try
         {
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"BASLIK;{odemeTarihi:dd.MM.yyyy};{seciliPersoneller.Count};{seciliPersoneller.Sum(p => p.Odenecek):F2};TRY;MAAS {new DateTime(secilenYil, secilenAy, 1):MMMM yyyy}");
+            sb.AppendLine($"BASLIK;{odemeTarihi:dd.MM.yyyy};{seciliPersoneller.Count};{seciliPersoneller.Sum(p => p.BankayaYatan):F2};TRY;MAAS {new DateTime(secilenYil, secilenAy, 1):MMMM yyyy}");
             sb.AppendLine("IBAN;AD_SOYAD;TUTAR;ACIKLAMA;PERSONEL_KODU");
 
             foreach (var item in seciliPersoneller)
@@ -1097,10 +1070,10 @@
                 var iban = item.Personel.IBAN!.Replace(" ", "").Trim();
                 var adSoyad = item.Personel.TamAd.Replace(";", " ");
                 var aciklama = $"{new DateTime(secilenYil, secilenAy, 1):yyyy-MM} Maas Odemesi";
-                sb.AppendLine($"{iban};{adSoyad};{item.Odenecek:F2};{aciklama};{item.Personel.SoforKodu}");
+                sb.AppendLine($"{iban};{adSoyad};{item.BankayaYatan:F2};{aciklama};{item.Personel.SoforKodu}");
             }
 
-            sb.AppendLine($"TOPLAM;;;{seciliPersoneller.Sum(p => p.Odenecek):F2};;");
+            sb.AppendLine($"TOPLAM;;;{seciliPersoneller.Sum(p => p.BankayaYatan):F2};;");
 
             var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
             var dosyaAdi = $"eft_maas_odeme_{secilenYil}_{secilenAy:00}_{DateTime.Now:HHmm}.csv";
