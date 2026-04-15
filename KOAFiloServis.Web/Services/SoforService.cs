@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
@@ -223,6 +223,8 @@ public class SoforService : ISoforService
 
     private async Task ValidateSoforAsync(Sofor sofor)
     {
+        var currentId = sofor.Id;
+
         if (string.IsNullOrWhiteSpace(sofor.SoforKodu))
             throw new InvalidOperationException("Personel kodu zorunludur.");
 
@@ -241,14 +243,14 @@ public class SoforService : ISoforService
                 throw new InvalidOperationException("TC Kimlik No 11 haneli olmalıdır.");
 
             var tcKimlikKullanimda = await QuerySoforler()
-                .AnyAsync(s => s.Id != sofor.Id && s.TcKimlikNo == sofor.TcKimlikNo);
+                .AnyAsync(s => s.Id != currentId && s.TcKimlikNo == sofor.TcKimlikNo);
 
             if (tcKimlikKullanimda)
                 throw new InvalidOperationException($"'{sofor.TcKimlikNo}' TC Kimlik No zaten kullanımda.");
         }
 
         var kodKullanimda = await QuerySoforler()
-            .AnyAsync(s => s.Id != sofor.Id && s.SoforKodu == sofor.SoforKodu);
+            .AnyAsync(s => s.Id != currentId && s.SoforKodu == sofor.SoforKodu);
 
         if (kodKullanimda)
             throw new InvalidOperationException($"'{sofor.SoforKodu}' personel kodu zaten kullanımda.");

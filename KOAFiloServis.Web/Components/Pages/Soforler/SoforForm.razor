@@ -1,4 +1,4 @@
-@page "/soforler/yeni"
+﻿@page "/soforler/yeni"
 @page "/soforler/{Id:int}"
 @page "/personel/yeni"
 @page "/personel/{Id:int}"
@@ -655,6 +655,9 @@
         {
             if (IsEdit)
             {
+                // Düzenleme senaryosunda route'tan gelen Id mutlaka korunmalı.
+                // Aksi halde validasyon yeni kayıt gibi davranıp TC kimlik no çakışması üretebilir.
+                sofor.Id = Id!.Value;
                 await SoforService.UpdateAsync(sofor);
                 ToastService.ShowSuccess($"{sofor.TamAd} başarıyla güncellendi.");
             }

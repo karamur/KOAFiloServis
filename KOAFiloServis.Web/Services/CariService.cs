@@ -521,15 +521,28 @@ public class CariService : ICariService
 
     public async Task<string> GenerateNextKodAsync()
     {
-        // Veritabanında MAX değeri bul ve +1 ekle (tek sorguda, race condition'a karşı daha güvenli)
-        var maxNumber = await _context.Cariler
+        // EF tarafında Substring/Convert kombinasyonu PostgreSQL'e güvenli çevrilemediği için
+        // kodları belleğe alıp sayısal kısmı burada parse ediyoruz.
+        var cariKodlari = await _context.Cariler
             .IgnoreQueryFilters()
             .Where(c => c.CariKodu != null && c.CariKodu.StartsWith("CRI-"))
-            .Select(c => c.CariKodu!.Substring(4))
-            .Where(s => s.Length == 5)
-            .Select(s => Convert.ToInt32(s))
-            .DefaultIfEmpty(0)
-            .MaxAsync();
+            .Select(c => c.CariKodu!)
+            .ToListAsync();
+
+        var maxNumber = 0;
+        foreach (var cariKodu in cariKodlari)
+        {
+            if (string.IsNullOrWhiteSpace(cariKodu) || cariKodu.Length <= 4)
+            {
+                continue;
+            }
+
+            var numericPart = cariKodu[4..];
+            if (numericPart.Length == 5 && int.TryParse(numericPart, out var parsed) && parsed > maxNumber)
+            {
+                maxNumber = parsed;
+            }
+        }
 
         // Timestamp ile ek benzersizlik garantisi
         var timestamp = DateTime.UtcNow.Ticks % 1000;
