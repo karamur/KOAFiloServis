@@ -308,7 +308,7 @@
                                                 {
                                                     <span class="badge bg-info ms-1">@odeme.KacinciTaksit/@odeme.ToplamTaksitSayisi</span>
                                                 }
-                                                <br /><small class="text-muted">@(odeme.Aciklama ?? "")</small>
+                                                <br /><small class="text-muted">@GetGorunenAciklama(odeme)</small>
                                             </div>
                                             <div class="text-end">
                                                 <strong class="text-danger">@FormatPara(GetBekleyenTutar(odeme))</strong>
@@ -727,7 +727,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <strong>@odemeYapilacak.MasrafKalemi</strong><br />
-                                <small>@odemeYapilacak.Aciklama</small>
+                                <small>@GetGorunenAciklama(odemeYapilacak)</small>
                             </div>
                             <div class="text-end">
                                 <small class="text-muted">Tutar:</small><br/>
@@ -2266,6 +2266,30 @@
             return string.Empty;
 
         return bankaHesaplari.FirstOrDefault(h => h.Id == hesapId.Value)?.HesapAdi ?? string.Empty;
+    }
+
+    private string GetGorunenAciklama(BudgetOdeme? odeme)
+    {
+        if (odeme == null || string.IsNullOrWhiteSpace(odeme.Aciklama))
+            return string.Empty;
+
+        var aciklama = odeme.Aciklama.Trim();
+
+        if (odeme.OncekiDonemOdemeId.HasValue)
+        {
+            while (aciklama.StartsWith("[Devir]", StringComparison.OrdinalIgnoreCase))
+            {
+                aciklama = aciklama.Substring(7).TrimStart();
+            }
+
+            const string suffix = "- Önceki dönemden kalan";
+            if (aciklama.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                aciklama = aciklama[..^suffix.Length].TrimEnd();
+            }
+        }
+
+        return aciklama;
     }
 
     private void CariMahsupHesapDegisti()

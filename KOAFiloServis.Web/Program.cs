@@ -472,6 +472,12 @@ await RunScopedSafeAsync(app, "BudgetOdemeKalanMigration", async services =>
     await KOAFiloServis.Web.Data.Migrations.BudgetOdemeKalanMigrationHelper.EnsureBudgetOdemeKalanColumnAsync(context);
 });
 
+await RunScopedSafeAsync(app, "BudgetHedefMigration", async services =>
+{
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    await KOAFiloServis.Web.Data.Migrations.BudgetHedefMigrationHelper.EnsureBudgetHedefTableAsync(context);
+});
+
 await RunScopedSafeAsync(app, "FaturaGibDurumMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
