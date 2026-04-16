@@ -45,24 +45,13 @@ public static class BankaHareketPersonelCebindenMigrationHelper
         {
             logger.LogInformation("BankaKasaHareketleri tablosuna PersonelCebinden kolonları ekleniyor...");
 
-            var alterSql = isPostgres
+            // Önce kolonları ekle (FK olmadan)
+            var alterColumnsSql = isPostgres
                 ? $@"
                     ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""PersonelCebindenId"" INTEGER NULL;
                     ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""PersoneleOdendi"" BOOLEAN NOT NULL DEFAULT FALSE;
                     ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""PersonelOdemeTarihi"" TIMESTAMP NULL;
                     ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""PersonelOdemeHesapId"" INTEGER NULL;
-
-                    DO $$ 
-                    BEGIN 
-                        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_BankaKasaHareketleri_Soforler_PersonelCebindenId') THEN
-                            ALTER TABLE {tableName} 
-                            ADD CONSTRAINT ""FK_BankaKasaHareketleri_Soforler_PersonelCebindenId"" 
-                            FOREIGN KEY (""PersonelCebindenId"") REFERENCES ""Soforler""(""Id"") ON DELETE SET NULL;
-                        END IF;
-                    END $$;
-
-                    CREATE INDEX IF NOT EXISTS ""IX_BankaKasaHareketleri_PersonelCebindenId_PersoneleOdendi"" 
-                    ON {tableName} (""PersonelCebindenId"", ""PersoneleOdendi"");
                   "
                 : $@"
                     ALTER TABLE {tableName} ADD COLUMN PersonelCebindenId INTEGER NULL;
@@ -72,10 +61,27 @@ public static class BankaHareketPersonelCebindenMigrationHelper
                   ";
 
             using var alterCmd = connection.CreateCommand();
-            alterCmd.CommandText = alterSql;
+            alterCmd.CommandText = alterColumnsSql;
             await alterCmd.ExecuteNonQueryAsync();
 
             logger.LogInformation("BankaKasaHareketleri tablosuna PersonelCebinden kolonları eklendi.");
+
+            // İndeks ve FK constraint'leri ayrı olarak ekle (hata olursa görmezden gel)
+            if (isPostgres)
+            {
+                try
+                {
+                    var indexSql = $@"CREATE INDEX IF NOT EXISTS ""IX_BankaKasaHareketleri_PersonelCebindenId_PersoneleOdendi"" 
+                                     ON {tableName} (""PersonelCebindenId"", ""PersoneleOdendi"");";
+                    using var indexCmd = connection.CreateCommand();
+                    indexCmd.CommandText = indexSql;
+                    await indexCmd.ExecuteNonQueryAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning("BankaKasaHareketleri indeks eklenemedi (devam ediliyor): {Message}", ex.Message);
+                }
+            }
         }
     }
 
@@ -95,30 +101,14 @@ public static class BankaHareketPersonelCebindenMigrationHelper
         {
             logger.LogInformation("AracMasraflari tablosuna PersonelCebinden kolonları ekleniyor...");
 
-            var alterSql = isPostgres
+            // Önce kolonları ekle (FK olmadan)
+            var alterColumnsSql = isPostgres
                 ? $@"
                     ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""OdemeKaynak"" INTEGER NOT NULL DEFAULT 1;
                     ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""PersonelCebindenId"" INTEGER NULL;
                     ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""PersoneleOdendi"" BOOLEAN NOT NULL DEFAULT FALSE;
                     ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""PersonelOdemeTarihi"" TIMESTAMP NULL;
                     ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""BankaHesapId"" INTEGER NULL;
-
-                    DO $$ 
-                    BEGIN 
-                        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_AracMasraflari_Soforler_PersonelCebindenId') THEN
-                            ALTER TABLE {tableName} 
-                            ADD CONSTRAINT ""FK_AracMasraflari_Soforler_PersonelCebindenId"" 
-                            FOREIGN KEY (""PersonelCebindenId"") REFERENCES ""Soforler""(""Id"") ON DELETE SET NULL;
-                        END IF;
-                        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_AracMasraflari_BankaHesaplari_BankaHesapId') THEN
-                            ALTER TABLE {tableName} 
-                            ADD CONSTRAINT ""FK_AracMasraflari_BankaHesaplari_BankaHesapId"" 
-                            FOREIGN KEY (""BankaHesapId"") REFERENCES ""BankaHesaplari""(""Id"") ON DELETE SET NULL;
-                        END IF;
-                    END $$;
-
-                    CREATE INDEX IF NOT EXISTS ""IX_AracMasraflari_PersonelCebindenId_PersoneleOdendi"" 
-                    ON {tableName} (""PersonelCebindenId"", ""PersoneleOdendi"");
                   "
                 : $@"
                     ALTER TABLE {tableName} ADD COLUMN OdemeKaynak INTEGER NOT NULL DEFAULT 1;
@@ -129,10 +119,27 @@ public static class BankaHareketPersonelCebindenMigrationHelper
                   ";
 
             using var alterCmd = connection.CreateCommand();
-            alterCmd.CommandText = alterSql;
+            alterCmd.CommandText = alterColumnsSql;
             await alterCmd.ExecuteNonQueryAsync();
 
             logger.LogInformation("AracMasraflari tablosuna PersonelCebinden kolonları eklendi.");
+
+            // İndeks ayrı olarak ekle (hata olursa görmezden gel)
+            if (isPostgres)
+            {
+                try
+                {
+                    var indexSql = $@"CREATE INDEX IF NOT EXISTS ""IX_AracMasraflari_PersonelCebindenId_PersoneleOdendi"" 
+                                     ON {tableName} (""PersonelCebindenId"", ""PersoneleOdendi"");";
+                    using var indexCmd = connection.CreateCommand();
+                    indexCmd.CommandText = indexSql;
+                    await indexCmd.ExecuteNonQueryAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning("AracMasraflari indeks eklenemedi (devam ediliyor): {Message}", ex.Message);
+                }
+            }
         }
     }
 }
