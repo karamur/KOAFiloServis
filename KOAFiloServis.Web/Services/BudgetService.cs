@@ -2174,10 +2174,13 @@ public class BudgetService : IBudgetService
         // Kalan tutarı sonraki döneme aktarma işlemi
         if (request.KalanSonrakiDonemeAktarilsin && odeme.Durum == OdemeDurum.KismiOdendi)
         {
-            var sonrakiOdeme = await KalanTutariSonrakiDonemeAktarAsync(odeme.Id);
+            var sonrakiOdeme = await KalanTutariSonrakiDonemeAktarAsync(odeme.Id, request.HedefAy, request.HedefYil);
             if (sonrakiOdeme != null)
             {
                 odeme.SonrakiDonemOdemeId = sonrakiOdeme.Id;
+                odeme.Miktar = odeme.ToplamKismiOdenen;
+                odeme.Durum = OdemeDurum.Odendi;
+                odeme.OdenenTutar = odeme.ToplamKismiOdenen;
             }
         }
 
@@ -2185,7 +2188,7 @@ public class BudgetService : IBudgetService
         return odeme;
     }
 
-    public async Task<BudgetOdeme?> KalanTutariSonrakiDonemeAktarAsync(int odemeId)
+    public async Task<BudgetOdeme?> KalanTutariSonrakiDonemeAktarAsync(int odemeId, int? hedefAy = null, int? hedefYil = null)
     {
         var odeme = await _context.BudgetOdemeler.FindAsync(odemeId);
         if (odeme == null) return null;
@@ -2193,14 +2196,60 @@ public class BudgetService : IBudgetService
         var kalanTutar = odeme.Miktar - odeme.ToplamKismiOdenen;
         if (kalanTutar <= 0) return null;
 
+        var mevcutDevirKayitlari = await _context.BudgetOdemeler
+            .Where(o => o.OncekiDonemOdemeId == odeme.Id && !o.IsDeleted)
+            .OrderBy(o => o.Id)
+            .ToListAsync();
+
+        if (mevcutDevirKayitlari.Count > 1)
+        {
+            foreach (var silinecekKayit in mevcutDevirKayitlari.Skip(1))
+            {
+                silinecekKayit.IsDeleted = true;
+                silinecekKayit.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        var mevcutSonrakiOdeme = odeme.SonrakiDonemOdemeId.HasValue
+            ? await _context.BudgetOdemeler.FindAsync(odeme.SonrakiDonemOdemeId.Value)
+            : mevcutDevirKayitlari.FirstOrDefault();
+
+        if (mevcutSonrakiOdeme != null && mevcutSonrakiOdeme.IsDeleted)
+        {
+            mevcutSonrakiOdeme = null;
+        }
+
+        if (mevcutSonrakiOdeme != null)
+        {
+            mevcutSonrakiOdeme.Miktar = kalanTutar;
+            mevcutSonrakiOdeme.OdemeAy = hedefAy ?? mevcutSonrakiOdeme.OdemeAy;
+            mevcutSonrakiOdeme.OdemeYil = hedefYil ?? mevcutSonrakiOdeme.OdemeYil;
+            mevcutSonrakiOdeme.OdemeTarihi = DateTime.SpecifyKind(new DateTime(mevcutSonrakiOdeme.OdemeYil, mevcutSonrakiOdeme.OdemeAy, 1), DateTimeKind.Utc);
+            mevcutSonrakiOdeme.Aciklama = BuildDevirAciklama(odeme.Aciklama);
+            mevcutSonrakiOdeme.UpdatedAt = DateTime.UtcNow;
+            odeme.SonrakiDonemOdemeId = mevcutSonrakiOdeme.Id;
+            await _context.SaveChangesAsync();
+            return mevcutSonrakiOdeme;
+        }
+
         // Sonraki ay/yıl hesapla
-        var sonrakiAy = odeme.OdemeAy + 1;
-        var sonrakiYil = odeme.OdemeYil;
-        if (sonrakiAy > 12)
+        var sonrakiAy = hedefAy ?? (odeme.OdemeAy + 1);
+        var sonrakiYil = hedefYil ?? odeme.OdemeYil;
+
+        if (!hedefAy.HasValue && sonrakiAy > 12)
         {
             sonrakiAy = 1;
             sonrakiYil++;
         }
+
+        if (sonrakiAy is < 1 or > 12)
+            throw new InvalidOperationException("Hedef ay 1-12 arasında olmalıdır.");
+
+        if (hedefYil.HasValue && hedefYil.Value < odeme.OdemeYil)
+            throw new InvalidOperationException("Hedef yıl mevcut ödeme yılından küçük olamaz.");
+
+        if (hedefYil == odeme.OdemeYil && hedefAy.HasValue && hedefAy.Value <= odeme.OdemeAy)
+            throw new InvalidOperationException("Hedef dönem mevcut ödeme döneminden sonra olmalıdır.");
 
         // Yeni dönem için kalan tutarla ödeme oluştur
         var yeniOdeme = new BudgetOdeme
@@ -2209,7 +2258,7 @@ public class BudgetService : IBudgetService
             OdemeAy = sonrakiAy,
             OdemeYil = sonrakiYil,
             MasrafKalemi = odeme.MasrafKalemi,
-            Aciklama = $"[Devir] {odeme.Aciklama} - Önceki dönemden kalan",
+            Aciklama = BuildDevirAciklama(odeme.Aciklama),
             Miktar = kalanTutar,
             FirmaId = odeme.FirmaId,
             Durum = OdemeDurum.Bekliyor,
@@ -2227,6 +2276,20 @@ public class BudgetService : IBudgetService
         await _context.SaveChangesAsync();
 
         return yeniOdeme;
+    }
+
+    private static string BuildDevirAciklama(string? aciklama)
+    {
+        var temizAciklama = aciklama?.Trim() ?? string.Empty;
+
+        while (temizAciklama.StartsWith("[Devir]", StringComparison.OrdinalIgnoreCase))
+        {
+            temizAciklama = temizAciklama.Substring(7).TrimStart();
+        }
+
+        return string.IsNullOrWhiteSpace(temizAciklama)
+            ? "[Devir] Önceki dönemden kalan"
+            : $"[Devir] {temizAciklama} - Önceki dönemden kalan";
     }
 
     public async Task<List<BudgetOdeme>> GetKismiOdenmislerAsync(int yil, int? ay = null, int? firmaId = null)

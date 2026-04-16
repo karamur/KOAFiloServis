@@ -779,9 +779,28 @@
                                         var kalanTutar = (odemeYapilacak.Miktar - odemeYapilacak.ToplamKismiOdenen) - kismiOdemeTutari;
                                         if (kalanTutar > 0)
                                         {
-                                            var sonrakiAy = odemeYapilacak.OdemeAy + 1;
-                                            var sonrakiYil = odemeYapilacak.OdemeYil;
-                                            if (sonrakiAy > 12) { sonrakiAy = 1; sonrakiYil++; }
+                                            var sonrakiAy = hedefAktarimAyi;
+                                            var sonrakiYil = hedefAktarimYili;
+                                            <div class="row g-2 mt-1">
+                                                <div class="col-md-6">
+                                                    <label class="form-label small mb-1">Hangi Aya Aktarılsın?</label>
+                                                    <select class="form-select form-select-sm" @bind="hedefAktarimAyi">
+                                                        @foreach (var aySecenek in GetAktarimAySecenekleri())
+                                                        {
+                                                            <option value="@aySecenek">@GetAyAdi(aySecenek)</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label small mb-1">Yıl</label>
+                                                    <select class="form-select form-select-sm" @bind="hedefAktarimYili" @bind:after="HedefAktarimYiliDegisti">
+                                                        @for (int y = odemeYapilacak.OdemeYil; y <= odemeYapilacak.OdemeYil + 2; y++)
+                                                        {
+                                                            <option value="@y">@y</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                            </div>
                                             <div class="alert alert-light border-warning mb-0 mt-2 py-1 small">
                                                 <i class="bi bi-info-circle me-1 text-warning"></i>
                                                 Kalan <strong>@FormatPara(kalanTutar)</strong>, <strong>@GetAyAdi(sonrakiAy) @sonrakiYil</strong> dönemine aktarılacak.
@@ -1757,6 +1776,8 @@
     private bool kismiOdemeAktif = false;
     private decimal kismiOdemeTutari = 0;
     private bool kalanSonrakiDonemeAktarilsin = false;
+    private int hedefAktarimAyi;
+    private int hedefAktarimYili;
 
     // Kategori & Trend Analiz
     private List<BudgetKategoriOzet> kategoriOzetleri = new();
@@ -2066,6 +2087,8 @@
         kismiOdemeAktif = false;
         kismiOdemeTutari = 0;
         kalanSonrakiDonemeAktarilsin = false;
+        hedefAktarimAyi = odeme.OdemeAy == 12 ? 1 : odeme.OdemeAy + 1;
+        hedefAktarimYili = odeme.OdemeAy == 12 ? odeme.OdemeYil + 1 : odeme.OdemeYil;
         showOdemeYapModal = true;
     }
 
@@ -2129,6 +2152,8 @@
                     OdemeTipi = odemeYapRequest.OdemeTipi,
                     Aciklama = odemeYapRequest.OdemeNotu,
                     KalanSonrakiDonemeAktarilsin = kalanSonrakiDonemeAktarilsin,
+                    HedefAy = kalanSonrakiDonemeAktarilsin ? hedefAktarimAyi : null,
+                    HedefYil = kalanSonrakiDonemeAktarilsin ? hedefAktarimYili : null,
                     CariId = odemeYapRequest.CariId,
                     MasrafKesintisi = odemeYapRequest.MasrafKesintisi,
                     CezaKesintisi = odemeYapRequest.CezaKesintisi,
@@ -2258,6 +2283,24 @@
 
     private decimal ToplamEkMasraf => Math.Abs(odemeYapRequest.MasrafKesintisi) + Math.Abs(odemeYapRequest.CezaKesintisi) + Math.Abs(odemeYapRequest.DigerKesinti);
     private decimal NetOdemeTutari => (odemeYapilacak?.Miktar ?? 0) + ToplamEkMasraf;
+    private IEnumerable<int> GetAktarimAySecenekleri()
+    {
+        if (odemeYapilacak == null)
+            return Enumerable.Range(1, 12);
+
+        return hedefAktarimYili > odemeYapilacak.OdemeYil
+            ? Enumerable.Range(1, 12)
+            : Enumerable.Range(odemeYapilacak.OdemeAy + 1, 12 - odemeYapilacak.OdemeAy);
+    }
+
+    private void HedefAktarimYiliDegisti()
+    {
+        var ilkGecerliAy = GetAktarimAySecenekleri().FirstOrDefault();
+        if (ilkGecerliAy > 0 && !GetAktarimAySecenekleri().Contains(hedefAktarimAyi))
+        {
+            hedefAktarimAyi = ilkGecerliAy;
+        }
+    }
 
     private void YeniOdemeAc()
     {

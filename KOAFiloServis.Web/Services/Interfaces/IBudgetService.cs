@@ -81,7 +81,7 @@ public interface IBudgetService
 
     // Kısmi Ödeme İşlemleri
     Task<BudgetOdeme> KismiOdemeYapAsync(int odemeId, KismiOdemeRequest request);
-    Task<BudgetOdeme?> KalanTutariSonrakiDonemeAktarAsync(int odemeId);
+    Task<BudgetOdeme?> KalanTutariSonrakiDonemeAktarAsync(int odemeId, int? hedefAy = null, int? hedefYil = null);
     Task<List<BudgetOdeme>> GetKismiOdenmislerAsync(int yil, int? ay = null, int? firmaId = null);
 
     // Risk Analizi
@@ -273,6 +273,8 @@ public class KismiOdemeRequest
     public OdemeTipi OdemeTipi { get; set; } = OdemeTipi.Kasa;
     public string? Aciklama { get; set; }
     public bool KalanSonrakiDonemeAktarilsin { get; set; } = false;
+    public int? HedefAy { get; set; }
+    public int? HedefYil { get; set; }
 
     // Cari Mahsup için
     public int? CariId { get; set; }
