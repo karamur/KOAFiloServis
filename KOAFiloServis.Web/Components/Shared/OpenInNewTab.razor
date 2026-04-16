@@ -1,0 +1,42 @@
+﻿@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<button class="btn btn-outline-secondary btn-sm" 
+        @onclick="OpenCurrentPageInNewTab" 
+        title="Bu sayfayı yeni sekmede aç">
+    <i class="bi bi-box-arrow-up-right"></i>
+</button>
+
+@code {
+    private async Task OpenCurrentPageInNewTab()
+    {
+        var currentUri = Navigation.Uri;
+
+        // Güvenlik kontrolü - sadece kendi uygulamamızın URL'lerini aç
+        if (IsAllowedUrl(currentUri))
+        {
+            await JS.InvokeVoidAsync("open", currentUri, "_blank", "noopener,noreferrer");
+        }
+    }
+
+    private bool IsAllowedUrl(string url)
+    {
+        if (string.IsNullOrEmpty(url))
+            return false;
+
+        try
+        {
+            var uri = new Uri(url);
+            var baseUri = new Uri(Navigation.BaseUri);
+
+            // Sadece aynı origin'den URL'lere izin ver
+            return uri.Host.Equals(baseUri.Host, StringComparison.OrdinalIgnoreCase) &&
+                   uri.Port == baseUri.Port &&
+                   uri.Scheme.Equals(baseUri.Scheme, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

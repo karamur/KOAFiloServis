@@ -1,4 +1,4 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
 @inject KOAFiloServis.Web.Services.IKullaniciService KullaniciService
 @inject KOAFiloServis.Web.Services.ILisansService LisansService
@@ -75,6 +75,7 @@
                         </div>
 
                         <div class="d-flex align-items-center gap-2">
+                            <KOAFiloServis.Web.Components.Shared.OpenInNewTab />
                             <KOAFiloServis.Web.Components.Shared.BildirimDropdown />
 
                             <div class="dropdown">
