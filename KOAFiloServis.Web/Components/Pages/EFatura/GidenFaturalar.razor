@@ -15,20 +15,31 @@
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3><i class="bi bi-file-earmark-arrow-up text-success me-2"></i>Kesilen Faturalar (Giden)</h3>
+        <div>
+            <h3><i class="bi bi-file-earmark-arrow-up text-success me-2"></i>Kesilen Faturalar (Satış)</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0 small">
+                    <li class="breadcrumb-item"><a href="/dashboard">Ana Sayfa</a></li>
+                    <li class="breadcrumb-item"><a href="/cariler">Cari Yönetimi</a></li>
+                    <li class="breadcrumb-item active">Kesilen Faturalar</li>
+                </ol>
+            </nav>
+        </div>
         <div class="d-flex gap-2">
             <button class="btn btn-primary" @onclick="YeniFaturaAc">
                 <i class="bi bi-plus-lg me-1"></i>Yeni Fatura
             </button>
-            <button class="btn btn-outline-info" @onclick="SablonIndir" title="Excel Sablon Indir">
-                <i class="bi bi-download"></i>
-            </button>
-            <button class="btn btn-outline-success" @onclick="ExcelImportAc" title="Excel Yukle">
-                <i class="bi bi-upload"></i>
-            </button>
-            <button class="btn btn-success" @onclick="ExcelExport" disabled="@(!filtreliFaturalar.Any())" title="Excel Indir">
-                <i class="bi bi-file-earmark-excel"></i>
-            </button>
+            <div class="btn-group">
+                <button class="btn btn-outline-info" @onclick="SablonIndir" title="Excel Şablon İndir">
+                    <i class="bi bi-download"></i>
+                </button>
+                <button class="btn btn-outline-success" @onclick="ExcelImportAc" title="Excel Yükle">
+                    <i class="bi bi-upload"></i>
+                </button>
+                <button class="btn btn-success" @onclick="ExcelExport" disabled="@(!filtreliFaturalar.Any())" title="Excel İndir">
+                    <i class="bi bi-file-earmark-excel"></i>
+                </button>
+            </div>
         </div>
     </div>
 

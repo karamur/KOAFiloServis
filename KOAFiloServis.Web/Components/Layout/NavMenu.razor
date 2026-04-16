@@ -156,18 +156,37 @@
         {
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(0)" style="cursor: pointer;">
-                    <span><i class="bi bi-people-fill me-2"></i>CARI MODULU</span>
+                    <span><i class="bi bi-people-fill me-2"></i>CARİ YÖNETİMİ</span>
                     <i class="bi @(expandedSections[0] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
                 @if (expandedSections[0])
                 {
                     <div class="nav-section-content">
+                        @* === CARİ KAYIT === *@
                         @if (HasYetki("cariler.oku"))
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="cariler">
-                                    <i class="bi bi-person-lines-fill me-2"></i> Cariler
+                                    <i class="bi bi-person-lines-fill me-2 text-primary"></i> Cari Listesi
                                 </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="cari-hareket-takip">
+                                    <i class="bi bi-cash-stack me-2 text-success"></i> Borç/Alacak Takip
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="cari/risk-analizi">
+                                    <i class="bi bi-shield-exclamation me-2 text-danger"></i> Risk Analizi
+                                </NavLink>
+                            </div>
+                        }
+
+                        @* === FATURALAR === *@
+                        @if (HasYetki("kesilenfatura.oku") || HasYetki("gelenfatura.oku"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-receipt me-2"></i>Faturalar</span>
                             </div>
                         }
                         @if (HasYetki("kesilenfatura.oku"))
@@ -191,19 +210,6 @@
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="efatura/stok-turu-eslestir">
                                     <i class="bi bi-tags me-2 text-info"></i> Stok Türü Eşleştir
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("cariler.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="cari-hareket-takip">
-                                    <i class="bi bi-cash-stack me-2 text-warning"></i> Borç/Alacak Takip
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="cari/risk-analizi">
-                                    <i class="bi bi-shield-exclamation me-2 text-danger"></i> Risk Analizi
                                 </NavLink>
                             </div>
                         }
@@ -433,40 +439,12 @@
                 @if (expandedSections[5])
                 {
                     <div class="nav-section-content">
+                        @* === PERSONEL KAYIT === *@
                         @if (HasYetki("personel.oku"))
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="personel">
-                                    <i class="bi bi-people me-2"></i> Personel Listesi
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("maas.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/maas">
-                                    <i class="bi bi-cash-stack me-2"></i> Maaş Yönetimi
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/maas-hareketleri">
-                                    <i class="bi bi-clock-history me-2 text-info"></i> Maaş Hareketleri
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("izin.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/izin">
-                                    <i class="bi bi-calendar-check me-2"></i> İzin Yönetimi
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("personel.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/ozluk-evrak">
-                                    <i class="bi bi-clipboard-check me-2"></i> Özlük Evrak Checklist
+                                    <i class="bi bi-people me-2 text-primary"></i> Personel Listesi
                                 </NavLink>
                             </div>
                             <div class="nav-item px-3">
@@ -475,44 +453,60 @@
                                 </NavLink>
                             </div>
                         }
+
+                        @* === MAAŞ YÖNETİMİ === *@
                         @if (HasYetki("maas.oku"))
                         {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-cash-coin me-2"></i>Maaş / Ödeme</span>
+                            </div>
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/puantaj">
-                                    <i class="bi bi-calendar-range me-2 text-info"></i> Çalışma Puantajı
+                                <NavLink class="nav-link" href="personel/maas">
+                                    <i class="bi bi-cash-stack me-2 text-success"></i> Maaş Yönetimi
                                 </NavLink>
                             </div>
-                        }
-                        @if (HasYetki("personel.oku") || HasYetki("maas.oku"))
-                        {
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/banka-odeme-listesi">
-                                    <i class="bi bi-bank me-2 text-success"></i> Banka Ödeme Listesi
+                                <NavLink class="nav-link" href="personel/maas-hareketleri">
+                                    <i class="bi bi-clock-history me-2 text-info"></i> Maaş Hareketleri
                                 </NavLink>
                             </div>
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="personel/odeme-durumu">
-                                    <i class="bi bi-wallet2 me-2 text-danger"></i> Ödeme Durumu Listesi
+                                    <i class="bi bi-wallet2 me-2 text-danger"></i> Ödeme Durumu
                                 </NavLink>
                             </div>
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/bordro/normal">
-                                    <i class="bi bi-receipt-cutoff me-2 text-primary"></i> Normal Bordro
+                                <NavLink class="nav-link" href="personel/banka-odeme-listesi">
+                                    <i class="bi bi-bank me-2 text-primary"></i> Banka Ödeme Listesi
                                 </NavLink>
                             </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/bordro/arge">
-                                    <i class="bi bi-receipt-cutoff me-2 text-warning"></i> AR-GE Bordro
-                                </NavLink>
+                        }
+
+                        @* === RESMİ EVRAK / ÖZLÜK === *@
+                        @if (HasYetki("personel.oku"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-folder2-open me-2"></i>Resmi Evrak / Özlük</span>
                             </div>
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/bordro/hesap-pusulasi">
-                                    <i class="bi bi-file-earmark-text me-2 text-info"></i> Hesap Pusulası
+                                <NavLink class="nav-link" href="personel/ozluk-evrak">
+                                    <i class="bi bi-clipboard-check me-2 text-warning"></i> Özlük Evrak Checklist
                                 </NavLink>
                             </div>
+                        }
+                        @if (HasYetki("izin.oku"))
+                        {
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/bordro/icmal">
-                                    <i class="bi bi-table me-2 text-secondary"></i> Bordro İcmali
+                                <NavLink class="nav-link" href="personel/izin">
+                                    <i class="bi bi-calendar-check me-2 text-info"></i> İzin Yönetimi
+                                </NavLink>
+                            </div>
+                        }
+                        @if (HasYetki("maas.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="personel/puantaj">
+                                    <i class="bi bi-calendar-range me-2 text-secondary"></i> Çalışma Puantajı
                                 </NavLink>
                             </div>
                         }
@@ -526,7 +520,7 @@
         {
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(2)" style="cursor: pointer;">
-                    <span><i class="bi bi-receipt me-2"></i>FATURA MODÜLÜ</span>
+                    <span><i class="bi bi-receipt me-2"></i>FATURA İŞLEMLERİ</span>
                     <i class="bi @(expandedSections[2] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
                 @if (expandedSections[2])
@@ -536,15 +530,15 @@
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="faturalar">
-                                    <i class="bi bi-file-earmark-text-fill me-2"></i> Faturalar
+                                    <i class="bi bi-file-earmark-text-fill me-2 text-primary"></i> Tüm Faturalar
                                 </NavLink>
                             </div>
                         }
                         @if (HasYetki("kesilenfatura.oku"))
                         {
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="faturalar/efatura-xml">
-                                    <i class="bi bi-file-earmark-code me-2 text-warning"></i> E-Fatura XML
+                                <NavLink class="nav-link" href="proforma-faturalar">
+                                    <i class="bi bi-file-earmark-text me-2 text-info"></i> Proforma Fatura
                                 </NavLink>
                             </div>
                             <div class="nav-item px-3">
@@ -552,17 +546,28 @@
                                     <i class="bi bi-files me-2 text-success"></i> Toplu Fatura
                                 </NavLink>
                             </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="proforma-faturalar">
-                                    <i class="bi bi-file-earmark-text me-2 text-primary"></i> Proforma Fatura
-                                </NavLink>
-                            </div>
                         }
                         @if (HasYetki("faturahazirlik.oku"))
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="fatura-hazirlik">
-                                    <i class="bi bi-clipboard-check me-2"></i> Fatura Hazırlık
+                                    <i class="bi bi-clipboard-check me-2 text-warning"></i> Fatura Hazırlık
+                                </NavLink>
+                            </div>
+                        }
+
+                        @* === E-FATURA === *@
+                        @if (HasYetki("kesilenfatura.oku") || HasYetki("faturalar.yaz"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-cloud-arrow-up me-2"></i>E-Fatura / İmport</span>
+                            </div>
+                        }
+                        @if (HasYetki("kesilenfatura.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="faturalar/efatura-xml">
+                                    <i class="bi bi-file-earmark-code me-2 text-warning"></i> E-Fatura XML
                                 </NavLink>
                             </div>
                         }
@@ -839,6 +844,38 @@
                 @if (expandedSections[4])
                 {
                     <div class="nav-section-content">
+                        @* === PERSONEL RAPORLARI === *@
+                        @if (HasYetki("maas.oku") || HasYetki("personel.oku"))
+                        {
+                            <div class="nav-item px-3 text-muted small">
+                                <span><i class="bi bi-people me-2"></i>Personel Raporları</span>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="personel/bordro/normal">
+                                    <i class="bi bi-receipt-cutoff me-2 text-primary"></i> Normal Bordro
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="personel/bordro/arge">
+                                    <i class="bi bi-receipt-cutoff me-2 text-warning"></i> AR-GE Bordro
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="personel/bordro/hesap-pusulasi">
+                                    <i class="bi bi-file-earmark-text me-2 text-info"></i> Hesap Pusulası
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="personel/bordro/icmal">
+                                    <i class="bi bi-table me-2 text-secondary"></i> Bordro İcmali
+                                </NavLink>
+                            </div>
+                        }
+
+                        @* === FİLO RAPORLARI === *@
+                        <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                            <span><i class="bi bi-truck me-2"></i>Filo Raporları</span>
+                        </div>
                         @if (HasYetki("raporozmal.oku"))
                         {
                             <div class="nav-item px-3">
@@ -870,36 +907,14 @@
                                     <i class="bi bi-file-earmark-bar-graph me-2 text-warning"></i> Servis Raporu
                                 </NavLink>
                             </div>
-                        }
-                        @if (HasYetki("raporservis.oku"))
-                        {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="rapor/sofor-performans">
                                     <i class="bi bi-person-badge me-2 text-success"></i> Şoför Performans
                                 </NavLink>
                             </div>
-                        }
-                        @if (HasYetki("raporservis.oku"))
-                        {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="raporlar/arac-karlilik">
                                     <i class="bi bi-graph-up-arrow me-2 text-primary"></i> Araç Karlılık
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("raporekstre.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="raporlar/cari-yaslandirma">
-                                    <i class="bi bi-calendar2-week me-2 text-warning"></i> Cari Yaşlandırma
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("raporfatura.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="rapor/fatura-odeme">
-                                    <i class="bi bi-file-earmark-text me-2 text-danger"></i> Fatura Ödeme
                                 </NavLink>
                             </div>
                         }
@@ -911,11 +926,29 @@
                                 </NavLink>
                             </div>
                         }
+
+                        @* === CARİ / FİNANS RAPORLARI === *@
+                        <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                            <span><i class="bi bi-cash-coin me-2"></i>Cari / Finans Raporları</span>
+                        </div>
                         @if (HasYetki("raporekstre.oku"))
                         {
                             <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="raporlar/cari-yaslandirma">
+                                    <i class="bi bi-calendar2-week me-2 text-warning"></i> Cari Yaşlandırma
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="raporlar/cari-ekstre">
                                     <i class="bi bi-file-earmark-ruled me-2 text-dark"></i> Cari Ekstre
+                                </NavLink>
+                            </div>
+                        }
+                        @if (HasYetki("raporfatura.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="rapor/fatura-odeme">
+                                    <i class="bi bi-file-earmark-text me-2 text-danger"></i> Fatura Ödeme
                                 </NavLink>
                             </div>
                         }
