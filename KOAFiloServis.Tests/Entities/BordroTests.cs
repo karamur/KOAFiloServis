@@ -130,3 +130,67 @@ public class BordroDetayTests
         Assert.Equal(0m, detay.ToplamKesinti);
     }
 }
+
+public class NettenBruteHesapSonucuTests
+{
+    [Fact]
+    public void SgkIsciToplam_DogruHesaplanir()
+    {
+        var sonuc = new NettenBruteHesapSonucu
+        {
+            SgkIsciPrim = 1400m,
+            IssizlikIsciPrim = 100m
+        };
+        Assert.Equal(1500m, sonuc.SgkIsciToplam);
+    }
+
+    [Fact]
+    public void ToplamKesinti_DogruHesaplanir()
+    {
+        var sonuc = new NettenBruteHesapSonucu
+        {
+            SgkIsciPrim = 1400m,
+            IssizlikIsciPrim = 100m,
+            GelirVergisi = 800m,
+            DamgaVergisi = 76m
+        };
+        Assert.Equal(2376m, sonuc.ToplamKesinti);
+    }
+
+    [Fact]
+    public void HesaplananNetMaas_BrutEksiKesintiler()
+    {
+        var sonuc = new NettenBruteHesapSonucu
+        {
+            HesaplananBrutMaas = 10000m,
+            SgkIsciPrim = 1400m,
+            IssizlikIsciPrim = 100m,
+            GelirVergisi = 1275m,
+            DamgaVergisi = 75.90m
+        };
+        Assert.Equal(10000m - 1400m - 100m - 1275m - 75.90m, sonuc.HesaplananNetMaas);
+    }
+
+    [Fact]
+    public void ToplamIsverenMaliyet_DogruHesaplanir()
+    {
+        var sonuc = new NettenBruteHesapSonucu
+        {
+            SgkIsverenPrim = 1550m,
+            IssizlikIsverenPrim = 200m
+        };
+        Assert.Equal(1750m, sonuc.ToplamIsverenMaliyet);
+    }
+
+    [Fact]
+    public void ToplamMaliyet_BrutVeIsverenToplami()
+    {
+        var sonuc = new NettenBruteHesapSonucu
+        {
+            HesaplananBrutMaas = 10000m,
+            SgkIsverenPrim = 1550m,
+            IssizlikIsverenPrim = 200m
+        };
+        Assert.Equal(11750m, sonuc.ToplamMaliyet);
+    }
+}

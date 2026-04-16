@@ -196,3 +196,26 @@ public enum OdemeSekli
     Cek = 3,
     Senet = 4
 }
+
+/// <summary>
+/// Netten brüte hesaplama sonucu
+/// </summary>
+public class NettenBruteHesapSonucu
+{
+    public decimal IstenenNetMaas { get; set; }
+    public decimal HesaplananBrutMaas { get; set; }
+    public decimal SgkIsciPrim { get; set; }
+    public decimal IssizlikIsciPrim { get; set; }
+    public decimal SgkIsciToplam => SgkIsciPrim + IssizlikIsciPrim;
+    public decimal GelirVergisiMatrahi { get; set; }
+    public decimal GelirVergisi { get; set; }
+    public decimal DamgaVergisi { get; set; }
+    public decimal ToplamKesinti => SgkIsciToplam + GelirVergisi + DamgaVergisi;
+    public decimal HesaplananNetMaas => HesaplananBrutMaas - ToplamKesinti;
+    public decimal SgkIsverenPrim { get; set; }
+    public decimal IssizlikIsverenPrim { get; set; }
+    public decimal ToplamIsverenMaliyet => SgkIsverenPrim + IssizlikIsverenPrim;
+    public decimal ToplamMaliyet => HesaplananBrutMaas + ToplamIsverenMaliyet;
+    public int UygulananVergiDilimi { get; set; }
+    public decimal KumulatifVergiMatrahi { get; set; }
+}

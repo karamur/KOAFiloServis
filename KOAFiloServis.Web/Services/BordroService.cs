@@ -283,6 +283,72 @@ public class BordroService : IBordroService
         return Math.Round(vergi, 2);
     }
 
+    /// <summary>
+    /// Netten brüte hesaplama (iteratif yaklaşım - RaptinBordro benzeri)
+    /// </summary>
+    public async Task<NettenBruteHesapSonucu> NettenBruteHesaplaAsync(decimal netMaas, int? firmaId, decimal kumulatifVergiMatrahi = 0)
+    {
+        var ayar = await GetBordroAyarAsync(firmaId);
+
+        // İteratif hesaplama: brüt tahminiyle başla, yakınsa
+        var sgkIsciOrani = (ayar.SgkIsciPayiOrani + ayar.IssizlikIsciPayiOrani) / 100;
+        var damgaOrani = ayar.DamgaVergisiOrani / 100;
+
+        // İlk tahmin: brüt ≈ net / (1 - sgk - damga - ortalama vergi)
+        decimal brut = netMaas / (1 - sgkIsciOrani - damgaOrani - 0.15M);
+
+        // 50 iterasyonla yakınsa
+        for (int i = 0; i < 50; i++)
+        {
+            var sgkIsci = YuvarlaTutar(brut * ayar.SgkIsciPayiOrani / 100);
+            var issizlikIsci = YuvarlaTutar(brut * ayar.IssizlikIsciPayiOrani / 100);
+            var sgkToplam = sgkIsci + issizlikIsci;
+
+            var gelirVergisiMatrahi = brut - sgkToplam;
+            if (gelirVergisiMatrahi < 0) gelirVergisiMatrahi = 0;
+
+            var gelirVergisi = HesaplaKademeliGelirVergisi(ayar, kumulatifVergiMatrahi, gelirVergisiMatrahi, out _);
+            var damgaVergisi = YuvarlaTutar(brut * ayar.DamgaVergisiOrani / 100);
+
+            var hesaplananNet = brut - sgkToplam - gelirVergisi - damgaVergisi;
+            var fark = netMaas - hesaplananNet;
+
+            if (Math.Abs(fark) < 0.01M)
+                break;
+
+            brut += fark;
+        }
+
+        brut = YuvarlaTutar(brut);
+
+        // Son hesaplama
+        var sonSgkIsci = YuvarlaTutar(brut * ayar.SgkIsciPayiOrani / 100);
+        var sonIssizlikIsci = YuvarlaTutar(brut * ayar.IssizlikIsciPayiOrani / 100);
+        var sonGelirMatrahi = brut - sonSgkIsci - sonIssizlikIsci;
+        if (sonGelirMatrahi < 0) sonGelirMatrahi = 0;
+        var sonGelirVergisi = HesaplaKademeliGelirVergisi(ayar, kumulatifVergiMatrahi, sonGelirMatrahi, out int dilim);
+        var sonDamgaVergisi = YuvarlaTutar(brut * ayar.DamgaVergisiOrani / 100);
+
+        var isverenSgkOrani = ayar.SgkIsverenPayiOrani;
+        if (ayar.Sgk5PuanIndirimVarMi)
+            isverenSgkOrani -= 5;
+
+        return new NettenBruteHesapSonucu
+        {
+            IstenenNetMaas = netMaas,
+            HesaplananBrutMaas = brut,
+            SgkIsciPrim = sonSgkIsci,
+            IssizlikIsciPrim = sonIssizlikIsci,
+            GelirVergisiMatrahi = sonGelirMatrahi,
+            GelirVergisi = sonGelirVergisi,
+            DamgaVergisi = sonDamgaVergisi,
+            SgkIsverenPrim = YuvarlaTutar(brut * isverenSgkOrani / 100),
+            IssizlikIsverenPrim = YuvarlaTutar(brut * ayar.IssizlikIsverenPayiOrani / 100),
+            UygulananVergiDilimi = dilim,
+            KumulatifVergiMatrahi = kumulatifVergiMatrahi + sonGelirMatrahi
+        };
+    }
+
     private static bool PersonelBordroyaDahilEdilsinMi(Sofor personel, DateTime donemBaslangic, DateTime donemBitis)
     {
         if (personel.Aktif)

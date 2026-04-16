@@ -151,6 +151,14 @@
                 </div>
             </div>
             <div class="col-md-2">
+                <div class="card bg-secondary text-white">
+                    <div class="card-body py-2 text-center">
+                        <small>İşveren Maliyeti</small>
+                        <div class="fw-bold">@FormatPara(detaylar.Sum(x => x.ToplamIsverenMaliyet))</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
                 <div class="card bg-dark text-white">
                     <div class="card-body py-2 text-center">
                         <small>Nihai Ödeme</small>
@@ -175,10 +183,15 @@
                                 <th>Personel</th>
                                 <th>Görev</th>
                                 <th class="text-end">Brüt</th>
+                                <th class="text-end">SGK İşçi</th>
+                                <th class="text-end">G.Vergisi</th>
+                                <th class="text-end">D.Vergisi</th>
+                                <th class="text-end">Özel Kes.</th>
                                 <th class="text-end">Bankaya Yatan</th>
                                 <th class="text-end">Yan Haklar</th>
                                 <th class="text-end">Elden / Fark</th>
                                 <th class="text-end">Kesinti</th>
+                                <th class="text-end">İşveren Mlyt</th>
                                 <th class="text-end">Personel Harcaması</th>
                                 <th class="text-end">Avans / Alacak</th>
                                 <th class="text-end">Nihai Ödeme</th>
@@ -199,10 +212,15 @@
                                     </td>
                                     <td>@GorevAdi(detay.Personel.Gorev)</td>
                                     <td class="text-end">@FormatPara(detay.BrutMaas)</td>
+                                    <td class="text-end"><small>@FormatPara(detay.SgkIssizlikKesinti)</small></td>
+                                    <td class="text-end"><small>@FormatPara(detay.GelirVergisi)</small></td>
+                                    <td class="text-end"><small>@FormatPara(detay.DamgaVergisi)</small></td>
+                                    <td class="text-end"><small class="text-danger">@(detay.OzelKesintilerToplam > 0 ? FormatPara(detay.OzelKesintilerToplam) : "-")</small></td>
                                     <td class="text-end">@FormatPara(detay.NetMaas)</td>
                                     <td class="text-end">@FormatPara(detay.ToplamEkOdeme)</td>
                                     <td class="text-end">@FormatPara(detay.EkOdeme)</td>
                                     <td class="text-end text-danger">@FormatPara(detay.ToplamKesinti)</td>
+                                    <td class="text-end"><small class="text-info" title="SGK İşv:@FormatPara(detay.SgkIsverenPrim) İşsiz İşv:@FormatPara(detay.IssizlikIsverenPrim)">@FormatPara(detay.ToplamIsverenMaliyet)</small></td>
                                     <td class="text-end text-info">@FormatPara(kalanSatir.PersonelHarcamalari)</td>
                                     <td class="text-end text-warning">@FormatPara(kalanSatir.PersonelAvansAlacaklari)</td>
                                     <td class="text-end fw-bold">@FormatPara(kalanSatir.KalanOdeme)</td>
@@ -239,10 +257,15 @@
                         <th>Personel</th>
                         <th>Görev</th>
                         <th>Brüt</th>
+                        <th>SGK İşçi</th>
+                        <th>G.Vergisi</th>
+                        <th>D.Vergisi</th>
+                        <th>Özel Kes.</th>
                         <th>Bankaya Yatan</th>
                         <th>Yan Haklar</th>
                         <th>Elden / Fark</th>
                         <th>Kesinti</th>
+                        <th>İşveren Mlyt</th>
                         <th>Personel Harcaması</th>
                         <th>Avans / Alacak</th>
                         <th>Nihai Ödeme</th>
@@ -259,10 +282,15 @@
                             <td>@detay.Personel.TamAd</td>
                             <td>@GorevAdi(detay.Personel.Gorev)</td>
                             <td>@detay.BrutMaas.ToString("N2")</td>
+                            <td>@detay.SgkIssizlikKesinti.ToString("N2")</td>
+                            <td>@detay.GelirVergisi.ToString("N2")</td>
+                            <td>@detay.DamgaVergisi.ToString("N2")</td>
+                            <td>@detay.OzelKesintilerToplam.ToString("N2")</td>
                             <td>@detay.NetMaas.ToString("N2")</td>
                             <td>@detay.ToplamEkOdeme.ToString("N2")</td>
                             <td>@detay.EkOdeme.ToString("N2")</td>
                             <td>@detay.ToplamKesinti.ToString("N2")</td>
+                            <td>@detay.ToplamIsverenMaliyet.ToString("N2")</td>
                             <td>@kalanSatir.PersonelHarcamalari.ToString("N2")</td>
                             <td>@kalanSatir.PersonelAvansAlacaklari.ToString("N2")</td>
                             <td><strong>@kalanSatir.KalanOdeme.ToString("N2")</strong></td>
@@ -273,10 +301,15 @@
                     <tr>
                         <td colspan="3"><strong>TOPLAM</strong></td>
                         <td>@yazdirmaListesi.Sum(x => x.BrutMaas).ToString("N2")</td>
+                        <td>@yazdirmaListesi.Sum(x => x.SgkIssizlikKesinti).ToString("N2")</td>
+                        <td>@yazdirmaListesi.Sum(x => x.GelirVergisi).ToString("N2")</td>
+                        <td>@yazdirmaListesi.Sum(x => x.DamgaVergisi).ToString("N2")</td>
+                        <td>@yazdirmaListesi.Sum(x => x.OzelKesintilerToplam).ToString("N2")</td>
                         <td>@yazdirmaListesi.Sum(x => x.NetMaas).ToString("N2")</td>
                         <td>@yazdirmaListesi.Sum(x => x.ToplamEkOdeme).ToString("N2")</td>
                         <td>@yazdirmaListesi.Sum(x => x.EkOdeme).ToString("N2")</td>
                         <td>@yazdirmaListesi.Sum(x => x.ToplamKesinti).ToString("N2")</td>
+                        <td>@yazdirmaListesi.Sum(x => x.ToplamIsverenMaliyet).ToString("N2")</td>
                         <td>@yazdirmaListesi.Sum(x => GetKalanOdemeSatiri(x.Id).PersonelHarcamalari).ToString("N2")</td>
                         <td>@yazdirmaListesi.Sum(x => GetKalanOdemeSatiri(x.Id).PersonelAvansAlacaklari).ToString("N2")</td>
                         <td><strong>@yazdirmaListesi.Sum(x => GetKalanOdemeSatiri(x.Id).KalanOdeme).ToString("N2")</strong></td>

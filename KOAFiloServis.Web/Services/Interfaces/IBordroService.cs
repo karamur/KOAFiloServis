@@ -50,6 +50,12 @@ public interface IBordroService
     /// </summary>
     Task<byte[]> ExportTumUcretBordrolariAsync(int bordroId);
 
+    // Netten Brüte Hesaplama
+    /// <summary>
+    /// Net maaştan brüt maaşı hesaplar (ters hesaplama)
+    /// </summary>
+    Task<NettenBruteHesapSonucu> NettenBruteHesaplaAsync(decimal netMaas, int? firmaId, decimal kumulatifVergiMatrahi = 0);
+
     // Ayarlar
     Task<BordroAyar> GetBordroAyarAsync(int? firmaId);
     Task SaveBordroAyarAsync(BordroAyar ayar);

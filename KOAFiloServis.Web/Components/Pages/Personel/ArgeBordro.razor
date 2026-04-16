@@ -210,24 +210,33 @@
                                     <table class="table table-sm table-bordered">
                                         <thead class="table-light">
                                             <tr>
+                                                <th style="width: 35px;">
+                                                    <input type="checkbox" class="form-check-input" @onchange="TumunuSecDetay" />
+                                                </th>
                                                 <th style="width: 40px;">Sıra</th>
                                                 <th>Personel</th>
                                                 <th class="text-end">Brüt</th>
                                                 <th class="text-end">SGK Maaşı</th>
+                                                <th class="text-end">SGK İşçi</th>
+                                                <th class="text-end">G.Vergisi</th>
+                                                <th class="text-end">D.Vergisi</th>
+                                                <th class="text-end">Özel Kes.</th>
                                                 <th class="text-end">Kesintiler</th>
                                                 <th class="text-end">Net</th>
                                                 <th class="text-end">Ek Ödemeler</th>
-                                                <th class="text-end">Toplu Maaş</th>
-                                                <th class="text-end">Ek Ödeme</th>
+                                                <th class="text-end">İşveren Mlyt</th>
                                                 <th class="text-end">Toplam</th>
                                                 <th>Durum</th>
-                                                <th class="text-center" style="width:50px;">İşlem</th>
+                                                <th class="text-center" style="width:80px;">İşlem</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @foreach (var detay in bordroDetaylar)
                                             {
-                                                <tr>
+                                                <tr class="@(detay.Secili ? "table-info" : "")">
+                                                    <td class="text-center">
+                                                        <input type="checkbox" class="form-check-input" @bind="detay.Secili" />
+                                                    </td>
                                                     <td class="text-center text-muted">@(detay.Personel.SiralamaNo > 0 ? detay.Personel.SiralamaNo.ToString() : "-")</td>
                                                     <td>
                                                         <strong>@detay.Personel.TamAd</strong><br />
@@ -235,11 +244,23 @@
                                                     </td>
                                                     <td class="text-end">@FormatPara(detay.BrutMaas)</td>
                                                     <td class="text-end">@FormatPara(detay.SgkMaasi)</td>
+                                                    <td class="text-end"><small>@FormatPara(detay.SgkIssizlikKesinti)</small></td>
+                                                    <td class="text-end"><small>@FormatPara(detay.GelirVergisi)</small></td>
+                                                    <td class="text-end"><small>@FormatPara(detay.DamgaVergisi)</small></td>
+                                                    <td class="text-end">
+                                                        @if (detay.OzelKesintilerToplam > 0)
+                                                        {
+                                                            <small class="text-danger" title="İcra:@FormatPara(detay.IcraKesintisi) BES:@FormatPara(detay.BESKesintisi) Sendika:@FormatPara(detay.SendikaKesintisi)">@FormatPara(detay.OzelKesintilerToplam)</small>
+                                                        }
+                                                        else
+                                                        {
+                                                            <small class="text-muted">-</small>
+                                                        }
+                                                    </td>
                                                     <td class="text-end">@FormatPara(detay.ToplamKesinti)</td>
                                                     <td class="text-end"><strong>@FormatPara(detay.NetMaas)</strong></td>
                                                     <td class="text-end">@FormatPara(detay.ToplamEkOdeme)</td>
-                                                    <td class="text-end">@FormatPara(detay.TopluMaas)</td>
-                                                    <td class="text-end">@FormatPara(detay.EkOdeme)</td>
+                                                    <td class="text-end"><small class="text-info" title="SGK İşv:@FormatPara(detay.SgkIsverenPrim) İşsiz İşv:@FormatPara(detay.IssizlikIsverenPrim)">@FormatPara(detay.ToplamIsverenMaliyet)</small></td>
                                                     <td class="text-end"><strong>@FormatPara(detay.ToplamOdenecek)</strong></td>
                                                     <td>
                                                         @if (detay.BankaOdemesiYapildi && detay.EkOdemeYapildi)
@@ -260,15 +281,17 @@
                                                         }
                                                     </td>
                                                     <td class="text-center">
-                                                        @if (secilenBordro != null && !secilenBordro.Onaylandi)
-                                                        {
-                                                            <button class="btn btn-outline-dark btn-sm" @onclick="() => DetayDuzenleAc(detay)" title="Düzenle">
-                                                                <i class="bi bi-pencil"></i>
+                                                        <div class="btn-group btn-group-sm">
+                                                            <button class="btn btn-outline-danger" @onclick="() => ExportTekUcretBordrosu(detay.Id)" title="Ücret Bordrosu">
+                                                                <i class="bi bi-file-earmark-text"></i>
                                                             </button>
-                                                        }
-                                                         <button class="btn btn-outline-primary btn-sm" @onclick="() => TekilBordroAc(detay)" title="Tekil Bordro">
-                                                             <i class="bi bi-file-earmark-text"></i>
-                                                         </button>
+                                                            @if (secilenBordro != null && !secilenBordro.Onaylandi)
+                                                            {
+                                                                <button class="btn btn-outline-dark" @onclick="() => DetayDuzenleAc(detay)" title="Düzenle">
+                                                                    <i class="bi bi-pencil"></i>
+                                                                </button>
+                                                            }
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             }
@@ -276,14 +299,18 @@
                                         <tfoot class="table-light">
                                             <tr>
                                                 <td></td>
+                                                <td></td>
                                                 <td><strong>TOPLAM</strong></td>
                                                 <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.BrutMaas))</strong></td>
                                                 <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.SgkMaasi))</strong></td>
+                                                <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.SgkIssizlikKesinti))</strong></td>
+                                                <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.GelirVergisi))</strong></td>
+                                                <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.DamgaVergisi))</strong></td>
+                                                <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.OzelKesintilerToplam))</strong></td>
                                                 <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.ToplamKesinti))</strong></td>
                                                 <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.NetMaas))</strong></td>
                                                 <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.ToplamEkOdeme))</strong></td>
-                                                <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.TopluMaas))</strong></td>
-                                                <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.EkOdeme))</strong></td>
+                                                <td class="text-end"><strong class="text-info">@FormatPara(bordroDetaylar.Sum(d => d.ToplamIsverenMaliyet))</strong></td>
                                                 <td class="text-end"><strong>@FormatPara(bordroDetaylar.Sum(d => d.ToplamOdenecek))</strong></td>
                                                 <td></td>
                                                 <td></td>
@@ -294,13 +321,28 @@
                             }
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-outline-primary" @onclick="SecilenBordrolariAc">
-                                <i class="bi bi-file-earmark-text me-1"></i>Seçilenleri Bordrola
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" @onclick="SecilenIcmalAc">
-                                <i class="bi bi-table me-1"></i>Seçilenleri İcmale Al
-                            </button>
-                            <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
+                            <div class="d-flex justify-content-between w-100">
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-danger" @onclick="ExportSeciliUcretBordrolari" title="Seçili personellerin ücret bordrolarını indir">
+                                        <i class="bi bi-file-earmark-text me-1"></i>Seçili Ücret Bordroları
+                                    </button>
+                                    @if (secilenBordro != null)
+                                    {
+                                        <button type="button" class="btn btn-outline-danger" @onclick="() => ExportTumUcretBordrolari(secilenBordro.Id)" title="Tüm personellerin ücret bordrolarını indir">
+                                            <i class="bi bi-files me-1"></i>Tümü
+                                        </button>
+                                    }
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-outline-primary" @onclick="SecilenBordrolariAc">
+                                        <i class="bi bi-file-earmark-text me-1"></i>Hesap Pusulası
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="SecilenIcmalAc">
+                                        <i class="bi bi-table me-1"></i>İcmal
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" @onclick="ModalKapat">Kapat</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1157,7 +1199,69 @@
         duzenleDetay = null;
     }
 
+    private void TumunuSecDetay(ChangeEventArgs e)
+    {
+        var secili = (bool)(e.Value ?? false);
+        if (bordroDetaylar != null)
+        {
+            foreach (var detay in bordroDetaylar)
+                detay.Secili = secili;
+        }
+    }
+
+    private async Task ExportTekUcretBordrosu(int detayId)
+    {
+        try
+        {
+            var bytes = await BordroService.ExportUcretBordrosuAsync(detayId);
+            var fileName = $"UcretBordrosu_{detayId}_{DateTime.Now:yyyyMMdd}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Ücret bordrosu indirildi!");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task ExportSeciliUcretBordrolari()
+    {
+        if (bordroDetaylar == null) return;
+        var seciliIds = bordroDetaylar.Where(d => d.Secili).Select(d => d.Id).ToList();
+        if (!seciliIds.Any())
+        {
+            ToastService.ShowWarning("Lütfen en az bir personel seçiniz.");
+            return;
+        }
+        try
+        {
+            var bytes = await BordroService.ExportTopluUcretBordrosuAsync(seciliIds);
+            var fileName = $"UcretBordrolari_{DateTime.Now:yyyyMMdd}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Ücret bordroları indirildi!");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
+    private async Task ExportTumUcretBordrolari(int bordroId)
+    {
+        try
+        {
+            var bytes = await BordroService.ExportTumUcretBordrolariAsync(bordroId);
+            var fileName = $"TumUcretBordrolari_{bordroId}_{DateTime.Now:yyyyMMdd}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, Convert.ToBase64String(bytes));
+            ToastService.ShowSuccess("Tüm ücret bordroları indirildi!");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+    }
+
     private string FormatPara(decimal tutar) => tutar.ToString("N2", new System.Globalization.CultureInfo("tr-TR")) + " ₺";
-    
+
     private string GetAyAdi(int ay) => new DateTime(2000, ay, 1).ToString("MMMM", new System.Globalization.CultureInfo("tr-TR"));
 }

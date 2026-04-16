@@ -139,8 +139,10 @@
                                 <th>Personel</th>
                                 <th>Görev</th>
                                 <th class="text-end">Brüt Maaş</th>
+                                <th class="text-end">SGK İşçi</th>
                                 <th class="text-end">Net Maaş</th>
                                 <th class="text-end">Kesintiler</th>
+                                <th class="text-end">İşveren Mlyt</th>
                                 <th class="text-end">Ek Ödemeler</th>
                                 <th class="text-end">Toplam Ödenecek</th>
                                 <th style="width:80px;"></th>
@@ -159,8 +161,10 @@
                                     </td>
                                     <td><small>@GorevAdi(detay.Personel?.Gorev)</small></td>
                                     <td class="text-end">@detay.BrutMaas.ToString("N2")</td>
+                                    <td class="text-end"><small>@detay.SgkIssizlikKesinti.ToString("N2")</small></td>
                                     <td class="text-end">@detay.NetMaas.ToString("N2")</td>
                                     <td class="text-end text-danger">@detay.ToplamKesinti.ToString("N2")</td>
+                                    <td class="text-end"><small class="text-info">@detay.ToplamIsverenMaliyet.ToString("N2")</small></td>
                                     <td class="text-end text-success">@detay.ToplamEkOdeme.ToString("N2")</td>
                                     <td class="text-end fw-bold">@detay.ToplamOdenecek.ToString("N2")</td>
                                     <td class="text-center">
@@ -175,8 +179,10 @@
                             <tr class="fw-bold">
                                 <td colspan="3">TOPLAM</td>
                                 <td class="text-end">@detaylar.Sum(d => d.BrutMaas).ToString("N2")</td>
+                                <td class="text-end">@detaylar.Sum(d => d.SgkIssizlikKesinti).ToString("N2")</td>
                                 <td class="text-end">@detaylar.Sum(d => d.NetMaas).ToString("N2")</td>
                                 <td class="text-end text-danger">@detaylar.Sum(d => d.ToplamKesinti).ToString("N2")</td>
+                                <td class="text-end text-info">@detaylar.Sum(d => d.ToplamIsverenMaliyet).ToString("N2")</td>
                                 <td class="text-end text-success">@detaylar.Sum(d => d.ToplamEkOdeme).ToString("N2")</td>
                                 <td class="text-end">@detaylar.Sum(d => d.ToplamOdenecek).ToString("N2")</td>
                                 <td></td>
@@ -342,17 +348,24 @@
                     <div class="detay-kolon">
                         <h6 class="kolon-baslik">KESİNTİLER</h6>
                         <table class="detay-tablo">
-                            @if (detay.SgkIssizlikKesinti > 0)
+                            @if (detay.SgkIsciPrim > 0)
                             {
                                 <tr>
-                                    <td>SGK + İşsizlik Primi</td>
-                                    <td class="tutar text-danger">@detay.SgkIssizlikKesinti.ToString("N2") ₺</td>
+                                    <td>SGK İşçi Primi (%14)</td>
+                                    <td class="tutar text-danger">@detay.SgkIsciPrim.ToString("N2") ₺</td>
+                                </tr>
+                            }
+                            @if (detay.IssizlikIsciPrim > 0)
+                            {
+                                <tr>
+                                    <td>İşsizlik İşçi Primi (%1)</td>
+                                    <td class="tutar text-danger">@detay.IssizlikIsciPrim.ToString("N2") ₺</td>
                                 </tr>
                             }
                             @if (detay.GelirVergisi > 0)
                             {
                                 <tr>
-                                    <td>Gelir Vergisi</td>
+                                    <td>Gelir Vergisi (Dilim @detay.UygulananVergiDilimi)</td>
                                     <td class="tutar text-danger">@detay.GelirVergisi.ToString("N2") ₺</td>
                                 </tr>
                             }
@@ -363,11 +376,79 @@
                                     <td class="tutar text-danger">@detay.DamgaVergisi.ToString("N2") ₺</td>
                                 </tr>
                             }
+                            @if (detay.OzelKesintilerToplam > 0)
+                            {
+                                @if (detay.IcraKesintisi > 0)
+                                {
+                                    <tr>
+                                        <td>İcra Kesintisi</td>
+                                        <td class="tutar text-danger">@detay.IcraKesintisi.ToString("N2") ₺</td>
+                                    </tr>
+                                }
+                                @if (detay.BESKesintisi > 0)
+                                {
+                                    <tr>
+                                        <td>BES Kesintisi</td>
+                                        <td class="tutar text-danger">@detay.BESKesintisi.ToString("N2") ₺</td>
+                                    </tr>
+                                }
+                                @if (detay.SendikaKesintisi > 0)
+                                {
+                                    <tr>
+                                        <td>Sendika Kesintisi</td>
+                                        <td class="tutar text-danger">@detay.SendikaKesintisi.ToString("N2") ₺</td>
+                                    </tr>
+                                }
+                                @if (detay.HayatSigortasi > 0)
+                                {
+                                    <tr>
+                                        <td>Hayat Sigortası</td>
+                                        <td class="tutar text-danger">@detay.HayatSigortasi.ToString("N2") ₺</td>
+                                    </tr>
+                                }
+                                @if (detay.BireyselEmeklilik > 0)
+                                {
+                                    <tr>
+                                        <td>Bireysel Emeklilik</td>
+                                        <td class="tutar text-danger">@detay.BireyselEmeklilik.ToString("N2") ₺</td>
+                                    </tr>
+                                }
+                                @if (detay.DigerOzelKesinti > 0)
+                                {
+                                    <tr>
+                                        <td>Diğer Özel Kesinti</td>
+                                        <td class="tutar text-danger">@detay.DigerOzelKesinti.ToString("N2") ₺</td>
+                                    </tr>
+                                }
+                            }
                             <tr class="toplam-satir">
                                 <td>Toplam Kesinti</td>
                                 <td class="tutar fw-bold text-danger">@detay.ToplamKesinti.ToString("N2") ₺</td>
                             </tr>
                         </table>
+
+                        @if (detay.ToplamIsverenMaliyet > 0)
+                        {
+                            <h6 class="kolon-baslik mt-2">İŞVEREN MALİYETİ</h6>
+                            <table class="detay-tablo">
+                                <tr>
+                                    <td>SGK İşveren Primi</td>
+                                    <td class="tutar">@detay.SgkIsverenPrim.ToString("N2") ₺</td>
+                                </tr>
+                                <tr>
+                                    <td>İşsizlik İşveren Primi</td>
+                                    <td class="tutar">@detay.IssizlikIsverenPrim.ToString("N2") ₺</td>
+                                </tr>
+                                <tr class="toplam-satir">
+                                    <td>Toplam İşveren Maliyeti</td>
+                                    <td class="tutar fw-bold text-info">@detay.ToplamIsverenMaliyet.ToString("N2") ₺</td>
+                                </tr>
+                                <tr>
+                                    <td>İşveren Dahil Toplam Maliyet</td>
+                                    <td class="tutar fw-bold">@detay.ToplamIsverenMaliyetDahilMaas.ToString("N2") ₺</td>
+                                </tr>
+                            </table>
+                        }
 
                         <h6 class="kolon-baslik mt-2">ÖDEME BİLGİSİ</h6>
                         <table class="detay-tablo">
@@ -441,6 +522,13 @@
                             <td>Toplam Kesinti</td>
                             <td class="tutar text-danger">@detay.ToplamKesinti.ToString("N2") ₺</td>
                         </tr>
+                        @if (detay.ToplamIsverenMaliyet > 0)
+                        {
+                            <tr>
+                                <td>İşveren Maliyeti (SGK + İşsizlik)</td>
+                                <td class="tutar text-info">@detay.ToplamIsverenMaliyet.ToString("N2") ₺</td>
+                            </tr>
+                        }
                         <tr class="genel-toplam">
                             <td>TOPLAM ÖDENECEK / PERSONEL ALACAĞI</td>
                             <td class="tutar">@detay.ToplamOdenecek.ToString("N2") ₺</td>
