@@ -122,8 +122,7 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =
     {
         options.UseSqlite(defaultConnectionString);
     }
-    
-    options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+
     if (enableSensitiveDataLogging)
     {
         options.EnableSensitiveDataLogging();
