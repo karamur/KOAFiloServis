@@ -588,7 +588,7 @@
     private IBrowserFile? secilenEvrakDosya;
     private bool evrakYukleniyor = false;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         await HesaplariYukle();
 
@@ -609,9 +609,12 @@
         }
         else
         {
+            sofor = new Sofor
+            {
+                Aktif = true,
+                Gorev = PersonelGorev.Sofor
+            };
             sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
-            sofor.Aktif = true;
-            sofor.Gorev = PersonelGorev.Sofor;
             gercekMaas = 0;
         }
     }

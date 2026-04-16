@@ -2147,6 +2147,13 @@ public class BudgetService : IBudgetService
 
             var kaydedilenHareket = await _bankaKasaHareketService.CreateAsync(hareket);
             bankaKasaHareketId = kaydedilenHareket.Id;
+
+            if (request.OdemeTipi == OdemeTipi.KrediKarti)
+            {
+                var donemAy = request.HedefAy ?? request.OdemeTarihi.Month;
+                var donemYil = request.HedefYil ?? request.OdemeTarihi.Year;
+                await AddKrediKartiBorcAsync(request.BankaHesapId.Value, hareket.Tutar, donemAy, donemYil, hareket.Aciklama);
+            }
         }
 
         // Ödeme bilgilerini güncelle

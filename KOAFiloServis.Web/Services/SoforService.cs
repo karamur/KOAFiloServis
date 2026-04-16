@@ -87,7 +87,7 @@ public class SoforService : ISoforService
         }
 
         // Mevcut kaydı oku (tracking ile)
-        var existing = await _context.Soforler
+        var existing = await QuerySoforler(asNoTracking: false)
             .FirstOrDefaultAsync(s => s.Id == sofor.Id);
 
         if (existing == null)
@@ -108,40 +108,13 @@ public class SoforService : ISoforService
 
         await ValidateSoforAsync(sofor, existing);
 
-        // Tüm alanları güncelle
-        existing.SiralamaNo = sofor.SiralamaNo;
-        existing.SoforKodu = sofor.SoforKodu;
-        existing.Ad = sofor.Ad;
-        existing.Soyad = sofor.Soyad;
-        existing.TcKimlikNo = sofor.TcKimlikNo;
-        existing.Telefon = sofor.Telefon;
-        existing.Email = sofor.Email;
-        existing.Adres = sofor.Adres;
-        existing.Gorev = sofor.Gorev;
-        existing.Departman = sofor.Departman;
-        existing.Pozisyon = sofor.Pozisyon;
-        existing.EhliyetNo = sofor.EhliyetNo;
-        existing.EhliyetGecerlilikTarihi = sofor.EhliyetGecerlilikTarihi;
-        existing.SrcBelgesiGecerlilikTarihi = sofor.SrcBelgesiGecerlilikTarihi;
-        existing.PsikoteknikGecerlilikTarihi = sofor.PsikoteknikGecerlilikTarihi;
-        existing.SaglikRaporuGecerlilikTarihi = sofor.SaglikRaporuGecerlilikTarihi;
-        existing.IseBaslamaTarihi = sofor.IseBaslamaTarihi;
-        existing.IstenAyrilmaTarihi = sofor.IstenAyrilmaTarihi;
-        existing.SgkCikisTarihi = sofor.SgkCikisTarihi;
-        existing.BrutMaasHesaplamaTipi = sofor.BrutMaasHesaplamaTipi;
-        existing.CalismaMiktari = sofor.CalismaMiktari;
-        existing.BirimUcret = sofor.BirimUcret;
-        existing.BrutMaas = sofor.BrutMaas;
-        existing.ResmiNetMaas = sofor.ResmiNetMaas;
-        existing.DigerMaas = sofor.DigerMaas;
-        existing.SGKBordroDahilMi = sofor.SGKBordroDahilMi;
-        existing.BordroTipiPersonel = sofor.BordroTipiPersonel;
-        existing.BankaAdi = sofor.BankaAdi;
-        existing.IBAN = sofor.IBAN;
-        existing.MuhasebeHesapId = sofor.MuhasebeHesapId;
-        existing.Notlar = sofor.Notlar;
-        existing.Aktif = sofor.Aktif;
-        existing.IsDeleted = sofor.IsDeleted;
+        var createdAt = existing.CreatedAt;
+        var currentSirketId = existing.SirketId;
+
+        _context.Entry(existing).CurrentValues.SetValues(sofor);
+
+        existing.CreatedAt = createdAt;
+        existing.SirketId = currentSirketId;
         existing.UpdatedAt = DateTime.UtcNow;
 
         // existing zaten tracked durumda, SaveChanges değişiklikleri otomatik kaydeder
