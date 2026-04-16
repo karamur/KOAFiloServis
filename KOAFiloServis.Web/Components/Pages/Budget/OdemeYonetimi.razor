@@ -106,7 +106,7 @@
             <div class="card bg-warning text-dark">
                 <div class="card-body py-2 px-3">
                     <small>Bekleyen</small>
-                    <h5 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum == OdemeDurum.Bekliyor).Sum(o => o.Miktar))</h5>
+                    <h5 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi).Sum(GetBekleyenTutar))</h5>
                 </div>
             </div>
         </div>
@@ -123,7 +123,7 @@
             <div class="card bg-success text-white">
                 <div class="card-body py-2 px-3">
                     <small>Odenen</small>
-                    <h5 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum == OdemeDurum.Odendi).Sum(o => o.Miktar))</h5>
+                    <h5 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum == OdemeDurum.Odendi || o.Durum == OdemeDurum.KismiOdendi).Sum(GetOdenenTutar))</h5>
                 </div>
             </div>
         </div>
@@ -220,7 +220,7 @@
                                         }
                                     </td>
                                     <td class="text-end">
-                                        <strong>@FormatPara(odeme.Miktar)</strong>
+                                        <strong>@FormatPara(GetGorunenTutar(odeme))</strong>
                                         @if (odeme.KismiOdemeMi && odeme.ToplamKismiOdenen > 0)
                                         {
                                             <br/>
@@ -794,6 +794,9 @@
 }
 
 @code {
+    private decimal GetBekleyenTutar(BudgetOdeme odeme) => odeme.Durum == OdemeDurum.KismiOdendi ? odeme.KalanTutar : odeme.Miktar;
+    private decimal GetOdenenTutar(BudgetOdeme odeme) => odeme.Durum == OdemeDurum.KismiOdendi ? odeme.ToplamKismiOdenen : (odeme.OdenenTutar ?? odeme.Miktar);
+    private decimal GetGorunenTutar(BudgetOdeme odeme) => odeme.Durum == OdemeDurum.KismiOdendi ? odeme.KalanTutar : odeme.Miktar;
     private bool isLoading = true;
     private List<BudgetOdeme> odemeler = new();
     private List<BudgetOdeme> filtrelenmisOdemeler = new();

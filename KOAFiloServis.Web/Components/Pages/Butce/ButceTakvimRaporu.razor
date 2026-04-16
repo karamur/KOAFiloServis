@@ -1,4 +1,4 @@
-@page "/butce/takvim-raporu"
+﻿@page "/butce/takvim-raporu"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @inject IBudgetService BudgetService
@@ -149,7 +149,7 @@
                     <div class="card bg-success text-white h-100">
                         <div class="card-body text-center py-2">
                             <small>Odenen</small>
-                            <h4 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum == OdemeDurum.Odendi).Sum(o => o.OdenenTutar ?? o.Miktar))</h4>
+                            <h4 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum == OdemeDurum.Odendi || o.Durum == OdemeDurum.KismiOdendi).Sum(GetOdenenTutar))</h4>
                         </div>
                     </div>
                 </div>
@@ -157,7 +157,7 @@
                     <div class="card bg-warning text-dark h-100">
                         <div class="card-body text-center py-2">
                             <small>Bekleyen</small>
-                            <h4 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum != OdemeDurum.Odendi).Sum(o => o.Miktar))</h4>
+                            <h4 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi || o.Durum == OdemeDurum.Ertelendi).Sum(GetBekleyenTutar))</h4>
                         </div>
                     </div>
                 </div>
@@ -218,10 +218,10 @@
                                                                     }
                                                                 }
 
-                                                                <div class="odeme-item @bgClass p-1 border rounded" title="@odeme.MasrafKalemi - @FormatPara(odeme.Miktar)">
+                                                                <div class="odeme-item @bgClass p-1 border rounded" title="@odeme.MasrafKalemi - @FormatPara(GetGorunenTutar(odeme))">
                                                                     <div class="d-flex justify-content-between mb-1" style="font-size:0.75rem;">
                                                                         <span class="fw-bold text-truncate" style="max-width:80px;">@odeme.MasrafKalemi</span>
-                                                                        <span>@FormatPara(odeme.Miktar)</span>
+                                                                        <span>@FormatPara(GetGorunenTutar(odeme))</span>
                                                                     </div>
                                                                     <div class="text-end" style="font-size:0.65rem; opacity:0.9;">
                                                                         @timeText
@@ -230,7 +230,7 @@
                                                             }
                                                         </div>
                                                         <div class="mt-2 pt-1 border-top text-end fw-bold" style="font-size: 0.85rem;">
-                                                            Top: @FormatPara(gunOdemeleri.Sum(o => o.Miktar))
+                                                            Top: @FormatPara(gunOdemeleri.Sum(GetGorunenTutar))
                                                         </div>
                                                     }
                                                 }
@@ -282,7 +282,7 @@
                                     <td>@odeme.OdemeTarihi.ToString("dd.MM.yyyy")</td>
                                     <td><strong>@odeme.MasrafKalemi</strong></td>
                                     <td><small>@odeme.Aciklama</small></td>
-                                    <td class="text-end fw-bold">@FormatPara(odeme.Miktar)</td>
+                                    <td class="text-end fw-bold">@FormatPara(GetGorunenTutar(odeme))</td>
                                     <td class="text-center">
                                         <span class="badge @GetDurumBadgeClass(odeme.Durum)">@GetDurumAdi(odeme.Durum)</span>
                                     </td>
@@ -294,7 +294,7 @@
                         <tfoot class="table-warning">
                             <tr class="fw-bold">
                                 <td colspan="3">TOPLAM</td>
-                                <td class="text-end">@FormatPara(filtrelenmisOdemeler.Sum(o => o.Miktar))</td>
+                                <td class="text-end">@FormatPara(filtrelenmisOdemeler.Sum(GetGorunenTutar))</td>
                                 <td colspan="3"></td>
                             </tr>
                         </tfoot>
@@ -417,7 +417,7 @@
                 o.OdemeTarihi.ToString("dd.MM.yyyy"),
                 o.MasrafKalemi,
                 o.Aciklama ?? "",
-                o.Miktar,
+                GetGorunenTutar(o),
                 GetDurumAdi(o.Durum),
                 o.GercekOdemeTarihi?.ToString("dd.MM.yyyy") ?? ""
             }).ToList();
@@ -450,6 +450,7 @@
     private string GetDurumAdi(OdemeDurum d) => d switch
     {
         OdemeDurum.Bekliyor => "Beklemede",
+        OdemeDurum.KismiOdendi => "Kısmi Ödendi",
         OdemeDurum.Odendi => "Odendi",
         OdemeDurum.Ertelendi => "Ertelendi",
         OdemeDurum.Iptal => "Iptal",
@@ -459,6 +460,7 @@
     private string GetDurumBadgeClass(OdemeDurum d) => d switch
     {
         OdemeDurum.Bekliyor => "bg-warning text-dark",
+        OdemeDurum.KismiOdendi => "bg-info text-white",
         OdemeDurum.Odendi => "bg-success",
         OdemeDurum.Ertelendi => "bg-info",
         OdemeDurum.Iptal => "bg-secondary",
@@ -473,6 +475,9 @@
         _ => ""
     };
 
+    private decimal GetBekleyenTutar(BudgetOdeme odeme) => odeme.Durum == OdemeDurum.KismiOdendi ? odeme.KalanTutar : odeme.Miktar;
+    private decimal GetOdenenTutar(BudgetOdeme odeme) => odeme.Durum == OdemeDurum.KismiOdendi ? odeme.ToplamKismiOdenen : (odeme.OdenenTutar ?? odeme.Miktar);
+    private decimal GetGorunenTutar(BudgetOdeme odeme) => odeme.Durum == OdemeDurum.KismiOdendi ? odeme.KalanTutar : odeme.Miktar;
     private string FormatPara(decimal t) => t.ToString("N2") + " TL";
 }
 

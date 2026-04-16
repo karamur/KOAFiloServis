@@ -1408,11 +1408,11 @@ public class BudgetService : IBudgetService
             BaslangicTarihi = baslangic,
             BitisTarihi = bitis,
             ToplamOdeme = odemeler.Sum(o => o.Miktar),
-            OdenenToplam = odemeler.Where(o => o.Durum == OdemeDurum.Odendi).Sum(o => o.Miktar),
-            BekleyenToplam = odemeler.Where(o => o.Durum == OdemeDurum.Bekliyor).Sum(o => o.Miktar),
+            OdenenToplam = odemeler.Where(IsGerceklesenDurumu).Sum(GetGerceklesenTutar),
+            BekleyenToplam = odemeler.Where(IsBekleyenDurumu).Sum(GetBekleyenTutar),
             ToplamKayit = odemeler.Count,
-            OdenenKayit = odemeler.Count(o => o.Durum == OdemeDurum.Odendi),
-            BekleyenKayit = odemeler.Count(o => o.Durum == OdemeDurum.Bekliyor)
+            OdenenKayit = odemeler.Count(IsGerceklesenDurumu),
+            BekleyenKayit = odemeler.Count(IsBekleyenDurumu)
         };
 
         ozet.KategoriOzetleri = odemeler
@@ -1754,6 +1754,9 @@ public class BudgetService : IBudgetService
             KacinciTaksit = t.KacinciTaksit,
             ToplamTaksitSayisi = t.ToplamTaksitSayisi,
             Tutar = t.Miktar,
+            OdenenTutar = t.Durum == OdemeDurum.KismiOdendi ? t.ToplamKismiOdenen : (t.OdenenTutar ?? (t.Durum == OdemeDurum.Odendi ? t.Miktar : 0)),
+            KalanTutar = t.Durum == OdemeDurum.KismiOdendi ? t.KalanTutar : (t.Durum == OdemeDurum.Bekliyor ? t.Miktar : 0),
+            OdemeYuzdesi = t.Durum == OdemeDurum.KismiOdendi ? t.OdemeYuzdesi : (t.Durum == OdemeDurum.Odendi ? 100 : 0),
             Durum = t.Durum,
             OdemeTarihi = t.OdemeTarihi
         }).ToList();

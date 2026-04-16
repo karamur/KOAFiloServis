@@ -1,4 +1,4 @@
-@page "/butce/kredi-taksitler"
+﻿@page "/butce/kredi-taksitler"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using System.Globalization
@@ -307,8 +307,8 @@
                                     <tbody>
                                         @foreach (var taksit in secilenKrediTaksitler)
                                         {
-                                            var gecikmisMi = taksit.Durum == OdemeDurum.Bekliyor && taksit.OdemeTarihi < DateTime.Today;
-                                            <tr class="@(taksit.Durum == OdemeDurum.Odendi ? "table-success" : gecikmisMi ? "table-danger" : "")" style="@(taksit.Durum == OdemeDurum.Odendi ? "border-left: 3px solid #198754;" : gecikmisMi ? "border-left: 3px solid #dc3545;" : "border-left: 3px solid #ffc107;")">
+                                            var gecikmisMi = (taksit.Durum == OdemeDurum.Bekliyor || taksit.Durum == OdemeDurum.KismiOdendi) && taksit.OdemeTarihi < DateTime.Today;
+                                            <tr class="@(taksit.Durum == OdemeDurum.Odendi ? "table-success" : taksit.Durum == OdemeDurum.KismiOdendi ? "table-info" : gecikmisMi ? "table-danger" : "")" style="@(taksit.Durum == OdemeDurum.Odendi ? "border-left: 3px solid #198754;" : taksit.Durum == OdemeDurum.KismiOdendi ? "border-left: 3px solid #0dcaf0;" : gecikmisMi ? "border-left: 3px solid #dc3545;" : "border-left: 3px solid #ffc107;")">
                                                 <td>
                                                     <span class="badge @(taksit.Durum == OdemeDurum.Odendi ? "bg-success" : gecikmisMi ? "bg-danger" : "bg-secondary")">
                                                         @taksit.KacinciTaksit
@@ -322,12 +322,21 @@
                                                     }
                                                 </td>
                                                 <td class="text-end">
-                                                    <strong>@FormatPara(taksit.Tutar)</strong>
+                                                    <strong>@FormatPara(GetGorunenTaksitTutari(taksit))</strong>
+                                                    @if (taksit.Durum == OdemeDurum.KismiOdendi)
+                                                    {
+                                                        <br /><small class="text-success">Ödenen: @FormatPara(taksit.OdenenTutar)</small>
+                                                        <br /><small class="text-warning fw-bold">Kalan: @FormatPara(taksit.KalanTutar)</small>
+                                                    }
                                                 </td>
                                                 <td class="text-center">
                                                     @if (taksit.Durum == OdemeDurum.Odendi)
                                                     {
                                                         <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Ödendi</span>
+                                                    }
+                                                    else if (taksit.Durum == OdemeDurum.KismiOdendi)
+                                                    {
+                                                        <span class="badge bg-info text-white"><i class="bi bi-pie-chart-fill me-1"></i>Kısmi %@taksit.OdemeYuzdesi</span>
                                                     }
                                                     else if (gecikmisMi)
                                                     {
@@ -1127,8 +1136,8 @@
         return filtreDurum switch
         {
             "Odendi" => taksit.Durum == OdemeDurum.Odendi,
-            "Bekliyor" => taksit.Durum == OdemeDurum.Bekliyor,
-            "Gecikmis" => taksit.Durum == OdemeDurum.Bekliyor && taksit.OdemeTarihi.Date < DateTime.Today,
+            "Bekliyor" => taksit.Durum == OdemeDurum.Bekliyor || taksit.Durum == OdemeDurum.KismiOdendi,
+            "Gecikmis" => (taksit.Durum == OdemeDurum.Bekliyor || taksit.Durum == OdemeDurum.KismiOdendi) && taksit.OdemeTarihi.Date < DateTime.Today,
             _ => true
         };
     }
@@ -1138,9 +1147,12 @@
         var buAy = DateTime.Today.Month;
         var buYil = DateTime.Today.Year;
         return secilenKrediTaksitler
-            .Where(t => t.OdemeTarihi.Month == buAy && t.OdemeTarihi.Year == buYil && t.Durum == OdemeDurum.Bekliyor)
-            .Sum(t => t.Tutar);
+            .Where(t => t.OdemeTarihi.Month == buAy && t.OdemeTarihi.Year == buYil && (t.Durum == OdemeDurum.Bekliyor || t.Durum == OdemeDurum.KismiOdendi))
+            .Sum(t => t.Durum == OdemeDurum.KismiOdendi ? t.KalanTutar : t.Tutar);
     }
+
+    private decimal GetGorunenTaksitTutari(KrediTaksitDetay taksit)
+        => taksit.Durum == OdemeDurum.KismiOdendi ? taksit.KalanTutar : taksit.Tutar;
 
     private void TaksitliOdemeAc()
     {

@@ -260,6 +260,9 @@ public class KrediTaksitDetay
     public int KacinciTaksit { get; set; }
     public int ToplamTaksitSayisi { get; set; }
     public decimal Tutar { get; set; }
+    public decimal OdenenTutar { get; set; }
+    public decimal KalanTutar { get; set; }
+    public decimal OdemeYuzdesi { get; set; }
     public OdemeDurum Durum { get; set; }
     public DateTime OdemeTarihi { get; set; }
 }

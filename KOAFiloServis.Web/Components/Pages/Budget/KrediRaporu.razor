@@ -1,4 +1,4 @@
-@page "/butce/kredi-raporu"
+﻿@page "/butce/kredi-raporu"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @inject IBudgetService BudgetService
@@ -168,9 +168,9 @@
                                 <tbody>
                                     @foreach (var taksit in filtrelenmisListe)
                                     {
-                                        var gecikmisMi = taksit.Durum == OdemeDurum.Bekliyor && taksit.OdemeTarihi.Date < DateTime.Today;
+                                        var gecikmisMi = (taksit.Durum == OdemeDurum.Bekliyor || taksit.Durum == OdemeDurum.KismiOdendi) && taksit.OdemeTarihi.Date < DateTime.Today;
                                         var bugunMu = taksit.OdemeTarihi.Date == DateTime.Today;
-                                        <tr class="@(gecikmisMi ? "table-danger" : bugunMu ? "table-warning" : taksit.Durum == OdemeDurum.Odendi ? "table-success" : "")">
+                                        <tr class="@(gecikmisMi ? "table-danger" : bugunMu ? "table-warning" : taksit.Durum == OdemeDurum.Odendi ? "table-success" : taksit.Durum == OdemeDurum.KismiOdendi ? "table-info" : "")">
                                             <td>
                                                 <strong>@taksit.OdemeTarihi.ToString("dd.MM.yyyy")</strong>
                                                 @if (gecikmisMi)
@@ -192,10 +192,10 @@
                                             <td class="text-center">
                                                 <span class="badge bg-secondary">@taksit.KacinciTaksit / @taksit.ToplamTaksitSayisi</span>
                                             </td>
-                                            <td class="text-end"><strong>@FormatPara(taksit.Tutar)</strong></td>
+                                            <td class="text-end"><strong>@FormatPara(GetGorunenTutar(taksit))</strong></td>
                                             <td class="text-center">
-                                                <span class="badge @(taksit.Durum == OdemeDurum.Odendi ? "bg-success" : "bg-warning text-dark")">
-                                                    @(taksit.Durum == OdemeDurum.Odendi ? "Odendi" : "Bekliyor")
+                                                <span class="badge @(taksit.Durum == OdemeDurum.Odendi ? "bg-success" : taksit.Durum == OdemeDurum.KismiOdendi ? "bg-info text-white" : "bg-warning text-dark")">
+                                                    @(taksit.Durum == OdemeDurum.Odendi ? "Odendi" : taksit.Durum == OdemeDurum.KismiOdendi ? "Kısmi Ödendi" : "Bekliyor")
                                                 </span>
                                             </td>
                                         </tr>
@@ -215,9 +215,10 @@
                                     <tfoot class="table-light">
                                         <tr>
                                             <td colspan="3"><strong>TOPLAM</strong></td>
-                                            <td class="text-end"><strong>@FormatPara(filtrelenmisListe.Sum(t => t.Tutar))</strong></td>
+                                            <td class="text-end"><strong>@FormatPara(filtrelenmisListe.Sum(GetGorunenTutar))</strong></td>
                                             <td class="text-center">
                                                 <span class="badge bg-success">@filtrelenmisListe.Count(t => t.Durum == OdemeDurum.Odendi)</span>
+                                                <span class="badge bg-info text-white">@filtrelenmisListe.Count(t => t.Durum == OdemeDurum.KismiOdendi)</span>
                                                 <span class="badge bg-warning text-dark">@filtrelenmisListe.Count(t => t.Durum == OdemeDurum.Bekliyor)</span>
                                             </td>
                                         </tr>
@@ -289,6 +290,7 @@
 </div>
 
 @code {
+    private decimal GetGorunenTutar(KrediTaksitDetay taksit) => taksit.Durum == OdemeDurum.KismiOdendi ? taksit.KalanTutar : taksit.Tutar;
     private int secilenYil;
     private int secilenAy = 0;
     private bool isLoading = true;
