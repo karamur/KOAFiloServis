@@ -2282,10 +2282,10 @@
                 aciklama = aciklama.Substring(7).TrimStart();
             }
 
-            const string suffix = "- Önceki dönemden kalan";
+            const string suffix = "Önceki dönemden kalan";
             if (aciklama.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
             {
-                aciklama = aciklama[..^suffix.Length].TrimEnd();
+                aciklama = aciklama[..^suffix.Length].TrimEnd().TrimEnd('-', ' ', ':');
             }
         }
 

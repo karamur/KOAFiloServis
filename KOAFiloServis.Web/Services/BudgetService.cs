@@ -337,7 +337,7 @@ public class BudgetService : IBudgetService
             // Hareket ID'sini kaydet
             bankaKasaHareketId = hareket.Id;
 
-            if (request.OdemeTipi == OdemeTipi.KrediKarti)
+            if (ShouldCreateKrediKartiBorcu(odeme, request.OdemeTipi))
             {
                 var donemAy = request.KrediKartiOdemeAy ?? request.OdemeTarihi.Month;
                 var donemYil = request.KrediKartiOdemeYil ?? request.OdemeTarihi.Year;
@@ -2148,7 +2148,7 @@ public class BudgetService : IBudgetService
             var kaydedilenHareket = await _bankaKasaHareketService.CreateAsync(hareket);
             bankaKasaHareketId = kaydedilenHareket.Id;
 
-            if (request.OdemeTipi == OdemeTipi.KrediKarti)
+            if (ShouldCreateKrediKartiBorcu(odeme, request.OdemeTipi))
             {
                 var donemAy = request.HedefAy ?? request.OdemeTarihi.Month;
                 var donemYil = request.HedefYil ?? request.OdemeTarihi.Year;
