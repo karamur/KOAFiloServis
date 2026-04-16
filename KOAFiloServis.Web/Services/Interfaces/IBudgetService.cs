@@ -86,6 +86,9 @@ public interface IBudgetService
 
     // Risk Analizi
     Task<BudgetRiskAnalizi> GetRiskAnaliziAsync(int yil, int? ay = null, int? firmaId = null);
+
+    // Veri Tutarlılık
+    Task<int> TemizleMukerrerKrediKartiBorclariAsync();
 }
 
 public class TaksitliOdemeRequest

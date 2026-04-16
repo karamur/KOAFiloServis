@@ -2532,5 +2532,87 @@ public class BudgetService : IBudgetService
         return analiz;
     }
 
+    /// <summary>
+    /// Veritabanındaki bozuk kısmi ödeme/devir kayıtlarını tespit edip düzeltir:
+    /// 1. KalanSonrakiDonemeAktarilsin=true olup Durum hâlâ KismiOdendi olan ana kayıtları Odendi yapar
+    /// 2. Mükerrer kredi kartı borç kayıtlarını soft-delete yapar
+    /// 3. Ana kaydı Odendi olan devir kayıtlarının tutarını (kalan tutar) düzeltir
+    /// </summary>
+    public async Task<int> TemizleMukerrerKrediKartiBorclariAsync()
+    {
+        var duzeltmeSayisi = 0;
+
+        // 1. KalanSonrakiDonemeAktarilsin=true ama Durum hâlâ KismiOdendi olan kayıtlar
+        var bozukAnaKayitlar = await _context.BudgetOdemeler
+            .Where(o => o.KalanSonrakiDonemeAktarilsin
+                        && o.Durum == OdemeDurum.KismiOdendi
+                        && o.SonrakiDonemOdemeId.HasValue)
+            .ToListAsync();
+
+        foreach (var kayit in bozukAnaKayitlar)
+        {
+            kayit.Durum = OdemeDurum.Odendi;
+            kayit.Miktar = kayit.ToplamKismiOdenen > 0 ? kayit.ToplamKismiOdenen : kayit.Miktar;
+            kayit.OdenenTutar = kayit.ToplamKismiOdenen;
+            kayit.UpdatedAt = DateTime.UtcNow;
+            duzeltmeSayisi++;
+        }
+
+        // 2. Aynı açıklama + aynı ay + aynı hesap ile mükerrer Kredi Kartı borç kayıtları
+        var krediKartiKayitlar = await _context.BudgetOdemeler
+            .Where(o => o.MasrafKalemi == "Kredi Kartı" && !o.IsDeleted)
+            .ToListAsync();
+
+        var gruplar = krediKartiKayitlar
+            .GroupBy(o => new { o.OdemeAy, o.OdemeYil, o.OdemeYapildigiHesapId, o.Aciklama })
+            .Where(g => g.Count() > 1);
+
+        foreach (var grup in gruplar)
+        {
+            var silinecekler = grup.OrderBy(o => o.Id).Skip(1); // İlk kaydı tut, gerisini sil
+            foreach (var kayit in silinecekler)
+            {
+                kayit.IsDeleted = true;
+                kayit.UpdatedAt = DateTime.UtcNow;
+                duzeltmeSayisi++;
+            }
+        }
+
+        // 3. SonrakiDonemOdemeId ile bağlı devir kayıtlarının tutarını kontrol et
+        var devirKayitlari = await _context.BudgetOdemeler
+            .Where(o => o.OncekiDonemOdemeId.HasValue && !o.IsDeleted && o.Durum == OdemeDurum.Bekliyor)
+            .ToListAsync();
+
+        foreach (var devir in devirKayitlari)
+        {
+            var anaKayit = await _context.BudgetOdemeler
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o => o.Id == devir.OncekiDonemOdemeId.Value);
+
+            if (anaKayit == null) continue;
+
+            // Devir tutarı = orijinal miktar - ödenen
+            var dogruKalanTutar = RoundCurrency(anaKayit.Miktar - anaKayit.ToplamKismiOdenen);
+            if (dogruKalanTutar <= 0)
+            {
+                // Tamamen ödenmiş, devir kaydı gereksiz
+                devir.IsDeleted = true;
+                devir.UpdatedAt = DateTime.UtcNow;
+                duzeltmeSayisi++;
+            }
+            else if (devir.Miktar != dogruKalanTutar)
+            {
+                devir.Miktar = dogruKalanTutar;
+                devir.UpdatedAt = DateTime.UtcNow;
+                duzeltmeSayisi++;
+            }
+        }
+
+        if (duzeltmeSayisi > 0)
+            await _context.SaveChangesAsync();
+
+        return duzeltmeSayisi;
+    }
+
     #endregion
 }

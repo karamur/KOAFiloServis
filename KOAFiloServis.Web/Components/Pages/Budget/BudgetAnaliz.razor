@@ -1842,6 +1842,9 @@
 
         try
         {
+            // Bozuk kısmi ödeme/devir/mükerrer kayıtları otomatik düzelt
+            await BudgetService.TemizleMukerrerKrediKartiBorclariAsync();
+
             // Önce seçilen dönem için veya tüm yıl için tekrarlayan ödemeleri oluştur
             if (secilenAy > 0)
             {
