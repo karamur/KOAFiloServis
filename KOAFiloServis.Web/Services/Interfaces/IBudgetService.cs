@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 
 namespace KOAFiloServis.Web.Services;
 
@@ -78,6 +78,14 @@ public interface IBudgetService
     // Hedef vs Gerçekleşen Karşılaştırma
     Task<List<BudgetHedefGerceklesen>> GetHedefGerceklesenAsync(int yil, int? ay = null, int? firmaId = null);
     Task<BudgetYillikHedefOzet> GetYillikHedefOzetAsync(int yil, int? firmaId = null);
+
+    // Kısmi Ödeme İşlemleri
+    Task<BudgetOdeme> KismiOdemeYapAsync(int odemeId, KismiOdemeRequest request);
+    Task<BudgetOdeme?> KalanTutariSonrakiDonemeAktarAsync(int odemeId);
+    Task<List<BudgetOdeme>> GetKismiOdenmislerAsync(int yil, int? ay = null, int? firmaId = null);
+
+    // Risk Analizi
+    Task<BudgetRiskAnalizi> GetRiskAnaliziAsync(int yil, int? ay = null, int? firmaId = null);
 }
 
 public class TaksitliOdemeRequest
@@ -254,4 +262,86 @@ public class KrediTaksitDetay
     public decimal Tutar { get; set; }
     public OdemeDurum Durum { get; set; }
     public DateTime OdemeTarihi { get; set; }
+}
+
+// Kısmi Ödeme Request
+public class KismiOdemeRequest
+{
+    public decimal OdenecekTutar { get; set; }
+    public DateTime OdemeTarihi { get; set; } = DateTime.Today;
+    public int? BankaHesapId { get; set; }
+    public OdemeTipi OdemeTipi { get; set; } = OdemeTipi.Kasa;
+    public string? Aciklama { get; set; }
+    public bool KalanSonrakiDonemeAktarilsin { get; set; } = false;
+
+    // Cari Mahsup için
+    public int? CariId { get; set; }
+
+    // Ek masraflar
+    public decimal MasrafKesintisi { get; set; } = 0;
+    public decimal CezaKesintisi { get; set; } = 0;
+    public decimal DigerKesinti { get; set; } = 0;
+    public string? KesintiAciklamasi { get; set; }
+}
+
+// Risk Analizi Modeli
+public class BudgetRiskAnalizi
+{
+    public int Yil { get; set; }
+    public int? Ay { get; set; }
+    public DateTime AnalizTarihi { get; set; } = DateTime.Now;
+
+    // Genel Özet
+    public decimal ToplamBekleyen { get; set; }
+    public decimal ToplamGeciken { get; set; }
+    public decimal ToplamKismiOdenen { get; set; }
+    public int ToplamKayit { get; set; }
+    public int GecikenKayit { get; set; }
+    public int KismiOdenenKayit { get; set; }
+
+    // Risk Skorları (0-100)
+    public decimal GenelRiskSkoru { get; set; }
+    public decimal LikiditeRiski { get; set; }
+    public decimal OdemeGecikmesiRiski { get; set; }
+    public decimal BudceSapmaRiski { get; set; }
+
+    // Detaylar
+    public List<RiskliOdeme> RiskliOdemeler { get; set; } = new();
+    public List<KategoriRiskOzeti> KategoriRiskleri { get; set; } = new();
+    public List<AylikRiskTrendi> AylikTrendler { get; set; } = new();
+    public List<string> Uyarilar { get; set; } = new();
+    public List<string> Oneriler { get; set; } = new();
+}
+
+public class RiskliOdeme
+{
+    public int OdemeId { get; set; }
+    public string MasrafKalemi { get; set; } = string.Empty;
+    public string? Aciklama { get; set; }
+    public decimal Tutar { get; set; }
+    public decimal KalanTutar { get; set; }
+    public DateTime VadeTarihi { get; set; }
+    public int GecikmeGunu { get; set; }
+    public string RiskSeviyesi { get; set; } = "Normal"; // Normal, Orta, Yüksek, Kritik
+    public string? RiskAciklamasi { get; set; }
+}
+
+public class KategoriRiskOzeti
+{
+    public string Kategori { get; set; } = string.Empty;
+    public decimal ToplamTutar { get; set; }
+    public decimal BekleyenTutar { get; set; }
+    public decimal GecikenTutar { get; set; }
+    public int GecikenKayit { get; set; }
+    public decimal RiskSkoru { get; set; }
+}
+
+public class AylikRiskTrendi
+{
+    public int Ay { get; set; }
+    public string AyAdi { get; set; } = string.Empty;
+    public decimal BeklenenOdeme { get; set; }
+    public decimal GerceklesenOdeme { get; set; }
+    public decimal GecikenOdeme { get; set; }
+    public decimal RiskSkoru { get; set; }
 }

@@ -1,4 +1,4 @@
-@page "/personel/puantaj"
+﻿@page "/personel/puantaj"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Models
@@ -86,6 +86,44 @@
             </div>
         </div>
     </div>
+
+    @if (OlusturulabilirPersoneller.Any())
+    {
+        <div class="card shadow-sm mb-3 border-success">
+            <div class="card-header bg-success bg-opacity-10 py-2 d-flex justify-content-between align-items-center">
+                <div>
+                    <strong><i class="bi bi-people me-1"></i>Puantaj Oluşturulabilir Personeller</strong>
+                    <small class="text-muted ms-2">@OlusturulabilirPersoneller.Count kişi</small>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="TumOlusturulabilirleriSec" disabled="@(isLoading || !OlusturulabilirPersoneller.Any())">
+                        <i class="bi bi-check-all me-1"></i>Tümünü Seç
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="OlusturulabilirSecimiTemizle" disabled="@(isLoading || !seciliPersonelIds.Any())">
+                        <i class="bi bi-x-lg me-1"></i>Temizle
+                    </button>
+                </div>
+            </div>
+            <div class="card-body py-2">
+                <div class="row g-2">
+                    @foreach (var personel in OlusturulabilirPersoneller)
+                    {
+                        <div class="col-md-4 col-lg-3">
+                            <label class="border rounded p-2 w-100 d-flex align-items-start gap-2" style="cursor: pointer;">
+                                <input type="checkbox" class="form-check-input mt-1"
+                                       checked="@seciliPersonelIds.Contains(personel.Id)"
+                                       @onchange="(e) => PersonelSecimDegisti(personel.Id, e)" />
+                                <span>
+                                    <strong>@personel.TamAd</strong><br />
+                                    <small class="text-muted">@personel.SoforKodu</small>
+                                </span>
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 
     <!-- Özet Kartlar -->
     @if (puantajListesi.Any())
@@ -530,6 +568,7 @@
     private List<PersonelPuantaj> puantajListesi = new();
     private List<PersonelPuantaj> filtrelenmisListe = new();
     private Dictionary<int, List<GunlukPuantaj>> gunlukPuantajMap = new();
+    private HashSet<int> seciliPersonelIds = new();
 
     private bool isLoading = true;
     private bool degisiklikVar = false;
@@ -562,6 +601,16 @@
     private System.Globalization.CultureInfo turkce = new("tr-TR");
 
     private int AyGunSayisi => DateTime.DaysInMonth(filtreYil, filtreAy);
+    private List<Sofor> OlusturulabilirPersoneller => tumSoforler
+        .Where(s => s.Aktif && !s.IsDeleted)
+        .Where(s => puantajListesi.All(p => p.PersonelId != s.Id))
+        .Where(s => string.IsNullOrWhiteSpace(aramaMetni)
+            || s.TamAd.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase)
+            || s.SoforKodu.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(s => s.SiralamaNo == 0 ? int.MaxValue : s.SiralamaNo)
+        .ThenBy(s => s.Ad)
+        .ThenBy(s => s.Soyad)
+        .ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -569,7 +618,7 @@
         if (firmalar.Any())
             filtreFirmaId = firmalar.First().Id;
 
-        tumSoforler = await SoforService.GetAllAsync();
+        tumSoforler = await SoforService.GetActiveAsync();
         await YenileAsync();
     }
 
@@ -591,6 +640,7 @@
             }
 
             FiltreleListeyi();
+            seciliPersonelIds.RemoveWhere(id => OlusturulabilirPersoneller.All(p => p.Id != id));
         }
         catch (Exception ex)
         {
@@ -622,8 +672,8 @@
 
     private async Task TopluPuantajOlustur()
     {
-        var aktifSoforler = tumSoforler.Where(s => s.Aktif && !s.IsDeleted).ToList();
-        if (!aktifSoforler.Any())
+        var olusturulacakPersoneller = OlusturulabilirPersoneller;
+        if (!olusturulacakPersoneller.Any())
         {
             ShowBildirim("Uyarı", "Aktif personel bulunamadı.", "warning");
             return;
@@ -631,7 +681,7 @@
 
         var mevcutSayisi = puantajListesi.Count;
         var onay = await JS.InvokeAsync<bool>("confirm",
-            $"{GetAyAdi(filtreAy)} {filtreYil} için {aktifSoforler.Count} aktif personele puantaj kaydı oluşturulacak" +
+            $"{GetAyAdi(filtreAy)} {filtreYil} için {olusturulacakPersoneller.Count} personele puantaj kaydı oluşturulacak" +
             (mevcutSayisi > 0 ? $" (mevcut {mevcutSayisi} kayıt korunacak)" : "") +
             ". Devam edilsin mi?");
         if (!onay) return;
@@ -641,36 +691,7 @@
 
         try
         {
-            int olusturulan = 0;
-            foreach (var sofor in aktifSoforler)
-            {
-                var mevcut = puantajListesi.FirstOrDefault(p => p.PersonelId == sofor.Id);
-                if (mevcut == null)
-                {
-                    var yeniPuantaj = new PersonelPuantaj
-                    {
-                        FirmaId = filtreFirmaId,
-                        PersonelId = sofor.Id,
-                        Yil = filtreYil,
-                        Ay = filtreAy,
-                        CalisilanGun = 0,
-                        BrutMaas = 0,
-                        NetOdeme = 0
-                    };
-
-                    var kaydedilen = await PuantajService.CreateOrUpdatePuantajAsync(yeniPuantaj);
-
-                    // Otomatik günlük puantaj oluştur (Pazar hariç çalıştı olarak)
-                    await PuantajService.OtomatikGunlukPuantajOlusturAsync(kaydedilen.Id, filtreYil, filtreAy);
-                    olusturulan++;
-                }
-                else if (!gunlukPuantajMap.ContainsKey(mevcut.Id) || !gunlukPuantajMap[mevcut.Id].Any())
-                {
-                    // Mevcut puantaj var ama günlük yok - günlükleri oluştur
-                    await PuantajService.OtomatikGunlukPuantajOlusturAsync(mevcut.Id, filtreYil, filtreAy);
-                    olusturulan++;
-                }
-            }
+            var olusturulan = await PuantajlariOlusturAsync(olusturulacakPersoneller);
 
             await YenileAsync();
 
@@ -688,6 +709,98 @@
             isLoading = false;
             StateHasChanged();
         }
+    }
+
+    private async Task SeciliPuantajOlustur()
+    {
+        var seciliPersoneller = OlusturulabilirPersoneller
+            .Where(p => seciliPersonelIds.Contains(p.Id))
+            .ToList();
+
+        if (!seciliPersoneller.Any())
+        {
+            ShowBildirim("Uyarı", "Lütfen en az bir personel seçin.", "warning");
+            return;
+        }
+
+        var onay = await JS.InvokeAsync<bool>("confirm",
+            $"{GetAyAdi(filtreAy)} {filtreYil} için seçili {seciliPersoneller.Count} personele puantaj oluşturulsun mu?");
+        if (!onay) return;
+
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var olusturulan = await PuantajlariOlusturAsync(seciliPersoneller);
+            await YenileAsync();
+            await GunluklerdenOzetGuncelle();
+            ShowBildirim("Başarılı", $"{olusturulan} personel için puantaj oluşturuldu.", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowBildirim("Hata", $"Puantaj oluşturma hatası: {ex.Message}", "danger");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<int> PuantajlariOlusturAsync(List<Sofor> personeller)
+    {
+        int olusturulan = 0;
+
+        foreach (var personel in personeller)
+        {
+            var mevcut = puantajListesi.FirstOrDefault(p => p.PersonelId == personel.Id);
+            if (mevcut == null)
+            {
+                var yeniPuantaj = new PersonelPuantaj
+                {
+                    FirmaId = filtreFirmaId,
+                    PersonelId = personel.Id,
+                    Yil = filtreYil,
+                    Ay = filtreAy,
+                    CalisilanGun = 0,
+                    BrutMaas = personel.BrutMaas,
+                    NetOdeme = personel.NetMaas,
+                    BankaHesapNo = personel.IBAN
+                };
+
+                var kaydedilen = await PuantajService.CreateOrUpdatePuantajAsync(yeniPuantaj);
+                await PuantajService.OtomatikGunlukPuantajOlusturAsync(kaydedilen.Id, filtreYil, filtreAy);
+                olusturulan++;
+            }
+            else if (!gunlukPuantajMap.ContainsKey(mevcut.Id) || !gunlukPuantajMap[mevcut.Id].Any())
+            {
+                await PuantajService.OtomatikGunlukPuantajOlusturAsync(mevcut.Id, filtreYil, filtreAy);
+                olusturulan++;
+            }
+        }
+
+        seciliPersonelIds.Clear();
+        return olusturulan;
+    }
+
+    private void TumOlusturulabilirleriSec()
+    {
+        seciliPersonelIds = OlusturulabilirPersoneller.Select(p => p.Id).ToHashSet();
+    }
+
+    private void OlusturulabilirSecimiTemizle()
+    {
+        seciliPersonelIds.Clear();
+    }
+
+    private void PersonelSecimDegisti(int personelId, ChangeEventArgs e)
+    {
+        var secili = e.Value is bool b && b;
+        if (secili)
+            seciliPersonelIds.Add(personelId);
+        else
+            seciliPersonelIds.Remove(personelId);
     }
 
     private void HucreTikla(int puantajId, DateTime tarih, GunlukPuantaj? gunluk)

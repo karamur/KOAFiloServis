@@ -1,4 +1,4 @@
-@page "/dashboard"
+﻿@page "/dashboard"
 @attribute [Authorize]
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -80,6 +80,71 @@ else
             </button>
         </div>
     }
+
+    <!-- Hızlı İşlemler Paneli -->
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <h6 class="mb-0 text-white"><i class="bi bi-lightning-charge-fill me-2"></i>Hızlı İşlemler</h6>
+        </div>
+        <div class="card-body py-3">
+            <div class="row g-2">
+                @if (HasYetki("servis.ekle"))
+                {
+                    <div class="col-6 col-md-2">
+                        <a href="/servis-calisma/yeni" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-plus-circle fs-4 mb-1"></i>
+                            <small>Yeni Sefer</small>
+                        </a>
+                    </div>
+                }
+                @if (HasYetki("aracmasraf.ekle"))
+                {
+                    <div class="col-6 col-md-2">
+                        <a href="/arac-masraflari/yeni" class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-fuel-pump fs-4 mb-1"></i>
+                            <small>Yakıt/Masraf</small>
+                        </a>
+                    </div>
+                }
+                @if (HasYetki("kesilenfatura.ekle"))
+                {
+                    <div class="col-6 col-md-2">
+                        <a href="/efatura/giden/yeni" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-receipt fs-4 mb-1"></i>
+                            <small>Fatura Kes</small>
+                        </a>
+                    </div>
+                }
+                @if (HasYetki("tahsilat.ekle"))
+                {
+                    <div class="col-6 col-md-2">
+                        <a href="/banka-kasa/yeni?tur=tahsilat" class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-cash-stack fs-4 mb-1"></i>
+                            <small>Tahsilat</small>
+                        </a>
+                    </div>
+                }
+                @if (HasYetki("odeme.ekle"))
+                {
+                    <div class="col-6 col-md-2">
+                        <a href="/banka-kasa/yeni?tur=odeme" class="btn btn-outline-danger w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-credit-card fs-4 mb-1"></i>
+                            <small>Ödeme</small>
+                        </a>
+                    </div>
+                }
+                @if (HasYetki("cariler.ekle"))
+                {
+                    <div class="col-6 col-md-2">
+                        <a href="/cariler/yeni" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                            <i class="bi bi-person-plus fs-4 mb-1"></i>
+                            <small>Yeni Cari</small>
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
 
     <!-- Özet Kartlar -->
     <div class="row mb-4">
@@ -955,6 +1020,11 @@ else
             Logger.LogError(ex, "Yetki yükleme hatası");
             kullaniciYetkileri = new HashSet<string>();
         }
+    }
+
+    private bool HasYetki(string yetkiKodu)
+    {
+        return kullaniciYetkileri.Contains(yetkiKodu) || kullaniciYetkileri.Contains("*");
     }
 
     private async Task TryLoadDashboardSectionAsync(Func<IServiceProvider, Task> action, string sectionName)

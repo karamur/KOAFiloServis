@@ -214,22 +214,22 @@
                     <div class="col-md-3">
                         <div class="mb-3">
                             <label class="form-label">Bankaya Yatan / Resmi Net Maaş (₺) *</label>
-                            <InputNumber @bind-Value="sofor.ResmiNetMaas" class="form-control" />
+                            <InputNumber @bind-Value="sofor.ResmiNetMaas" class="form-control" @bind-Value:after="MaasHesaplaAsync" />
                             <small class="text-muted">Bordroda ve banka ödemesinde kullanılacak resmi net tutar.</small>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Elden / Ek Ödeme Farkı (₺)</label>
-                            <InputNumber @bind-Value="sofor.DigerMaas" class="form-control" />
-                            <small class="text-muted">Gerçek maaş ile bankaya yatan arasındaki fark. Negatif değer girilebilir.</small>
+                            <label class="form-label">Gerçek Maaş (₺) *</label>
+                            <InputNumber @bind-Value="gercekMaas" class="form-control" @bind-Value:after="GercekMaasDegistiAsync" />
+                            <small class="text-muted">Personele ödenen toplam gerçek maaş.</small>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Gerçek Maaş (₺)</label>
-                            <input type="text" class="form-control bg-light" readonly value="@((sofor.ResmiNetMaas + sofor.DigerMaas).ToString("N2"))" />
-                            <small class="text-muted">Bankaya Yatan + Elden / Ek Ödeme = Gerçek Maaş</small>
+                            <label class="form-label">Elden / Ek Ödeme Farkı (₺)</label>
+                            <input type="text" class="form-control bg-light" readonly value="@sofor.DigerMaas.ToString("N2")" />
+                            <small class="text-muted">Gerçek Maaş - Bankaya Yatan = @sofor.DigerMaas.ToString("N2") ₺</small>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -573,9 +573,12 @@
 
     private Sofor sofor = new();
     private bool IsEdit => Id.HasValue;
-    private decimal ToplamNetMaas => sofor.ResmiNetMaas + sofor.DigerMaas;
-    private decimal EldenOdenecekOnizleme => YuvarlaPara(Math.Max(0, sofor.DigerMaas));
+    private decimal ToplamNetMaas => sofor.NetMaas;
+    private decimal EldenOdenecekOnizleme => YuvarlaPara(Math.Max(0, sofor.NetMaas - sofor.ResmiNetMaas));
     private List<MuhasebeHesap> muhasebeHesaplari = new();
+
+    // Gerçek maaş için ayrı değişken (manuel giriş)
+    private decimal gercekMaas;
 
     // Özlük Evrak Yönetimi
     private PersonelOzlukEvrakDurum? evrakDurumu;
@@ -595,6 +598,8 @@
             if (existing != null)
             {
                 sofor = existing;
+                // Gerçek maaşı hesapla (ResmiNetMaas + DigerMaas)
+                gercekMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
                 await EvrakDurumuYukle();
             }
             else
@@ -607,6 +612,7 @@
             sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
             sofor.Aktif = true;
             sofor.Gorev = PersonelGorev.Sofor;
+            gercekMaas = 0;
         }
     }
 
@@ -729,9 +735,43 @@
         }
 
         sofor.ResmiNetMaas = YuvarlaPara(sofor.ResmiNetMaas);
-        sofor.DigerMaas = YuvarlaPara(sofor.DigerMaas);
-        sofor.NetMaas = YuvarlaPara(sofor.ResmiNetMaas + sofor.DigerMaas);
+        // Gerçek maaş değiştiyse farkı hesapla
+        sofor.DigerMaas = YuvarlaPara(gercekMaas - sofor.ResmiNetMaas);
+        sofor.NetMaas = YuvarlaPara(gercekMaas);
 
+        return Task.CompletedTask;
+    }
+
+    private Task MaasHesaplaAsync()
+    {
+        // Bankaya yatan değiştiğinde farkı yeniden hesapla
+        sofor.ResmiNetMaas = YuvarlaPara(sofor.ResmiNetMaas);
+        sofor.DigerMaas = YuvarlaPara(gercekMaas - sofor.ResmiNetMaas);
+        sofor.NetMaas = YuvarlaPara(gercekMaas);
+        return Task.CompletedTask;
+    }
+
+    private Task GercekMaasDegistiAsync()
+    {
+        // Gerçek maaş manuel girildiğinde farkı hesapla
+        gercekMaas = YuvarlaPara(gercekMaas);
+        sofor.DigerMaas = YuvarlaPara(gercekMaas - sofor.ResmiNetMaas);
+        sofor.NetMaas = YuvarlaPara(gercekMaas);
+        return Task.CompletedTask;
+    }
+
+    private Task GercekMaastanFarkiHesaplaAsync()
+    {
+        sofor.ResmiNetMaas = YuvarlaPara(sofor.ResmiNetMaas);
+        gercekMaas = YuvarlaPara(gercekMaas);
+
+        if (gercekMaas < sofor.ResmiNetMaas)
+        {
+            gercekMaas = sofor.ResmiNetMaas;
+        }
+
+        sofor.DigerMaas = YuvarlaPara(gercekMaas - sofor.ResmiNetMaas);
+        sofor.NetMaas = YuvarlaPara(gercekMaas);
         return Task.CompletedTask;
     }
 

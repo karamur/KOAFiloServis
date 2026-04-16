@@ -1,4 +1,4 @@
-@page "/butce/odemeler"
+﻿@page "/butce/odemeler"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
@@ -94,7 +94,7 @@
 
     <!-- Ozet Kartlar -->
     <div class="row mb-3 g-2">
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
             <div class="card bg-primary text-white">
                 <div class="card-body py-2 px-3">
                     <small>Toplam</small>
@@ -102,7 +102,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
             <div class="card bg-warning text-dark">
                 <div class="card-body py-2 px-3">
                     <small>Bekleyen</small>
@@ -110,7 +110,16 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
+            <div class="card bg-info text-white">
+                <div class="card-body py-2 px-3">
+                    <small>Kısmi Ödenen</small>
+                    <h5 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum == OdemeDurum.KismiOdendi).Sum(o => o.ToplamKismiOdenen))</h5>
+                    <small>@filtrelenmisOdemeler.Count(o => o.Durum == OdemeDurum.KismiOdendi) kayıt</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
             <div class="card bg-success text-white">
                 <div class="card-body py-2 px-3">
                     <small>Odenen</small>
@@ -118,11 +127,19 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card bg-info text-white">
+        <div class="col-6 col-md-2">
+            <div class="card bg-secondary text-white">
                 <div class="card-body py-2 px-3">
                     <small>Kredi/Taksit</small>
                     <h5 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.TaksitliMi).Sum(o => o.Miktar))</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card bg-danger text-white">
+                <div class="card-body py-2 px-3">
+                    <small>Kalan (Kısmi)</small>
+                    <h5 class="mb-0">@FormatPara(filtrelenmisOdemeler.Where(o => o.Durum == OdemeDurum.KismiOdendi).Sum(o => o.Miktar - o.ToplamKismiOdenen))</h5>
                 </div>
             </div>
         </div>
@@ -154,7 +171,7 @@
                         <tbody>
                             @foreach (var odeme in filtrelenmisOdemeler)
                             {
-                                <tr class="@(odeme.Durum == OdemeDurum.Odendi ? "table-success" : odeme.Durum == OdemeDurum.Iptal ? "table-secondary" : "")">
+                                <tr class="@(odeme.Durum == OdemeDurum.Odendi ? "table-success" : odeme.Durum == OdemeDurum.KismiOdendi ? "table-warning" : odeme.Durum == OdemeDurum.Iptal ? "table-secondary" : "")">
                                     <td>@odeme.OdemeTarihi.ToString("dd.MM.yyyy")</td>
                                     <td><strong>@odeme.MasrafKalemi</strong></td>
                                     <td>
@@ -195,10 +212,31 @@
                                                 <small class="text-muted">Hareket #: @odeme.BankaKasaHareketId</small>
                                             </div>
                                         }
+                                        @if (odeme.OncekiDonemOdemeId.HasValue)
+                                        {
+                                            <div>
+                                                <span class="badge bg-secondary"><i class="bi bi-arrow-left-circle me-1"></i>Önceki dönemden devir</span>
+                                            </div>
+                                        }
                                     </td>
-                                    <td class="text-end"><strong>@FormatPara(odeme.Miktar)</strong></td>
+                                    <td class="text-end">
+                                        <strong>@FormatPara(odeme.Miktar)</strong>
+                                        @if (odeme.KismiOdemeMi && odeme.ToplamKismiOdenen > 0)
+                                        {
+                                            <br/>
+                                            <small class="text-success">Ödenen: @FormatPara(odeme.ToplamKismiOdenen)</small>
+                                            <br/>
+                                            <small class="text-warning fw-bold">Kalan: @FormatPara(odeme.Miktar - odeme.ToplamKismiOdenen)</small>
+                                        }
+                                    </td>
                                     <td class="text-center">
                                         <span class="badge @GetDurumClass(odeme)">@GetDurumAdi(odeme)</span>
+                                        @if (odeme.Durum == OdemeDurum.KismiOdendi)
+                                        {
+                                            <div class="mt-1">
+                                                <small class="text-warning">%@odeme.OdemeYuzdesi</small>
+                                            </div>
+                                        }
                                     </td>
                                     <td class="text-center">
                                         @if (odeme.TaksitliMi)
@@ -215,7 +253,7 @@
                                             <button class="btn btn-outline-primary" @onclick="() => OdemeDuzenle(odeme)" title="Duzenle">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
-                                            @if (odeme.Durum == OdemeDurum.Bekliyor)
+                                            @if (odeme.Durum == OdemeDurum.Bekliyor || odeme.Durum == OdemeDurum.KismiOdendi)
                                             {
                                                 <button class="btn btn-success" @onclick="() => OdemeYapModalAc(odeme)" title="Odeme Yap">
                                                     <i class="bi bi-cash"></i>
@@ -1260,26 +1298,40 @@
     private string GetAyAdi(int ay) => AyAdlari[ay];
     private string GetDurumAdi(BudgetOdeme o) 
     { 
-        if (o.Durum == OdemeDurum.Bekliyor) 
+        if (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi) 
         { 
             var gun = (o.OdemeTarihi.Date - DateTime.Today).Days; 
             if(gun < 0) return $"{-gun} Gün Gecikti"; 
             if(gun == 0) return "Bugün Son"; 
             return $"{gun} Gün Kaldı"; 
         } 
-        return o.Durum == OdemeDurum.Odendi ? "Ödendi" : o.Durum == OdemeDurum.Ertelendi ? "Ertelendi" : o.Durum == OdemeDurum.Iptal ? "İptal" : o.Durum.ToString(); 
+        return o.Durum switch
+        {
+            OdemeDurum.Odendi => "Ödendi",
+            OdemeDurum.KismiOdendi => "Kısmi Ödendi",
+            OdemeDurum.Ertelendi => "Ertelendi",
+            OdemeDurum.Iptal => "İptal",
+            _ => o.Durum.ToString()
+        };
     }
-    
+
     private string GetDurumClass(BudgetOdeme o) 
     { 
-        if (o.Durum == OdemeDurum.Bekliyor) 
+        if (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi) 
         { 
             var gun = (o.OdemeTarihi.Date - DateTime.Today).Days; 
             if(gun < 0) return "bg-danger text-white"; 
             if(gun == 0) return "bg-warning text-dark"; 
-            return "bg-info text-white"; 
+            return o.Durum == OdemeDurum.KismiOdendi ? "bg-warning text-dark" : "bg-info text-white"; 
         } 
-        return o.Durum == OdemeDurum.Odendi ? "bg-success text-white" : o.Durum == OdemeDurum.Ertelendi ? "bg-secondary" : o.Durum == OdemeDurum.Iptal ? "bg-danger" : "bg-light text-dark"; 
+        return o.Durum switch
+        {
+            OdemeDurum.Odendi => "bg-success text-white",
+            OdemeDurum.KismiOdendi => "bg-warning text-dark",
+            OdemeDurum.Ertelendi => "bg-secondary",
+            OdemeDurum.Iptal => "bg-danger",
+            _ => "bg-light text-dark"
+        };
     }
     private string FormatPara(decimal t) => t.ToString("N2", new System.Globalization.CultureInfo("tr-TR")) + " TL";
 

@@ -418,7 +418,7 @@
                                 <label class="form-label">Firma *</label>
                                 <select class="form-select" @bind="editFatura.FirmaId" @bind:after="GelenFirmaDegistiAsync">
                                     <option value="">Secin...</option>
-                                    @foreach (var firma in firmalar.Where(f => f.Aktif))
+                                    @foreach (var firma in (firmalar ?? []).Where(f => f.Aktif))
                                     {
                                         <option value="@firma.Id">@firma.FirmaAdi</option>
                                     }
@@ -436,7 +436,7 @@
                                 <label class="form-label">Karşı Firma</label>
                                 <select class="form-select" @bind="editFatura.KarsiFirmaId" disabled="@(!editFatura.FirmalarArasiFatura)">
                                     <option value="">Secin...</option>
-                                    @foreach (var firma in firmalar.Where(f => f.Aktif && (!editFatura.FirmaId.HasValue || f.Id != editFatura.FirmaId.Value)))
+                                    @foreach (var firma in (firmalar ?? []).Where(f => f.Aktif && (!editFatura.FirmaId.HasValue || f.Id != editFatura.FirmaId.Value)))
                                     {
                                         <option value="@firma.Id">@firma.FirmaAdi</option>
                                     }
@@ -1324,7 +1324,7 @@
         {
             faturaFormHataMesaji = ex.Message;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             faturaFormHataMesaji = "Fatura kaydedilirken beklenmeyen bir hata oluştu.";
         }

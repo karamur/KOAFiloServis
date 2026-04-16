@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -78,6 +78,24 @@ public class AracMasrafService : IAracMasrafService
             .Where(m => !m.IsDeleted && m.ArizaKaynaklimi)
             .OrderByDescending(m => m.MasrafTarihi)
             .ToListAsync();
+    }
+
+    public async Task<List<AracMasraf>> GetByKategoriAsync(MasrafKategori kategori, DateTime? startDate = null, DateTime? endDate = null)
+    {
+        var query = _context.AracMasraflari
+            .Include(m => m.Arac)
+            .Include(m => m.MasrafKalemi)
+            .Include(m => m.Sofor)
+            .Include(m => m.Cari)
+            .Where(m => !m.IsDeleted && m.MasrafKalemi.Kategori == kategori);
+
+        if (startDate.HasValue)
+            query = query.Where(m => m.MasrafTarihi >= startDate.Value);
+
+        if (endDate.HasValue)
+            query = query.Where(m => m.MasrafTarihi <= endDate.Value);
+
+        return await query.OrderByDescending(m => m.MasrafTarihi).ToListAsync();
     }
 
     public async Task<AracMasraf?> GetByIdAsync(int id)

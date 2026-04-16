@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using ClosedXML.Excel;
@@ -2212,7 +2212,7 @@ public class MuhasebeService : IMuhasebeService
             {
                 MasrafId = m.Id,
                 MasrafTarihi = m.MasrafTarihi,
-                AracPlaka = m.Arac != null ? m.Arac.AktifPlaka : "",
+                AracPlaka = (m.Arac != null ? m.Arac.AktifPlaka : null) ?? "",
                 MasrafKalemi = m.MasrafKalemi != null ? m.MasrafKalemi.MasrafAdi : "",
                 MasrafKategori = m.MasrafKalemi != null ? m.MasrafKalemi.Kategori.ToString() : "",
                 Tutar = m.Tutar,
@@ -2459,7 +2459,7 @@ public class MuhasebeService : IMuhasebeService
                 });
             }
 
-            var cariEksik = faturalar.Where(f => f.CariId == null || f.CariId == 0).ToList();
+            var cariEksik = faturalar.Where(f => f.CariId == 0).ToList();
             if (cariEksik.Count > 0)
             {
                 kontrol.Maddeler.Add(new KontrolMaddesi

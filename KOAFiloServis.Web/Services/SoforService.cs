@@ -77,14 +77,36 @@ public class SoforService : ISoforService
         NormalizeSofor(sofor);
         ApplyMaasHesaplama(sofor);
         SyncBordroFlags(sofor);
-        await ValidateSoforAsync(sofor);
 
-        // Global NoTracking ayarı nedeniyle explicit tracking kullan
-        var existing = await QuerySoforler(asNoTracking: false)
+        // Önce mevcut tracking'i temizle
+        var trackedEntity = _context.ChangeTracker.Entries<Sofor>()
+            .FirstOrDefault(e => e.Entity.Id == sofor.Id);
+        if (trackedEntity != null)
+        {
+            trackedEntity.State = EntityState.Detached;
+        }
+
+        // Mevcut kaydı oku (tracking ile)
+        var existing = await _context.Soforler
             .FirstOrDefaultAsync(s => s.Id == sofor.Id);
 
         if (existing == null)
             throw new InvalidOperationException($"Şoför bulunamadı. Id: {sofor.Id}");
+
+        var existingTcKimlikNo = NormalizeTcKimlikNo(existing.TcKimlikNo);
+        var existingSoforKodu = NormalizeSoforKodu(existing.SoforKodu);
+
+        if (string.Equals(existingTcKimlikNo, sofor.TcKimlikNo, StringComparison.Ordinal))
+        {
+            sofor.TcKimlikNo = existingTcKimlikNo;
+        }
+
+        if (string.Equals(existingSoforKodu, sofor.SoforKodu, StringComparison.Ordinal))
+        {
+            sofor.SoforKodu = existingSoforKodu;
+        }
+
+        await ValidateSoforAsync(sofor, existing);
 
         // Tüm alanları güncelle
         existing.SiralamaNo = sofor.SiralamaNo;
@@ -122,8 +144,7 @@ public class SoforService : ISoforService
         existing.IsDeleted = sofor.IsDeleted;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        // Entity'yi explicit olarak güncelle (global NoTracking olduğu için)
-        _context.Soforler.Update(existing);
+        // existing zaten tracked durumda, SaveChanges değişiklikleri otomatik kaydeder
         await _context.SaveChangesAsync();
         return existing;
     }
@@ -221,9 +242,13 @@ public class SoforService : ISoforService
         return asNoTracking ? query.AsNoTracking() : query;
     }
 
-    private async Task ValidateSoforAsync(Sofor sofor)
+    private async Task ValidateSoforAsync(Sofor sofor, Sofor? existing = null)
     {
         var currentId = sofor.Id;
+        var normalizedTcKimlikNo = NormalizeTcKimlikNo(sofor.TcKimlikNo);
+        var normalizedSoforKodu = NormalizeSoforKodu(sofor.SoforKodu);
+        var existingTcKimlikNo = NormalizeTcKimlikNo(existing?.TcKimlikNo);
+        var existingSoforKodu = NormalizeSoforKodu(existing?.SoforKodu);
 
         if (string.IsNullOrWhiteSpace(sofor.SoforKodu))
             throw new InvalidOperationException("Personel kodu zorunludur.");
@@ -237,31 +262,49 @@ public class SoforService : ISoforService
         if (sofor.SGKBordroDahilMi && sofor.BordroTipiPersonel == PersonelBordroTipi.Yok)
             throw new InvalidOperationException("SGK bordroya dahil personel için bordro tipi seçilmelidir.");
 
-        if (!string.IsNullOrWhiteSpace(sofor.TcKimlikNo))
+        if (!string.IsNullOrWhiteSpace(normalizedTcKimlikNo))
         {
-            if (sofor.TcKimlikNo.Length != 11 || !sofor.TcKimlikNo.All(char.IsDigit))
+            if (normalizedTcKimlikNo.Length != 11 || !normalizedTcKimlikNo.All(char.IsDigit))
                 throw new InvalidOperationException("TC Kimlik No 11 haneli olmalıdır.");
 
-            var tcKimlikKullanimda = await QuerySoforler()
-                .AnyAsync(s => s.Id != currentId && s.TcKimlikNo == sofor.TcKimlikNo);
+            var tcKimlikDegisti = existing == null || !string.Equals(existingTcKimlikNo, normalizedTcKimlikNo, StringComparison.Ordinal);
 
-            if (tcKimlikKullanimda)
-                throw new InvalidOperationException($"'{sofor.TcKimlikNo}' TC Kimlik No zaten kullanımda.");
+            var tcKimlikCakisanKayit = tcKimlikDegisti
+                ? await _context.Soforler
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id != currentId && s.TcKimlikNo == normalizedTcKimlikNo)
+                : null;
+
+            if (tcKimlikCakisanKayit != null)
+            {
+                var durum = tcKimlikCakisanKayit.IsDeleted ? "silinmiş" : "aktif";
+                throw new InvalidOperationException($"'{normalizedTcKimlikNo}' TC Kimlik No zaten kullanımda. Çakışan kayıt Id: {tcKimlikCakisanKayit.Id} ({durum}).");
+            }
         }
 
-        var kodKullanimda = await QuerySoforler()
-            .AnyAsync(s => s.Id != currentId && s.SoforKodu == sofor.SoforKodu);
+        var kodDegisti = existing == null || !string.Equals(existingSoforKodu, normalizedSoforKodu, StringComparison.Ordinal);
 
-        if (kodKullanimda)
-            throw new InvalidOperationException($"'{sofor.SoforKodu}' personel kodu zaten kullanımda.");
+        var kodCakisanKayit = kodDegisti
+            ? await _context.Soforler
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id != currentId && s.SoforKodu == normalizedSoforKodu)
+            : null;
+
+        if (kodCakisanKayit != null)
+        {
+            var durum = kodCakisanKayit.IsDeleted ? "silinmiş" : "aktif";
+            throw new InvalidOperationException($"'{normalizedSoforKodu}' personel kodu zaten kullanımda. Çakışan kayıt Id: {kodCakisanKayit.Id} ({durum}).");
+        }
     }
 
     private static void NormalizeSofor(Sofor sofor)
     {
-        sofor.SoforKodu = string.IsNullOrWhiteSpace(sofor.SoforKodu) ? string.Empty : sofor.SoforKodu.Trim().ToUpperInvariant();
+        sofor.SoforKodu = NormalizeSoforKodu(sofor.SoforKodu);
         sofor.Ad = string.IsNullOrWhiteSpace(sofor.Ad) ? string.Empty : sofor.Ad.Trim();
         sofor.Soyad = string.IsNullOrWhiteSpace(sofor.Soyad) ? string.Empty : sofor.Soyad.Trim();
-        sofor.TcKimlikNo = NormalizeNullableText(sofor.TcKimlikNo)?.Replace(" ", string.Empty);
+        sofor.TcKimlikNo = NormalizeTcKimlikNo(sofor.TcKimlikNo);
         sofor.Telefon = NormalizeNullableText(sofor.Telefon);
         sofor.Email = NormalizeNullableText(sofor.Email);
         sofor.Adres = NormalizeNullableText(sofor.Adres);
@@ -275,6 +318,19 @@ public class SoforService : ISoforService
 
     private static string? NormalizeNullableText(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string NormalizeSoforKodu(string? value)
+        => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToUpperInvariant();
+
+    private static string? NormalizeTcKimlikNo(string? value)
+    {
+        var normalized = NormalizeNullableText(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        var digitsOnly = new string(normalized.Where(char.IsDigit).ToArray());
+        return string.IsNullOrWhiteSpace(digitsOnly) ? null : digitsOnly;
+    }
 
     private static void NormalizeMaasBilgileri(Sofor sofor)
     {

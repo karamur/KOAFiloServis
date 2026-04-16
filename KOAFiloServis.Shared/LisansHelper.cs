@@ -1,11 +1,13 @@
-using System;
+﻿using System;
 using System.Management;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Win32;
+using System.Runtime.Versioning;
 
 namespace KOAFiloServis.Shared;
 
+[SupportedOSPlatform("windows")]
 public static class LisansHelper
 {
     private static readonly Lazy<string> CachedMachineCode = new(GenerateMachineCode);

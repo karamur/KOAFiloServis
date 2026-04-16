@@ -788,8 +788,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Aciklama).HasMaxLength(500);
             entity.Property(e => e.Notlar).HasMaxLength(1000);
             entity.Property(e => e.Miktar).HasPrecision(18, 2);
+            entity.Property(e => e.ToplamKismiOdenen).HasPrecision(18, 2);
             entity.Property(e => e.Durum).HasConversion<int>();
             entity.HasQueryFilter(e => !e.IsDeleted);
+
+            // Self-referencing ilişkiler (Kısmi ödeme dönem aktarımı)
+            entity.HasOne(e => e.SonrakiDonemOdeme)
+                .WithOne()
+                .HasForeignKey<BudgetOdeme>(e => e.SonrakiDonemOdemeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.OncekiDonemOdeme)
+                .WithOne()
+                .HasForeignKey<BudgetOdeme>(e => e.OncekiDonemOdemeId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Budget Masraf Kalemi

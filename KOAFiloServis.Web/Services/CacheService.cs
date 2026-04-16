@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Threading;
@@ -164,14 +164,14 @@ public class CacheService : ICacheService
         // Cache'de yoksa factory ile oluştur
         _logger.LogDebug("Cache MISS: {Key}, factory çağrılıyor", key);
         var value = await factory();
-        
+
         // Cache'e yaz
         if (value != null)
         {
             await SetAsync(key, value, absoluteExpiration ?? DefaultExpiration, cancellationToken);
         }
-        
-        return value;
+
+        return value!;
     }
 
     public async Task RefreshAsync(string key, CancellationToken cancellationToken = default)

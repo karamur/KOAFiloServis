@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
@@ -679,10 +679,12 @@ public class FaturaSablonService : IFaturaSablonService
                             try
                             {
                                 var logoBytes = Convert.FromBase64String(logoData);
+#pragma warning disable CS0618
                                 firmaCol.Item()
                                     .Width(sablon.LogoGenislik)
                                     .Height(sablon.LogoYukseklik)
                                     .Image(logoBytes, ImageScaling.FitArea);
+#pragma warning restore CS0618
                             }
                             catch
                             {
@@ -959,7 +961,9 @@ public class FaturaSablonService : IFaturaSablonService
                                 try
                                 {
                                     var kaseBytes = Convert.FromBase64String(sablon.KaseResmi);
+#pragma warning disable CS0618
                                     kaseCol.Item().Width(100).Height(60).Image(kaseBytes, ImageScaling.FitArea);
+#pragma warning restore CS0618
                                 }
                                 catch { }
                             }

@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
@@ -195,10 +195,12 @@ public class LisansService : ILisansService
             
             if (lisansBilgi == null)
                 throw new Exception("Geçersiz lisans formatı - JSON parse edilemedi");
-            
+
             // Makine kodu kontrolü
+#pragma warning disable CA1416
             var currentMakineKodu = KOAFiloServis.Shared.LisansHelper.NormalizeMachineCode(GetMakineKoduAsync().Result);
             var lisansMakineKodu = KOAFiloServis.Shared.LisansHelper.NormalizeMachineCode(lisansBilgi.MakineKodu);
+#pragma warning restore CA1416
             if (!string.Equals(lisansMakineKodu, currentMakineKodu, StringComparison.Ordinal))
             {
                 throw new Exception($"Bu lisans başka bir bilgisayar için oluşturulmuş!\n\nLisans Makine Kodu: {lisansBilgi.MakineKodu}\nBu PC Makine Kodu: {currentMakineKodu}");

@@ -1,4 +1,4 @@
-@page "/butce"
+﻿@page "/butce"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
@@ -407,13 +407,34 @@
                                                         <br /><small class="text-muted">@odeme.Aciklama</small>
                                                     }
                                                 </td>
-                                                <td class="text-end"><strong>@FormatPara(odeme.Miktar)</strong></td>
-                                                <td class="text-center">
-                                                    @if (odeme.TaksitliMi)
-                                                    {
-                                                        <span class="badge bg-info">@odeme.KacinciTaksit/@odeme.ToplamTaksitSayisi</span>
-                                                    }
-                                                </td>
+                                                <td class="text-end">
+                                                        <strong>@FormatPara(odeme.Miktar)</strong>
+                                                        @if (odeme.KismiOdemeMi && odeme.ToplamKismiOdenen > 0)
+                                                        {
+                                                            <br/>
+                                                            <small class="text-success">Ödenen: @FormatPara(odeme.ToplamKismiOdenen)</small>
+                                                            <br/>
+                                                            <small class="text-warning fw-bold">Kalan: @FormatPara(odeme.Miktar - odeme.ToplamKismiOdenen)</small>
+                                                        }
+                                                    </td>
+                                                    <td class="text-center">
+                                                        @if (odeme.TaksitliMi)
+                                                        {
+                                                            <span class="badge bg-info">@odeme.KacinciTaksit/@odeme.ToplamTaksitSayisi</span>
+                                                        }
+                                                        @if (odeme.Durum == OdemeDurum.KismiOdendi)
+                                                        {
+                                                            <span class="badge bg-warning text-dark" title="Kısmi ödenmiş">
+                                                                <i class="bi bi-pie-chart-fill"></i> %@odeme.OdemeYuzdesi
+                                                            </span>
+                                                        }
+                                                        @if (odeme.OncekiDonemOdemeId.HasValue)
+                                                        {
+                                                            <span class="badge bg-secondary" title="Önceki dönemden devir">
+                                                                <i class="bi bi-arrow-left-circle"></i>
+                                                            </span>
+                                                        }
+                                                    </td>
                                                 <td class="text-center">
                                                     <div class="btn-group btn-group-sm">
                                                         <button class="btn btn-success py-0 px-1" @onclick="() => OdemeYapModalAc(odeme)" title="Ode">
@@ -711,8 +732,65 @@
                             <div class="text-end">
                                 <small class="text-muted">Tutar:</small><br/>
                                 <strong class="text-danger fs-5">@FormatPara(odemeYapilacak.Miktar)</strong>
+                                @if (odemeYapilacak.KismiOdemeMi && odemeYapilacak.ToplamKismiOdenen > 0)
+                                {
+                                    <br/>
+                                    <small class="text-success">Ödenen: @FormatPara(odemeYapilacak.ToplamKismiOdenen)</small>
+                                    <br/>
+                                    <small class="text-warning fw-bold">Kalan: @FormatPara(odemeYapilacak.Miktar - odemeYapilacak.ToplamKismiOdenen)</small>
+                                }
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Kısmi Ödeme Seçeneği -->
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="kismiOdemeSwitch" @bind="kismiOdemeAktif">
+                            <label class="form-check-label" for="kismiOdemeSwitch">
+                                <i class="bi bi-pie-chart me-1"></i>Kısmi Ödeme Yap
+                            </label>
+                        </div>
+                        @if (kismiOdemeAktif)
+                        {
+                            <div class="card border-warning mt-2">
+                                <div class="card-body py-2">
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-md-6">
+                                            <label class="form-label small mb-1">Ödenecek Tutar *</label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" @bind="kismiOdemeTutari" step="0.01" 
+                                                       max="@(odemeYapilacak.Miktar - odemeYapilacak.ToplamKismiOdenen)" />
+                                                <span class="input-group-text">₺</span>
+                                            </div>
+                                            <small class="text-muted">Kalan: @FormatPara(odemeYapilacak.Miktar - odemeYapilacak.ToplamKismiOdenen)</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check mt-3">
+                                                <input class="form-check-input" type="checkbox" id="sonrakiDonemeAktar" @bind="kalanSonrakiDonemeAktarilsin">
+                                                <label class="form-check-label" for="sonrakiDonemeAktar">
+                                                    <i class="bi bi-arrow-right-circle me-1"></i>Kalan tutarı sonraki döneme aktar
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if (kalanSonrakiDonemeAktarilsin && kismiOdemeTutari > 0)
+                                    {
+                                        var kalanTutar = (odemeYapilacak.Miktar - odemeYapilacak.ToplamKismiOdenen) - kismiOdemeTutari;
+                                        if (kalanTutar > 0)
+                                        {
+                                            var sonrakiAy = odemeYapilacak.OdemeAy + 1;
+                                            var sonrakiYil = odemeYapilacak.OdemeYil;
+                                            if (sonrakiAy > 12) { sonrakiAy = 1; sonrakiYil++; }
+                                            <div class="alert alert-light border-warning mb-0 mt-2 py-1 small">
+                                                <i class="bi bi-info-circle me-1 text-warning"></i>
+                                                Kalan <strong>@FormatPara(kalanTutar)</strong>, <strong>@GetAyAdi(sonrakiAy) @sonrakiYil</strong> dönemine aktarılacak.
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
 
                     <div class="row g-3">
@@ -1051,6 +1129,7 @@
                         <label class="form-label">Durum</label>
                         <select class="form-select" @bind="editOdeme.Durum">
                             <option value="@OdemeDurum.Bekliyor">Bekliyor</option>
+                            <option value="@OdemeDurum.KismiOdendi">Kısmi Ödendi</option>
                             <option value="@OdemeDurum.Odendi">Odendi</option>
                             <option value="@OdemeDurum.Ertelendi">Ertelendi</option>
                             <option value="@OdemeDurum.Iptal">Iptal</option>
@@ -1674,6 +1753,11 @@
     private List<TekrarlayanOdeme>? tekrarlayanOdemeler;
     private TekrarlayanOdeme editTekrarlayan = new();
 
+    // Kısmi Ödeme
+    private bool kismiOdemeAktif = false;
+    private decimal kismiOdemeTutari = 0;
+    private bool kalanSonrakiDonemeAktarilsin = false;
+
     // Kategori & Trend Analiz
     private List<BudgetKategoriOzet> kategoriOzetleri = new();
     private List<BudgetTrendData> trendData = new();
@@ -1978,6 +2062,10 @@
             KostMerkeziKodu = string.Empty,
             ProjeKodu = string.Empty
         };
+        // Kısmi ödeme değişkenlerini sıfırla
+        kismiOdemeAktif = false;
+        kismiOdemeTutari = 0;
+        kalanSonrakiDonemeAktarilsin = false;
         showOdemeYapModal = true;
     }
 
@@ -2006,28 +2094,84 @@
             return;
         }
 
+        // Kısmi ödeme validasyonu
+        if (kismiOdemeAktif)
+        {
+            var kalanTutar = odemeYapilacak.Miktar - odemeYapilacak.ToplamKismiOdenen;
+            if (kismiOdemeTutari <= 0)
+            {
+                ToastService.ShowWarning("Kısmi ödeme tutarı 0'dan büyük olmalıdır!");
+                return;
+            }
+            if (kismiOdemeTutari > kalanTutar)
+            {
+                ToastService.ShowWarning($"Kısmi ödeme tutarı kalan tutardan ({FormatPara(kalanTutar)}) fazla olamaz!");
+                return;
+            }
+        }
+
         isKaydediliyor = true;
         StateHasChanged();
 
         try
         {
             var odenenId = odemeYapilacak.Id;
-            await BudgetService.OdemeYapAsync(odenenId, odemeYapRequest);
+            string mesaj;
 
-            var mesaj = odemeYapRequest.OdemeTipi == Services.OdemeTipi.CariMahsup
-                ? $"{odemeYapRequest.CaridenTahsilat switch { true => "Cari mahsup tahsilat", false => "Cari mahsup ödeme" }} kaydedildi! ({FormatPara(NetOdemeTutari)})"
-                : $"{odemeYapilacak.MasrafKalemi} ödendi! ({FormatPara(NetOdemeTutari)})";
-            if (ToplamEkMasraf > 0)
-                mesaj += $" - Ek Masraf: {FormatPara(ToplamEkMasraf)}";
+            if (kismiOdemeAktif)
+            {
+                // Kısmi ödeme işlemi
+                var kismiRequest = new KismiOdemeRequest
+                {
+                    OdenecekTutar = kismiOdemeTutari,
+                    OdemeTarihi = odemeYapRequest.OdemeTarihi,
+                    BankaHesapId = odemeYapRequest.BankaHesapId,
+                    OdemeTipi = odemeYapRequest.OdemeTipi,
+                    Aciklama = odemeYapRequest.OdemeNotu,
+                    KalanSonrakiDonemeAktarilsin = kalanSonrakiDonemeAktarilsin,
+                    CariId = odemeYapRequest.CariId,
+                    MasrafKesintisi = odemeYapRequest.MasrafKesintisi,
+                    CezaKesintisi = odemeYapRequest.CezaKesintisi,
+                    DigerKesinti = odemeYapRequest.DigerKesinti,
+                    KesintiAciklamasi = odemeYapRequest.KesintiAciklamasi
+                };
+
+                var sonuc = await BudgetService.KismiOdemeYapAsync(odenenId, kismiRequest);
+
+                var kalanTutar = odemeYapilacak.Miktar - odemeYapilacak.ToplamKismiOdenen - kismiOdemeTutari;
+                mesaj = $"Kısmi ödeme kaydedildi! ({FormatPara(kismiOdemeTutari)})";
+
+                if (kalanTutar > 0)
+                {
+                    mesaj += $" - Kalan: {FormatPara(kalanTutar)}";
+                    if (kalanSonrakiDonemeAktarilsin && sonuc.SonrakiDonemOdemeId.HasValue)
+                    {
+                        mesaj += " (Sonraki döneme aktarıldı)";
+                    }
+                }
+                else
+                {
+                    mesaj = $"{odemeYapilacak.MasrafKalemi} tamamen ödendi! ({FormatPara(odemeYapilacak.Miktar)})";
+                }
+            }
+            else
+            {
+                // Normal ödeme işlemi
+                await BudgetService.OdemeYapAsync(odenenId, odemeYapRequest);
+
+                mesaj = odemeYapRequest.OdemeTipi == Services.OdemeTipi.CariMahsup
+                    ? $"{odemeYapRequest.CaridenTahsilat switch { true => "Cari mahsup tahsilat", false => "Cari mahsup ödeme" }} kaydedildi! ({FormatPara(NetOdemeTutari)})"
+                    : $"{odemeYapilacak.MasrafKalemi} ödendi! ({FormatPara(NetOdemeTutari)})";
+                if (ToplamEkMasraf > 0)
+                    mesaj += $" - Ek Masraf: {FormatPara(ToplamEkMasraf)}";
+
+                // Ödenen kaydı seçili gün listesinden kaldır (tam ödeme için)
+                secilenGunOdemeleri.RemoveAll(o => o.Id == odenenId);
+                bekleyenOdemeler.RemoveAll(o => o.Id == odenenId);
+            }
 
             ToastService.ShowSuccess(mesaj);
             ModalKapat();
-
-            // Ödenen kaydı seçili gün listesinden kaldır
-            secilenGunOdemeleri.RemoveAll(o => o.Id == odenenId);
-
-            // Bekleyen ödemeler listesinden de kaldır
-            bekleyenOdemeler.RemoveAll(o => o.Id == odenenId);
 
             // Hesap bakiyelerini güncelle
             hesapBakiyeleri = await BankaHesapService.GetTumHesapBakiyeleriAsync();
@@ -2039,7 +2183,7 @@
             if (secilenGun.HasValue)
             {
                 var gunData = takvimData?.FirstOrDefault(t => t.Gun == secilenGun.Value);
-                secilenGunOdemeleri = gunData?.Odemeler?.Where(o => o.Durum == OdemeDurum.Bekliyor).ToList() ?? new List<BudgetOdeme>();
+                secilenGunOdemeleri = gunData?.Odemeler?.Where(o => o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi).ToList() ?? new List<BudgetOdeme>();
             }
         }
         catch (Exception ex)

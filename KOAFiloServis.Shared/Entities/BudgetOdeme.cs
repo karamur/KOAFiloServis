@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KOAFiloServis.Shared.Entities;
@@ -59,9 +59,18 @@ public class BudgetOdeme : BaseEntity
     public int? FaturaId { get; set; }
     public bool FaturaIleKapatildi { get; set; } = false;
 
+    // Kısmi ödeme bilgileri
+    public bool KismiOdemeMi { get; set; } = false;
+    public decimal ToplamKismiOdenen { get; set; } = 0; // Şimdiye kadar ödenen toplam
+    public bool KalanSonrakiDonemeAktarilsin { get; set; } = false; // Kalan tutar sonraki döneme aktarılsın mı
+    public int? SonrakiDonemOdemeId { get; set; } // Sonraki dönemde oluşturulan ödeme ID'si
+    public int? OncekiDonemOdemeId { get; set; } // Bu ödeme bir önceki dönemden aktarıldıysa, ana ödeme ID'si
+
     // Navigation
     public virtual BankaHesap? OdemeYapildigiHesap { get; set; }
     public virtual Fatura? Fatura { get; set; }
+    public virtual BudgetOdeme? SonrakiDonemOdeme { get; set; }
+    public virtual BudgetOdeme? OncekiDonemOdeme { get; set; }
 
     [NotMapped]
     public string? HareketKaynakGorunumu { get; set; }
@@ -81,6 +90,14 @@ public class BudgetOdeme : BaseEntity
     public bool OdenmisVeyaKapatilmis => Durum == OdemeDurum.Odendi || FaturaIleKapatildi;
     public decimal ToplamEkMasraf => MasrafKesintisi + CezaKesintisi + DigerKesinti;
     public decimal NetOdenenTutar => (OdenenTutar ?? Miktar) + ToplamEkMasraf;
+
+    // Kısmi ödeme hesaplanan alanlar
+    [NotMapped]
+    public decimal KalanTutar => Miktar - ToplamKismiOdenen;
+    [NotMapped]
+    public bool TamamenOdendi => KalanTutar <= 0;
+    [NotMapped]
+    public decimal OdemeYuzdesi => Miktar > 0 ? Math.Round(ToplamKismiOdenen / Miktar * 100, 1) : 0;
 }
 
 public enum OdemeDurum
@@ -88,7 +105,8 @@ public enum OdemeDurum
     Bekliyor = 1,
     Odendi = 2,
     Iptal = 3,
-    Ertelendi = 4
+    Ertelendi = 4,
+    KismiOdendi = 5 // Yeni: Kısmi ödeme yapıldı
 }
 
 /// <summary>

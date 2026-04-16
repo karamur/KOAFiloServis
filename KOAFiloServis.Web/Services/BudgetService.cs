@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -49,7 +49,7 @@ public class BudgetService : IBudgetService
     {
         var query = _context.BudgetOdemeler
             .Where(o => o.OdemeYil == yil && 
-                        o.Durum == OdemeDurum.Bekliyor);
+                        (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi));
 
         if (ay.HasValue)
             query = query.Where(o => o.OdemeAy == ay.Value);
@@ -65,7 +65,7 @@ public class BudgetService : IBudgetService
         var baslangicUtc = DateTime.SpecifyKind(donemBaslangic.Date, DateTimeKind.Utc);
 
         var query = _context.BudgetOdemeler
-            .Where(o => o.Durum == OdemeDurum.Bekliyor && o.OdemeTarihi < baslangicUtc);
+            .Where(o => (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi) && o.OdemeTarihi < baslangicUtc);
 
         if (firmaId.HasValue)
             query = query.Where(o => o.FirmaId == firmaId.Value);
@@ -2077,6 +2077,310 @@ public class BudgetService : IBudgetService
         }
 
         return ozet;
+    }
+
+    #endregion
+
+    #region Kısmi Ödeme İşlemleri
+
+    public async Task<BudgetOdeme> KismiOdemeYapAsync(int odemeId, KismiOdemeRequest request)
+    {
+        var odeme = await _context.BudgetOdemeler
+            .Include(o => o.OdemeYapildigiHesap)
+            .FirstOrDefaultAsync(o => o.Id == odemeId);
+
+        if (odeme == null)
+            throw new Exception("Ödeme kaydı bulunamadı.");
+
+        if (odeme.Durum == OdemeDurum.Odendi)
+            throw new Exception("Bu ödeme zaten tamamlanmış.");
+
+        if (request.OdenecekTutar <= 0)
+            throw new Exception("Ödenecek tutar 0'dan büyük olmalıdır.");
+
+        var kalanTutar = odeme.Miktar - odeme.ToplamKismiOdenen;
+        if (request.OdenecekTutar > kalanTutar)
+            throw new Exception($"Ödenecek tutar kalan tutardan ({kalanTutar:N2} TL) fazla olamaz.");
+
+        // Banka/Kasa hareketi oluştur
+        if (request.BankaHesapId.HasValue && request.BankaHesapId > 0)
+        {
+            var hareket = new BankaKasaHareket
+            {
+                BankaHesapId = request.BankaHesapId.Value,
+                IslemTarihi = DateTime.SpecifyKind(request.OdemeTarihi, DateTimeKind.Utc),
+                HareketTipi = HareketTipi.Cikis,
+                Tutar = request.OdenecekTutar + Math.Abs(request.MasrafKesintisi) + Math.Abs(request.CezaKesintisi) + Math.Abs(request.DigerKesinti),
+                IslemKaynak = IslemKaynak.Butce,
+                Aciklama = $"[Kısmi Ödeme] {odeme.MasrafKalemi} - {odeme.Aciklama}",
+                BelgeNo = $"KO-{odeme.Id}-{DateTime.Now:yyyyMMddHHmmss}",
+                CariId = request.CariId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _bankaKasaHareketService.CreateAsync(hareket);
+        }
+
+        // Ödeme bilgilerini güncelle
+        odeme.ToplamKismiOdenen += request.OdenecekTutar;
+        odeme.KismiOdemeMi = true;
+        odeme.MasrafKesintisi += request.MasrafKesintisi;
+        odeme.CezaKesintisi += request.CezaKesintisi;
+        odeme.DigerKesinti += request.DigerKesinti;
+        odeme.KesintiAciklamasi = request.KesintiAciklamasi;
+        odeme.KalanSonrakiDonemeAktarilsin = request.KalanSonrakiDonemeAktarilsin;
+        odeme.OdemeYapildigiHesapId = request.BankaHesapId;
+        odeme.GercekOdemeTarihi = DateTime.SpecifyKind(request.OdemeTarihi, DateTimeKind.Utc);
+        odeme.UpdatedAt = DateTime.UtcNow;
+
+        // Tamamı ödendiyse durumu güncelle
+        if (odeme.ToplamKismiOdenen >= odeme.Miktar)
+        {
+            odeme.Durum = OdemeDurum.Odendi;
+            odeme.OdenenTutar = odeme.ToplamKismiOdenen;
+        }
+        else
+        {
+            odeme.Durum = OdemeDurum.KismiOdendi;
+        }
+
+        // Kalan tutarı sonraki döneme aktarma işlemi
+        if (request.KalanSonrakiDonemeAktarilsin && odeme.Durum == OdemeDurum.KismiOdendi)
+        {
+            var sonrakiOdeme = await KalanTutariSonrakiDonemeAktarAsync(odeme.Id);
+            if (sonrakiOdeme != null)
+            {
+                odeme.SonrakiDonemOdemeId = sonrakiOdeme.Id;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+        return odeme;
+    }
+
+    public async Task<BudgetOdeme?> KalanTutariSonrakiDonemeAktarAsync(int odemeId)
+    {
+        var odeme = await _context.BudgetOdemeler.FindAsync(odemeId);
+        if (odeme == null) return null;
+
+        var kalanTutar = odeme.Miktar - odeme.ToplamKismiOdenen;
+        if (kalanTutar <= 0) return null;
+
+        // Sonraki ay/yıl hesapla
+        var sonrakiAy = odeme.OdemeAy + 1;
+        var sonrakiYil = odeme.OdemeYil;
+        if (sonrakiAy > 12)
+        {
+            sonrakiAy = 1;
+            sonrakiYil++;
+        }
+
+        // Yeni dönem için kalan tutarla ödeme oluştur
+        var yeniOdeme = new BudgetOdeme
+        {
+            OdemeTarihi = DateTime.SpecifyKind(new DateTime(sonrakiYil, sonrakiAy, 1), DateTimeKind.Utc),
+            OdemeAy = sonrakiAy,
+            OdemeYil = sonrakiYil,
+            MasrafKalemi = odeme.MasrafKalemi,
+            Aciklama = $"[Devir] {odeme.Aciklama} - Önceki dönemden kalan",
+            Miktar = kalanTutar,
+            FirmaId = odeme.FirmaId,
+            Durum = OdemeDurum.Bekliyor,
+            OncekiDonemOdemeId = odeme.Id,
+            Notlar = $"Önceki dönem ödeme ID: {odeme.Id}, Orijinal tutar: {odeme.Miktar:N2} TL, Ödenen: {odeme.ToplamKismiOdenen:N2} TL",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.BudgetOdemeler.Add(yeniOdeme);
+        await _context.SaveChangesAsync();
+
+        // Ana ödemeyi güncelle
+        odeme.SonrakiDonemOdemeId = yeniOdeme.Id;
+        odeme.KalanSonrakiDonemeAktarilsin = true;
+        await _context.SaveChangesAsync();
+
+        return yeniOdeme;
+    }
+
+    public async Task<List<BudgetOdeme>> GetKismiOdenmislerAsync(int yil, int? ay = null, int? firmaId = null)
+    {
+        var query = _context.BudgetOdemeler
+            .Include(o => o.OdemeYapildigiHesap)
+            .Include(o => o.Firma)
+            .Where(o => o.OdemeYil == yil && o.KismiOdemeMi);
+
+        if (ay.HasValue)
+            query = query.Where(o => o.OdemeAy == ay.Value);
+
+        if (firmaId.HasValue)
+            query = query.Where(o => o.FirmaId == firmaId.Value);
+
+        return await query
+            .OrderBy(o => o.OdemeAy)
+            .ThenBy(o => o.OdemeTarihi)
+            .ToListAsync();
+    }
+
+    #endregion
+
+    #region Risk Analizi
+
+    public async Task<BudgetRiskAnalizi> GetRiskAnaliziAsync(int yil, int? ay = null, int? firmaId = null)
+    {
+        var bugun = DateTime.UtcNow;
+        var analiz = new BudgetRiskAnalizi
+        {
+            Yil = yil,
+            Ay = ay,
+            AnalizTarihi = bugun
+        };
+
+        // Tüm ödemeleri al
+        var query = _context.BudgetOdemeler
+            .Include(o => o.Firma)
+            .Where(o => o.OdemeYil == yil && !o.IsDeleted);
+
+        if (ay.HasValue)
+            query = query.Where(o => o.OdemeAy == ay.Value);
+
+        if (firmaId.HasValue)
+            query = query.Where(o => o.FirmaId == firmaId.Value);
+
+        var odemeler = await query.ToListAsync();
+
+        // Genel istatistikler
+        analiz.ToplamKayit = odemeler.Count;
+        analiz.ToplamBekleyen = odemeler.Where(o => o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi).Sum(o => o.Miktar - o.ToplamKismiOdenen);
+        analiz.ToplamKismiOdenen = odemeler.Where(o => o.KismiOdemeMi).Sum(o => o.ToplamKismiOdenen);
+        analiz.KismiOdenenKayit = odemeler.Count(o => o.KismiOdemeMi);
+
+        // Geciken ödemeler
+        var gecikenler = odemeler.Where(o => 
+            (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi) && 
+            o.OdemeTarihi < bugun).ToList();
+
+        analiz.GecikenKayit = gecikenler.Count;
+        analiz.ToplamGeciken = gecikenler.Sum(o => o.Miktar - o.ToplamKismiOdenen);
+
+        // Riskli ödemeler listesi
+        foreach (var odeme in gecikenler.OrderByDescending(o => o.Miktar - o.ToplamKismiOdenen).Take(20))
+        {
+            var gecikmeGunu = (int)(bugun - odeme.OdemeTarihi).TotalDays;
+            var kalanTutar = odeme.Miktar - odeme.ToplamKismiOdenen;
+
+            var riskSeviyesi = gecikmeGunu switch
+            {
+                <= 7 => "Normal",
+                <= 15 => "Orta",
+                <= 30 => "Yüksek",
+                _ => "Kritik"
+            };
+
+            analiz.RiskliOdemeler.Add(new RiskliOdeme
+            {
+                OdemeId = odeme.Id,
+                MasrafKalemi = odeme.MasrafKalemi,
+                Aciklama = odeme.Aciklama,
+                Tutar = odeme.Miktar,
+                KalanTutar = kalanTutar,
+                VadeTarihi = odeme.OdemeTarihi,
+                GecikmeGunu = gecikmeGunu,
+                RiskSeviyesi = riskSeviyesi,
+                RiskAciklamasi = $"{gecikmeGunu} gün gecikmiş, {kalanTutar:N2} TL ödenmemiş"
+            });
+        }
+
+        // Kategori bazlı risk özeti
+        var kategoriler = odemeler.GroupBy(o => o.MasrafKalemi);
+        foreach (var kategori in kategoriler)
+        {
+            var bekleyenler = kategori.Where(o => o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi).ToList();
+            var gecikenKategori = bekleyenler.Where(o => o.OdemeTarihi < bugun).ToList();
+
+            var toplamTutar = kategori.Sum(o => o.Miktar);
+            var bekleyenTutar = bekleyenler.Sum(o => o.Miktar - o.ToplamKismiOdenen);
+            var gecikenTutar = gecikenKategori.Sum(o => o.Miktar - o.ToplamKismiOdenen);
+
+            var riskSkoru = toplamTutar > 0 ? Math.Round(gecikenTutar / toplamTutar * 100, 1) : 0;
+
+            analiz.KategoriRiskleri.Add(new KategoriRiskOzeti
+            {
+                Kategori = kategori.Key,
+                ToplamTutar = toplamTutar,
+                BekleyenTutar = bekleyenTutar,
+                GecikenTutar = gecikenTutar,
+                GecikenKayit = gecikenKategori.Count,
+                RiskSkoru = riskSkoru
+            });
+        }
+
+        // Aylık trend
+        if (!ay.HasValue)
+        {
+            for (int m = 1; m <= 12; m++)
+            {
+                var aylikOdemeler = odemeler.Where(o => o.OdemeAy == m).ToList();
+                var aylikBeklenen = aylikOdemeler.Sum(o => o.Miktar);
+                var aylikGerceklesen = aylikOdemeler.Where(o => o.Durum == OdemeDurum.Odendi).Sum(o => o.OdenenTutar ?? o.Miktar);
+                var aylikGeciken = aylikOdemeler.Where(o => (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi) && o.OdemeTarihi < bugun).Sum(o => o.Miktar - o.ToplamKismiOdenen);
+
+                var aylikRiskSkoru = aylikBeklenen > 0 ? Math.Round(aylikGeciken / aylikBeklenen * 100, 1) : 0;
+
+                analiz.AylikTrendler.Add(new AylikRiskTrendi
+                {
+                    Ay = m,
+                    AyAdi = AyAdlari[m],
+                    BeklenenOdeme = aylikBeklenen,
+                    GerceklesenOdeme = aylikGerceklesen,
+                    GecikenOdeme = aylikGeciken,
+                    RiskSkoru = aylikRiskSkoru
+                });
+            }
+        }
+
+        // Risk skorları hesapla
+        var toplamOdeme = odemeler.Sum(o => o.Miktar);
+        analiz.OdemeGecikmesiRiski = toplamOdeme > 0 ? Math.Round(analiz.ToplamGeciken / toplamOdeme * 100, 1) : 0;
+        analiz.LikiditeRiski = toplamOdeme > 0 ? Math.Round(analiz.ToplamBekleyen / toplamOdeme * 100, 1) : 0;
+
+        // Hedeflerden sapma riski
+        var hedefler = await GetHedeflerAsync(yil, ay, firmaId);
+        var toplamHedef = hedefler.Sum(h => h.HedefTutar);
+        var toplamGerceklesen = odemeler.Where(o => o.Durum == OdemeDurum.Odendi).Sum(o => o.OdenenTutar ?? o.Miktar);
+        analiz.BudceSapmaRiski = toplamHedef > 0 ? Math.Round(Math.Abs(toplamGerceklesen - toplamHedef) / toplamHedef * 100, 1) : 0;
+
+        // Genel risk skoru (ağırlıklı ortalama)
+        analiz.GenelRiskSkoru = Math.Round(
+            (analiz.OdemeGecikmesiRiski * 0.5m) + 
+            (analiz.LikiditeRiski * 0.3m) + 
+            (analiz.BudceSapmaRiski * 0.2m), 1);
+
+        // Uyarılar
+        if (analiz.GecikenKayit > 0)
+            analiz.Uyarilar.Add($"⚠️ {analiz.GecikenKayit} adet gecikmiş ödeme bulunuyor (Toplam: {analiz.ToplamGeciken:N2} TL)");
+
+        if (analiz.KismiOdenenKayit > 0)
+            analiz.Uyarilar.Add($"📊 {analiz.KismiOdenenKayit} adet kısmi ödenmiş kayıt var");
+
+        if (analiz.GenelRiskSkoru > 50)
+            analiz.Uyarilar.Add($"🔴 Yüksek risk seviyesi! Genel risk skoru: {analiz.GenelRiskSkoru}");
+        else if (analiz.GenelRiskSkoru > 30)
+            analiz.Uyarilar.Add($"🟡 Orta risk seviyesi. Genel risk skoru: {analiz.GenelRiskSkoru}");
+
+        // Öneriler
+        if (analiz.ToplamGeciken > 0)
+            analiz.Oneriler.Add("💡 Geciken ödemeleri öncelikli olarak kapatmayı değerlendirin");
+
+        if (analiz.KismiOdenenKayit > 3)
+            analiz.Oneriler.Add("💡 Kısmi ödemelerin tamamlanması için ödeme planı oluşturulabilir");
+
+        var yuksekRiskliKategoriler = analiz.KategoriRiskleri.Where(k => k.RiskSkoru > 30).ToList();
+        foreach (var kategori in yuksekRiskliKategoriler)
+        {
+            analiz.Oneriler.Add($"💡 {kategori.Kategori} kategorisinde risk yüksek (%{kategori.RiskSkoru}). Bu kalem için bütçe revizyonu önerilir.");
+        }
+
+        return analiz;
     }
 
     #endregion
