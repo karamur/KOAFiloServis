@@ -65,7 +65,9 @@ public class BudgetService : IBudgetService
         var baslangicUtc = DateTime.SpecifyKind(donemBaslangic.Date, DateTimeKind.Utc);
 
         var query = _context.BudgetOdemeler
-            .Where(o => (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi) && o.OdemeTarihi < baslangicUtc);
+            .Where(o => (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi)
+                        && o.OdemeTarihi < baslangicUtc
+                        && !o.KalanSonrakiDonemeAktarilsin); // Zaten aktarılmış olanları gösterme
 
         if (firmaId.HasValue)
             query = query.Where(o => o.FirmaId == firmaId.Value);
@@ -341,7 +343,7 @@ public class BudgetService : IBudgetService
             {
                 var donemAy = request.KrediKartiOdemeAy ?? request.OdemeTarihi.Month;
                 var donemYil = request.KrediKartiOdemeYil ?? request.OdemeTarihi.Year;
-                await AddKrediKartiBorcAsync(request.BankaHesapId.Value, netOdemeTutari, donemAy, donemYil, aciklamaBuilder);
+                await AddKrediKartiBorcAsync(request.BankaHesapId.Value, netOdemeTutari, donemAy, donemYil, aciklamaBuilder, odeme.Id);
             }
 
             await CreateBudgetMuhasebeFisiAsync(odeme, request, hareket, odemeTutari, masrafKesintisi, cezaKesintisi, digerKesinti);
@@ -950,6 +952,9 @@ public class BudgetService : IBudgetService
     private static bool IsKrediKartiKalemi(string? masrafKalemi)
         => !string.IsNullOrWhiteSpace(masrafKalemi)
            && masrafKalemi.Contains("Kredi Kartı", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ShouldCreateKrediKartiBorcu(BudgetOdeme odeme, OdemeTipi odemeTipi)
+        => odemeTipi == OdemeTipi.KrediKarti && !IsKrediKartiKalemi(odeme.MasrafKalemi);
 
     private static string? BuildFinansMetaNotu(TaksitliOdemeRequest request)
     {
@@ -1783,7 +1788,10 @@ public class BudgetService : IBudgetService
         await _context.SaveChangesAsync();
     }
 
-    public async Task AddKrediKartiBorcAsync(int bankaHesapId, decimal tutar, int ay, int yil, string aciklama)
+    public Task AddKrediKartiBorcAsync(int bankaHesapId, decimal tutar, int ay, int yil, string aciklama)
+        => AddKrediKartiBorcAsync(bankaHesapId, tutar, ay, yil, aciklama, null);
+
+    public async Task AddKrediKartiBorcAsync(int bankaHesapId, decimal tutar, int ay, int yil, string aciklama, int? kaynakOdemeId = null)
     {
         // Kredi kartı hesabını al
         var hesap = await _context.BankaHesaplari.FindAsync(bankaHesapId);
@@ -1794,6 +1802,44 @@ public class BudgetService : IBudgetService
         var ekstreTarihi = new DateTime(yil, ay, DateTime.DaysInMonth(yil, ay));
         ekstreTarihi = DateTime.SpecifyKind(ekstreTarihi, DateTimeKind.Utc);
 
+        var normalizedAciklama = $"[{hesap.HesapAdi}] {aciklama}";
+        var mevcutAdaylar = await _context.BudgetOdemeler
+            .Where(o => o.MasrafKalemi == "Kredi Kartı"
+                && o.OdemeYil == yil
+                && o.OdemeAy == ay
+                && o.OdemeYapildigiHesapId == bankaHesapId)
+            .ToListAsync();
+
+        var mevcutKayit = mevcutAdaylar.FirstOrDefault(o =>
+            (kaynakOdemeId.HasValue && GetBudgetMeta(o.Notlar, "KaynakOdemeId") == kaynakOdemeId.Value.ToString())
+            || string.Equals(o.Aciklama, normalizedAciklama, StringComparison.Ordinal));
+
+        if (kaynakOdemeId.HasValue)
+        {
+            foreach (var digerKayit in mevcutAdaylar.Where(o => o.Id != mevcutKayit?.Id && GetBudgetMeta(o.Notlar, "KaynakOdemeId") == kaynakOdemeId.Value.ToString()))
+            {
+                digerKayit.IsDeleted = true;
+                digerKayit.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        if (mevcutKayit != null)
+        {
+            mevcutKayit.OdemeTarihi = ekstreTarihi;
+            mevcutKayit.OdemeAy = ay;
+            mevcutKayit.OdemeYil = yil;
+            mevcutKayit.Aciklama = normalizedAciklama;
+            mevcutKayit.Miktar = tutar;
+            mevcutKayit.Durum = OdemeDurum.Bekliyor;
+            mevcutKayit.OdemeYapildigiHesapId = bankaHesapId;
+            mevcutKayit.TaksitGrupId = hesap.KrediTaksitGrupId;
+            mevcutKayit.Notlar = UpsertBudgetMeta(mevcutKayit.Notlar, "FinansKaynakHesapId", bankaHesapId.ToString());
+            mevcutKayit.Notlar = UpsertBudgetMeta(mevcutKayit.Notlar, "KaynakOdemeId", kaynakOdemeId?.ToString());
+            mevcutKayit.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return;
+        }
+
         // BudgetOdeme olarak kaydet
         var odeme = new BudgetOdeme
         {
@@ -1801,12 +1847,15 @@ public class BudgetService : IBudgetService
             OdemeAy = ay,
             OdemeYil = yil,
             MasrafKalemi = "Kredi Kartı",
-            Aciklama = $"[{hesap.HesapAdi}] {aciklama}",
+            Aciklama = normalizedAciklama,
             Miktar = tutar,
             Durum = OdemeDurum.Bekliyor,
             OdemeYapildigiHesapId = bankaHesapId,
             TaksitGrupId = hesap.KrediTaksitGrupId, // Kredi kartı ile ilişkilendir
-            Notlar = UpsertBudgetMeta(null, "FinansKaynakHesapId", bankaHesapId.ToString()),
+            Notlar = UpsertBudgetMeta(
+                UpsertBudgetMeta(null, "FinansKaynakHesapId", bankaHesapId.ToString()),
+                "KaynakOdemeId",
+                kaynakOdemeId?.ToString()),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -2152,7 +2201,7 @@ public class BudgetService : IBudgetService
             {
                 var donemAy = request.HedefAy ?? request.OdemeTarihi.Month;
                 var donemYil = request.HedefYil ?? request.OdemeTarihi.Year;
-                await AddKrediKartiBorcAsync(request.BankaHesapId.Value, hareket.Tutar, donemAy, donemYil, hareket.Aciklama);
+                await AddKrediKartiBorcAsync(request.BankaHesapId.Value, hareket.Tutar, donemAy, donemYil, hareket.Aciklama, odeme.Id);
             }
         }
 
