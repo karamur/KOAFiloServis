@@ -38,7 +38,56 @@
             </div>
         }
 
- @*        <!-- EBYS BELGE YONETIMI -->
+        <!-- EBYS BELGE YÖNETİMİ -->
+        @if (HasMenuYetki("menu.ebys"))
+        {
+            <div class="nav-section">
+                <div class="nav-section-header" @onclick="() => ToggleSection(15)" style="cursor: pointer;">
+                    <span><i class="bi bi-folder2-open me-2"></i>EBYS BELGE YÖNETİMİ</span>
+                    <i class="bi @(expandedSections.Length > 15 && expandedSections[15] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </div>
+                @if (expandedSections.Length > 15 && expandedSections[15])
+                {
+                    <div class="nav-section-content">
+                        @if (HasYetki("ebys.oku") || HasYetki("belgeuyari.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ebys">
+                                    <i class="bi bi-folder2-open me-2 text-info"></i> Belge Merkezi
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ebys/arama">
+                                    <i class="bi bi-search me-2 text-primary"></i> Belge Arama
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ebys/gelen">
+                                    <i class="bi bi-inbox-fill me-2 text-primary"></i> Gelen Evraklar
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ebys/giden">
+                                    <i class="bi bi-send-fill me-2 text-success"></i> Giden Evraklar
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ebys/takip">
+                                    <i class="bi bi-kanban-fill me-2 text-warning"></i> Evrak Takip
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ebys/kategoriler">
+                                    <i class="bi bi-folder2 me-2 text-secondary"></i> Evrak Kategorileri
+                                </NavLink>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+ @*        <!-- EBYS BELGE YONETIMI (Eski / Yorumlu) -->
         @if (HasYetki("belgeuyari.oku"))
         {
             <div class="nav-section">
@@ -1328,6 +1377,8 @@
                 return new[] { "satis", "piyasa", "ilan" };
             case "menu.ayarlar":
                 return new[] { "firma", "ayarlar", "kullanici", "rol", "veritabani", "sistemdurumu", "aktivitelog", "yedekleme", "guncelleme", "destektalebi", "piyasakaynak" };
+            case "menu.ebys":
+                return new[] { "ebys", "evrak", "belgeuyari" };
             default:
                 return Array.Empty<string>();
         }
