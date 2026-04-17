@@ -5,6 +5,7 @@
 @inject IAracService AracService
 @inject IToastService ToastService
 @inject IJSRuntime JS
+@inject IAktiviteLogService AktiviteLog
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 
@@ -521,6 +522,7 @@
         try
         {
             var bytes = await AracService.GetEvrakDosyaAsync(dosya.Id);
+            await AktiviteLog.LogGoruntulemeAsync("Araçlar", "AracEvrakDosya", dosya.Id, dosya.DosyaAdi, $"Araç evrak indirildi: {dosya.DosyaAdi}");
             await JS.InvokeVoidAsync("downloadFileFromBase64", dosya.DosyaAdi, Convert.ToBase64String(bytes));
         }
         catch (Exception ex)

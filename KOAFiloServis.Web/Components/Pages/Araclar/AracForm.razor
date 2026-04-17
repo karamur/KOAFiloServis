@@ -1,4 +1,4 @@
-@page "/araclar/yeni"
+﻿@page "/araclar/yeni"
 @page "/araclar/{Id:int}"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -8,6 +8,7 @@
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject IAktiviteLogService AktiviteLog
 @rendermode InteractiveServer
 
 <PageTitle>@(IsEdit ? "Araç Düzenle" : "Yeni Araç")</PageTitle>
@@ -932,6 +933,7 @@
         {
             var content = await AracService.GetEvrakDosyaAsync(dosya.Id);
             var fileName = dosya.DosyaAdi ?? $"dosya.{dosya.DosyaTipi}";
+            await AktiviteLog.LogGoruntulemeAsync("Araçlar", "AracEvrakDosya", dosya.Id, fileName, $"Araç evrak indirildi: {fileName}");
             await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(content), GetMimeType(dosya.DosyaTipi));
         }
         catch (Exception ex)

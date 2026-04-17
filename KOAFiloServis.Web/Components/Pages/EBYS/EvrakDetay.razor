@@ -8,6 +8,7 @@
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject IAktiviteLogService AktiviteLog
 @rendermode InteractiveServer
 
 <PageTitle>Evrak Detay - EBYS</PageTitle>
@@ -924,6 +925,7 @@ else
                 "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 _      => "application/octet-stream"
             };
+            await AktiviteLog.LogGoruntulemeAsync("EBYS", "EbysEvrakDosya", dosya.Id, dosya.DosyaAdi, $"Dosya indirildi: {dosya.DosyaAdi} (Evrak #{dosya.EvrakId})");
             await JS.InvokeVoidAsync("downloadFile", dosya.DosyaAdi, base64, mime);
         }
         catch (Exception ex)

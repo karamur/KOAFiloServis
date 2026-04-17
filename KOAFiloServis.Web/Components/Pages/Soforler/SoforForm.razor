@@ -12,6 +12,7 @@
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject IAktiviteLogService AktiviteLog
 @rendermode InteractiveServer
 
 <PageTitle>@(IsEdit ? "Personel Düzenle" : "Yeni Personel")</PageTitle>
@@ -989,6 +990,7 @@
             var extension = Path.GetExtension(fileName).TrimStart('.').ToLower();
             var mimeType = GetMimeType(extension);
 
+            await AktiviteLog.LogGoruntulemeAsync("Şoforler", "OzlukEvrak", 0, fileName, $"Özlük evrak indirildi: {fileName} (Şoför #{Id})");
             await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(content), mimeType);
         }
         catch (Exception ex)
