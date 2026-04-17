@@ -1,4 +1,5 @@
 using KOAFiloServis.Web.Helpers;
+using KOAFiloServis.Web.Services.Security;
 using Microsoft.AspNetCore.DataProtection;
 using System.Security.Cryptography;
 
@@ -6,17 +7,27 @@ namespace KOAFiloServis.Web.Services;
 
 public sealed class SecureFileService : ISecureFileService
 {
-    private readonly IDataProtector _protector;
+    private readonly IFileProtector _fileProtector;
+    // Eski IDataProtector ile sifrelenmis dosyalar icin fallback (gecis donemi)
+    private readonly IDataProtector _legacyProtector;
     private readonly string _storageRoot;
 
-    public SecureFileService(IDataProtectionProvider dataProtectionProvider, IWebHostEnvironment environment)
+    public SecureFileService(
+        IFileProtector fileProtector,
+        IDataProtectionProvider dataProtectionProvider,
+        IWebHostEnvironment environment)
     {
-        _protector = dataProtectionProvider.CreateProtector("KOAFiloServis.SecureFileStorage.v1");
+        _fileProtector = fileProtector;
+        _legacyProtector = dataProtectionProvider.CreateProtector("KOAFiloServis.SecureFileStorage.v1");
         _storageRoot = AppStoragePaths.GetUploadsRoot(environment.ContentRootPath);
         Directory.CreateDirectory(_storageRoot);
     }
 
-    public async Task<string> SaveEncryptedAsync(string relativeDirectory, string originalFileName, byte[] content, CancellationToken cancellationToken = default)
+    public async Task<string> SaveEncryptedAsync(
+        string relativeDirectory,
+        string originalFileName,
+        byte[] content,
+        CancellationToken cancellationToken = default)
     {
         var extension = Path.GetExtension(originalFileName);
         var safeName = string.Concat(Path.GetFileNameWithoutExtension(originalFileName)
@@ -25,7 +36,8 @@ public sealed class SecureFileService : ISecureFileService
         var fileName = $"{safeName}_{DateTime.UtcNow:yyyyMMddHHmmssfff}_{Guid.NewGuid():N}{extension}.enc";
         var relativePath = NormalizeRelativePath(Path.Combine(relativeDirectory, fileName));
         var fullPath = ResolveFullPath(relativePath);
-        var encrypted = _protector.Protect(content);
+
+        var encrypted = _fileProtector.Protect(content);
 
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         await File.WriteAllBytesAsync(fullPath, encrypted, cancellationToken);
@@ -33,7 +45,9 @@ public sealed class SecureFileService : ISecureFileService
         return relativePath;
     }
 
-    public async Task<byte[]?> ReadDecryptedAsync(string? relativePath, CancellationToken cancellationToken = default)
+    public async Task<byte[]?> ReadDecryptedAsync(
+        string? relativePath,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(relativePath))
             return null;
@@ -42,35 +56,48 @@ public sealed class SecureFileService : ISecureFileService
         if (rawContent == null)
             return null;
 
+        // 1) Yeni format: KOA1 magic ile sifreli (AES-256-GCM)
+        if (rawContent.Length >= 5 &&
+            rawContent[0] == (byte)'K' && rawContent[1] == (byte)'O' &&
+            rawContent[2] == (byte)'A' && rawContent[3] == (byte)'1')
+        {
+            try
+            {
+                return _fileProtector.Unprotect(rawContent);
+            }
+            catch (CryptographicException)
+            {
+                return null;
+            }
+        }
+
+        // 2) Eski format: IDataProtector ile sifreli (geriye uyumluluk)
         try
         {
-            return _protector.Unprotect(rawContent);
+            return _legacyProtector.Unprotect(rawContent);
         }
         catch (CryptographicException)
         {
+            // 3) Ham dosya (test/migration)
             return rawContent;
         }
     }
 
-    public async Task DeleteAsync(string? relativePath, CancellationToken cancellationToken = default)
+    public Task DeleteAsync(string? relativePath, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(relativePath))
-            return;
+            return Task.CompletedTask;
 
-        var normalized = NormalizeRelativePath(relativePath);
-
-        var fullPath = ResolveFullPath(normalized);
+        var fullPath = ResolveFullPath(NormalizeRelativePath(relativePath));
         if (File.Exists(fullPath))
-        {
             File.Delete(fullPath);
-        }
+
+        return Task.CompletedTask;
     }
 
     private async Task<byte[]?> ReadRawAsync(string relativePath, CancellationToken cancellationToken)
     {
-        var normalized = NormalizeRelativePath(relativePath);
-
-        var fullPath = ResolveFullPath(normalized);
+        var fullPath = ResolveFullPath(NormalizeRelativePath(relativePath));
         if (!File.Exists(fullPath))
             return null;
 
@@ -95,9 +122,7 @@ public sealed class SecureFileService : ISecureFileService
     {
         var normalized = relativePath.Replace('\\', '/').TrimStart('/');
         if (normalized.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
-        {
             normalized = normalized.Substring("uploads/".Length);
-        }
 
         return normalized;
     }
