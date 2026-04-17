@@ -11,16 +11,16 @@ namespace KOAFiloServis.Web.Services;
 public class EbysEvrakService : IEbysEvrakService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
-    private readonly IWebHostEnvironment _environment;
+    private readonly ISecureFileService _secureFileService;
     private readonly ILogger<EbysEvrakService> _logger;
 
     public EbysEvrakService(
         IDbContextFactory<ApplicationDbContext> contextFactory,
-        IWebHostEnvironment environment,
+        ISecureFileService secureFileService,
         ILogger<EbysEvrakService> logger)
     {
         _contextFactory = contextFactory;
-        _environment = environment;
+        _secureFileService = secureFileService;
         _logger = logger;
     }
 
@@ -226,27 +226,21 @@ public class EbysEvrakService : IEbysEvrakService
     public async Task<EbysEvrakDosya> DosyaYukleAsync(int evrakId, IBrowserFile file, bool asilNusha = false)
     {
         await using var _context = await _contextFactory.CreateDbContextAsync();
-        var evrak = await _context.EbysEvraklar.FindAsync(evrakId)
-            ?? throw new InvalidOperationException("Evrak bulunamadı");
+        _ = await _context.EbysEvraklar.FindAsync(evrakId)
+            ?? throw new InvalidOperationException("Evrak bulunamadi");
 
-        // Dosya kaydetme dizini
-        var uploadFolder = Path.Combine(_environment.WebRootPath, "uploads", "ebys", evrakId.ToString());
-        Directory.CreateDirectory(uploadFolder);
+        await using var stream = file.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
 
-        var dosyaAdi = $"{Guid.NewGuid()}_{file.Name}";
-        var dosyaYolu = Path.Combine(uploadFolder, dosyaAdi);
-
-        // Dosya yükleme (max 50MB)
-        await using (var stream = new FileStream(dosyaYolu, FileMode.Create))
-        {
-            await file.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024).CopyToAsync(stream);
-        }
+        var relativePath = await _secureFileService.SaveEncryptedAsync(
+            $"ebys/{evrakId}", file.Name, ms.ToArray());
 
         var evrakDosya = new EbysEvrakDosya
         {
             EvrakId = evrakId,
             DosyaAdi = file.Name,
-            DosyaYolu = $"/uploads/ebys/{evrakId}/{dosyaAdi}",
+            DosyaYolu = relativePath,
             DosyaTipi = Path.GetExtension(file.Name).TrimStart('.'),
             DosyaBoyutu = file.Size,
             AsilNusha = asilNusha
@@ -254,9 +248,7 @@ public class EbysEvrakService : IEbysEvrakService
 
         _context.EbysEvrakDosyalar.Add(evrakDosya);
         await _context.SaveChangesAsync();
-
         await HareketEkleAsync(evrakId, 1, EbysHareketTipi.DosyaEklendi, $"Dosya eklendi: {file.Name}");
-
         return evrakDosya;
     }
 
@@ -266,22 +258,23 @@ public class EbysEvrakService : IEbysEvrakService
         return await _context.EbysEvrakDosyalar.FindAsync(dosyaId);
     }
 
+    public async Task<byte[]?> GetDosyaIcerikAsync(int dosyaId)
+    {
+        await using var _context = await _contextFactory.CreateDbContextAsync();
+        var dosya = await _context.EbysEvrakDosyalar.FindAsync(dosyaId);
+        if (dosya == null) return null;
+        return await _secureFileService.ReadDecryptedAsync(dosya.DosyaYolu);
+    }
+
     public async Task DosyaSilAsync(int dosyaId)
     {
         await using var _context = await _contextFactory.CreateDbContextAsync();
         var dosya = await _context.EbysEvrakDosyalar.FindAsync(dosyaId);
         if (dosya != null)
         {
-            // Fiziksel dosyayı sil
-            var fizikselYol = Path.Combine(_environment.WebRootPath, dosya.DosyaYolu.TrimStart('/'));
-            if (File.Exists(fizikselYol))
-            {
-                File.Delete(fizikselYol);
-            }
-
+            await _secureFileService.DeleteAsync(dosya.DosyaYolu);
             dosya.IsDeleted = true;
             await _context.SaveChangesAsync();
-
             await HareketEkleAsync(dosya.EvrakId, 1, EbysHareketTipi.DosyaSilindi, $"Dosya silindi: {dosya.DosyaAdi}");
         }
     }
@@ -290,44 +283,30 @@ public class EbysEvrakService : IEbysEvrakService
     {
         await using var _context = await _contextFactory.CreateDbContextAsync();
         var dosya = await _context.EbysEvrakDosyalar.FindAsync(dosyaId)
-            ?? throw new InvalidOperationException("Dosya bulunamadı");
+            ?? throw new InvalidOperationException("Dosya bulunamadi");
 
-        // Eski fiziksel dosyayı sil
-        var eskiFizikselYol = Path.Combine(_environment.WebRootPath, dosya.DosyaYolu.TrimStart('/'));
-        if (File.Exists(eskiFizikselYol))
-        {
-            File.Delete(eskiFizikselYol);
-        }
+        await _secureFileService.DeleteAsync(dosya.DosyaYolu);
 
-        // Yeni dosyayı kaydet
-        var klasor = Path.Combine(_environment.WebRootPath, "uploads", "ebys", dosya.EvrakId.ToString());
-        if (!Directory.Exists(klasor))
-            Directory.CreateDirectory(klasor);
+        await using var stream = file.OpenReadStream(50 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
 
-        var benzersizAd = $"{Guid.NewGuid()}_{file.Name}";
-        var yeniYol = Path.Combine(klasor, benzersizAd);
+        var relativePath = await _secureFileService.SaveEncryptedAsync(
+            $"ebys/{dosya.EvrakId}", file.Name, ms.ToArray());
 
-        await using var stream = file.OpenReadStream(50 * 1024 * 1024); // Max 50MB
-        await using var fileStream = new FileStream(yeniYol, FileMode.Create);
-        await stream.CopyToAsync(fileStream);
-
-        // Dosya bilgilerini güncelle
         dosya.DosyaAdi = file.Name;
-        dosya.DosyaYolu = $"/uploads/ebys/{dosya.EvrakId}/{benzersizAd}";
+        dosya.DosyaYolu = relativePath;
         dosya.DosyaTipi = Path.GetExtension(file.Name).TrimStart('.');
         dosya.DosyaBoyutu = file.Size;
         dosya.SonDegisiklikNotu = degisiklikNotu;
         dosya.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-
-        await HareketEkleAsync(dosya.EvrakId, 1, EbysHareketTipi.Guncellendi, 
-            $"Dosya güncellendi (v{dosya.VersiyonNo}): {file.Name}" + 
+        await HareketEkleAsync(dosya.EvrakId, 1, EbysHareketTipi.Guncellendi,
+            $"Dosya guncellendi (v{dosya.VersiyonNo}): {file.Name}" +
             (!string.IsNullOrEmpty(degisiklikNotu) ? $" - {degisiklikNotu}" : ""));
-
         return dosya;
     }
-
     #endregion
 
     #region Atama İşlemleri

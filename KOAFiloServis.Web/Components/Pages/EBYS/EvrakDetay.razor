@@ -1,4 +1,4 @@
-@page "/ebys/evrak/{Id:int}"
+﻿@page "/ebys/evrak/{Id:int}"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Data
@@ -212,9 +212,9 @@ else
                                                     <i class="bi bi-clock-history"></i>
                                                 </button>
                                             }
-                                            <a href="@dosya.DosyaYolu" target="_blank" class="btn btn-outline-primary" title="İndir">
+                                            <button class="btn btn-outline-primary" title="İndir" @onclick="() => DosyaIndir(dosya.Id)">
                                                 <i class="bi bi-download"></i>
-                                            </a>
+                                            </button>
                                             <button class="btn btn-outline-warning" @onclick="() => DosyaGuncelleAc(dosya.Id)" title="Güncelle">
                                                 <i class="bi bi-arrow-repeat"></i>
                                             </button>
@@ -467,9 +467,9 @@ else
                                             <p class="text-muted small mb-0">@FormatDosyaBoyutu(mevcutDosya.DosyaBoyutu)</p>
                                         </div>
                                         <div class="col-md-6 text-end">
-                                            <a href="@mevcutDosya.DosyaYolu" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => DosyaIndir(mevcutDosya.Id)">
                                                 <i class="bi bi-download me-1"></i>İndir
-                                            </a>
+                                            </button>
                                         </div>
                                     </div>
                                     @if (!string.IsNullOrEmpty(mevcutDosya.SonDegisiklikNotu))
@@ -506,9 +506,9 @@ else
                                             }
                                         </div>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="@v.DosyaYolu" target="_blank" class="btn btn-outline-primary" title="İndir">
+                                            <button class="btn btn-outline-primary" title="İndir" @onclick="() => DosyaIndir(v.Id)">
                                                 <i class="bi bi-download"></i>
-                                            </a>
+                                            </button>
                                             <button class="btn btn-outline-warning" @onclick="() => VersiyonGeriYukleAsync(v.Id)" title="Geri Yükle">
                                                 <i class="bi bi-arrow-counterclockwise"></i>
                                             </button>
@@ -904,5 +904,31 @@ else
             len = len / 1024;
         }
         return $"{len:0.##} {sizes[order]}";
+    }
+
+    private async Task DosyaIndir(int dosyaId)
+    {
+        try
+        {
+            var dosya = await EvrakService.GetDosyaAsync(dosyaId);
+            if (dosya == null) { ToastService.ShowError("Dosya bulunamadı."); return; }
+            var icerik = await EvrakService.GetDosyaIcerikAsync(dosyaId);
+            if (icerik == null) { ToastService.ShowError("Dosya içeriği okunamadı."); return; }
+            var base64 = Convert.ToBase64String(icerik);
+            var mime = dosya.DosyaTipi?.ToLowerInvariant() switch
+            {
+                "pdf"  => "application/pdf",
+                "png"  => "image/png",
+                "jpg" or "jpeg" => "image/jpeg",
+                "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                _      => "application/octet-stream"
+            };
+            await JS.InvokeVoidAsync("downloadFile", dosya.DosyaAdi, base64, mime);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"İndirme hatası: {ex.Message}");
+        }
     }
 }

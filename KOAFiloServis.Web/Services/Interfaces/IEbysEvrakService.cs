@@ -24,6 +24,7 @@ public interface IEbysEvrakService
     // Dosya işlemleri
     Task<EbysEvrakDosya> DosyaYukleAsync(int evrakId, IBrowserFile file, bool asilNusha = false);
     Task<EbysEvrakDosya?> GetDosyaAsync(int dosyaId);
+    Task<byte[]?> GetDosyaIcerikAsync(int dosyaId);
     Task DosyaSilAsync(int dosyaId);
     Task<EbysEvrakDosya> DosyaGuncelleAsync(int dosyaId, IBrowserFile file, string? degisiklikNotu = null);
     
@@ -125,3 +126,4 @@ public class EbysEvrakIstatistik
     public Dictionary<string, int> KategoriBazindaDagilim { get; set; } = new();
     public Dictionary<string, int> DurumBazindaDagilim { get; set; } = new();
 }
+
