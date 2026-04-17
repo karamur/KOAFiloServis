@@ -1,4 +1,4 @@
-﻿# 🚀 KOAFiloServis — Basitleştirme ve Otomasyon Önerileri
+# 🚀 KOAFiloServis — Basitleştirme ve Otomasyon Önerileri
 
 > **Amaç:** Kullanıcının günlük iş yükünü azaltmak, tıklama/form sayısını düşürmek, manuel hataları önlemek ve sık tekrar eden işleri arka plana almak.
 >
@@ -63,7 +63,7 @@ Onayladıktan sonra "şu maddeyi uygula" demen yeterli.
 
 ## 🤖 2. OTOMATİKLEŞTİRMELER (Background & Workflow)
 
-### 2.1 Otomatik Belge Yenileme Hatırlatması — E-posta/WhatsApp `[ ]`
+### 2.1 Otomatik Belge Yenileme Hatirlatmasi — E-posta/WhatsApp `[x]`
 **Mevcut:** `BelgeUyariBackgroundService` zaten belge sürelerini kontrol ediyor.
 **Eksik:** Sadece dashboard'da gösteriliyor. Kullanıcı sisteme girmezse görmüyor.
 **Öneri:** 30/15/7/1 gün kala otomatik e-posta + opsiyonel WhatsApp (`WhatsAppService` mevcut).

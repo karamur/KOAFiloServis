@@ -1,12 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Web.Services.Interfaces;
 
 namespace KOAFiloServis.Web.Services;
 
 /// <summary>
-/// Belge uyarıları için otomatik email gönderim servisi
-/// Her gün süresi yaklaşan belgeleri kontrol eder ve email gönderir
+/// Belge uyarıları için otomatik email ve WhatsApp gönderim servisi
+/// Her gün süresi yaklaşan belgeleri kontrol eder ve bildirim gönderir
 /// </summary>
 public class BelgeUyariBackgroundService : BackgroundService
 {
@@ -15,6 +16,9 @@ public class BelgeUyariBackgroundService : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly TimeSpan _checkInterval;
     private readonly bool _enabled;
+    private readonly bool _whatsappEnabled;
+    private readonly int _whatsappKisiId;
+    private readonly int _whatsappGrupId;
 
     public BelgeUyariBackgroundService(
         IServiceScopeFactory scopeFactory,
@@ -27,6 +31,9 @@ public class BelgeUyariBackgroundService : BackgroundService
         
         _enabled = configuration.GetValue("BelgeUyari:EmailEnabled", false);
         _checkInterval = TimeSpan.FromHours(configuration.GetValue("BelgeUyari:CheckIntervalHours", 24));
+        _whatsappEnabled = configuration.GetValue("BelgeUyari:WhatsAppEnabled", false);
+        _whatsappKisiId = configuration.GetValue("BelgeUyari:WhatsAppKisiId", 0);
+        _whatsappGrupId = configuration.GetValue("BelgeUyari:WhatsAppGrupId", 0);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -72,7 +79,8 @@ public class BelgeUyariBackgroundService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var emailService = scope.ServiceProvider.GetService<IEmailService>();
-        var bildirimService = scope.ServiceProvider.GetService<Interfaces.IBildirimService>();
+        var bildirimService = scope.ServiceProvider.GetService<IBildirimService>();
+        var whatsappService = scope.ServiceProvider.GetService<IWhatsAppService>();
 
         // Önce bildirim servisini kullanarak kullanıcı bazlı e-posta gönder
         if (bildirimService != null)
