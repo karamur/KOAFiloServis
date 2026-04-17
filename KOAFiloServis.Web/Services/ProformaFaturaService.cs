@@ -6,16 +6,16 @@ namespace KOAFiloServis.Web.Services;
 
 public class ProformaFaturaService : IProformaFaturaService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IFaturaService _faturaService;
     private readonly ILogger<ProformaFaturaService> _logger;
 
     public ProformaFaturaService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IFaturaService faturaService,
         ILogger<ProformaFaturaService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _faturaService = faturaService;
         _logger = logger;
     }
@@ -24,7 +24,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<List<ProformaFatura>> GetAllAsync()
     {
-        return await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ProformaFaturalar
             .AsNoTracking()
             .Include(p => p.Cari)
             .Include(p => p.Firma)
@@ -34,7 +35,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<List<ProformaFatura>> GetByCariIdAsync(int cariId)
     {
-        return await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ProformaFaturalar
             .AsNoTracking()
             .Include(p => p.Firma)
             .Where(p => p.CariId == cariId)
@@ -44,7 +46,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<List<ProformaFatura>> GetByDurumAsync(ProformaDurum durum)
     {
-        return await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ProformaFaturalar
             .AsNoTracking()
             .Include(p => p.Cari)
             .Include(p => p.Firma)
@@ -55,7 +58,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<List<ProformaFatura>> GetByDateRangeAsync(DateTime baslangic, DateTime bitis)
     {
-        return await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ProformaFaturalar
             .AsNoTracking()
             .Include(p => p.Cari)
             .Include(p => p.Firma)
@@ -66,7 +70,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<ProformaFatura?> GetByIdAsync(int id)
     {
-        return await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ProformaFaturalar
             .AsNoTracking()
             .Include(p => p.Cari)
             .Include(p => p.Firma)
@@ -75,7 +80,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<ProformaFatura?> GetByIdWithKalemlerAsync(int id)
     {
-        return await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ProformaFaturalar
             .AsNoTracking()
             .Include(p => p.Cari)
             .Include(p => p.Firma)
@@ -87,6 +93,7 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<ProformaFatura> CreateAsync(ProformaFatura proforma)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (string.IsNullOrEmpty(proforma.ProformaNo))
         {
             proforma.ProformaNo = await GenerateNextProformaNoAsync();
@@ -95,8 +102,8 @@ public class ProformaFaturaService : IProformaFaturaService
         proforma.CreatedAt = DateTime.UtcNow;
         proforma = await HesaplaAsync(proforma);
 
-        _context.ProformaFaturalar.Add(proforma);
-        await _context.SaveChangesAsync();
+        context.ProformaFaturalar.Add(proforma);
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Proforma fatura oluşturuldu: {ProformaNo}", proforma.ProformaNo);
         return proforma;
@@ -104,7 +111,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<ProformaFatura> UpdateAsync(ProformaFatura proforma)
     {
-        var existing = await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.ProformaFaturalar
             .Include(p => p.Kalemler)
             .FirstOrDefaultAsync(p => p.Id == proforma.Id)
             ?? throw new InvalidOperationException("Proforma fatura bulunamadı.");
@@ -135,7 +143,7 @@ public class ProformaFaturaService : IProformaFaturaService
         // Yeniden hesapla
         existing = await HesaplaAsync(existing);
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Proforma fatura güncellendi: {ProformaNo}", existing.ProformaNo);
         return existing;
@@ -143,7 +151,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task DeleteAsync(int id)
     {
-        var proforma = await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var proforma = await context.ProformaFaturalar
             .FirstOrDefaultAsync(p => p.Id == id)
             ?? throw new InvalidOperationException("Proforma fatura bulunamadı.");
 
@@ -154,7 +163,7 @@ public class ProformaFaturaService : IProformaFaturaService
 
         proforma.IsDeleted = true;
         proforma.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Proforma fatura silindi: {ProformaNo}", proforma.ProformaNo);
     }
@@ -165,10 +174,11 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<string> GenerateNextProformaNoAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var yil = DateTime.Now.Year;
         var prefix = $"PRF-{yil}-";
 
-        var lastNo = await _context.ProformaFaturalar
+        var lastNo = await context.ProformaFaturalar
             .IgnoreQueryFilters()
             .Where(p => p.ProformaNo.StartsWith(prefix))
             .OrderByDescending(p => p.ProformaNo)
@@ -194,7 +204,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<ProformaFaturaKalem> AddKalemAsync(ProformaFaturaKalem kalem)
     {
-        var proforma = await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var proforma = await context.ProformaFaturalar
             .Include(p => p.Kalemler)
             .FirstOrDefaultAsync(p => p.Id == kalem.ProformaFaturaId)
             ?? throw new InvalidOperationException("Proforma fatura bulunamadı.");
@@ -211,18 +222,19 @@ public class ProformaFaturaService : IProformaFaturaService
         // Kalem hesapla
         kalem = HesaplaKalem(kalem);
 
-        _context.ProformaFaturaKalemler.Add(kalem);
+        context.ProformaFaturaKalemler.Add(kalem);
         
         // Proformayı yeniden hesapla
         proforma = await HesaplaAsync(proforma);
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return kalem;
     }
 
     public async Task<ProformaFaturaKalem> UpdateKalemAsync(ProformaFaturaKalem kalem)
     {
-        var existing = await _context.ProformaFaturaKalemler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.ProformaFaturaKalemler
             .Include(k => k.ProformaFatura)
             .FirstOrDefaultAsync(k => k.Id == kalem.Id)
             ?? throw new InvalidOperationException("Kalem bulunamadı.");
@@ -247,18 +259,19 @@ public class ProformaFaturaService : IProformaFaturaService
         existing = HesaplaKalem(existing);
 
         // Proformayı yeniden hesapla
-        var proforma = await _context.ProformaFaturalar
+        var proforma = await context.ProformaFaturalar
             .Include(p => p.Kalemler)
             .FirstAsync(p => p.Id == existing.ProformaFaturaId);
         await HesaplaAsync(proforma);
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteKalemAsync(int kalemId)
     {
-        var kalem = await _context.ProformaFaturaKalemler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kalem = await context.ProformaFaturaKalemler
             .Include(k => k.ProformaFatura)
             .FirstOrDefaultAsync(k => k.Id == kalemId)
             ?? throw new InvalidOperationException("Kalem bulunamadı.");
@@ -272,17 +285,18 @@ public class ProformaFaturaService : IProformaFaturaService
         kalem.UpdatedAt = DateTime.UtcNow;
 
         // Proformayı yeniden hesapla
-        var proforma = await _context.ProformaFaturalar
+        var proforma = await context.ProformaFaturalar
             .Include(p => p.Kalemler)
             .FirstAsync(p => p.Id == kalem.ProformaFaturaId);
         await HesaplaAsync(proforma);
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<List<ProformaFaturaKalem>> GetKalemlerAsync(int proformaId)
     {
-        return await _context.ProformaFaturaKalemler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ProformaFaturaKalemler
             .AsNoTracking()
             .Include(k => k.StokKarti)
             .Where(k => k.ProformaFaturaId == proformaId)
@@ -347,7 +361,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<ProformaFatura> DurumDegistirAsync(int id, ProformaDurum yeniDurum)
     {
-        var proforma = await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var proforma = await context.ProformaFaturalar
             .FirstOrDefaultAsync(p => p.Id == id)
             ?? throw new InvalidOperationException("Proforma fatura bulunamadı.");
 
@@ -359,7 +374,7 @@ public class ProformaFaturaService : IProformaFaturaService
         proforma.Durum = yeniDurum;
         proforma.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Proforma durumu değiştirildi: {ProformaNo} -> {Durum}", proforma.ProformaNo, yeniDurum);
         return proforma;
@@ -367,16 +382,19 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<ProformaFatura> GonderildiOlarakIsaretle(int id)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await DurumDegistirAsync(id, ProformaDurum.Gonderildi);
     }
 
     public async Task<ProformaFatura> OnaylandiOlarakIsaretle(int id)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await DurumDegistirAsync(id, ProformaDurum.Onaylandi);
     }
 
     public async Task<ProformaFatura> ReddedildiOlarakIsaretle(int id)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await DurumDegistirAsync(id, ProformaDurum.Reddedildi);
     }
 
@@ -386,7 +404,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<Fatura> FaturayaDonusturAsync(int proformaId, DateTime? faturaTarihi = null, DateTime? vadeTarihi = null)
     {
-        var proforma = await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var proforma = await context.ProformaFaturalar
             .Include(p => p.Kalemler.Where(k => !k.IsDeleted))
             .Include(p => p.Cari)
             .FirstOrDefaultAsync(p => p.Id == proformaId)
@@ -449,7 +468,7 @@ public class ProformaFaturaService : IProformaFaturaService
         proforma.Durum = ProformaDurum.FaturayaDonusturuldu;
         proforma.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Proforma faturaya dönüştürüldü: {ProformaNo} -> {FaturaNo}", 
             proforma.ProformaNo, fatura.FaturaNo);
@@ -459,7 +478,8 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<bool> FaturayaDonusturulmusMu(int proformaId)
     {
-        return await _context.ProformaFaturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ProformaFaturalar
             .AsNoTracking()
             .AnyAsync(p => p.Id == proformaId && p.FaturayaDonusturuldu);
     }
@@ -470,6 +490,7 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<byte[]> ExportToPdfAsync(int proformaId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Bu metod QuestPDF veya benzeri bir kütüphane ile implemente edilebilir
         // Şimdilik basit bir placeholder
         var proforma = await GetByIdWithKalemlerAsync(proformaId)
@@ -481,6 +502,7 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<byte[]> ExportToExcelAsync(List<ProformaFatura> proformalars)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new ClosedXML.Excel.XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Proforma Faturalar");
 
@@ -526,9 +548,10 @@ public class ProformaFaturaService : IProformaFaturaService
 
     public async Task<ProformaDashboardStats> GetDashboardStatsAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var stats = new ProformaDashboardStats();
 
-        var proformalars = await _context.ProformaFaturalar
+        var proformalars = await context.ProformaFaturalar
             .AsNoTracking()
             .Include(p => p.Cari)
             .ToListAsync();

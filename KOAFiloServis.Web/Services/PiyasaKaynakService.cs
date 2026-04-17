@@ -20,20 +20,21 @@ public interface IPiyasaKaynakService
 
 public class PiyasaKaynakService : IPiyasaKaynakService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ILogger<PiyasaKaynakService> _logger;
 
-    public PiyasaKaynakService(ApplicationDbContext context, ILogger<PiyasaKaynakService> logger)
+    public PiyasaKaynakService(IDbContextFactory<ApplicationDbContext> contextFactory, ILogger<PiyasaKaynakService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _logger = logger;
     }
 
     public async Task<List<PiyasaKaynak>> GetAllAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            return await _context.PiyasaKaynaklar
+            return await context.PiyasaKaynaklar
                 .AsNoTracking()
                 .Where(x => !x.IsDeleted)
                 .OrderBy(x => x.Sira)
@@ -48,9 +49,10 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
     public async Task<List<PiyasaKaynak>> GetAktifKaynaklarAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            return await _context.PiyasaKaynaklar
+            return await context.PiyasaKaynaklar
                 .AsNoTracking()
                 .Where(x => !x.IsDeleted && x.Aktif)
                 .OrderBy(x => x.Sira)
@@ -64,9 +66,10 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
     public async Task<PiyasaKaynak?> GetByIdAsync(int id)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            return await _context.PiyasaKaynaklar
+            return await context.PiyasaKaynaklar
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
         }
@@ -78,9 +81,10 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
     public async Task<PiyasaKaynak?> GetByKodAsync(string kod)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            return await _context.PiyasaKaynaklar
+            return await context.PiyasaKaynaklar
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Kod == kod && !x.IsDeleted);
         }
@@ -92,12 +96,13 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
     public async Task<PiyasaKaynak> CreateAsync(PiyasaKaynak kaynak)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
             kaynak.OlusturmaTarihi = DateTime.UtcNow;
             kaynak.Kod = SlugOlustur(kaynak.Kod);
-            _context.PiyasaKaynaklar.Add(kaynak);
-            await _context.SaveChangesAsync();
+            context.PiyasaKaynaklar.Add(kaynak);
+            await context.SaveChangesAsync();
             return kaynak;
         }
         catch (Exception ex)
@@ -109,9 +114,10 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
     public async Task<PiyasaKaynak> UpdateAsync(PiyasaKaynak kaynak)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            var existing = await _context.PiyasaKaynaklar.FindAsync(kaynak.Id);
+            var existing = await context.PiyasaKaynaklar.FindAsync(kaynak.Id);
             if (existing == null)
                 throw new InvalidOperationException($"Piyasa kaynağı bulunamadı. Id: {kaynak.Id}");
 
@@ -128,7 +134,7 @@ public class PiyasaKaynakService : IPiyasaKaynakService
             existing.IsDeleted = kaynak.IsDeleted;
             existing.GuncellemeTarihi = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return existing;
         }
         catch (Exception ex)
@@ -140,14 +146,15 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
     public async Task DeleteAsync(int id)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            var kaynak = await _context.PiyasaKaynaklar.FindAsync(id);
+            var kaynak = await context.PiyasaKaynaklar.FindAsync(id);
             if (kaynak != null)
             {
                 kaynak.IsDeleted = true;
                 kaynak.GuncellemeTarihi = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
             }
         }
         catch (Exception ex)
@@ -159,10 +166,11 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
     public async Task<bool> KodVarMiAsync(string kod, int? excludeId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
             var slug = SlugOlustur(kod);
-            var query = _context.PiyasaKaynaklar
+            var query = context.PiyasaKaynaklar
                 .AsNoTracking()
                 .Where(x => x.Kod == slug && !x.IsDeleted);
             if (excludeId.HasValue)
@@ -178,9 +186,10 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
     public async Task SeedDefaultKaynaklarAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            await _context.PiyasaKaynaklar.AsNoTracking().AnyAsync();
+            await context.PiyasaKaynaklar.AsNoTracking().AnyAsync();
         }
         catch
         {
@@ -191,14 +200,14 @@ public class PiyasaKaynakService : IPiyasaKaynakService
 
         try
         {
-            var mevcutSayisi = await _context.PiyasaKaynaklar
+            var mevcutSayisi = await context.PiyasaKaynaklar
                 .AsNoTracking()
                 .CountAsync();
             if (mevcutSayisi > 0) return;
 
             var defaultKaynaklar = GetDefaultKaynaklar();
-            _context.PiyasaKaynaklar.AddRange(defaultKaynaklar);
-            await _context.SaveChangesAsync();
+            context.PiyasaKaynaklar.AddRange(defaultKaynaklar);
+            await context.SaveChangesAsync();
             _logger.LogInformation("{Count} varsayilan piyasa kaynagi eklendi", defaultKaynaklar.Count);
         }
         catch (Exception ex)

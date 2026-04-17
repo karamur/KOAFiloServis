@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,20 +6,21 @@ namespace KOAFiloServis.Web.Services;
 
 public class SatisService : ISatisService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private static readonly string[] AyAdlari = { "", "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", 
                                                    "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik" };
 
-    public SatisService(ApplicationDbContext context)
+    public SatisService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     #region Satis Personeli
 
     public async Task<List<SatisPersoneli>> GetSatisPersonelListesiAsync()
     {
-        return await _context.SatisPersonelleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.SatisPersonelleri
             .Include(p => p.Ilanlar.Where(i => i.IlanDurum == IlanDurum.Aktif))
             .OrderBy(p => p.AdSoyad)
             .ToListAsync();
@@ -27,7 +28,8 @@ public class SatisService : ISatisService
 
     public async Task<SatisPersoneli?> GetSatisPersonelByIdAsync(int id)
     {
-        return await _context.SatisPersonelleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.SatisPersonelleri
             .Include(p => p.Ilanlar)
             .Include(p => p.Satislar)
             .FirstOrDefaultAsync(p => p.Id == id);
@@ -35,15 +37,17 @@ public class SatisService : ISatisService
 
     public async Task<SatisPersoneli> CreateSatisPersonelAsync(SatisPersoneli personel)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         personel.CreatedAt = DateTime.UtcNow;
-        _context.SatisPersonelleri.Add(personel);
-        await _context.SaveChangesAsync();
+        context.SatisPersonelleri.Add(personel);
+        await context.SaveChangesAsync();
         return personel;
     }
 
     public async Task<SatisPersoneli> UpdateSatisPersonelAsync(SatisPersoneli personel)
     {
-        var existing = await _context.SatisPersonelleri.FindAsync(personel.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.SatisPersonelleri.FindAsync(personel.Id);
         if (existing == null) throw new Exception("Personel bulunamadi");
 
         existing.PersonelKodu = personel.PersonelKodu;
@@ -57,33 +61,35 @@ public class SatisService : ISatisService
         existing.Aktif = personel.Aktif;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteSatisPersonelAsync(int id)
     {
-        var personel = await _context.SatisPersonelleri.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personel = await context.SatisPersonelleri.FindAsync(id);
         if (personel == null) return;
 
         personel.IsDeleted = true;
         personel.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<SatisPersonelPerformans> GetPersonelPerformansAsync(int personelId, int yil, int? ay = null)
     {
-        var personel = await _context.SatisPersonelleri.FindAsync(personelId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personel = await context.SatisPersonelleri.FindAsync(personelId);
         if (personel == null) throw new Exception("Personel bulunamadi");
 
-        var satisQuery = _context.AracSatislari
+        var satisQuery = context.AracSatislari
             .Where(s => s.SatisPersoneliId == personelId && s.SatisTarihi.Year == yil);
 
         if (ay.HasValue)
             satisQuery = satisQuery.Where(s => s.SatisTarihi.Month == ay.Value);
 
         var satislar = await satisQuery.ToListAsync();
-        var ilanlar = await _context.AracIlanlari.Where(i => i.SatisPersoneliId == personelId).ToListAsync();
+        var ilanlar = await context.AracIlanlari.Where(i => i.SatisPersoneliId == personelId).ToListAsync();
 
         var performans = new SatisPersonelPerformans
         {
@@ -125,7 +131,8 @@ public class SatisService : ISatisService
 
     public async Task<List<AracIlan>> GetAracIlanListesiAsync(IlanDurum? durum = null)
     {
-        var query = _context.AracIlanlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.AracIlanlari
             .Include(i => i.SatisPersoneli)
             .Include(i => i.SahipCari)
             .AsQueryable();
@@ -138,7 +145,8 @@ public class SatisService : ISatisService
 
     public async Task<AracIlan?> GetAracIlanByIdAsync(int id)
     {
-        return await _context.AracIlanlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracIlanlari
             .Include(i => i.SatisPersoneli)
             .Include(i => i.SahipCari)
             .Include(i => i.PiyasaIlanlari)
@@ -147,16 +155,18 @@ public class SatisService : ISatisService
 
     public async Task<AracIlan> CreateAracIlanAsync(AracIlan ilan)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         ilan.IlanTarihi = DateTime.Today;
         ilan.CreatedAt = DateTime.UtcNow;
-        _context.AracIlanlari.Add(ilan);
-        await _context.SaveChangesAsync();
+        context.AracIlanlari.Add(ilan);
+        await context.SaveChangesAsync();
         return ilan;
     }
 
     public async Task<AracIlan> UpdateAracIlanAsync(AracIlan ilan)
     {
-        var existing = await _context.AracIlanlari.FindAsync(ilan.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.AracIlanlari.FindAsync(ilan.Id);
         if (existing == null) throw new Exception("Ilan bulunamadi");
 
         existing.Plaka = ilan.Plaka;
@@ -190,23 +200,25 @@ public class SatisService : ISatisService
         existing.SahipCariId = ilan.SahipCariId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteAracIlanAsync(int id)
     {
-        var ilan = await _context.AracIlanlari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var ilan = await context.AracIlanlari.FindAsync(id);
         if (ilan == null) return;
 
         ilan.IsDeleted = true;
         ilan.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<AracIlan> IlanSatAsync(int ilanId, AracSatis satisInfo)
     {
-        var ilan = await _context.AracIlanlari.FindAsync(ilanId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var ilan = await context.AracIlanlari.FindAsync(ilanId);
         if (ilan == null) throw new Exception("Ilan bulunamadi");
 
         // Satis kaydini olustur
@@ -217,21 +229,21 @@ public class SatisService : ISatisService
         // Komisyon hesapla
         if (satisInfo.SatisPersoneliId.HasValue)
         {
-            var personel = await _context.SatisPersonelleri.FindAsync(satisInfo.SatisPersoneliId.Value);
+            var personel = await context.SatisPersonelleri.FindAsync(satisInfo.SatisPersoneliId.Value);
             if (personel != null)
             {
                 satisInfo.KomisyonTutari = personel.SabitKomisyon + (satisInfo.SatisFiyati * personel.KomisyonOrani / 100);
             }
         }
 
-        _context.AracSatislari.Add(satisInfo);
+        context.AracSatislari.Add(satisInfo);
 
         // Ilani guncelle
         ilan.IlanDurum = IlanDurum.Satildi;
         ilan.SatisTarihi = DateTime.Today;
         ilan.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return ilan;
     }
 
@@ -241,7 +253,8 @@ public class SatisService : ISatisService
 
     public async Task<List<PiyasaIlan>> GetPiyasaIlanlariAsync(int aracIlanId)
     {
-        return await _context.PiyasaIlanlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PiyasaIlanlari
             .Where(p => p.AracIlanId == aracIlanId)
             .OrderByDescending(p => p.TaramaTarihi)
             .ToListAsync();
@@ -249,38 +262,40 @@ public class SatisService : ISatisService
 
     public async Task<PiyasaIlan> AddPiyasaIlanAsync(PiyasaIlan piyasaIlan)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         piyasaIlan.TaramaTarihi = DateTime.Now;
         piyasaIlan.CreatedAt = DateTime.UtcNow;
-        _context.PiyasaIlanlari.Add(piyasaIlan);
-        await _context.SaveChangesAsync();
+        context.PiyasaIlanlari.Add(piyasaIlan);
+        await context.SaveChangesAsync();
 
         // Piyasa degerlerini guncelle
-        await UpdatePiyasaDegerleriAsync(piyasaIlan.AracIlanId);
+        await UpdatePiyasaDegerleriAsync(context, piyasaIlan.AracIlanId);
 
         return piyasaIlan;
     }
 
     public async Task DeletePiyasaIlanAsync(int id)
     {
-        var piyasaIlan = await _context.PiyasaIlanlari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var piyasaIlan = await context.PiyasaIlanlari.FindAsync(id);
         if (piyasaIlan == null) return;
 
         var aracIlanId = piyasaIlan.AracIlanId;
         piyasaIlan.IsDeleted = true;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
-        await UpdatePiyasaDegerleriAsync(aracIlanId);
+        await UpdatePiyasaDegerleriAsync(context, aracIlanId);
     }
 
-    private async Task UpdatePiyasaDegerleriAsync(int aracIlanId)
+    private async Task UpdatePiyasaDegerleriAsync(ApplicationDbContext context, int aracIlanId)
     {
-        var piyasaIlanlari = await _context.PiyasaIlanlari
+        var piyasaIlanlari = await context.PiyasaIlanlari
             .Where(p => p.AracIlanId == aracIlanId && !p.IsDeleted)
             .ToListAsync();
 
         if (!piyasaIlanlari.Any()) return;
 
-        var ilan = await _context.AracIlanlari.FindAsync(aracIlanId);
+        var ilan = await context.AracIlanlari.FindAsync(aracIlanId);
         if (ilan == null) return;
 
         ilan.PiyasaDegeriMin = piyasaIlanlari.Min(p => p.Fiyat);
@@ -288,15 +303,16 @@ public class SatisService : ISatisService
         ilan.PiyasaDegeriOrtalama = piyasaIlanlari.Average(p => p.Fiyat);
         ilan.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<PiyasaDegerlendirme> GetPiyasaDegerlendirmeAsync(int aracIlanId)
     {
-        var ilan = await _context.AracIlanlari.FindAsync(aracIlanId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var ilan = await context.AracIlanlari.FindAsync(aracIlanId);
         if (ilan == null) throw new Exception("Ilan bulunamadi");
 
-        var piyasaIlanlari = await _context.PiyasaIlanlari
+        var piyasaIlanlari = await context.PiyasaIlanlari
             .Where(p => p.AracIlanId == aracIlanId && !p.IsDeleted)
             .ToListAsync();
 
@@ -355,7 +371,8 @@ public class SatisService : ISatisService
 
     public async Task<List<AracSatis>> GetAracSatisListesiAsync(int yil, int? ay = null)
     {
-        var query = _context.AracSatislari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.AracSatislari
             .Include(s => s.AracIlan)
             .Include(s => s.SatisPersoneli)
             .Include(s => s.AliciCari)
@@ -369,7 +386,8 @@ public class SatisService : ISatisService
 
     public async Task<AracSatis?> GetAracSatisByIdAsync(int id)
     {
-        return await _context.AracSatislari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracSatislari
             .Include(s => s.AracIlan)
             .Include(s => s.SatisPersoneli)
             .Include(s => s.AliciCari)
@@ -382,7 +400,8 @@ public class SatisService : ISatisService
 
     public async Task<List<AracMarka>> GetAracMarkalarAsync()
     {
-        return await _context.AracMarkalari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracMarkalari
             .Where(m => m.Aktif)
             .OrderBy(m => m.SiraNo)
             .ThenBy(m => m.MarkaAdi)
@@ -391,7 +410,8 @@ public class SatisService : ISatisService
 
     public async Task<List<AracModelTanim>> GetAracModelleriAsync(int markaId)
     {
-        return await _context.AracModelleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracModelleri
             .Where(m => m.MarkaId == markaId && m.Aktif)
             .OrderBy(m => m.ModelAdi)
             .ToListAsync();
@@ -399,7 +419,8 @@ public class SatisService : ISatisService
 
     public async Task SeedMarkaModelAsync()
     {
-        if (await _context.AracMarkalari.AnyAsync()) return;
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        if (await context.AracMarkalari.AnyAsync()) return;
 
         var markalar = new List<AracMarka>
         {
@@ -425,8 +446,8 @@ public class SatisService : ISatisService
             new() { MarkaAdi = "Dacia", SiraNo = 20 }
         };
 
-        _context.AracMarkalari.AddRange(markalar);
-        await _context.SaveChangesAsync();
+        context.AracMarkalari.AddRange(markalar);
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -435,13 +456,14 @@ public class SatisService : ISatisService
 
     public async Task<SatisDashboardData> GetDashboardDataAsync(int yil, int? ay = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var buAy = ay ?? DateTime.Today.Month;
-        var ilanlar = await _context.AracIlanlari.ToListAsync();
-        var satislar = await _context.AracSatislari
+        var ilanlar = await context.AracIlanlari.ToListAsync();
+        var satislar = await context.AracSatislari
             .Include(s => s.SatisPersoneli)
             .Where(s => s.SatisTarihi.Year == yil)
             .ToListAsync();
-        var personeller = await _context.SatisPersonelleri.Where(p => p.Aktif).ToListAsync();
+        var personeller = await context.SatisPersonelleri.Where(p => p.Aktif).ToListAsync();
 
         var buAySatislari = satislar.Where(s => s.SatisTarihi.Month == buAy).ToList();
 

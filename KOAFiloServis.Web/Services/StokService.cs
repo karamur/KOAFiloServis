@@ -7,13 +7,11 @@ namespace KOAFiloServis.Web.Services;
 public class StokService : IStokService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
-    private readonly ApplicationDbContext _context;
     private readonly ILogger<StokService> _logger;
 
-    public StokService(IDbContextFactory<ApplicationDbContext> contextFactory, ApplicationDbContext context, ILogger<StokService> logger)
+    public StokService(IDbContextFactory<ApplicationDbContext> contextFactory, ILogger<StokService> logger)
     {
         _contextFactory = contextFactory;
-        _context = context;
         _logger = logger;
     }
 
@@ -22,6 +20,7 @@ public class StokService : IStokService
     public async Task<List<StokKarti>> GetStokKartlariAsync(StokTipi? tip = null, int? kategoriId = null, bool? aktif = true)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
+
 
         var query = context.StokKartlari
             .AsNoTracking()
@@ -44,7 +43,8 @@ public class StokService : IStokService
 
     public async Task<StokKarti?> GetStokKartiByIdAsync(int id)
     {
-        return await _context.StokKartlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.StokKartlari
             .Include(s => s.Kategori)
             .Include(s => s.VarsayilanTedarikci)
             .Include(s => s.MuhasebeHesap)
@@ -54,21 +54,23 @@ public class StokService : IStokService
 
     public async Task<StokKarti?> GetStokKartiByKodAsync(string kod)
     {
-        return await _context.StokKartlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.StokKartlari
             .Include(s => s.Kategori)
             .FirstOrDefaultAsync(s => s.StokKodu == kod && !s.IsDeleted);
     }
 
     public async Task<StokKarti> CreateStokKartiAsync(StokKarti stok)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (string.IsNullOrEmpty(stok.StokKodu))
         {
             stok.StokKodu = await GetNextStokKoduAsync(stok.StokTipi);
         }
 
         stok.CreatedAt = DateTime.UtcNow;
-        _context.StokKartlari.Add(stok);
-        await _context.SaveChangesAsync();
+        context.StokKartlari.Add(stok);
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Stok karti olusturuldu: {StokKodu} - {StokAdi}", stok.StokKodu, stok.StokAdi);
         return stok;
@@ -76,7 +78,8 @@ public class StokService : IStokService
 
     public async Task<StokKarti> UpdateStokKartiAsync(StokKarti stok)
     {
-        var existing = await _context.StokKartlari.FindAsync(stok.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.StokKartlari.FindAsync(stok.Id);
         if (existing == null)
             throw new Exception("Stok karti bulunamadi");
 
@@ -100,18 +103,19 @@ public class StokService : IStokService
         existing.Notlar = stok.Notlar;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteStokKartiAsync(int id)
     {
-        var stok = await _context.StokKartlari.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var stok = await context.StokKartlari.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
         if (stok != null)
         {
             stok.IsDeleted = true;
             stok.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             _logger.LogInformation("Stok karti silindi (soft delete): {StokKodu} - {StokAdi}", stok.StokKodu, stok.StokAdi);
         }
@@ -119,6 +123,7 @@ public class StokService : IStokService
 
     public async Task<string> GetNextStokKoduAsync(StokTipi tip)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var prefix = tip switch
         {
             StokTipi.Mal => "MAL",
@@ -130,7 +135,7 @@ public class StokService : IStokService
             _ => "STK"
         };
 
-        var lastStok = await _context.StokKartlari
+        var lastStok = await context.StokKartlari
             .IgnoreQueryFilters()
             .Where(s => s.StokKodu.StartsWith(prefix))
             .OrderByDescending(s => s.StokKodu)
@@ -153,7 +158,8 @@ public class StokService : IStokService
 
     public async Task<List<StokKategori>> GetKategorilerAsync(bool? aktif = true)
     {
-        var query = _context.StokKategoriler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.StokKategoriler
             .Include(k => k.UstKategori)
             .Include(k => k.AltKategoriler)
             .AsQueryable();
@@ -166,7 +172,8 @@ public class StokService : IStokService
 
     public async Task<StokKategori?> GetKategoriByIdAsync(int id)
     {
-        return await _context.StokKategoriler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.StokKategoriler
             .Include(k => k.UstKategori)
             .Include(k => k.AltKategoriler)
             .Include(k => k.StokKartlari)
@@ -175,15 +182,17 @@ public class StokService : IStokService
 
     public async Task<StokKategori> CreateKategoriAsync(StokKategori kategori)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         kategori.CreatedAt = DateTime.UtcNow;
-        _context.StokKategoriler.Add(kategori);
-        await _context.SaveChangesAsync();
+        context.StokKategoriler.Add(kategori);
+        await context.SaveChangesAsync();
         return kategori;
     }
 
     public async Task<StokKategori> UpdateKategoriAsync(StokKategori kategori)
     {
-        var existing = await _context.StokKategoriler.FindAsync(kategori.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.StokKategoriler.FindAsync(kategori.Id);
         if (existing == null)
             throw new Exception("Kategori bulunamadi");
 
@@ -196,18 +205,19 @@ public class StokService : IStokService
         existing.Aktif = kategori.Aktif;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteKategoriAsync(int id)
     {
-        var kategori = await _context.StokKategoriler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kategori = await context.StokKategoriler.FindAsync(id);
         if (kategori != null)
         {
             kategori.IsDeleted = true;
             kategori.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -217,7 +227,8 @@ public class StokService : IStokService
 
     public async Task<List<StokHareket>> GetStokHareketleriAsync(int? stokKartiId = null, DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.StokHareketler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.StokHareketler
             .Include(h => h.StokKarti)
             .Include(h => h.Cari)
             .Include(h => h.Arac)
@@ -237,23 +248,25 @@ public class StokService : IStokService
 
     public async Task<StokHareket> CreateStokHareketAsync(StokHareket hareket)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         hareket.Miktar = NormalizeMiktar(hareket.HareketTipi, hareket.Miktar);
         hareket.IslemTarihi = DateTime.SpecifyKind(hareket.IslemTarihi, DateTimeKind.Utc);
         hareket.CreatedAt = DateTime.UtcNow;
-        _context.StokHareketler.Add(hareket);
-        await _context.SaveChangesAsync();
+        context.StokHareketler.Add(hareket);
+        await context.SaveChangesAsync();
 
         // Stok miktarini guncelle
         await UpdateStokMiktariAsync(hareket.StokKartiId);
 
-        await CreateMuhasebeFisiForStokHareketAsync(hareket);
+        await CreateMuhasebeFisiForStokHareketAsync(context, hareket);
 
         return hareket;
     }
 
     public async Task<StokHareket> CreateStokOperasyonAsync(StokOperasyonModel operasyon)
     {
-        var stok = await _context.StokKartlari.FirstOrDefaultAsync(s => s.Id == operasyon.StokKartiId && !s.IsDeleted);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var stok = await context.StokKartlari.FirstOrDefaultAsync(s => s.Id == operasyon.StokKartiId && !s.IsDeleted);
         if (stok == null)
             throw new Exception("Stok kartı bulunamadı");
 
@@ -284,6 +297,7 @@ public class StokService : IStokService
 
     public async Task CreateUretimRecetesiAsync(UretimReceteModel recete)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (recete.Kalemler == null || !recete.Kalemler.Any())
             throw new Exception("Üretim reçetesi için en az bir bileşen seçilmelidir.");
 
@@ -291,10 +305,10 @@ public class StokService : IStokService
             throw new Exception("Mamul miktarı 0'dan büyük olmalıdır.");
 
         // ExecutionStrategy ile transaction sarmalama (NpgsqlRetryingExecutionStrategy uyumluluğu)
-        var strategy = _context.Database.CreateExecutionStrategy();
+        var strategy = context.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await using var transaction = await context.Database.BeginTransactionAsync();
             try
             {
                 var hareketler = new List<StokHareket>();
@@ -302,7 +316,7 @@ public class StokService : IStokService
 
                 foreach (var kalem in recete.Kalemler.Where(k => k.StokKartiId > 0 && k.Miktar > 0))
                 {
-                    var stok = await _context.StokKartlari.FirstOrDefaultAsync(s => s.Id == kalem.StokKartiId && !s.IsDeleted);
+                    var stok = await context.StokKartlari.FirstOrDefaultAsync(s => s.Id == kalem.StokKartiId && !s.IsDeleted);
                     if (stok == null)
                         throw new Exception($"Bileşen stok bulunamadı: {kalem.StokKartiId}");
 
@@ -322,7 +336,7 @@ public class StokService : IStokService
                     });
                 }
 
-                var mamulStok = await _context.StokKartlari.FirstOrDefaultAsync(s => s.Id == recete.MamulStokKartiId && !s.IsDeleted);
+                var mamulStok = await context.StokKartlari.FirstOrDefaultAsync(s => s.Id == recete.MamulStokKartiId && !s.IsDeleted);
                 if (mamulStok == null)
                     throw new Exception("Mamul stok kartı bulunamadı");
 
@@ -342,14 +356,14 @@ public class StokService : IStokService
                     CreatedAt = DateTime.UtcNow
                 });
 
-                _context.StokHareketler.AddRange(hareketler);
-                await _context.SaveChangesAsync();
+                context.StokHareketler.AddRange(hareketler);
+                await context.SaveChangesAsync();
 
                 var stokIds = hareketler.Select(h => h.StokKartiId).Distinct().ToList();
                 foreach (var stokId in stokIds)
                     await UpdateStokMiktariAsync(stokId);
 
-                await CreateMuhasebeFisiForUretimAsync(recete, hareketler, toplamMaliyet);
+                await CreateMuhasebeFisiForUretimAsync(context, recete, hareketler, toplamMaliyet);
                 await transaction.CommitAsync();
             }
             catch
@@ -362,21 +376,23 @@ public class StokService : IStokService
 
     public async Task UpdateStokMiktariAsync(int stokKartiId)
     {
-        var stok = await _context.StokKartlari.FindAsync(stokKartiId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var stok = await context.StokKartlari.FindAsync(stokKartiId);
         if (stok == null) return;
 
-        var toplamMiktar = await _context.StokHareketler
+        var toplamMiktar = await context.StokHareketler
             .Where(h => h.StokKartiId == stokKartiId)
             .SumAsync(h => h.Miktar);
 
         stok.MevcutStok = toplamMiktar;
         stok.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<decimal> GetMevcutStokAsync(int stokKartiId)
     {
-        return await _context.StokHareketler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.StokHareketler
             .Where(h => h.StokKartiId == stokKartiId)
             .SumAsync(h => h.Miktar);
     }
@@ -396,9 +412,9 @@ public class StokService : IStokService
         };
     }
 
-    private async Task CreateMuhasebeFisiForStokHareketAsync(StokHareket hareket)
+    private async Task CreateMuhasebeFisiForStokHareketAsync(ApplicationDbContext context, StokHareket hareket)
     {
-        var stok = await _context.StokKartlari
+        var stok = await context.StokKartlari
             .Include(s => s.MuhasebeHesap)
             .FirstOrDefaultAsync(s => s.Id == hareket.StokKartiId);
 
@@ -409,7 +425,7 @@ public class StokService : IStokService
         if (tutar <= 0)
             return;
 
-        var stokHesap = await GetOrCreateMuhasebeHesapAsync(stok.MuhasebeHesap?.HesapKodu ?? "153", stok.StokAdi, HesapTuru.Aktif, HesapGrubu.DonenVarliklar, "15");
+        var stokHesap = await GetOrCreateMuhasebeHesapAsync(context, stok.MuhasebeHesap?.HesapKodu ?? "153", stok.StokAdi, HesapTuru.Aktif, HesapGrubu.DonenVarliklar, "15");
 
         var karsiKod = hareket.HareketTipi switch
         {
@@ -424,7 +440,7 @@ public class StokService : IStokService
         if (string.IsNullOrWhiteSpace(karsiKod))
             return;
 
-        var karsiHesap = await GetOrCreateMuhasebeHesapAsync(
+        var karsiHesap = await GetOrCreateMuhasebeHesapAsync(context, 
             karsiKod,
             GetKarsiHesapAdi(hareket.HareketTipi),
             hareket.HareketTipi == StokHareketTipi.SayimFazlasi ? HesapTuru.Pasif : HesapTuru.Gider,
@@ -433,7 +449,7 @@ public class StokService : IStokService
 
         var fis = new MuhasebeFis
         {
-            FisNo = await GenerateNextStokFisNoAsync(),
+            FisNo = await GenerateNextStokFisNoAsync(context),
             FisTarihi = hareket.IslemTarihi,
             FisTipi = FisTipi.Mahsup,
             Aciklama = $"Stok Operasyonu - {stok.StokAdi} - {hareket.HareketTipi}",
@@ -470,25 +486,25 @@ public class StokService : IStokService
             CreatedAt = DateTime.UtcNow
         });
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
     }
 
-    private async Task CreateMuhasebeFisiForUretimAsync(UretimReceteModel recete, List<StokHareket> hareketler, decimal toplamMaliyet)
+    private async Task CreateMuhasebeFisiForUretimAsync(ApplicationDbContext context, UretimReceteModel recete, List<StokHareket> hareketler, decimal toplamMaliyet)
     {
         if (toplamMaliyet <= 0)
             return;
 
-        var mamul = await _context.StokKartlari.Include(s => s.MuhasebeHesap).FirstOrDefaultAsync(s => s.Id == recete.MamulStokKartiId);
+        var mamul = await context.StokKartlari.Include(s => s.MuhasebeHesap).FirstOrDefaultAsync(s => s.Id == recete.MamulStokKartiId);
         if (mamul == null)
             return;
 
-        var mamulHesap = await GetOrCreateMuhasebeHesapAsync(mamul.MuhasebeHesap?.HesapKodu ?? "152", mamul.StokAdi, HesapTuru.Aktif, HesapGrubu.DonenVarliklar, "15");
-        var uretimKarsi = await GetOrCreateMuhasebeHesapAsync("711.99.999", "Üretimden Mamule Aktarım", HesapTuru.Maliyet, HesapGrubu.MaliyetHesaplari, "71");
+        var mamulHesap = await GetOrCreateMuhasebeHesapAsync(context, mamul.MuhasebeHesap?.HesapKodu ?? "152", mamul.StokAdi, HesapTuru.Aktif, HesapGrubu.DonenVarliklar, "15");
+        var uretimKarsi = await GetOrCreateMuhasebeHesapAsync(context, "711.99.999", "Üretimden Mamule Aktarım", HesapTuru.Maliyet, HesapGrubu.MaliyetHesaplari, "71");
 
         var fis = new MuhasebeFis
         {
-            FisNo = await GenerateNextStokFisNoAsync(),
+            FisNo = await GenerateNextStokFisNoAsync(context),
             FisTarihi = DateTime.SpecifyKind(recete.IslemTarihi, DateTimeKind.Utc),
             FisTipi = FisTipi.Mahsup,
             Aciklama = $"Üretim Reçetesi - {mamul.StokAdi}",
@@ -522,17 +538,17 @@ public class StokService : IStokService
             CreatedAt = DateTime.UtcNow
         });
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
     }
 
-    private async Task<MuhasebeHesap> GetOrCreateMuhasebeHesapAsync(string hesapKodu, string hesapAdi, HesapTuru hesapTuru, HesapGrubu hesapGrubu, string ustKod)
+    private async Task<MuhasebeHesap> GetOrCreateMuhasebeHesapAsync(ApplicationDbContext context, string hesapKodu, string hesapAdi, HesapTuru hesapTuru, HesapGrubu hesapGrubu, string ustKod)
     {
-        var hesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu);
+        var hesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu);
         if (hesap != null)
             return hesap;
 
-        var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
+        var ustHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
         hesap = new MuhasebeHesap
         {
             HesapKodu = hesapKodu,
@@ -543,15 +559,15 @@ public class StokService : IStokService
             Aktif = true,
             CreatedAt = DateTime.UtcNow
         };
-        _context.MuhasebeHesaplari.Add(hesap);
-        await _context.SaveChangesAsync();
+        context.MuhasebeHesaplari.Add(hesap);
+        await context.SaveChangesAsync();
         return hesap;
     }
 
-    private async Task<string> GenerateNextStokFisNoAsync()
+    private async Task<string> GenerateNextStokFisNoAsync(ApplicationDbContext context)
     {
         var prefix = $"STK-{DateTime.UtcNow:yyyyMM}";
-        var sonFis = await _context.MuhasebeFisleri
+        var sonFis = await context.MuhasebeFisleri
             .Where(f => f.FisNo.StartsWith(prefix))
             .OrderByDescending(f => f.FisNo)
             .FirstOrDefaultAsync();
@@ -582,7 +598,8 @@ public class StokService : IStokService
 
     public async Task<List<AracIslem>> GetAracIslemleriAsync(int? aracId = null, AracIslemTipi? tip = null)
     {
-        var query = _context.AracIslemler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.AracIslemler
             .Include(i => i.Arac)
             .Include(i => i.Cari)
             .Include(i => i.Fatura)
@@ -599,7 +616,8 @@ public class StokService : IStokService
 
     public async Task<AracIslem?> GetAracIslemByIdAsync(int id)
     {
-        return await _context.AracIslemler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracIslemler
             .Include(i => i.Arac)
             .Include(i => i.Cari)
             .Include(i => i.Fatura)
@@ -609,16 +627,17 @@ public class StokService : IStokService
 
     public async Task<AracIslem> CreateAracIslemAsync(AracIslem islem)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // KDV hesapla
         islem.KdvTutar = islem.Tutar * islem.KdvOrani / 100;
         islem.ToplamTutar = islem.Tutar + islem.KdvTutar;
         islem.CreatedAt = DateTime.UtcNow;
 
-        _context.AracIslemler.Add(islem);
-        await _context.SaveChangesAsync();
+        context.AracIslemler.Add(islem);
+        await context.SaveChangesAsync();
 
         // Arac durumunu guncelle
-        var arac = await _context.Araclar.FindAsync(islem.AracId);
+        var arac = await context.Araclar.FindAsync(islem.AracId);
         if (arac != null)
         {
             if (islem.IslemTipi == AracIslemTipi.Satis)
@@ -636,7 +655,7 @@ public class StokService : IStokService
                 arac.KmDurumu = islem.Kilometre;
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
 
         _logger.LogInformation("Arac islemi olusturuldu: {IslemTipi} - Arac ID: {AracId}", islem.IslemTipi, islem.AracId);
@@ -645,7 +664,8 @@ public class StokService : IStokService
 
     public async Task<AracIslem> UpdateAracIslemAsync(AracIslem islem)
     {
-        var existing = await _context.AracIslemler.FindAsync(islem.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.AracIslemler.FindAsync(islem.Id);
         if (existing == null)
             throw new Exception("Arac islemi bulunamadi");
 
@@ -664,18 +684,19 @@ public class StokService : IStokService
         existing.NoterTarihi = islem.NoterTarihi;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteAracIslemAsync(int id)
     {
-        var islem = await _context.AracIslemler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var islem = await context.AracIslemler.FindAsync(id);
         if (islem != null)
         {
             islem.IsDeleted = true;
             islem.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -685,7 +706,8 @@ public class StokService : IStokService
 
     public async Task<List<ServisKaydi>> GetServisKayitlariAsync(int? aracId = null, ServisTipi? tip = null, DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.ServisKayitlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.ServisKayitlari
             .Include(s => s.Arac)
             .Include(s => s.ServisciCari)
             .Include(s => s.Parcalar)
@@ -708,7 +730,8 @@ public class StokService : IStokService
 
     public async Task<ServisKaydi?> GetServisKaydiByIdAsync(int id)
     {
-        return await _context.ServisKayitlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ServisKayitlari
             .Include(s => s.Arac)
             .Include(s => s.ServisciCari)
             .Include(s => s.Parcalar)
@@ -720,6 +743,7 @@ public class StokService : IStokService
 
     public async Task<ServisKaydi> CreateServisKaydiAsync(ServisKaydi servis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Toplam tutar hesapla
         servis.ParcaTutari = servis.Parcalar?.Sum(p => p.Miktar * p.BirimFiyat) ?? 0;
         var toplamNet = servis.IscilikTutari + servis.ParcaTutari;
@@ -727,17 +751,17 @@ public class StokService : IStokService
         servis.ToplamTutar = toplamNet + servis.KdvTutar;
         servis.CreatedAt = DateTime.UtcNow;
 
-        _context.ServisKayitlari.Add(servis);
-        await _context.SaveChangesAsync();
+        context.ServisKayitlari.Add(servis);
+        await context.SaveChangesAsync();
 
         // Arac km guncelle
         if (servis.Kilometre.HasValue)
         {
-            var arac = await _context.Araclar.FindAsync(servis.AracId);
+            var arac = await context.Araclar.FindAsync(servis.AracId);
             if (arac != null)
             {
                 arac.KmDurumu = servis.Kilometre;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
             }
         }
 
@@ -747,7 +771,8 @@ public class StokService : IStokService
 
     public async Task<ServisKaydi> UpdateServisKaydiAsync(ServisKaydi servis)
     {
-        var existing = await _context.ServisKayitlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.ServisKayitlari
             .Include(s => s.Parcalar)
             .FirstOrDefaultAsync(s => s.Id == servis.Id);
 
@@ -768,13 +793,13 @@ public class StokService : IStokService
         existing.Notlar = servis.Notlar;
 
         // Parcalari guncelle
-        _context.ServisParcalar.RemoveRange(existing.Parcalar);
+        context.ServisParcalar.RemoveRange(existing.Parcalar);
         if (servis.Parcalar != null)
         {
             foreach (var parca in servis.Parcalar)
             {
                 parca.ServisKaydiId = existing.Id;
-                _context.ServisParcalar.Add(parca);
+                context.ServisParcalar.Add(parca);
             }
         }
 
@@ -785,18 +810,19 @@ public class StokService : IStokService
         existing.ToplamTutar = toplamNet + existing.KdvTutar;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteServisKaydiAsync(int id)
     {
-        var servis = await _context.ServisKayitlari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var servis = await context.ServisKayitlari.FindAsync(id);
         if (servis != null)
         {
             servis.IsDeleted = true;
             servis.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -806,47 +832,48 @@ public class StokService : IStokService
 
     public async Task<StokDashboard> GetDashboardAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var dashboard = new StokDashboard();
 
         var buAyBaslangic = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         var buAyBitis = buAyBaslangic.AddMonths(1).AddDays(-1);
 
-        dashboard.ToplamStokKarti = await _context.StokKartlari.CountAsync();
-        dashboard.AktifStokKarti = await _context.StokKartlari.CountAsync(s => s.Aktif);
+        dashboard.ToplamStokKarti = await context.StokKartlari.CountAsync();
+        dashboard.AktifStokKarti = await context.StokKartlari.CountAsync(s => s.Aktif);
 
-        dashboard.DusukStoklu = await _context.StokKartlari
+        dashboard.DusukStoklu = await context.StokKartlari
             .Where(s => s.StokTakibiYapilsin && s.MevcutStok <= s.MinStokMiktari)
             .CountAsync();
 
-        dashboard.ToplamStokDegeri = await _context.StokKartlari
+        dashboard.ToplamStokDegeri = await context.StokKartlari
             .Where(s => s.StokTakibiYapilsin)
             .SumAsync(s => s.MevcutStok * s.AlisFiyati);
 
-        dashboard.AylikAracAlis = await _context.AracIslemler
+        dashboard.AylikAracAlis = await context.AracIslemler
             .Where(i => i.IslemTipi == AracIslemTipi.Alis && 
                        i.IslemTarihi >= buAyBaslangic && i.IslemTarihi <= buAyBitis)
             .CountAsync();
 
-        dashboard.AylikAracSatis = await _context.AracIslemler
+        dashboard.AylikAracSatis = await context.AracIslemler
             .Where(i => i.IslemTipi == AracIslemTipi.Satis && 
                        i.IslemTarihi >= buAyBaslangic && i.IslemTarihi <= buAyBitis)
             .CountAsync();
 
-        dashboard.AylikServisKaydi = await _context.ServisKayitlari
+        dashboard.AylikServisKaydi = await context.ServisKayitlari
             .Where(s => s.ServisTarihi >= buAyBaslangic && s.ServisTarihi <= buAyBitis)
             .CountAsync();
 
-        dashboard.AylikServisTutari = await _context.ServisKayitlari
+        dashboard.AylikServisTutari = await context.ServisKayitlari
             .Where(s => s.ServisTarihi >= buAyBaslangic && s.ServisTarihi <= buAyBitis)
             .SumAsync(s => s.ToplamTutar);
 
-        dashboard.SonHareketler = await _context.StokHareketler
+        dashboard.SonHareketler = await context.StokHareketler
             .Include(h => h.StokKarti)
             .OrderByDescending(h => h.IslemTarihi)
             .Take(10)
             .ToListAsync();
 
-        dashboard.SonServisler = await _context.ServisKayitlari
+        dashboard.SonServisler = await context.ServisKayitlari
             .Include(s => s.Arac)
             .OrderByDescending(s => s.ServisTarihi)
             .Take(10)

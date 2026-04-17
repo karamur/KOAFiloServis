@@ -32,7 +32,7 @@ public interface IAracPiyasaArastirmaService
 
 public class AracPiyasaArastirmaService : IAracPiyasaArastirmaService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
     private readonly ILogger<AracPiyasaArastirmaService> _logger;
@@ -156,14 +156,14 @@ public class AracPiyasaArastirmaService : IAracPiyasaArastirmaService
     };
 
     public AracPiyasaArastirmaService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
         ILogger<AracPiyasaArastirmaService> logger,
         IHttpScraperService httpScraper,
         IPlaywrightScraperService playwrightScraper)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _configuration = configuration;
         _httpClient = httpClientFactory.CreateClient("OpenAI");
         _logger = logger;
@@ -205,6 +205,7 @@ public class AracPiyasaArastirmaService : IAracPiyasaArastirmaService
 
     public async Task MarkaModelGuncelleAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Simdilik statik liste kullaniliyor, ileride AI ile guncellenebilir
         await Task.CompletedTask;
     }
@@ -215,6 +216,7 @@ public class AracPiyasaArastirmaService : IAracPiyasaArastirmaService
 
     public async Task<AracPiyasaArastirma> ArastirmaBaslatAsync(AracPiyasaArastirmaRequest request, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var arastirma = new AracPiyasaArastirma
         {
             Marka = request.Marka,
@@ -279,22 +281,24 @@ public class AracPiyasaArastirmaService : IAracPiyasaArastirmaService
 
     public async Task<AracPiyasaArastirma> ArastirmaKaydetAsync(AracPiyasaArastirma arastirma)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (arastirma.Id == 0)
         {
-            _context.PiyasaArastirmalar.Add(arastirma);
+            context.PiyasaArastirmalar.Add(arastirma);
         }
         else
         {
-            _context.PiyasaArastirmalar.Update(arastirma);
+            context.PiyasaArastirmalar.Update(arastirma);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return arastirma;
     }
 
     public async Task<List<AracPiyasaArastirma>> KayitliArastirmalariGetirAsync()
     {
-        return await _context.PiyasaArastirmalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PiyasaArastirmalar
             .Include(x => x.Ilanlar)
             .Where(x => !x.IsDeleted)
             .OrderByDescending(x => x.ArastirmaTarihi)
@@ -303,18 +307,20 @@ public class AracPiyasaArastirmaService : IAracPiyasaArastirmaService
 
     public async Task<AracPiyasaArastirma?> ArastirmaGetirAsync(int id)
     {
-        return await _context.PiyasaArastirmalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PiyasaArastirmalar
             .Include(x => x.Ilanlar)
             .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
     }
 
     public async Task ArastirmaSilAsync(int id)
     {
-        var arastirma = await _context.PiyasaArastirmalar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var arastirma = await context.PiyasaArastirmalar.FindAsync(id);
         if (arastirma != null)
         {
             arastirma.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -324,6 +330,7 @@ public class AracPiyasaArastirmaService : IAracPiyasaArastirmaService
 
     public async Task<List<PiyasaArastirmaIlan>> IlanlariGetirAsync(AracPiyasaArastirmaRequest request, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var tumIlanlar = new List<PiyasaArastirmaIlan>();
 
         try
@@ -377,11 +384,13 @@ public class AracPiyasaArastirmaService : IAracPiyasaArastirmaService
 
     public async Task<List<string>> IlanFotograflariniCekAsync(string ilanUrl, string kaynak)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await _playwrightScraper.IlanFotograflariniCekAsync(ilanUrl, kaynak);
     }
 
     public async Task<PiyasaAnalizSonuc> PiyasaAnaliziYapAsync(List<PiyasaArastirmaIlan> ilanlar, string marka, string model)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var analizMetni = $@"## PIYASA ANALIZ RAPORU - {marka} {model}
 
 ### 1. PIYASA DURUMU

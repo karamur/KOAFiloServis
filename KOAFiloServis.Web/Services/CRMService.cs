@@ -73,12 +73,12 @@ public class EmailListeItem
 
 public class CRMService : ICRMService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ILogger<CRMService> _logger;
 
-    public CRMService(ApplicationDbContext context, ILogger<CRMService> logger)
+    public CRMService(IDbContextFactory<ApplicationDbContext> contextFactory, ILogger<CRMService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _logger = logger;
     }
 
@@ -86,7 +86,8 @@ public class CRMService : ICRMService
 
     public async Task<List<Bildirim>> GetBildirimlerAsync(int kullaniciId, bool sadeceokunmamis = false)
     {
-        var query = _context.Bildirimler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Bildirimler
             .Where(b => b.KullaniciId == kullaniciId);
 
         if (sadeceokunmamis)
@@ -100,31 +101,35 @@ public class CRMService : ICRMService
 
     public async Task<int> GetOkunmamisBildirimSayisiAsync(int kullaniciId)
     {
-        return await _context.Bildirimler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Bildirimler
             .CountAsync(b => b.KullaniciId == kullaniciId && !b.Okundu);
     }
 
     public async Task<Bildirim> CreateBildirimAsync(Bildirim bildirim)
     {
-        _context.Bildirimler.Add(bildirim);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.Bildirimler.Add(bildirim);
+        await context.SaveChangesAsync();
         return bildirim;
     }
 
     public async Task BildirimOkunduIsaretle(int bildirimId)
     {
-        var bildirim = await _context.Bildirimler.FindAsync(bildirimId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var bildirim = await context.Bildirimler.FindAsync(bildirimId);
         if (bildirim != null)
         {
             bildirim.Okundu = true;
             bildirim.OkunmaTarihi = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task TumBildirimleriOkunduIsaretle(int kullaniciId)
     {
-        await _context.Bildirimler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        await context.Bildirimler
             .Where(b => b.KullaniciId == kullaniciId && !b.Okundu)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(b => b.Okundu, true)
@@ -133,11 +138,12 @@ public class CRMService : ICRMService
 
     public async Task DeleteBildirimAsync(int bildirimId)
     {
-        var bildirim = await _context.Bildirimler.FindAsync(bildirimId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var bildirim = await context.Bildirimler.FindAsync(bildirimId);
         if (bildirim != null)
         {
             bildirim.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -147,7 +153,8 @@ public class CRMService : ICRMService
 
     public async Task<List<Mesaj>> GetGelenMesajlarAsync(int kullaniciId)
     {
-        return await _context.Mesajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Mesajlar
             .Include(m => m.Gonderen)
             .Where(m => m.AliciId == kullaniciId || m.AliciId == null)
             .OrderByDescending(m => m.CreatedAt)
@@ -157,7 +164,8 @@ public class CRMService : ICRMService
 
     public async Task<List<Mesaj>> GetGonderilenMesajlarAsync(int kullaniciId)
     {
-        return await _context.Mesajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Mesajlar
             .Include(m => m.Alici)
             .Where(m => m.GonderenId == kullaniciId)
             .OrderByDescending(m => m.CreatedAt)
@@ -167,20 +175,22 @@ public class CRMService : ICRMService
 
     public async Task<int> GetOkunmamisMesajSayisiAsync(int kullaniciId)
     {
-        return await _context.Mesajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Mesajlar
             .CountAsync(m => (m.AliciId == kullaniciId || m.AliciId == null) && !m.Okundu);
     }
 
     public async Task<Mesaj> SendMesajAsync(Mesaj mesaj)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         mesaj.Durum = MesajDurum.Gonderildi;
-        _context.Mesajlar.Add(mesaj);
-        await _context.SaveChangesAsync();
+        context.Mesajlar.Add(mesaj);
+        await context.SaveChangesAsync();
 
         // Alıcıya bildirim oluştur
         if (mesaj.AliciId.HasValue)
         {
-            var gonderen = await _context.Kullanicilar.FindAsync(mesaj.GonderenId);
+            var gonderen = await context.Kullanicilar.FindAsync(mesaj.GonderenId);
             await CreateBildirimAsync(new Bildirim
             {
                 KullaniciId = mesaj.AliciId.Value,
@@ -196,23 +206,25 @@ public class CRMService : ICRMService
 
     public async Task MesajOkunduIsaretle(int mesajId)
     {
-        var mesaj = await _context.Mesajlar.FindAsync(mesajId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mesaj = await context.Mesajlar.FindAsync(mesajId);
         if (mesaj != null)
         {
             mesaj.Okundu = true;
             mesaj.OkunmaTarihi = DateTime.UtcNow;
             mesaj.Durum = MesajDurum.Okundu;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task DeleteMesajAsync(int mesajId)
     {
-        var mesaj = await _context.Mesajlar.FindAsync(mesajId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mesaj = await context.Mesajlar.FindAsync(mesajId);
         if (mesaj != null)
         {
             mesaj.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -222,29 +234,32 @@ public class CRMService : ICRMService
 
     public async Task<EmailAyar?> GetEmailAyarAsync(int? kullaniciId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (kullaniciId.HasValue)
         {
-            return await _context.EmailAyarlari
+            return await context.EmailAyarlari
                 .FirstOrDefaultAsync(e => e.KullaniciId == kullaniciId && e.Aktif);
         }
 
-        return await _context.EmailAyarlari
+        return await context.EmailAyarlari
             .FirstOrDefaultAsync(e => e.KullaniciId == null && e.Aktif);
     }
 
     public async Task<EmailAyar> SaveEmailAyarAsync(EmailAyar ayar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (ayar.Id == 0)
-            _context.EmailAyarlari.Add(ayar);
+            context.EmailAyarlari.Add(ayar);
         else
-            _context.EmailAyarlari.Update(ayar);
+            context.EmailAyarlari.Update(ayar);
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return ayar;
     }
 
     public async Task<bool> SendEmailAsync(int gonderenId, string aliciEmail, string konu, string icerik)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
             var ayar = await GetEmailAyarAsync(gonderenId) ?? await GetEmailAyarAsync();
@@ -310,7 +325,8 @@ public class CRMService : ICRMService
 
     public async Task<List<EmailListeItem>> GetGonderilenEmailListAsync(int kullaniciId, int maxCount = 50)
     {
-        return await _context.Mesajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Mesajlar
             .Where(m => m.GonderenId == kullaniciId && m.Tip == MesajTipi.Email)
             .OrderByDescending(m => m.CreatedAt)
             .Take(maxCount)
@@ -330,6 +346,7 @@ public class CRMService : ICRMService
 
     public async Task<List<EmailListeItem>> GetGelenEmailListAsync(int kullaniciId, int maxCount = 50)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ayar = await GetEmailAyarAsync(kullaniciId) ?? await GetEmailAyarAsync();
         if (ayar == null || !ayar.GelenKutusuAktif || string.IsNullOrWhiteSpace(ayar.ImapSunucu) || string.IsNullOrWhiteSpace(ayar.Email))
         {
@@ -403,29 +420,32 @@ public class CRMService : ICRMService
 
     public async Task<WhatsAppAyar?> GetWhatsAppAyarAsync(int? kullaniciId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (kullaniciId.HasValue)
         {
-            return await _context.WhatsAppAyarlari
+            return await context.WhatsAppAyarlari
                 .FirstOrDefaultAsync(e => e.KullaniciId == kullaniciId && e.Aktif);
         }
 
-        return await _context.WhatsAppAyarlari
+        return await context.WhatsAppAyarlari
             .FirstOrDefaultAsync(e => e.KullaniciId == null && e.Aktif);
     }
 
     public async Task<WhatsAppAyar> SaveWhatsAppAyarAsync(WhatsAppAyar ayar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (ayar.Id == 0)
-            _context.WhatsAppAyarlari.Add(ayar);
+            context.WhatsAppAyarlari.Add(ayar);
         else
-            _context.WhatsAppAyarlari.Update(ayar);
+            context.WhatsAppAyarlari.Update(ayar);
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return ayar;
     }
 
     public async Task<bool> SendWhatsAppAsync(int gonderenId, string telefon, string mesaj)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
             var ayar = await GetWhatsAppAyarAsync(gonderenId) ?? await GetWhatsAppAyarAsync();
@@ -464,7 +484,8 @@ public class CRMService : ICRMService
 
     public async Task<List<Hatirlatici>> GetHatirlaticilarAsync(int kullaniciId, DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.Hatirlaticilar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Hatirlaticilar
             .Include(h => h.Cari)
             .Where(h => h.KullaniciId == kullaniciId);
 
@@ -481,10 +502,11 @@ public class CRMService : ICRMService
 
     public async Task<List<Hatirlatici>> GetBugunkuHatirlaticilarAsync(int kullaniciId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
         var yarin = bugun.AddDays(1);
 
-        return await _context.Hatirlaticilar
+        return await context.Hatirlaticilar
             .Include(h => h.Cari)
             .Where(h => h.KullaniciId == kullaniciId 
                 && h.BaslangicTarihi >= bugun 
@@ -496,35 +518,39 @@ public class CRMService : ICRMService
 
     public async Task<Hatirlatici> CreateHatirlaticiAsync(Hatirlatici hatirlatici)
     {
-        _context.Hatirlaticilar.Add(hatirlatici);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.Hatirlaticilar.Add(hatirlatici);
+        await context.SaveChangesAsync();
         return hatirlatici;
     }
 
     public async Task<Hatirlatici> UpdateHatirlaticiAsync(Hatirlatici hatirlatici)
     {
-        _context.Hatirlaticilar.Update(hatirlatici);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.Hatirlaticilar.Update(hatirlatici);
+        await context.SaveChangesAsync();
         return hatirlatici;
     }
 
     public async Task DeleteHatirlaticiAsync(int hatirlaticiId)
     {
-        var hatirlatici = await _context.Hatirlaticilar.FindAsync(hatirlaticiId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var hatirlatici = await context.Hatirlaticilar.FindAsync(hatirlaticiId);
         if (hatirlatici != null)
         {
             hatirlatici.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task HatirlaticiTamamlaAsync(int hatirlaticiId)
     {
-        var hatirlatici = await _context.Hatirlaticilar.FindAsync(hatirlaticiId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var hatirlatici = await context.Hatirlaticilar.FindAsync(hatirlaticiId);
         if (hatirlatici != null)
         {
             hatirlatici.Durum = HatirlaticiDurum.Tamamlandi;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -534,7 +560,8 @@ public class CRMService : ICRMService
 
     public async Task<List<KullaniciCari>> GetKullaniciBagliCarilerAsync(int kullaniciId)
     {
-        return await _context.KullaniciCariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.KullaniciCariler
             .Include(kc => kc.Cari)
             .Where(kc => kc.KullaniciId == kullaniciId)
             .OrderBy(kc => kc.Cari.Unvan)
@@ -543,34 +570,38 @@ public class CRMService : ICRMService
 
     public async Task<KullaniciCari> AddKullaniciCariAsync(KullaniciCari kullaniciCari)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Coka-cok iliski oldugu icin duplicate kontrolu KALDIRILDI
         // Ayni kullanici-cari cifti birden fazla kez eklenebilir (farkli izinlerle)
-        _context.KullaniciCariler.Add(kullaniciCari);
-        await _context.SaveChangesAsync();
+        context.KullaniciCariler.Add(kullaniciCari);
+        await context.SaveChangesAsync();
         return kullaniciCari;
     }
 
     public async Task<KullaniciCari> UpdateKullaniciCariAsync(KullaniciCari kullaniciCari)
     {
-        _context.KullaniciCariler.Update(kullaniciCari);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.KullaniciCariler.Update(kullaniciCari);
+        await context.SaveChangesAsync();
         return kullaniciCari;
     }
 
     public async Task DeleteKullaniciCariAsync(int id)
     {
-        var kullaniciCari = await _context.KullaniciCariler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kullaniciCari = await context.KullaniciCariler.FindAsync(id);
         if (kullaniciCari != null)
         {
             kullaniciCari.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<bool> KullaniciBuCariyeErisebilirMi(int kullaniciId, int cariId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Admin her cariye erişebilir
-        var kullanici = await _context.Kullanicilar
+        var kullanici = await context.Kullanicilar
             .Include(k => k.Rol)
             .FirstOrDefaultAsync(k => k.Id == kullaniciId);
 
@@ -578,7 +609,7 @@ public class CRMService : ICRMService
             return true;
 
         // Kullanıcının bağlı carileri kontrol et
-        return await _context.KullaniciCariler
+        return await context.KullaniciCariler
             .AnyAsync(kc => kc.KullaniciId == kullaniciId && kc.CariId == cariId);
     }
 
@@ -588,7 +619,8 @@ public class CRMService : ICRMService
 
     public async Task<List<DashboardWidget>> GetDashboardWidgetlarAsync(int kullaniciId)
     {
-        var widgets = await _context.DashboardWidgetlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var widgets = await context.DashboardWidgetlar
             .Where(w => w.KullaniciId == kullaniciId)
             .OrderBy(w => w.Sira)
             .ToListAsync();
@@ -597,8 +629,8 @@ public class CRMService : ICRMService
         if (!widgets.Any())
         {
             widgets = GetVarsayilanWidgetlar(kullaniciId);
-            _context.DashboardWidgetlar.AddRange(widgets);
-            await _context.SaveChangesAsync();
+            context.DashboardWidgetlar.AddRange(widgets);
+            await context.SaveChangesAsync();
         }
 
         return widgets;
@@ -606,19 +638,20 @@ public class CRMService : ICRMService
 
     public async Task SaveDashboardWidgetlarAsync(int kullaniciId, List<DashboardWidget> widgets)
     {
-        var mevcutlar = await _context.DashboardWidgetlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcutlar = await context.DashboardWidgetlar
             .Where(w => w.KullaniciId == kullaniciId)
             .ToListAsync();
 
-        _context.DashboardWidgetlar.RemoveRange(mevcutlar);
+        context.DashboardWidgetlar.RemoveRange(mevcutlar);
 
         foreach (var widget in widgets)
         {
             widget.KullaniciId = kullaniciId;
-            _context.DashboardWidgetlar.Add(widget);
+            context.DashboardWidgetlar.Add(widget);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     private List<DashboardWidget> GetVarsayilanWidgetlar(int kullaniciId)

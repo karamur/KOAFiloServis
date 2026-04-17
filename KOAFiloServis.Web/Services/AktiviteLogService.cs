@@ -8,20 +8,18 @@ namespace KOAFiloServis.Web.Services;
 
 public class AktiviteLogService : IAktiviteLogService
 {
-    private readonly ApplicationDbContext _context;
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly AppAuthenticationStateProvider _authenticationStateProvider;
     private readonly ILogger<AktiviteLogService> _logger;
 
     public AktiviteLogService(
-        ApplicationDbContext context,
         IDbContextFactory<ApplicationDbContext> dbContextFactory,
         IHttpContextAccessor httpContextAccessor,
         AppAuthenticationStateProvider authenticationStateProvider,
         ILogger<AktiviteLogService> logger)
     {
-        _context = context;
+
         _dbContextFactory = dbContextFactory;
         _httpContextAccessor = httpContextAccessor;
         _authenticationStateProvider = authenticationStateProvider;
@@ -33,6 +31,7 @@ public class AktiviteLogService : IAktiviteLogService
         string? eskiDeger = null, string? yeniDeger = null,
         AktiviteSeviye seviye = AktiviteSeviye.Bilgi)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
         try
         {
             var httpContext = _httpContextAccessor.HttpContext;
@@ -72,6 +71,7 @@ public class AktiviteLogService : IAktiviteLogService
 
     public async Task LogEklemeAsync(string modul, string entityTipi, int entityId, string entityAdi)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
         await LogAsync("Ekleme", modul, 
             aciklama: $"{entityTipi} eklendi: {entityAdi}",
             entityTipi: entityTipi, entityId: entityId, entityAdi: entityAdi);
@@ -80,6 +80,7 @@ public class AktiviteLogService : IAktiviteLogService
     public async Task LogGuncellemeAsync(string modul, string entityTipi, int entityId, string entityAdi, 
         object? eskiDeger = null, object? yeniDeger = null)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
         string? eskiJson = eskiDeger != null ? JsonSerializer.Serialize(eskiDeger) : null;
         string? yeniJson = yeniDeger != null ? JsonSerializer.Serialize(yeniDeger) : null;
 
@@ -91,6 +92,7 @@ public class AktiviteLogService : IAktiviteLogService
 
     public async Task LogSilmeAsync(string modul, string entityTipi, int entityId, string entityAdi)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
         await LogAsync("Silme", modul,
             aciklama: $"{entityTipi} silindi: {entityAdi}",
             entityTipi: entityTipi, entityId: entityId, entityAdi: entityAdi,
@@ -99,6 +101,7 @@ public class AktiviteLogService : IAktiviteLogService
 
     public async Task LogGoruntulemeAsync(string modul, string entityTipi, int entityId, string entityAdi, string? aciklama = null)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
         await LogAsync("Görüntüleme", modul,
             aciklama: aciklama ?? $"{entityTipi} görüntülendi: {entityAdi}",
             entityTipi: entityTipi, entityId: entityId, entityAdi: entityAdi);
@@ -106,13 +109,15 @@ public class AktiviteLogService : IAktiviteLogService
 
     public async Task LogHataAsync(string modul, string aciklama, Exception? ex = null)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
         var detay = ex != null ? $"{aciklama} - Hata: {ex.Message}" : aciklama;
         await LogAsync("Hata", modul, aciklama: detay, seviye: AktiviteSeviye.Hata);
     }
 
     public async Task<List<AktiviteLogItem>> GetLogsAsync(AktiviteLogFilter? filter = null)
     {
-        var query = _context.AktiviteLoglar.AsQueryable();
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        var query = context.AktiviteLoglar.AsQueryable();
 
         if (filter != null)
         {
@@ -167,7 +172,8 @@ public class AktiviteLogService : IAktiviteLogService
 
     public async Task<AktiviteLogDetay?> GetLogByIdAsync(int id)
     {
-        return await _context.AktiviteLoglar
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        return await context.AktiviteLoglar
             .Where(l => l.Id == id)
             .Select(l => new AktiviteLogDetay
             {
@@ -191,10 +197,11 @@ public class AktiviteLogService : IAktiviteLogService
 
     public async Task<AktiviteLogOzet> GetOzetAsync(int gunSayisi = 7)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
         var baslangic = DateTime.Today.AddDays(-gunSayisi);
         var bugun = DateTime.Today;
 
-        var logs = await _context.AktiviteLoglar
+        var logs = await context.AktiviteLoglar
             .Where(l => l.IslemZamani >= baslangic)
             .ToListAsync();
 
@@ -232,7 +239,8 @@ public class AktiviteLogService : IAktiviteLogService
 
     public async Task<int> GetLogCountAsync(DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.AktiviteLoglar.AsQueryable();
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        var query = context.AktiviteLoglar.AsQueryable();
 
         if (baslangic.HasValue)
             query = query.Where(l => l.IslemZamani >= baslangic.Value);
@@ -245,6 +253,7 @@ public class AktiviteLogService : IAktiviteLogService
 
     public async Task CleanupOldLogsAsync(int gunSakla = 90)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
         // Loglar kesinlikle silinmez - sadece arşivleme yapılabilir
         // Bu metod artık hiçbir şey silmiyor
         _logger.LogInformation("Log silme devre dışı - loglar korunuyor.");
@@ -285,9 +294,10 @@ public class AktiviteLogService : IAktiviteLogService
 
     public async Task<GeriAlmaSonuc> GeriAlAsync(int logId)
     {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
         try
         {
-            var log = await _context.AktiviteLoglar.FindAsync(logId);
+            var log = await context.AktiviteLoglar.FindAsync(logId);
             if (log == null)
                 return new GeriAlmaSonuc { Basarili = false, Mesaj = "Log kaydı bulunamadı." };
 
@@ -308,10 +318,10 @@ public class AktiviteLogService : IAktiviteLogService
 
             var sonuc = log.IslemTipi switch
             {
-                "Ekleme" => await GeriAlEklemeAsync(log),
-                "Güncelleme" => await GeriAlGuncellemeAsync(log),
-                "Silme" => await GeriAlSilmeAsync(log),
-                "Geri Alma" => await GeriAlGeriAlmaAsync(log), // Geri almayı geri al = eski haline getir
+                "Ekleme" => await GeriAlEklemeAsync(context, log),
+                "Güncelleme" => await GeriAlGuncellemeAsync(context, log),
+                "Silme" => await GeriAlSilmeAsync(context, log),
+                "Geri Alma" => await GeriAlGeriAlmaAsync(context, log), // Geri almayı geri al = eski haline getir
                 _ => new GeriAlmaSonuc { Basarili = false, Mesaj = "Desteklenmeyen işlem tipi." }
             };
 
@@ -337,13 +347,13 @@ public class AktiviteLogService : IAktiviteLogService
         }
     }
 
-    private async Task<GeriAlmaSonuc> GeriAlEklemeAsync(AktiviteLog log)
+    private async Task<GeriAlmaSonuc> GeriAlEklemeAsync(ApplicationDbContext context, AktiviteLog log)
     {
         // Ekleme işlemini geri almak = kaydı silmek
         if (!log.EntityId.HasValue || string.IsNullOrEmpty(log.EntityTipi))
             return new GeriAlmaSonuc { Basarili = false, Mesaj = "Entity bilgisi eksik." };
 
-        var entity = await GetEntityByTypeAndIdAsync(log.EntityTipi, log.EntityId.Value);
+        var entity = await GetEntityByTypeAndIdAsync(context, log.EntityTipi, log.EntityId.Value);
         if (entity == null)
             return new GeriAlmaSonuc { Basarili = false, Mesaj = "Kayıt bulunamadı, zaten silinmiş olabilir." };
 
@@ -354,7 +364,7 @@ public class AktiviteLogService : IAktiviteLogService
             baseEntity.UpdatedAt = DateTime.UtcNow;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         return new GeriAlmaSonuc
         {
@@ -366,7 +376,7 @@ public class AktiviteLogService : IAktiviteLogService
         };
     }
 
-    private async Task<GeriAlmaSonuc> GeriAlGeriAlmaAsync(AktiviteLog log)
+    private async Task<GeriAlmaSonuc> GeriAlGeriAlmaAsync(ApplicationDbContext context, AktiviteLog log)
     {
         // Geri alma işlemini geri almak = eski haline getirmek (geri alınmadan önceki duruma)
         // Geri alma logunda: EskiDeger = geri alınmadan önceki durum, YeniDeger = geri alındıktan sonraki durum
@@ -374,7 +384,7 @@ public class AktiviteLogService : IAktiviteLogService
         if (!log.EntityId.HasValue || string.IsNullOrEmpty(log.EntityTipi) || string.IsNullOrEmpty(log.EskiDeger))
             return new GeriAlmaSonuc { Basarili = false, Mesaj = "Entity veya değer bilgisi eksik." };
 
-        var entity = await GetEntityByTypeAndIdAsync(log.EntityTipi, log.EntityId.Value, includeDeleted: true);
+        var entity = await GetEntityByTypeAndIdAsync(context, log.EntityTipi, log.EntityId.Value, includeDeleted: true);
         if (entity == null)
             return new GeriAlmaSonuc { Basarili = false, Mesaj = "Kayıt bulunamadı." };
 
@@ -411,7 +421,7 @@ public class AktiviteLogService : IAktiviteLogService
                 baseEntity.UpdatedAt = DateTime.UtcNow;
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             return new GeriAlmaSonuc
             {
@@ -428,13 +438,13 @@ public class AktiviteLogService : IAktiviteLogService
         }
     }
 
-    private async Task<GeriAlmaSonuc> GeriAlGuncellemeAsync(AktiviteLog log)
+    private async Task<GeriAlmaSonuc> GeriAlGuncellemeAsync(ApplicationDbContext context, AktiviteLog log)
     {
         // Güncelleme işlemini geri almak = eski değerleri geri yüklemek
         if (!log.EntityId.HasValue || string.IsNullOrEmpty(log.EntityTipi) || string.IsNullOrEmpty(log.EskiDeger))
             return new GeriAlmaSonuc { Basarili = false, Mesaj = "Entity veya eski değer bilgisi eksik." };
 
-        var entity = await GetEntityByTypeAndIdAsync(log.EntityTipi, log.EntityId.Value);
+        var entity = await GetEntityByTypeAndIdAsync(context, log.EntityTipi, log.EntityId.Value);
         if (entity == null)
             return new GeriAlmaSonuc { Basarili = false, Mesaj = "Kayıt bulunamadı." };
 
@@ -475,7 +485,7 @@ public class AktiviteLogService : IAktiviteLogService
                 baseEntity.UpdatedAt = DateTime.UtcNow;
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             return new GeriAlmaSonuc
             {
@@ -492,19 +502,19 @@ public class AktiviteLogService : IAktiviteLogService
         }
     }
 
-    private async Task<GeriAlmaSonuc> GeriAlSilmeAsync(AktiviteLog log)
+    private async Task<GeriAlmaSonuc> GeriAlSilmeAsync(ApplicationDbContext context, AktiviteLog log)
     {
         // Silme işlemini geri almak = kaydı geri yüklemek (soft delete ise IsDeleted = false)
         if (!log.EntityId.HasValue || string.IsNullOrEmpty(log.EntityTipi))
             return new GeriAlmaSonuc { Basarili = false, Mesaj = "Entity bilgisi eksik." };
 
         // Önce soft-deleted kaydı bul
-        var entity = await GetEntityByTypeAndIdAsync(log.EntityTipi, log.EntityId.Value, includeDeleted: true);
+        var entity = await GetEntityByTypeAndIdAsync(context, log.EntityTipi, log.EntityId.Value, includeDeleted: true);
 
         if (entity == null && !string.IsNullOrEmpty(log.EskiDeger))
         {
             // Kayıt tamamen silinmiş, eski değerlerden yeniden oluştur
-            return await RecreateEntityFromLogAsync(log);
+            return await RecreateEntityFromLogAsync(context, log);
         }
 
         if (entity == null)
@@ -517,7 +527,7 @@ public class AktiviteLogService : IAktiviteLogService
             baseEntity.UpdatedAt = DateTime.UtcNow;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         return new GeriAlmaSonuc
         {
@@ -529,7 +539,7 @@ public class AktiviteLogService : IAktiviteLogService
         };
     }
 
-    private async Task<GeriAlmaSonuc> RecreateEntityFromLogAsync(AktiviteLog log)
+    private async Task<GeriAlmaSonuc> RecreateEntityFromLogAsync(ApplicationDbContext context, AktiviteLog log)
     {
         // Bu metod karmaşık ve riskli olduğundan şimdilik sadece soft-delete desteği sağlayalım
         return new GeriAlmaSonuc 
@@ -539,76 +549,76 @@ public class AktiviteLogService : IAktiviteLogService
         };
     }
 
-    private async Task<object?> GetEntityByTypeAndIdAsync(string entityType, int id, bool includeDeleted = false)
+    private async Task<object?> GetEntityByTypeAndIdAsync(ApplicationDbContext context, string entityType, int id, bool includeDeleted = false)
     {
         return entityType switch
         {
             "Cari" => includeDeleted 
-                ? await _context.Cariler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Cariler.FindAsync(id),
+                ? await context.Cariler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.Cariler.FindAsync(id),
             "Arac" => includeDeleted
-                ? await _context.Araclar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Araclar.FindAsync(id),
+                ? await context.Araclar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.Araclar.FindAsync(id),
             "Sofor" => includeDeleted
-                ? await _context.Soforler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Soforler.FindAsync(id),
+                ? await context.Soforler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.Soforler.FindAsync(id),
             "Fatura" => includeDeleted
-                ? await _context.Faturalar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Faturalar.FindAsync(id),
+                ? await context.Faturalar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.Faturalar.FindAsync(id),
             "FaturaKalem" => includeDeleted
-                ? await _context.FaturaKalemleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.FaturaKalemleri.FindAsync(id),
+                ? await context.FaturaKalemleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.FaturaKalemleri.FindAsync(id),
             "BankaHesap" => includeDeleted
-                ? await _context.BankaHesaplari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.BankaHesaplari.FindAsync(id),
+                ? await context.BankaHesaplari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.BankaHesaplari.FindAsync(id),
             "BankaKasaHareket" => includeDeleted
-                ? await _context.BankaKasaHareketleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.BankaKasaHareketleri.FindAsync(id),
+                ? await context.BankaKasaHareketleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.BankaKasaHareketleri.FindAsync(id),
             "Guzergah" => includeDeleted
-                ? await _context.Guzergahlar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Guzergahlar.FindAsync(id),
+                ? await context.Guzergahlar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.Guzergahlar.FindAsync(id),
             "MasrafKalemi" => includeDeleted
-                ? await _context.MasrafKalemleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.MasrafKalemleri.FindAsync(id),
+                ? await context.MasrafKalemleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.MasrafKalemleri.FindAsync(id),
             "ServisCalisma" => includeDeleted
-                ? await _context.ServisCalismalari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.ServisCalismalari.FindAsync(id),
+                ? await context.ServisCalismalari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.ServisCalismalari.FindAsync(id),
             "AracMasraf" => includeDeleted
-                ? await _context.AracMasraflari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.AracMasraflari.FindAsync(id),
+                ? await context.AracMasraflari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.AracMasraflari.FindAsync(id),
             "BudgetOdeme" => includeDeleted
-                ? await _context.BudgetOdemeler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.BudgetOdemeler.FindAsync(id),
+                ? await context.BudgetOdemeler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.BudgetOdemeler.FindAsync(id),
             "TekrarlayanOdeme" => includeDeleted
-                ? await _context.TekrarlayanOdemeler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.TekrarlayanOdemeler.FindAsync(id),
+                ? await context.TekrarlayanOdemeler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.TekrarlayanOdemeler.FindAsync(id),
             "BudgetMasrafKalemi" => includeDeleted
-                ? await _context.BudgetMasrafKalemleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.BudgetMasrafKalemleri.FindAsync(id),
+                ? await context.BudgetMasrafKalemleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.BudgetMasrafKalemleri.FindAsync(id),
             "Hatirlatici" => includeDeleted
-                ? await _context.Hatirlaticilar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Hatirlaticilar.FindAsync(id),
+                ? await context.Hatirlaticilar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.Hatirlaticilar.FindAsync(id),
             "Bildirim" => includeDeleted
-                ? await _context.Bildirimler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Bildirimler.FindAsync(id),
+                ? await context.Bildirimler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.Bildirimler.FindAsync(id),
             "StokKarti" => includeDeleted
-                ? await _context.StokKartlari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.StokKartlari.FindAsync(id),
+                ? await context.StokKartlari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.StokKartlari.FindAsync(id),
             "StokHareket" => includeDeleted
-                ? await _context.StokHareketler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.StokHareketler.FindAsync(id),
+                ? await context.StokHareketler.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.StokHareketler.FindAsync(id),
             "MuhasebeHesap" => includeDeleted
-                ? await _context.MuhasebeHesaplari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.MuhasebeHesaplari.FindAsync(id),
+                ? await context.MuhasebeHesaplari.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.MuhasebeHesaplari.FindAsync(id),
             "MuhasebeFis" => includeDeleted
-                ? await _context.MuhasebeFisleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.MuhasebeFisleri.FindAsync(id),
+                ? await context.MuhasebeFisleri.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.MuhasebeFisleri.FindAsync(id),
             "Firma" => includeDeleted
-                ? await _context.Firmalar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Firmalar.FindAsync(id),
+                ? await context.Firmalar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.Firmalar.FindAsync(id),
             "Kullanici" => includeDeleted
-                ? await _context.Kullanicilar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Kullanicilar.FindAsync(id),
+                ? await context.Kullanicilar.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id)
+                : await context.Kullanicilar.FindAsync(id),
             _ => null
         };
     }

@@ -6,16 +6,16 @@ namespace KOAFiloServis.Web.Services;
 
 public class ServisCalismaService : IServisCalismaService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public ServisCalismaService(ApplicationDbContext context)
+    public ServisCalismaService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
-    private IQueryable<ServisCalisma> CreateReadQuery(bool includeArizaMasraflari = false)
+    private static IQueryable<ServisCalisma> CreateReadQuery(ApplicationDbContext context, bool includeArizaMasraflari = false)
     {
-        IQueryable<ServisCalisma> query = _context.ServisCalismalari
+        IQueryable<ServisCalisma> query = context.ServisCalismalari
             .AsNoTracking()
             .Where(s => !s.IsDeleted);
 
@@ -34,14 +34,16 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetAllAsync()
     {
-        return await CreateReadQuery()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await CreateReadQuery(context)
             .OrderByDescending(s => s.CalismaTarihi)
             .ToListAsync();
     }
 
     public async Task<List<ServisCalisma>> GetRecentAsync(int count = 5)
     {
-        return await CreateReadQuery()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await CreateReadQuery(context)
             .OrderByDescending(s => s.CalismaTarihi)
             .Take(count)
             .ToListAsync();
@@ -49,7 +51,8 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
     {
-        return await CreateReadQuery()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await CreateReadQuery(context)
             .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate)
             .OrderByDescending(s => s.CalismaTarihi)
             .ToListAsync();
@@ -57,7 +60,8 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetByAracIdAsync(int aracId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = CreateReadQuery()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = CreateReadQuery(context)
             .Where(s => s.AracId == aracId);
 
         if (startDate.HasValue)
@@ -70,7 +74,8 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetBySoforIdAsync(int soforId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = CreateReadQuery()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = CreateReadQuery(context)
             .Where(s => s.SoforId == soforId);
 
         if (startDate.HasValue)
@@ -83,7 +88,8 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetByGuzergahIdAsync(int guzergahId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = CreateReadQuery()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = CreateReadQuery(context)
             .Where(s => s.GuzergahId == guzergahId);
 
         if (startDate.HasValue)
@@ -96,7 +102,8 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<List<ServisCalisma>> GetByCariIdAsync(int cariId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = CreateReadQuery()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = CreateReadQuery(context)
             .Where(s => s.Guzergah.CariId == cariId);
 
         if (startDate.HasValue)
@@ -109,41 +116,45 @@ public class ServisCalismaService : IServisCalismaService
 
     public async Task<ServisCalisma?> GetByIdAsync(int id)
     {
-        return await CreateReadQuery(includeArizaMasraflari: true)
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await CreateReadQuery(context, includeArizaMasraflari: true)
             .FirstOrDefaultAsync(s => s.Id == id);
     }
 
     public async Task<ServisCalisma> CreateAsync(ServisCalisma servisCalisma)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Güzergah fiyatını al
         if (!servisCalisma.Fiyat.HasValue)
         {
-            var guzergah = await _context.Guzergahlar.FindAsync(servisCalisma.GuzergahId);
+            var guzergah = await context.Guzergahlar.FindAsync(servisCalisma.GuzergahId);
             if (guzergah != null)
             {
                 servisCalisma.Fiyat = guzergah.BirimFiyat;
             }
         }
 
-        _context.ServisCalismalari.Add(servisCalisma);
-        await _context.SaveChangesAsync();
+        context.ServisCalismalari.Add(servisCalisma);
+        await context.SaveChangesAsync();
         return servisCalisma;
     }
 
     public async Task<ServisCalisma> UpdateAsync(ServisCalisma servisCalisma)
     {
-        _context.ServisCalismalari.Update(servisCalisma);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.ServisCalismalari.Update(servisCalisma);
+        await context.SaveChangesAsync();
         return servisCalisma;
     }
 
     public async Task DeleteAsync(int id)
     {
-        var servisCalisma = await _context.ServisCalismalari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var servisCalisma = await context.ServisCalismalari.FindAsync(id);
         if (servisCalisma != null)
         {
             servisCalisma.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -155,7 +166,8 @@ public class ServisCalismaService : IServisCalismaService
         int? guzergahId = null,
         int? cariId = null)
     {
-        var query = CreateReadQuery()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = CreateReadQuery(context)
             .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate);
 
         if (aracId.HasValue)

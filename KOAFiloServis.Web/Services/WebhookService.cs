@@ -14,17 +14,17 @@ namespace KOAFiloServis.Web.Services;
 /// </summary>
 public class WebhookService : IWebhookService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<WebhookService> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
     public WebhookService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IHttpClientFactory httpClientFactory,
         ILogger<WebhookService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
@@ -38,7 +38,8 @@ public class WebhookService : IWebhookService
 
     public async Task<List<WebhookEndpoint>> GetAllEndpointsAsync()
     {
-        return await _context.WebhookEndpointler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WebhookEndpointler
             .Where(x => !x.IsDeleted)
             .OrderBy(x => x.Ad)
             .ToListAsync();
@@ -46,13 +47,15 @@ public class WebhookService : IWebhookService
 
     public async Task<WebhookEndpoint?> GetEndpointByIdAsync(int id)
     {
-        return await _context.WebhookEndpointler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WebhookEndpointler
             .Include(x => x.Loglar.OrderByDescending(l => l.CreatedAt).Take(10))
             .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
     }
 
     public async Task<WebhookEndpoint> CreateEndpointAsync(WebhookEndpoint endpoint)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         endpoint.CreatedAt = DateTime.Now;
 
         // Secret yoksa otomatik oluştur
@@ -61,8 +64,8 @@ public class WebhookService : IWebhookService
             endpoint.Secret = GenerateSecret();
         }
 
-        _context.WebhookEndpointler.Add(endpoint);
-        await _context.SaveChangesAsync();
+        context.WebhookEndpointler.Add(endpoint);
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Webhook endpoint oluşturuldu: {Ad} ({Url})", endpoint.Ad, endpoint.Url);
         return endpoint;
@@ -70,7 +73,8 @@ public class WebhookService : IWebhookService
 
     public async Task<WebhookEndpoint> UpdateEndpointAsync(WebhookEndpoint endpoint)
     {
-        var existing = await _context.WebhookEndpointler.FindAsync(endpoint.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.WebhookEndpointler.FindAsync(endpoint.Id);
         if (existing == null)
             throw new InvalidOperationException("Webhook endpoint bulunamadı");
 
@@ -91,7 +95,7 @@ public class WebhookService : IWebhookService
             existing.Secret = endpoint.Secret;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Webhook endpoint güncellendi: {Ad}", endpoint.Ad);
         return existing;
@@ -99,12 +103,13 @@ public class WebhookService : IWebhookService
 
     public async Task DeleteEndpointAsync(int id)
     {
-        var endpoint = await _context.WebhookEndpointler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var endpoint = await context.WebhookEndpointler.FindAsync(id);
         if (endpoint != null)
         {
             endpoint.IsDeleted = true;
             endpoint.UpdatedAt = DateTime.Now;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             _logger.LogInformation("Webhook endpoint silindi: {Ad}", endpoint.Ad);
         }
@@ -112,6 +117,7 @@ public class WebhookService : IWebhookService
 
     public async Task<bool> TestEndpointAsync(int endpointId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var endpoint = await GetEndpointByIdAsync(endpointId);
         if (endpoint == null)
             return false;
@@ -125,7 +131,7 @@ public class WebhookService : IWebhookService
 
         try
         {
-            var result = await SendWebhookAsync(endpoint, "Test.Ping", testPayload);
+            var result = await SendWebhookAsync(context, endpoint, "Test.Ping", testPayload);
             return result;
         }
         catch (Exception ex)
@@ -141,7 +147,8 @@ public class WebhookService : IWebhookService
 
     public async Task TriggerWebhookAsync(string olayTipi, object payload, string? iliskiliTablo = null, int? iliskiliKayitId = null)
     {
-        var endpoints = await GetActiveEndpointsForEventAsync(olayTipi);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var endpoints = await GetActiveEndpointsForEventAsync(context, olayTipi);
         if (!endpoints.Any())
         {
             _logger.LogDebug("'{OlayTipi}' olayı için aktif webhook bulunamadı", olayTipi);
@@ -163,22 +170,23 @@ public class WebhookService : IWebhookService
                 CreatedAt = DateTime.Now
             };
 
-            _context.WebhookLoglar.Add(log);
-            await _context.SaveChangesAsync();
+            context.WebhookLoglar.Add(log);
+            await context.SaveChangesAsync();
 
             // Asenkron gönderim (fire and forget)
-            _ = Task.Run(async () => await ProcessWebhookLogAsync(log.Id));
+            _ = Task.Run(async () => await ProcessWebhookLogAsync(context, log.Id));
         }
     }
 
     public async Task TriggerWebhookAsync<T>(string olayTipi, T payload, string? iliskiliTablo = null, int? iliskiliKayitId = null) where T : class
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         await TriggerWebhookAsync(olayTipi, (object)payload, iliskiliTablo, iliskiliKayitId);
     }
 
-    private async Task<List<WebhookEndpoint>> GetActiveEndpointsForEventAsync(string olayTipi)
+    private async Task<List<WebhookEndpoint>> GetActiveEndpointsForEventAsync(ApplicationDbContext context, string olayTipi)
     {
-        var endpoints = await _context.WebhookEndpointler
+        var endpoints = await context.WebhookEndpointler
             .Where(x => x.Aktif && !x.IsDeleted)
             .ToListAsync();
 
@@ -201,11 +209,11 @@ public class WebhookService : IWebhookService
         }
     }
 
-    private async Task ProcessWebhookLogAsync(int logId)
+    private async Task ProcessWebhookLogAsync(ApplicationDbContext context, int logId)
     {
         // Process webhook log
         
-        var log = await _context.WebhookLoglar
+        var log = await context.WebhookLoglar
             .Include(x => x.WebhookEndpoint)
             .FirstOrDefaultAsync(x => x.Id == logId);
 
@@ -221,12 +229,12 @@ public class WebhookService : IWebhookService
             {
                 log.Durum = WebhookLogDurum.YenidenDeneniyor;
                 log.RetryCount = retry;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
 
                 await Task.Delay(TimeSpan.FromSeconds(endpoint.RetryDelaySaniye * retry));
             }
 
-            success = await SendWebhookWithLoggingAsync(log, endpoint);
+            success = await SendWebhookWithLoggingAsync(context, log, endpoint);
         }
 
         // İstatistikleri güncelle
@@ -242,14 +250,14 @@ public class WebhookService : IWebhookService
         }
         endpoint.SonGonderimTarihi = DateTime.Now;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
-    private async Task<bool> SendWebhookWithLoggingAsync(WebhookLog log, WebhookEndpoint endpoint)
+    private async Task<bool> SendWebhookWithLoggingAsync(ApplicationDbContext context, WebhookLog log, WebhookEndpoint endpoint)
     {
         log.Durum = WebhookLogDurum.Gonderiliyor;
         log.GonderimTarihi = DateTime.Now;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
@@ -317,7 +325,7 @@ public class WebhookService : IWebhookService
             if (response.IsSuccessStatusCode)
             {
                 log.Durum = WebhookLogDurum.Basarili;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
 
                 _logger.LogInformation("Webhook gönderildi: {OlayTipi} -> {Url} ({StatusCode})",
                     log.OlayTipi, endpoint.Url, log.HttpStatusCode);
@@ -327,7 +335,7 @@ public class WebhookService : IWebhookService
             {
                 log.Durum = WebhookLogDurum.Basarisiz;
                 log.HataMesaji = $"HTTP {log.HttpStatusCode}: {response.ReasonPhrase}";
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
 
                 _logger.LogWarning("Webhook başarısız: {OlayTipi} -> {Url} ({StatusCode})",
                     log.OlayTipi, endpoint.Url, log.HttpStatusCode);
@@ -341,14 +349,14 @@ public class WebhookService : IWebhookService
             log.Durum = WebhookLogDurum.Basarisiz;
             log.HataMesaji = ex.Message;
             log.YanitTarihi = DateTime.Now;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             _logger.LogError(ex, "Webhook gönderim hatası: {OlayTipi} -> {Url}", log.OlayTipi, endpoint.Url);
             return false;
         }
     }
 
-    private async Task<bool> SendWebhookAsync(WebhookEndpoint endpoint, string olayTipi, object payload)
+    private async Task<bool> SendWebhookAsync(ApplicationDbContext context, WebhookEndpoint endpoint, string olayTipi, object payload)
     {
         try
         {
@@ -402,7 +410,8 @@ public class WebhookService : IWebhookService
 
     public async Task<List<WebhookLog>> GetLogsAsync(int? endpointId = null, int sayfa = 1, int sayfaBoyutu = 50)
     {
-        var query = _context.WebhookLoglar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.WebhookLoglar
             .Include(x => x.WebhookEndpoint)
             .AsQueryable();
 
@@ -418,20 +427,23 @@ public class WebhookService : IWebhookService
 
     public async Task<WebhookLog?> GetLogByIdAsync(int id)
     {
-        return await _context.WebhookLoglar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WebhookLoglar
             .Include(x => x.WebhookEndpoint)
             .FirstOrDefaultAsync(x => x.Id == id);
     }
 
     public async Task<int> GetPendingLogCountAsync()
     {
-        return await _context.WebhookLoglar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WebhookLoglar
             .CountAsync(x => x.Durum == WebhookLogDurum.Bekliyor || x.Durum == WebhookLogDurum.YenidenDeneniyor);
     }
 
     public async Task RetryFailedLogsAsync(int endpointId)
     {
-        var failedLogs = await _context.WebhookLoglar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var failedLogs = await context.WebhookLoglar
             .Where(x => x.WebhookEndpointId == endpointId &&
                        x.Durum == WebhookLogDurum.Basarisiz)
             .OrderBy(x => x.CreatedAt)
@@ -445,12 +457,12 @@ public class WebhookService : IWebhookService
             log.HataMesaji = null;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         // Yeniden işle
         foreach (var log in failedLogs)
         {
-            _ = Task.Run(async () => await ProcessWebhookLogAsync(log.Id));
+            _ = Task.Run(async () => await ProcessWebhookLogAsync(context, log.Id));
         }
 
         _logger.LogInformation("{Count} webhook logu yeniden denemeye alındı", failedLogs.Count);
@@ -462,7 +474,8 @@ public class WebhookService : IWebhookService
 
     public async Task<WebhookIstatistik> GetIstatistiklerAsync(int? endpointId = null, DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.WebhookLoglar.AsQueryable();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.WebhookLoglar.AsQueryable();
 
         if (endpointId.HasValue)
             query = query.Where(x => x.WebhookEndpointId == endpointId.Value);

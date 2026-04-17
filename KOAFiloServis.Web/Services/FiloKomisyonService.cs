@@ -11,16 +11,17 @@ namespace KOAFiloServis.Web.Services;
 
 public class FiloKomisyonService : IFiloKomisyonService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public FiloKomisyonService(ApplicationDbContext context)
+    public FiloKomisyonService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<List<FiloGuzergahEslestirme>> GetEslestirmelerAsync(int? firmaId = null, bool sadeceAktifler = true)
     {
-        var query = _context.FiloGuzergahEslestirmeleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.FiloGuzergahEslestirmeleri
             .Include(e => e.KurumFirma)
             .Include(e => e.Guzergah)
             .Include(e => e.Arac)
@@ -42,7 +43,8 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<FiloGuzergahEslestirme?> GetEslestirmeByIdAsync(int id)
     {
-        return await _context.FiloGuzergahEslestirmeleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.FiloGuzergahEslestirmeleri
             .Include(e => e.KurumFirma)
             .Include(e => e.Guzergah)
             .Include(e => e.Arac)
@@ -52,16 +54,18 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<FiloGuzergahEslestirme> CreateEslestirmeAsync(FiloGuzergahEslestirme eslestirme)
     {
-        await UygulaSahiplikKurallariAsync(eslestirme);
-        _context.FiloGuzergahEslestirmeleri.Add(eslestirme);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        await UygulaSahiplikKurallariAsync(context, eslestirme);
+        context.FiloGuzergahEslestirmeleri.Add(eslestirme);
+        await context.SaveChangesAsync();
         return eslestirme;
     }
 
     public async Task<FiloGuzergahEslestirme> UpdateEslestirmeAsync(FiloGuzergahEslestirme eslestirme)
     {
-        await UygulaSahiplikKurallariAsync(eslestirme);
-        var existing = await _context.FiloGuzergahEslestirmeleri.FindAsync(eslestirme.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        await UygulaSahiplikKurallariAsync(context, eslestirme);
+        var existing = await context.FiloGuzergahEslestirmeleri.FindAsync(eslestirme.Id);
         if (existing != null)
         {
             existing.KurumFirmaId = eslestirme.KurumFirmaId;
@@ -74,30 +78,32 @@ public class FiloKomisyonService : IFiloKomisyonService
             existing.IsActive = eslestirme.IsActive;
             existing.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
         return existing ?? eslestirme;
     }
 
     public async Task DeleteEslestirmeAsync(int id)
     {
-        var existing = await _context.FiloGuzergahEslestirmeleri.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.FiloGuzergahEslestirmeleri.FindAsync(id);
         if (existing != null)
         {
             existing.IsDeleted = true;
             existing.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task TopluPuantajUretAsync(int firmaId, int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // 1. Ayın günlerini belirle
         var baslangic = new DateTime(yil, ay, 1);
         var bitis = baslangic.AddMonths(1).AddDays(-1);
 
         // 2. Halihazırda var olan o aya ait puantaj kayıtlarını al (mükerrer kayıt oluşmaması için)
-        var mevcutPuantajlar = await _context.FiloGunlukPuantajlar
+        var mevcutPuantajlar = await context.FiloGunlukPuantajlar
             .Where(p => p.FirmaId == firmaId && p.Tarih >= baslangic && p.Tarih <= bitis && !p.IsDeleted)
             .ToListAsync();
 
@@ -134,7 +140,7 @@ public class FiloKomisyonService : IFiloKomisyonService
                         TahakkukEdenTaseronUcreti = 0m
                     };
 
-                    await UygulaPuantajKurallariAsync(yeniPuantaj, eslestirme);
+                    await UygulaPuantajKurallariAsync(context, yeniPuantaj, eslestirme);
                     yeniKavitlar.Add(yeniPuantaj);
                 }
             }
@@ -142,14 +148,15 @@ public class FiloKomisyonService : IFiloKomisyonService
 
         if (yeniKavitlar.Any())
         {
-            await _context.FiloGunlukPuantajlar.AddRangeAsync(yeniKavitlar);
-            await _context.SaveChangesAsync();
+            await context.FiloGunlukPuantajlar.AddRangeAsync(yeniKavitlar);
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<List<FiloGunlukPuantaj>> GetGunlukPuantajlarSiraliAsync(int firmaId, DateTime tarih)
     {
-        return await _context.FiloGunlukPuantajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.FiloGunlukPuantajlar
             .Include(p => p.KurumFirma)
             .Include(p => p.Guzergah)
             .Include(p => p.Arac)
@@ -162,7 +169,8 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<List<FiloGunlukPuantaj>> GetPuantajlarByTarihAraligiAsync(int? firmaId, DateTime baslangic, DateTime bitis, int? kurumId = null, int? aracId = null)
     {
-        var query = _context.FiloGunlukPuantajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.FiloGunlukPuantajlar
             .Include(p => p.KurumFirma)
             .Include(p => p.Guzergah)
             .Include(p => p.Arac)
@@ -183,15 +191,17 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<FiloGunlukPuantaj> CreatePuantajAsync(FiloGunlukPuantaj puantaj)
     {
-        await UygulaPuantajKurallariAsync(puantaj);
-        _context.FiloGunlukPuantajlar.Add(puantaj);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        await UygulaPuantajKurallariAsync(context, puantaj);
+        context.FiloGunlukPuantajlar.Add(puantaj);
+        await context.SaveChangesAsync();
         return puantaj;
     }
 
     public async Task<FiloGunlukPuantaj> UpdateGunlukPuantajAsync(FiloGunlukPuantaj puantaj)
     {
-        var existing = await _context.FiloGunlukPuantajlar.FindAsync(puantaj.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.FiloGunlukPuantajlar.FindAsync(puantaj.Id);
         if(existing != null)
         {
             existing.Durum = puantaj.Durum;
@@ -205,17 +215,18 @@ public class FiloKomisyonService : IFiloKomisyonService
             existing.ArizaAciklamasi = puantaj.ArizaAciklamasi;
             existing.Notlar = puantaj.Notlar;
 
-            await UygulaPuantajKurallariAsync(existing);
+            await UygulaPuantajKurallariAsync(context, existing);
             existing.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
         return existing ?? puantaj;
     }
 
     public async Task KurumFaturalastirAsync(List<int> puantajIds)
     {
-        var puantajlar = await _context.FiloGunlukPuantajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var puantajlar = await context.FiloGunlukPuantajlar
             .Where(p => puantajIds.Contains(p.Id))
             .ToListAsync();
 
@@ -225,12 +236,13 @@ public class FiloKomisyonService : IFiloKomisyonService
             p.UpdatedAt = DateTime.UtcNow;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task TaseronOdeAsync(List<int> puantajIds)
     {
-        var puantajlar = await _context.FiloGunlukPuantajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var puantajlar = await context.FiloGunlukPuantajlar
             .Where(p => puantajIds.Contains(p.Id))
             .ToListAsync();
 
@@ -240,12 +252,13 @@ public class FiloKomisyonService : IFiloKomisyonService
             p.UpdatedAt = DateTime.UtcNow;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<List<Arac>> GetAraclarAsync(int firmaId)
     {
-        return await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Araclar
             .Where(a => !a.IsDeleted)
             .OrderBy(a => a.AktifPlaka)
             .ThenBy(a => a.SaseNo)
@@ -254,7 +267,8 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<List<Cari>> GetKurumlarAsync(int firmaId)
     {
-        return await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Cariler
             .Where(c => !c.IsDeleted && (c.CariTipi == CariTipi.Musteri || c.CariTipi == CariTipi.MusteriTedarikci))
             .OrderBy(c => c.Unvan)
             .ToListAsync();
@@ -262,7 +276,8 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<List<Sofor>> GetSoforlerAsync()
     {
-        return await _context.Soforler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Soforler
             .Where(s => !s.IsDeleted && s.Aktif)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -271,15 +286,16 @@ public class FiloKomisyonService : IFiloKomisyonService
 
     public async Task<List<Guzergah>> GetGuzergahlarAsync()
     {
-        return await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Guzergahlar
             .Where(g => !g.IsDeleted && g.Aktif)
             .OrderBy(g => g.GuzergahAdi)
             .ToListAsync();
     }
 
-    private async Task UygulaSahiplikKurallariAsync(FiloGuzergahEslestirme eslestirme)
+    private async Task UygulaSahiplikKurallariAsync(ApplicationDbContext context, FiloGuzergahEslestirme eslestirme)
     {
-        var arac = await _context.Araclar
+        var arac = await context.Araclar
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == eslestirme.AracId && !a.IsDeleted);
 
@@ -292,10 +308,10 @@ public class FiloKomisyonService : IFiloKomisyonService
         }
     }
 
-    private async Task UygulaPuantajKurallariAsync(FiloGunlukPuantaj puantaj, FiloGuzergahEslestirme? eslestirme = null)
+    private async Task UygulaPuantajKurallariAsync(ApplicationDbContext context, FiloGunlukPuantaj puantaj, FiloGuzergahEslestirme? eslestirme = null)
     {
         eslestirme ??= puantaj.FiloGuzergahEslestirmeId.HasValue
-            ? await _context.FiloGuzergahEslestirmeleri
+            ? await context.FiloGuzergahEslestirmeleri
                 .Include(e => e.Arac)
                 .FirstOrDefaultAsync(e => e.Id == puantaj.FiloGuzergahEslestirmeId.Value && !e.IsDeleted)
             : null;

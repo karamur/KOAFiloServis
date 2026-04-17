@@ -8,12 +8,12 @@ namespace KOAFiloServis.Web.Services;
 
 public class PersonelFinansService : IPersonelFinansService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IMuhasebeService _muhasebeService;
 
-    public PersonelFinansService(ApplicationDbContext context, IMuhasebeService muhasebeService)
+    public PersonelFinansService(IDbContextFactory<ApplicationDbContext> contextFactory, IMuhasebeService muhasebeService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _muhasebeService = muhasebeService;
     }
 
@@ -21,7 +21,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<List<PersonelAvans>> GetAvanslarAsync(int? firmaId = null, int? personelId = null, DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.Set<PersonelAvans>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Set<PersonelAvans>()
             .Include(a => a.Personel)
             .Include(a => a.Firma)
             .Include(a => a.BankaHesap)
@@ -46,7 +47,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelAvans?> GetAvansByIdAsync(int id)
     {
-        return await _context.Set<PersonelAvans>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<PersonelAvans>()
             .Include(a => a.Personel)
             .Include(a => a.Firma)
             .Include(a => a.BankaHesap)
@@ -57,12 +59,13 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelAvans> CreateAvansAsync(PersonelAvans avans, bool muhasebeKaydiOlustur = true)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         avans.Durum = AvansDurum.Verildi;
         avans.MahsupEdilen = 0;
         avans.CreatedAt = DateTime.UtcNow;
 
-        _context.Set<PersonelAvans>().Add(avans);
-        await _context.SaveChangesAsync();
+        context.Set<PersonelAvans>().Add(avans);
+        await context.SaveChangesAsync();
 
         // Muhasebe kaydı oluştur
         if (muhasebeKaydiOlustur)
@@ -75,7 +78,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelAvans> UpdateAvansAsync(PersonelAvans avans)
     {
-        var existing = await _context.Set<PersonelAvans>().FindAsync(avans.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.Set<PersonelAvans>().FindAsync(avans.Id);
         if (existing == null)
             throw new InvalidOperationException($"Avans bulunamadı. Id: {avans.Id}");
 
@@ -86,13 +90,14 @@ public class PersonelFinansService : IPersonelFinansService
         existing.BankaHesapId = avans.BankaHesapId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteAvansAsync(int id)
     {
-        var avans = await _context.Set<PersonelAvans>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var avans = await context.Set<PersonelAvans>()
             .Include(a => a.Mahsuplasmalar)
             .FirstOrDefaultAsync(a => a.Id == id);
 
@@ -103,12 +108,13 @@ public class PersonelFinansService : IPersonelFinansService
             throw new InvalidOperationException("Mahsuplaşması olan avans silinemez!");
 
         avans.IsDeleted = true;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<PersonelAvans> IptalEtAvansAsync(int id, string iptalNedeni)
     {
-        var avans = await _context.Set<PersonelAvans>().FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var avans = await context.Set<PersonelAvans>().FindAsync(id);
         if (avans == null)
             throw new InvalidOperationException($"Avans bulunamadı. Id: {id}");
 
@@ -116,7 +122,7 @@ public class PersonelFinansService : IPersonelFinansService
         avans.Aciklama = (avans.Aciklama ?? "") + $" [İPTAL: {iptalNedeni}]";
         avans.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return avans;
     }
 
@@ -126,7 +132,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelAvansMahsup> MahsupEtAvansAsync(int avansId, PersonelAvansMahsup mahsup)
     {
-        var avans = await _context.Set<PersonelAvans>().FindAsync(avansId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var avans = await context.Set<PersonelAvans>().FindAsync(avansId);
         if (avans == null)
             throw new InvalidOperationException($"Avans bulunamadı. Id: {avansId}");
 
@@ -136,7 +143,7 @@ public class PersonelFinansService : IPersonelFinansService
         mahsup.AvansId = avansId;
         mahsup.CreatedAt = DateTime.UtcNow;
 
-        _context.Set<PersonelAvansMahsup>().Add(mahsup);
+        context.Set<PersonelAvansMahsup>().Add(mahsup);
 
         // Avans mahsup bilgisini güncelle
         avans.MahsupEdilen += mahsup.MahsupTutari;
@@ -151,13 +158,14 @@ public class PersonelFinansService : IPersonelFinansService
         }
         avans.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return mahsup;
     }
 
     public async Task<List<PersonelAvansMahsup>> GetAvansMahsuplasmalarAsync(int avansId)
     {
-        return await _context.Set<PersonelAvansMahsup>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<PersonelAvansMahsup>()
             .Include(m => m.BankaHesap)
             .Include(m => m.Maas)
             .Where(m => m.AvansId == avansId)
@@ -168,7 +176,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<decimal> MaasaAcikAvansMahsupEtAsync(int maasId, DateTime? mahsupTarihi = null, string? aciklama = null)
     {
-        var maas = await _context.PersonelMaaslari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var maas = await context.PersonelMaaslari
             .FirstOrDefaultAsync(m => m.Id == maasId && !m.IsDeleted);
 
         if (maas == null)
@@ -181,7 +190,7 @@ public class PersonelFinansService : IPersonelFinansService
         if (mahsupEdilebilirTutar <= 0)
             throw new InvalidOperationException("Maaş üzerinde mahsup edilebilecek tutar bulunmuyor.");
 
-        var acikAvanslar = await _context.Set<PersonelAvans>()
+        var acikAvanslar = await context.Set<PersonelAvans>()
             .Where(a => !a.IsDeleted &&
                         a.PersonelId == maas.SoforId &&
                         a.Durum != AvansDurum.IptalEdildi &&
@@ -216,7 +225,7 @@ public class PersonelFinansService : IPersonelFinansService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Set<PersonelAvansMahsup>().Add(mahsup);
+            context.Set<PersonelAvansMahsup>().Add(mahsup);
 
             avans.MahsupEdilen += mahsupTutari;
             avans.MahsupTarihi = islemTarihi;
@@ -241,13 +250,14 @@ public class PersonelFinansService : IPersonelFinansService
                 : $"{maas.Notlar}{Environment.NewLine}{yeniNot}";
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return toplamMahsup;
     }
 
     public async Task DeleteMahsupAsync(int mahsupId)
     {
-        var mahsup = await _context.Set<PersonelAvansMahsup>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mahsup = await context.Set<PersonelAvansMahsup>()
             .Include(m => m.Avans)
             .FirstOrDefaultAsync(m => m.Id == mahsupId);
 
@@ -262,7 +272,7 @@ public class PersonelFinansService : IPersonelFinansService
             avans.Durum = AvansDurum.Verildi;
 
         mahsup.IsDeleted = true;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -271,7 +281,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<List<PersonelBorc>> GetBorclarAsync(int? firmaId = null, int? personelId = null, BorcOdemeDurum? durum = null)
     {
-        var query = _context.Set<PersonelBorc>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Set<PersonelBorc>()
             .Include(b => b.Personel)
             .Include(b => b.Firma)
             .Include(b => b.BankaHesap)
@@ -293,7 +304,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelBorc?> GetBorcByIdAsync(int id)
     {
-        return await _context.Set<PersonelBorc>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<PersonelBorc>()
             .Include(b => b.Personel)
             .Include(b => b.Firma)
             .Include(b => b.BankaHesap)
@@ -304,12 +316,13 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelBorc> CreateBorcAsync(PersonelBorc borc, bool muhasebeKaydiOlustur = true)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         borc.OdemeDurum = BorcOdemeDurum.Bekliyor;
         borc.OdenenTutar = 0;
         borc.CreatedAt = DateTime.UtcNow;
 
-        _context.Set<PersonelBorc>().Add(borc);
-        await _context.SaveChangesAsync();
+        context.Set<PersonelBorc>().Add(borc);
+        await context.SaveChangesAsync();
 
         // Muhasebe kaydı oluştur
         if (muhasebeKaydiOlustur)
@@ -322,7 +335,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelBorc> UpdateBorcAsync(PersonelBorc borc)
     {
-        var existing = await _context.Set<PersonelBorc>().FindAsync(borc.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.Set<PersonelBorc>().FindAsync(borc.Id);
         if (existing == null)
             throw new InvalidOperationException($"Borç bulunamadı. Id: {borc.Id}");
 
@@ -334,13 +348,14 @@ public class PersonelFinansService : IPersonelFinansService
         existing.PlanlananOdemeTarihi = borc.PlanlananOdemeTarihi;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteBorcAsync(int id)
     {
-        var borc = await _context.Set<PersonelBorc>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var borc = await context.Set<PersonelBorc>()
             .Include(b => b.Odemeler)
             .FirstOrDefaultAsync(b => b.Id == id);
 
@@ -351,12 +366,13 @@ public class PersonelFinansService : IPersonelFinansService
             throw new InvalidOperationException("Ödemesi olan borç silinemez!");
 
         borc.IsDeleted = true;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<PersonelBorc> IptalEtBorcAsync(int id, string iptalNedeni)
     {
-        var borc = await _context.Set<PersonelBorc>().FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var borc = await context.Set<PersonelBorc>().FindAsync(id);
         if (borc == null)
             throw new InvalidOperationException($"Borç bulunamadı. Id: {id}");
 
@@ -364,7 +380,7 @@ public class PersonelFinansService : IPersonelFinansService
         borc.Aciklama = (borc.Aciklama ?? "") + $" [İPTAL: {iptalNedeni}]";
         borc.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return borc;
     }
 
@@ -374,7 +390,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelBorcOdeme> OdemeYapBorcAsync(int borcId, PersonelBorcOdeme odeme, bool muhasebeKaydiOlustur = true)
     {
-        var borc = await _context.Set<PersonelBorc>().FindAsync(borcId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var borc = await context.Set<PersonelBorc>().FindAsync(borcId);
         if (borc == null)
             throw new InvalidOperationException($"Borç bulunamadı. Id: {borcId}");
 
@@ -384,7 +401,7 @@ public class PersonelFinansService : IPersonelFinansService
         odeme.BorcId = borcId;
         odeme.CreatedAt = DateTime.UtcNow;
 
-        _context.Set<PersonelBorcOdeme>().Add(odeme);
+        context.Set<PersonelBorcOdeme>().Add(odeme);
 
         // Borç ödeme bilgisini güncelle
         borc.OdenenTutar += odeme.OdemeTutari;
@@ -399,7 +416,7 @@ public class PersonelFinansService : IPersonelFinansService
         }
         borc.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         // Muhasebe kaydı oluştur
         if (muhasebeKaydiOlustur)
@@ -412,7 +429,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<List<PersonelBorcOdeme>> GetBorcOdemelerAsync(int borcId)
     {
-        return await _context.Set<PersonelBorcOdeme>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<PersonelBorcOdeme>()
             .Include(o => o.BankaHesap)
             .Where(o => o.BorcId == borcId)
             .OrderByDescending(o => o.OdemeTarihi)
@@ -422,7 +440,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task DeleteBorcOdemeAsync(int odemeId)
     {
-        var odeme = await _context.Set<PersonelBorcOdeme>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.Set<PersonelBorcOdeme>()
             .Include(o => o.Borc)
             .FirstOrDefaultAsync(o => o.Id == odemeId);
 
@@ -437,7 +456,7 @@ public class PersonelFinansService : IPersonelFinansService
             borc.OdemeDurum = BorcOdemeDurum.Bekliyor;
 
         odeme.IsDeleted = true;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -446,16 +465,17 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelFinansOzet> GetPersonelFinansOzetAsync(int personelId)
     {
-        var personel = await _context.Soforler.AsNoTracking().FirstOrDefaultAsync(p => p.Id == personelId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personel = await context.Soforler.AsNoTracking().FirstOrDefaultAsync(p => p.Id == personelId);
         if (personel == null)
             throw new InvalidOperationException($"Personel bulunamadı. Id: {personelId}");
 
-        var avanslar = await _context.Set<PersonelAvans>()
+        var avanslar = await context.Set<PersonelAvans>()
             .Where(a => a.PersonelId == personelId && a.Durum != AvansDurum.IptalEdildi)
             .AsNoTracking()
             .ToListAsync();
 
-        var borclar = await _context.Set<PersonelBorc>()
+        var borclar = await context.Set<PersonelBorc>()
             .Where(b => b.PersonelId == personelId && b.OdemeDurum != BorcOdemeDurum.IptalEdildi)
             .AsNoTracking()
             .ToListAsync();
@@ -482,7 +502,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<List<PersonelFinansOzet>> GetTumPersonelFinansOzetAsync(int? firmaId = null)
     {
-        var personeller = await _context.Soforler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personeller = await context.Soforler
             .Where(p => p.Aktif)
             .AsNoTracking()
             .ToListAsync();
@@ -491,8 +512,8 @@ public class PersonelFinansService : IPersonelFinansService
 
         foreach (var personel in personeller)
         {
-            var query1 = _context.Set<PersonelAvans>().Where(a => a.PersonelId == personel.Id && a.Durum != AvansDurum.IptalEdildi);
-            var query2 = _context.Set<PersonelBorc>().Where(b => b.PersonelId == personel.Id && b.OdemeDurum != BorcOdemeDurum.IptalEdildi);
+            var query1 = context.Set<PersonelAvans>().Where(a => a.PersonelId == personel.Id && a.Durum != AvansDurum.IptalEdildi);
+            var query2 = context.Set<PersonelBorc>().Where(b => b.PersonelId == personel.Id && b.OdemeDurum != BorcOdemeDurum.IptalEdildi);
 
             if (firmaId.HasValue)
             {
@@ -535,7 +556,8 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelFinansAyar?> GetAyarlarAsync(int? firmaId = null)
     {
-        var ayar = await _context.Set<PersonelFinansAyar>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var ayar = await context.Set<PersonelFinansAyar>()
             .Include(a => a.PersonelAvanslariHesap)
             .Include(a => a.PersoneleBorclarHesap)
             .Include(a => a.KasaHesap)
@@ -560,12 +582,13 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<PersonelFinansAyar> SaveAyarlarAsync(PersonelFinansAyar ayar)
     {
-        var existing = await _context.Set<PersonelFinansAyar>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.Set<PersonelFinansAyar>()
             .FirstOrDefaultAsync(a => a.FirmaId == ayar.FirmaId);
 
         if (existing == null)
         {
-            _context.Set<PersonelFinansAyar>().Add(ayar);
+            context.Set<PersonelFinansAyar>().Add(ayar);
         }
         else
         {
@@ -580,7 +603,7 @@ public class PersonelFinansService : IPersonelFinansService
             existing.UpdatedAt = DateTime.UtcNow;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return ayar;
     }
 
@@ -609,6 +632,7 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<byte[]> ExportAvansRaporAsync(List<PersonelAvans> avanslar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Personel Avansları");
 
@@ -655,6 +679,7 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<byte[]> ExportBorcRaporAsync(List<PersonelBorc> borclar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Personel Borçları");
 
@@ -705,6 +730,7 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<byte[]> ExportPersonelOzetRaporAsync(List<PersonelFinansOzet> ozetler)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Personel Finans Özeti");
 
@@ -769,10 +795,11 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<int> TopluAvansMahsupAsync(List<int> avansIdler, DateTime mahsupTarihi, string aciklama)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         int sayac = 0;
         foreach (var avansId in avansIdler)
         {
-            var avans = await _context.Set<PersonelAvans>().FindAsync(avansId);
+            var avans = await context.Set<PersonelAvans>().FindAsync(avansId);
             if (avans == null || avans.Kalan <= 0) continue;
 
             var mahsup = new PersonelAvansMahsup
@@ -793,10 +820,11 @@ public class PersonelFinansService : IPersonelFinansService
 
     public async Task<int> TopluBorcOdemeAsync(List<int> borcIdler, DateTime odemeTarihi, BorcOdemeSekli odemeSekli, int? bankaHesapId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         int sayac = 0;
         foreach (var borcId in borcIdler)
         {
-            var borc = await _context.Set<PersonelBorc>().FindAsync(borcId);
+            var borc = await context.Set<PersonelBorc>().FindAsync(borcId);
             if (borc == null || borc.KalanBorc <= 0) continue;
 
             var odeme = new PersonelBorcOdeme

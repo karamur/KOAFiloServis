@@ -7,20 +7,22 @@ namespace KOAFiloServis.Web.Services;
 
 public class FaturaHazirlikService : IFaturaHazirlikService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public FaturaHazirlikService(ApplicationDbContext context)
+    public FaturaHazirlikService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<FaturaHazirlikListesi> GetFaturaHazirlikListesiAsync(DateTime baslangicTarihi, DateTime bitisTarihi)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await GetFaturaHazirlikListesiAsync(baslangicTarihi, bitisTarihi, null);
     }
 
     public async Task<FaturaHazirlikListesi> GetFaturaHazirlikListesiAsync(DateTime baslangicTarihi, DateTime bitisTarihi, int? cariId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var liste = new FaturaHazirlikListesi
         {
             BaslangicTarihi = baslangicTarihi,
@@ -28,7 +30,7 @@ public class FaturaHazirlikService : IFaturaHazirlikService
         };
 
         // Tamamlanmış servis çalışmalarını getir
-        var query = _context.ServisCalismalari
+        var query = context.ServisCalismalari
             .Include(s => s.Arac)
                 .ThenInclude(a => a.KiralikCari)
             .Include(s => s.Arac)

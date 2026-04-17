@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,15 +6,15 @@ namespace KOAFiloServis.Web.Services;
 
 public class BudgetService : IBudgetService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IBankaKasaHareketService _bankaKasaHareketService;
     private readonly IMuhasebeService _muhasebeService;
     private static readonly string[] AyAdlari = { "", "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", 
                                                    "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik" };
 
-    public BudgetService(ApplicationDbContext context, IBankaKasaHareketService bankaKasaHareketService, IMuhasebeService muhasebeService)
+    public BudgetService(IDbContextFactory<ApplicationDbContext> contextFactory, IBankaKasaHareketService bankaKasaHareketService, IMuhasebeService muhasebeService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _bankaKasaHareketService = bankaKasaHareketService;
         _muhasebeService = muhasebeService;
     }
@@ -23,7 +23,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetOdeme>> GetOdemelerAsync(int yil, int? ay = null, int? firmaId = null)
     {
-        var query = _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.BudgetOdemeler
             .Include(o => o.OdemeYapildigiHesap)
             .Where(o => o.OdemeYil == yil);
 
@@ -38,7 +39,7 @@ public class BudgetService : IBudgetService
             .ThenBy(o => o.OdemeTarihi)
             .ToListAsync();
 
-        await DoldurOdemeHareketIzleriAsync(odemeler);
+        await DoldurOdemeHareketIzleriAsync(context, odemeler);
         return odemeler;
     }
 
@@ -47,7 +48,8 @@ public class BudgetService : IBudgetService
     /// </summary>
     public async Task<List<BudgetOdeme>> GetBekleyenOdemelerAsync(int yil, int? ay = null)
     {
-        var query = _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.BudgetOdemeler
             .Where(o => o.OdemeYil == yil && 
                         (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi));
 
@@ -62,9 +64,10 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetOdeme>> GetDevirBekleyenOdemelerAsync(DateTime donemBaslangic, int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var baslangicUtc = DateTime.SpecifyKind(donemBaslangic.Date, DateTimeKind.Utc);
 
-        var query = _context.BudgetOdemeler
+        var query = context.BudgetOdemeler
             .Where(o => (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi)
                         && o.OdemeTarihi < baslangicUtc
                         && !o.KalanSonrakiDonemeAktarilsin); // Zaten aktarılmış olanları gösterme
@@ -81,10 +84,11 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetOdeme>> GetOdemelerByDateRangeAsync(DateTime baslangic, DateTime bitis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var baslangicUtc = DateTime.SpecifyKind(baslangic.Date, DateTimeKind.Utc);
         var bitisUtc = DateTime.SpecifyKind(bitis.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
 
-        return await _context.BudgetOdemeler
+        return await context.BudgetOdemeler
             .Where(o => o.OdemeTarihi >= baslangicUtc && o.OdemeTarihi <= bitisUtc)
             .OrderBy(o => o.OdemeTarihi)
             .ToListAsync();
@@ -92,17 +96,19 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetOdeme?> GetOdemeByIdAsync(int id)
     {
-        return await _context.BudgetOdemeler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BudgetOdemeler.FindAsync(id);
     }
 
     public async Task<BudgetOdeme?> GetOdemeByHareketIdAsync(int bankaKasaHareketId)
     {
-        return await _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BudgetOdemeler
             .AsNoTracking()
             .FirstOrDefaultAsync(o => o.BankaKasaHareketId == bankaKasaHareketId);
     }
 
-    private async Task DoldurOdemeHareketIzleriAsync(List<BudgetOdeme> odemeler)
+    private async Task DoldurOdemeHareketIzleriAsync(ApplicationDbContext context, List<BudgetOdeme> odemeler)
     {
         var hareketIds = odemeler
             .Where(o => o.BankaKasaHareketId.HasValue)
@@ -113,7 +119,7 @@ public class BudgetService : IBudgetService
         if (!hareketIds.Any())
             return;
 
-        var hareketler = await _context.BankaKasaHareketleri
+        var hareketler = await context.BankaKasaHareketleri
             .AsNoTracking()
             .Include(h => h.Cari)
             .Where(h => hareketIds.Contains(h.Id))
@@ -145,6 +151,7 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetOdeme> CreateOdemeAsync(BudgetOdeme odeme)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // DateTime'i UTC olarak ayarla
         odeme.OdemeTarihi = DateTime.SpecifyKind(odeme.OdemeTarihi, DateTimeKind.Utc);
         odeme.Miktar = Math.Abs(odeme.Miktar);
@@ -161,20 +168,21 @@ public class BudgetService : IBudgetService
         
         odeme.CreatedAt = DateTime.UtcNow;
 
-        _context.BudgetOdemeler.Add(odeme);
-        await _context.SaveChangesAsync();
+        context.BudgetOdemeler.Add(odeme);
+        await context.SaveChangesAsync();
         return odeme;
     }
 
     public async Task<BudgetOdeme> UpdateOdemeAsync(BudgetOdeme odeme)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // DateTime'i UTC olarak ayarla
         var odemeTarihi = DateTime.SpecifyKind(odeme.OdemeTarihi, DateTimeKind.Utc);
         var miktar = Math.Abs(odeme.Miktar);
         var updatedAt = DateTime.UtcNow;
         
         // Doğrudan veritabanında güncelle (tracking sorunu olmaz)
-        await _context.BudgetOdemeler
+        await context.BudgetOdemeler
             .Where(o => o.Id == odeme.Id)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(o => o.OdemeTarihi, odemeTarihi)
@@ -214,12 +222,13 @@ public class BudgetService : IBudgetService
     /// </summary>
     public async Task DeleteOdemeAsync(int id)
     {
-        var odeme = await _context.BudgetOdemeler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.BudgetOdemeler.FindAsync(id);
         if (odeme != null)
         {
             odeme.IsDeleted = true;
             odeme.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -228,14 +237,15 @@ public class BudgetService : IBudgetService
     /// </summary>
     public async Task HardDeleteOdemeAsync(int id)
     {
-        var odeme = await _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.BudgetOdemeler
             .IgnoreQueryFilters() // Soft delete filtresini atla
             .FirstOrDefaultAsync(o => o.Id == id);
             
         if (odeme != null)
         {
-            _context.BudgetOdemeler.Remove(odeme);
-            await _context.SaveChangesAsync();
+            context.BudgetOdemeler.Remove(odeme);
+            await context.SaveChangesAsync();
         }
     }
 
@@ -247,7 +257,8 @@ public class BudgetService : IBudgetService
     /// </summary>
     public async Task<BudgetOdeme> OdemeYapAsync(int odemeId, OdemeYapRequest request)
     {
-        var odeme = await _context.BudgetOdemeler.AsNoTracking().FirstOrDefaultAsync(o => o.Id == odemeId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.BudgetOdemeler.AsNoTracking().FirstOrDefaultAsync(o => o.Id == odemeId);
         if (odeme == null)
             throw new Exception("Odeme bulunamadi");
 
@@ -333,8 +344,8 @@ public class BudgetService : IBudgetService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.BankaKasaHareketleri.Add(hareket);
-            await _context.SaveChangesAsync();
+            context.BankaKasaHareketleri.Add(hareket);
+            await context.SaveChangesAsync();
 
             // Hareket ID'sini kaydet
             bankaKasaHareketId = hareket.Id;
@@ -346,11 +357,11 @@ public class BudgetService : IBudgetService
                 await AddKrediKartiBorcAsync(request.BankaHesapId.Value, netOdemeTutari, donemAy, donemYil, aciklamaBuilder, odeme.Id);
             }
 
-            await CreateBudgetMuhasebeFisiAsync(odeme, request, hareket, odemeTutari, masrafKesintisi, cezaKesintisi, digerKesinti);
+            await CreateBudgetMuhasebeFisiAsync(context, odeme, request, hareket, odemeTutari, masrafKesintisi, cezaKesintisi, digerKesinti);
         }
 
         // Doğrudan veritabanında güncelle - ExecuteUpdateAsync ile tracking sorunu olmaz
-        await _context.BudgetOdemeler
+        await context.BudgetOdemeler
             .Where(o => o.Id == odemeId)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(o => o.Durum, OdemeDurum.Odendi)
@@ -386,11 +397,12 @@ public class BudgetService : IBudgetService
     /// </summary>
     public async Task<BudgetOdeme> FaturaIleKapatAsync(int odemeId, int faturaId)
     {
-        var odeme = await _context.BudgetOdemeler.FindAsync(odemeId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.BudgetOdemeler.FindAsync(odemeId);
         if (odeme == null)
             throw new Exception("Odeme bulunamadi");
 
-        var fatura = await _context.Faturalar.FindAsync(faturaId);
+        var fatura = await context.Faturalar.FindAsync(faturaId);
         if (fatura == null)
             throw new Exception("Fatura bulunamadi");
 
@@ -400,7 +412,7 @@ public class BudgetService : IBudgetService
         odeme.Durum = OdemeDurum.Odendi;
         odeme.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return odeme;
     }
 
@@ -409,14 +421,15 @@ public class BudgetService : IBudgetService
     /// </summary>
     public async Task<BudgetOdeme> OdemeGeriAlAsync(int odemeId)
     {
-        var odeme = await _context.BudgetOdemeler.FindAsync(odemeId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.BudgetOdemeler.FindAsync(odemeId);
         if (odeme == null)
             throw new Exception("Odeme bulunamadi");
 
         // İlişkili BankaKasaHareket kaydını sil
         if (odeme.BankaKasaHareketId.HasValue)
         {
-            var hareket = await _context.BankaKasaHareketleri
+            var hareket = await context.BankaKasaHareketleri
                 .Include(h => h.OdemeEslestirmeleri)
                 .FirstOrDefaultAsync(h => h.Id == odeme.BankaKasaHareketId.Value);
 
@@ -425,9 +438,9 @@ public class BudgetService : IBudgetService
                 // Önce ilişkili OdemeEslestirmeleri sil
                 if (hareket.OdemeEslestirmeleri.Any())
                 {
-                    _context.OdemeEslestirmeleri.RemoveRange(hareket.OdemeEslestirmeleri);
+                    context.OdemeEslestirmeleri.RemoveRange(hareket.OdemeEslestirmeleri);
                 }
-                _context.BankaKasaHareketleri.Remove(hareket); // Hard delete
+                context.BankaKasaHareketleri.Remove(hareket); // Hard delete
             }
         }
 
@@ -444,7 +457,7 @@ public class BudgetService : IBudgetService
         odeme.KesintiAciklamasi = null;
         odeme.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return odeme;
     }
 
@@ -454,6 +467,7 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetOdeme>> CreateTaksitliOdemeAsync(TaksitliOdemeRequest request)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var taksitGrupId = Guid.NewGuid();
         var taksitler = new List<BudgetOdeme>();
 
@@ -526,14 +540,15 @@ public class BudgetService : IBudgetService
             }
         }
 
-        _context.BudgetOdemeler.AddRange(taksitler);
-        await _context.SaveChangesAsync();
+        context.BudgetOdemeler.AddRange(taksitler);
+        await context.SaveChangesAsync();
         return taksitler;
     }
 
     public async Task<List<BudgetOdeme>> GetTaksitGrubuAsync(Guid taksitGrupId)
     {
-        return await _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BudgetOdemeler
             .Where(o => o.TaksitGrupId == taksitGrupId)
             .OrderBy(o => o.KacinciTaksit)
             .ToListAsync();
@@ -541,9 +556,10 @@ public class BudgetService : IBudgetService
 
     public async Task UpdateTaksitGrubuAsync(List<BudgetOdeme> taksitler)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         foreach (var taksit in taksitler)
         {
-            var existing = await _context.BudgetOdemeler.FindAsync(taksit.Id);
+            var existing = await context.BudgetOdemeler.FindAsync(taksit.Id);
             if (existing != null)
             {
                 // DateTime'i UTC olarak ayarla
@@ -555,7 +571,7 @@ public class BudgetService : IBudgetService
                 existing.UpdatedAt = DateTime.UtcNow;
             }
         }
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -564,6 +580,7 @@ public class BudgetService : IBudgetService
 
     public async Task<byte[]> GetExcelSablonAsync(List<Firma> firmalar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new ClosedXML.Excel.XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Odeme Sablonu");
 
@@ -605,7 +622,7 @@ public class BudgetService : IBudgetService
         worksheet.Cell(row, 1).Value = "MASRAF KALEMLERI:";
         worksheet.Cell(row++, 1).Style.Font.Bold = true;
         
-        var masrafKalemleri = await _context.BudgetMasrafKalemleri.Where(m => m.Aktif).OrderBy(m => m.KalemAdi).ToListAsync();
+        var masrafKalemleri = await context.BudgetMasrafKalemleri.Where(m => m.Aktif).OrderBy(m => m.KalemAdi).ToListAsync();
         foreach (var kalem in masrafKalemleri)
         {
             worksheet.Cell(row++, 1).Value = kalem.KalemAdi;
@@ -620,6 +637,7 @@ public class BudgetService : IBudgetService
 
     public async Task<int> ImportFromExcelAsync(byte[] fileContent)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var odemeler = new List<BudgetOdeme>();
 
         using var stream = new MemoryStream(fileContent);
@@ -671,7 +689,7 @@ public class BudgetService : IBudgetService
             int? firmaId = null;
             if (!string.IsNullOrEmpty(firmaAdi))
             {
-                var firma = await _context.Firmalar.FirstOrDefaultAsync(f => f.FirmaAdi == firmaAdi);
+                var firma = await context.Firmalar.FirstOrDefaultAsync(f => f.FirmaAdi == firmaAdi);
                 firmaId = firma?.Id;
             }
 
@@ -699,8 +717,8 @@ public class BudgetService : IBudgetService
 
         if (odemeler.Any())
         {
-            _context.BudgetOdemeler.AddRange(odemeler);
-            await _context.SaveChangesAsync();
+            context.BudgetOdemeler.AddRange(odemeler);
+            await context.SaveChangesAsync();
         }
 
         return odemeler.Count;
@@ -712,7 +730,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetMasrafKalemi>> GetMasrafKalemleriAsync()
     {
-        return await _context.BudgetMasrafKalemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BudgetMasrafKalemleri
             .Where(m => m.Aktif)
             .OrderBy(m => m.SiraNo)
             .ThenBy(m => m.KalemAdi)
@@ -721,30 +740,34 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetMasrafKalemi> CreateMasrafKalemiAsync(BudgetMasrafKalemi kalem)
     {
-        _context.BudgetMasrafKalemleri.Add(kalem);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.BudgetMasrafKalemleri.Add(kalem);
+        await context.SaveChangesAsync();
         return kalem;
     }
 
     public async Task<BudgetMasrafKalemi> UpdateMasrafKalemiAsync(BudgetMasrafKalemi kalem)
     {
-        _context.BudgetMasrafKalemleri.Update(kalem);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.BudgetMasrafKalemleri.Update(kalem);
+        await context.SaveChangesAsync();
         return kalem;
     }
 
     public async Task DeleteMasrafKalemiAsync(int id)
     {
-        var kalem = await _context.BudgetMasrafKalemleri.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kalem = await context.BudgetMasrafKalemleri.FindAsync(id);
         if (kalem != null)
         {
             kalem.Aktif = false;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task SeedMasrafKalemleriAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Varsayılan masraf kalemleri
         var varsayilanKalemler = new List<(string Adi, string Kategori, string Icon, string Renk, int SiraNo)>
         {
@@ -768,13 +791,13 @@ public class BudgetService : IBudgetService
 
         foreach (var (adi, kategori, icon, renk, siraNo) in varsayilanKalemler)
         {
-            var mevcutMu = await _context.BudgetMasrafKalemleri
+            var mevcutMu = await context.BudgetMasrafKalemleri
                 .IgnoreQueryFilters()
                 .AnyAsync(m => m.KalemAdi == adi);
 
             if (!mevcutMu)
             {
-                _context.BudgetMasrafKalemleri.Add(new BudgetMasrafKalemi
+                context.BudgetMasrafKalemleri.Add(new BudgetMasrafKalemi
                 {
                     KalemAdi = adi,
                     Kategori = kategori,
@@ -787,7 +810,7 @@ public class BudgetService : IBudgetService
             }
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -796,7 +819,8 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetOzet> GetAylikOzetAsync(int yil, int ay, int? firmaId = null)
     {
-        var query = _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.BudgetOdemeler
             .Where(o => o.OdemeYil == yil && o.OdemeAy == ay);
 
         if (firmaId.HasValue)
@@ -833,13 +857,14 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetYillikOzet> GetYillikOzetAsync(int yil, int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Add this to ensure payments are automatically generated for all months in the year view
         for (int m = 1; m <= 12; m++)
         {
             await TekrarlayanOdemelerdenKayitOlusturAsync(yil, m, firmaId);
         }
 
-        var query = _context.BudgetOdemeler.Where(o => o.OdemeYil == yil);
+        var query = context.BudgetOdemeler.Where(o => o.OdemeYil == yil);
 
         if (firmaId.HasValue)
             query = query.Where(o => o.FirmaId == firmaId.Value);
@@ -967,7 +992,7 @@ public class BudgetService : IBudgetService
         return not;
     }
 
-    private async Task<MuhasebeHesap> ResolveMuhasebeHesabiAsync(params string[] adayKodlar)
+    private async Task<MuhasebeHesap> ResolveMuhasebeHesabiAsync(ApplicationDbContext context, params string[] adayKodlar)
     {
         foreach (var kod in adayKodlar.Where(k => !string.IsNullOrWhiteSpace(k)))
         {
@@ -984,9 +1009,9 @@ public class BudgetService : IBudgetService
         throw new InvalidOperationException($"Muhasebe hesabı bulunamadı: {string.Join(", ", adayKodlar)}");
     }
 
-    private async Task<string> GetBankaHesapMuhasebeKoduAsync(int bankaHesapId)
+    private async Task<string> GetBankaHesapMuhasebeKoduAsync(ApplicationDbContext context, int bankaHesapId)
     {
-        var hesap = await _context.BankaHesaplari.AsNoTracking().FirstOrDefaultAsync(h => h.Id == bankaHesapId)
+        var hesap = await context.BankaHesaplari.AsNoTracking().FirstOrDefaultAsync(h => h.Id == bankaHesapId)
             ?? throw new InvalidOperationException("Banka hesabı bulunamadı.");
 
         return hesap.VarsayilanMuhasebeKodu ?? GetBankaHesapKodu(hesap.HesapTipi);
@@ -1023,7 +1048,7 @@ public class BudgetService : IBudgetService
         };
     }
 
-    private async Task CreateKrediKullanimiKayitlariAsync(TaksitliOdemeRequest request, Guid taksitGrupId, BankaHesap bagliHesap)
+    private async Task CreateKrediKullanimiKayitlariAsync(ApplicationDbContext context, TaksitliOdemeRequest request, Guid taksitGrupId, BankaHesap bagliHesap)
     {
         var anaPara = RoundCurrency(request.KrediAnaParaTutari ?? 0);
         if (anaPara <= 0)
@@ -1046,11 +1071,11 @@ public class BudgetService : IBudgetService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.BankaKasaHareketleri.Add(hareket);
-        await _context.SaveChangesAsync();
+        context.BankaKasaHareketleri.Add(hareket);
+        await context.SaveChangesAsync();
 
-        var bankaHesap = await ResolveMuhasebeHesabiAsync(bagliHesap.VarsayilanMuhasebeKodu ?? GetBankaHesapKodu(bagliHesap.HesapTipi));
-        var krediHesap = await ResolveMuhasebeHesabiAsync("300.01", "300");
+        var bankaHesap = await ResolveMuhasebeHesabiAsync(context, bagliHesap.VarsayilanMuhasebeKodu ?? GetBankaHesapKodu(bagliHesap.HesapTipi));
+        var krediHesap = await ResolveMuhasebeHesabiAsync(context, "300.01", "300");
         var kalemler = new List<MuhasebeFisKalem>
         {
             new()
@@ -1066,7 +1091,7 @@ public class BudgetService : IBudgetService
         var siraNo = 2;
         if (pesinFaiz > 0)
         {
-            var faizHesap = await ResolveMuhasebeHesabiAsync("780.01", "780", "770.01", "770");
+            var faizHesap = await ResolveMuhasebeHesabiAsync(context, "780.01", "780", "770.01", "770");
             kalemler.Add(new MuhasebeFisKalem
             {
                 HesapId = faizHesap.Id,
@@ -1076,7 +1101,7 @@ public class BudgetService : IBudgetService
                 Aciklama = "Peşin kredi faizi"
             });
 
-            _context.BudgetOdemeler.Add(new BudgetOdeme
+            context.BudgetOdemeler.Add(new BudgetOdeme
             {
                 OdemeTarihi = kullanimTarihi,
                 OdemeAy = kullanimTarihi.Month,
@@ -1100,7 +1125,7 @@ public class BudgetService : IBudgetService
 
         if (pesinMasraf > 0)
         {
-            var masrafHesap = await ResolveMuhasebeHesabiAsync("770.01", "770");
+            var masrafHesap = await ResolveMuhasebeHesabiAsync(context, "770.01", "770");
             kalemler.Add(new MuhasebeFisKalem
             {
                 HesapId = masrafHesap.Id,
@@ -1110,7 +1135,7 @@ public class BudgetService : IBudgetService
                 Aciklama = "Peşin kredi masrafı"
             });
 
-            _context.BudgetOdemeler.Add(new BudgetOdeme
+            context.BudgetOdemeler.Add(new BudgetOdeme
             {
                 OdemeTarihi = kullanimTarihi,
                 OdemeAy = kullanimTarihi.Month,
@@ -1155,16 +1180,16 @@ public class BudgetService : IBudgetService
         };
 
         await _muhasebeService.CreateFisAsync(fis);
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
-    private async Task CreateBudgetMuhasebeFisiAsync(BudgetOdeme odeme, OdemeYapRequest request, BankaKasaHareket hareket, decimal anaTutar, decimal masrafKesintisi, decimal cezaKesintisi, decimal digerKesinti)
+    private async Task CreateBudgetMuhasebeFisiAsync(ApplicationDbContext context, BudgetOdeme odeme, OdemeYapRequest request, BankaKasaHareket hareket, decimal anaTutar, decimal masrafKesintisi, decimal cezaKesintisi, decimal digerKesinti)
     {
         if (!request.BankaHesapId.HasValue)
             return;
 
-        var kaynakKod = await GetBankaHesapMuhasebeKoduAsync(request.BankaHesapId.Value);
-        var kaynakHesap = await ResolveMuhasebeHesabiAsync(kaynakKod);
+        var kaynakKod = await GetBankaHesapMuhasebeKoduAsync(context, request.BankaHesapId.Value);
+        var kaynakHesap = await ResolveMuhasebeHesabiAsync(context, kaynakKod);
         var kalemler = new List<MuhasebeFisKalem>();
         var siraNo = 1;
 
@@ -1178,24 +1203,24 @@ public class BudgetService : IBudgetService
                     bagliHesapId = parsedId;
             }
 
-            var kartKod = bagliHesapId.HasValue ? await GetBankaHesapMuhasebeKoduAsync(bagliHesapId.Value) : "103.01";
-            var kartHesap = await ResolveMuhasebeHesabiAsync(kartKod, "103.01", "103");
+            var kartKod = bagliHesapId.HasValue ? await GetBankaHesapMuhasebeKoduAsync(context, bagliHesapId.Value) : "103.01";
+            var kartHesap = await ResolveMuhasebeHesabiAsync(context, kartKod, "103.01", "103");
             kalemler.Add(new MuhasebeFisKalem { HesapId = kartHesap.Id, Borc = anaTutar, Alacak = 0, SiraNo = siraNo++, Aciklama = "Kredi kartı borç kapama" });
         }
         else if (IsKrediKalemi(odeme.MasrafKalemi))
         {
-            var krediHesap = await ResolveMuhasebeHesabiAsync("300.01", "300");
+            var krediHesap = await ResolveMuhasebeHesabiAsync(context, "300.01", "300");
             kalemler.Add(new MuhasebeFisKalem { HesapId = krediHesap.Id, Borc = anaTutar, Alacak = 0, SiraNo = siraNo++, Aciklama = "Kredi taksit/anapara ödemesi" });
         }
         else
         {
-            var giderHesap = await ResolveMuhasebeHesabiAsync(GetBudgetMuhasebeGiderKodu(odeme), "770.01", "770");
+            var giderHesap = await ResolveMuhasebeHesabiAsync(context, GetBudgetMuhasebeGiderKodu(odeme), "770.01", "770");
             kalemler.Add(new MuhasebeFisKalem { HesapId = giderHesap.Id, Borc = anaTutar, Alacak = 0, SiraNo = siraNo++, Aciklama = odeme.MasrafKalemi });
         }
 
         if (masrafKesintisi + digerKesinti > 0)
         {
-            var yonetimMasrafHesabi = await ResolveMuhasebeHesabiAsync("770.01", "770");
+            var yonetimMasrafHesabi = await ResolveMuhasebeHesabiAsync(context, "770.01", "770");
             kalemler.Add(new MuhasebeFisKalem
             {
                 HesapId = yonetimMasrafHesabi.Id,
@@ -1208,7 +1233,7 @@ public class BudgetService : IBudgetService
 
         if (cezaKesintisi > 0)
         {
-            var finansmanGideri = await ResolveMuhasebeHesabiAsync("780.01", "780", "770.01", "770");
+            var finansmanGideri = await ResolveMuhasebeHesabiAsync(context, "780.01", "780", "770.01", "770");
             kalemler.Add(new MuhasebeFisKalem
             {
                 HesapId = finansmanGideri.Id,
@@ -1246,10 +1271,11 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetGunlukOzet>> GetTakvimDataAsync(int yil, int ay, int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Tekrarlayan odemelerden bu ay icin otomatik kayit olustur
         await TekrarlayanOdemelerdenKayitOlusturAsync(yil, ay, firmaId);
 
-        var query = _context.BudgetOdemeler
+        var query = context.BudgetOdemeler
             .Where(o => o.OdemeYil == yil && o.OdemeAy == ay);
 
         if (firmaId.HasValue)
@@ -1283,7 +1309,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetKategoriOzet>> GetKategoriOzetAsync(int yil, int? ay = null)
     {
-        var query = _context.BudgetOdemeler.Where(o => o.OdemeYil == yil);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.BudgetOdemeler.Where(o => o.OdemeYil == yil);
 
         if (ay.HasValue)
             query = query.Where(o => o.OdemeAy == ay.Value);
@@ -1292,7 +1319,7 @@ public class BudgetService : IBudgetService
         var toplam = odemeler.Sum(o => o.Miktar);
 
         // Masraf kalemlerinin renklerini al
-        var masrafKalemleri = await _context.BudgetMasrafKalemleri
+        var masrafKalemleri = await context.BudgetMasrafKalemleri
             .ToDictionaryAsync(m => m.KalemAdi, m => m.Renk);
 
         return odemeler
@@ -1315,7 +1342,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<KrediOzet>> GetAktifKredilerAsync(int? firmaId = null)
     {
-        var query = _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.BudgetOdemeler
             .Where(o => o.TaksitliMi && o.TaksitGrupId.HasValue);
 
         if (firmaId.HasValue)
@@ -1364,7 +1392,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<AylikKrediTaksitRapor>> GetAylikKrediTaksitRaporuAsync(int yil)
     {
-        var taksitliOdemeler = await _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var taksitliOdemeler = await context.BudgetOdemeler
             .Where(o => o.TaksitliMi && o.OdemeYil == yil)
             .OrderBy(o => o.OdemeAy)
             .ThenBy(o => o.OdemeTarihi)
@@ -1406,6 +1435,7 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetOzet> GetPeriyodOzetAsync(DateTime baslangic, DateTime bitis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var odemeler = await GetOdemelerByDateRangeAsync(baslangic, bitis);
 
         var ozet = new BudgetOzet
@@ -1437,10 +1467,11 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetKategoriOzet>> GetKategoriOzetByDateRangeAsync(DateTime baslangic, DateTime bitis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var odemeler = await GetOdemelerByDateRangeAsync(baslangic, bitis);
         var toplam = odemeler.Sum(o => o.Miktar);
 
-        var masrafKalemleri = await _context.BudgetMasrafKalemleri
+        var masrafKalemleri = await context.BudgetMasrafKalemleri
             .ToDictionaryAsync(m => m.KalemAdi, m => m.Renk);
 
         return odemeler
@@ -1459,6 +1490,7 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetTrendData>> GetTrendDataAsync(DateTime baslangic, DateTime bitis, string periyod)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var odemeler = await GetOdemelerByDateRangeAsync(baslangic, bitis);
         var trendData = new List<BudgetTrendData>();
 
@@ -1504,7 +1536,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<TekrarlayanOdeme>> GetTekrarlayanOdemelerAsync(int? firmaId = null)
     {
-        var query = _context.TekrarlayanOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.TekrarlayanOdemeler
             .Where(t => !t.IsDeleted)
             .AsQueryable();
 
@@ -1521,8 +1554,9 @@ public class BudgetService : IBudgetService
 
     public async Task<List<TekrarlayanOdeme>> GetAktifTekrarlayanOdemelerAsync(int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
-        var query = _context.TekrarlayanOdemeler
+        var query = context.TekrarlayanOdemeler
             .Where(t => !t.IsDeleted && t.Aktif);
 
         if (firmaId.HasValue)
@@ -1537,30 +1571,33 @@ public class BudgetService : IBudgetService
 
     public async Task<TekrarlayanOdeme?> GetTekrarlayanOdemeByIdAsync(int id)
     {
-        return await _context.TekrarlayanOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.TekrarlayanOdemeler
             .Include(t => t.Firma)
             .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
     }
 
     public async Task<TekrarlayanOdeme> CreateTekrarlayanOdemeAsync(TekrarlayanOdeme odeme)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         odeme.BaslangicTarihi = DateTime.SpecifyKind(odeme.BaslangicTarihi, DateTimeKind.Utc);
         if (odeme.BitisTarihi.HasValue)
             odeme.BitisTarihi = DateTime.SpecifyKind(odeme.BitisTarihi.Value, DateTimeKind.Utc);
         odeme.CreatedAt = DateTime.UtcNow;
 
-        _context.TekrarlayanOdemeler.Add(odeme);
-        await _context.SaveChangesAsync();
+        context.TekrarlayanOdemeler.Add(odeme);
+        await context.SaveChangesAsync();
         
         // Tracking'den cikar - ayni context uzerinde tekrar islem yapilabilsin
-        _context.Entry(odeme).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+        context.Entry(odeme).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
         
         return odeme;
     }
 
     public async Task<TekrarlayanOdeme> UpdateTekrarlayanOdemeAsync(TekrarlayanOdeme odeme)
     {
-        var existing = await _context.TekrarlayanOdemeler.FindAsync(odeme.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.TekrarlayanOdemeler.FindAsync(odeme.Id);
         if (existing == null)
             throw new Exception("Tekrarlayan odeme bulunamadi");
 
@@ -1582,24 +1619,25 @@ public class BudgetService : IBudgetService
         existing.Notlar = odeme.Notlar;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         
         // Tracking'den cikar
-        _context.Entry(existing).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+        context.Entry(existing).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
         
         return existing;
     }
 
     public async Task DeleteTekrarlayanOdemeAsync(int id)
     {
-        var odeme = await _context.TekrarlayanOdemeler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.TekrarlayanOdemeler.FindAsync(id);
         if (odeme != null)
         {
             odeme.IsDeleted = true;
             odeme.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             
-            _context.Entry(odeme).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+            context.Entry(odeme).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
         }
     }
 
@@ -1609,6 +1647,7 @@ public class BudgetService : IBudgetService
     /// </summary>
     public async Task<int> TekrarlayanOdemelerdenKayitOlusturAsync(int yil, int ay, int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var aktifPlanlar = await GetAktifTekrarlayanOdemelerAsync(firmaId);
         var olusturulanSayisi = 0;
 
@@ -1623,7 +1662,7 @@ public class BudgetService : IBudgetService
             var odemeGunu = Math.Min(plan.OdemeGunu, gunSayisi);
 
             // Bu plan + bu ay icin kayit var mi kontrol et
-            var mevcutKayit = await _context.BudgetOdemeler
+            var mevcutKayit = await context.BudgetOdemeler
                 .AnyAsync(o => o.OdemeYil == yil &&
                                o.OdemeAy == ay &&
                                o.MasrafKalemi == plan.MasrafKalemi &&
@@ -1651,13 +1690,13 @@ public class BudgetService : IBudgetService
                     CreatedAt = DateTime.UtcNow
                 };
 
-                _context.BudgetOdemeler.Add(yeniOdeme);
+                context.BudgetOdemeler.Add(yeniOdeme);
                 olusturulanSayisi++;
             }
         }
 
         if (olusturulanSayisi > 0)
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
         return olusturulanSayisi;
     }
@@ -1693,7 +1732,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<KrediOzet>> GetKrediOzetleriAsync(int? yil = null, int? firmaId = null)
     {
-        var query = _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.BudgetOdemeler
             .Where(o => o.TaksitliMi && o.TaksitGrupId.HasValue && !o.IsDeleted);
 
         if (firmaId.HasValue)
@@ -1747,7 +1787,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<KrediTaksitDetay>> GetKrediTaksitDetaylariAsync(Guid taksitGrupId)
     {
-        var taksitler = await _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var taksitler = await context.BudgetOdemeler
             .Where(o => o.TaksitGrupId == taksitGrupId && !o.IsDeleted)
             .OrderBy(o => o.KacinciTaksit)
             .ToListAsync();
@@ -1769,7 +1810,8 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetOdeme?> GetTaksitOdemeAsync(Guid taksitGrupId, int taksitNo)
     {
-        return await _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BudgetOdemeler
             .FirstOrDefaultAsync(o => o.TaksitGrupId == taksitGrupId && 
                                       o.KacinciTaksit == taksitNo && 
                                       !o.IsDeleted);
@@ -1777,7 +1819,8 @@ public class BudgetService : IBudgetService
 
     public async Task OdemeYapAsync(int odemeId, int bankaHesapId, DateTime odemeTarihi)
     {
-        var odeme = await _context.BudgetOdemeler.FindAsync(odemeId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.BudgetOdemeler.FindAsync(odemeId);
         if (odeme == null)
             throw new Exception("Ödeme bulunamadı");
 
@@ -1785,7 +1828,7 @@ public class BudgetService : IBudgetService
         odeme.GercekOdemeTarihi = DateTime.SpecifyKind(odemeTarihi, DateTimeKind.Utc);
         odeme.UpdatedAt = DateTime.UtcNow;
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public Task AddKrediKartiBorcAsync(int bankaHesapId, decimal tutar, int ay, int yil, string aciklama)
@@ -1793,8 +1836,9 @@ public class BudgetService : IBudgetService
 
     public async Task AddKrediKartiBorcAsync(int bankaHesapId, decimal tutar, int ay, int yil, string aciklama, int? kaynakOdemeId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Kredi kartı hesabını al
-        var hesap = await _context.BankaHesaplari.FindAsync(bankaHesapId);
+        var hesap = await context.BankaHesaplari.FindAsync(bankaHesapId);
         if (hesap == null || hesap.HesapTipi != HesapTipi.KrediKarti)
             throw new Exception("Geçerli bir kredi kartı hesabı seçiniz.");
 
@@ -1803,7 +1847,7 @@ public class BudgetService : IBudgetService
         ekstreTarihi = DateTime.SpecifyKind(ekstreTarihi, DateTimeKind.Utc);
 
         var normalizedAciklama = $"[{hesap.HesapAdi}] {aciklama}";
-        var mevcutAdaylar = await _context.BudgetOdemeler
+        var mevcutAdaylar = await context.BudgetOdemeler
             .Where(o => o.MasrafKalemi == "Kredi Kartı"
                 && o.OdemeYil == yil
                 && o.OdemeAy == ay
@@ -1836,7 +1880,7 @@ public class BudgetService : IBudgetService
             mevcutKayit.Notlar = UpsertBudgetMeta(mevcutKayit.Notlar, "FinansKaynakHesapId", bankaHesapId.ToString());
             mevcutKayit.Notlar = UpsertBudgetMeta(mevcutKayit.Notlar, "KaynakOdemeId", kaynakOdemeId?.ToString());
             mevcutKayit.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return;
         }
 
@@ -1859,16 +1903,17 @@ public class BudgetService : IBudgetService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.BudgetOdemeler.Add(odeme);
-        await _context.SaveChangesAsync();
+        context.BudgetOdemeler.Add(odeme);
+        await context.SaveChangesAsync();
     }
 
     public async Task<List<BudgetOdeme>> GetKrediKartiHareketleriAsync(int bankaHesapId, int? yil = null)
     {
-        var hesap = await _context.BankaHesaplari.FindAsync(bankaHesapId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var hesap = await context.BankaHesaplari.FindAsync(bankaHesapId);
         if (hesap == null) return new List<BudgetOdeme>();
 
-        var query = _context.BudgetOdemeler
+        var query = context.BudgetOdemeler
             .Where(o => !o.IsDeleted && o.MasrafKalemi == "Kredi Kartı" && 
                         o.Aciklama != null && o.Aciklama.StartsWith($"[{hesap.HesapAdi}]"));
 
@@ -1884,6 +1929,7 @@ public class BudgetService : IBudgetService
 
     public async Task TaksitliOdemeOlusturAsync(object request)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Request'i dynamic olarak işle
         var requestType = request.GetType();
         var masrafKalemi = requestType.GetProperty("MasrafKalemi")?.GetValue(request)?.ToString() ?? "";
@@ -1910,7 +1956,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetHedef>> GetHedeflerAsync(int yil, int? ay = null, int? firmaId = null)
     {
-        var query = _context.BudgetHedefler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.BudgetHedefler
             .Include(h => h.Firma)
             .Where(h => h.Yil == yil);
 
@@ -1928,15 +1975,17 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetHedef?> GetHedefByIdAsync(int id)
     {
-        return await _context.BudgetHedefler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BudgetHedefler
             .Include(h => h.Firma)
             .FirstOrDefaultAsync(h => h.Id == id);
     }
 
     public async Task<BudgetHedef> CreateHedefAsync(BudgetHedef hedef)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Aynı yıl/ay/masraf kalemi için hedef var mı kontrol et
-        var mevcutHedef = await _context.BudgetHedefler
+        var mevcutHedef = await context.BudgetHedefler
             .FirstOrDefaultAsync(h => h.Yil == hedef.Yil && 
                                       h.Ay == hedef.Ay && 
                                       h.MasrafKalemi == hedef.MasrafKalemi &&
@@ -1948,19 +1997,20 @@ public class BudgetService : IBudgetService
             mevcutHedef.HedefTutar = hedef.HedefTutar;
             mevcutHedef.Aciklama = hedef.Aciklama;
             mevcutHedef.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return mevcutHedef;
         }
 
         hedef.CreatedAt = DateTime.UtcNow;
-        _context.BudgetHedefler.Add(hedef);
-        await _context.SaveChangesAsync();
+        context.BudgetHedefler.Add(hedef);
+        await context.SaveChangesAsync();
         return hedef;
     }
 
     public async Task<BudgetHedef> UpdateHedefAsync(BudgetHedef hedef)
     {
-        var existing = await _context.BudgetHedefler.FindAsync(hedef.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.BudgetHedefler.FindAsync(hedef.Id);
         if (existing == null)
             throw new ArgumentException($"Hedef bulunamadı: {hedef.Id}");
 
@@ -1972,24 +2022,26 @@ public class BudgetService : IBudgetService
         existing.FirmaId = hedef.FirmaId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteHedefAsync(int id)
     {
-        var hedef = await _context.BudgetHedefler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var hedef = await context.BudgetHedefler.FindAsync(id);
         if (hedef != null)
         {
             hedef.IsDeleted = true;
             hedef.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<int> KopyalaHedeflerAsync(int kaynakYil, int hedefYil, decimal artisOrani = 0)
     {
-        var kaynakHedefler = await _context.BudgetHedefler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kaynakHedefler = await context.BudgetHedefler
             .Where(h => h.Yil == kaynakYil)
             .ToListAsync();
 
@@ -1998,7 +2050,7 @@ public class BudgetService : IBudgetService
         foreach (var kaynak in kaynakHedefler)
         {
             // Hedef yılda aynı kalem var mı kontrol et
-            var mevcutHedef = await _context.BudgetHedefler
+            var mevcutHedef = await context.BudgetHedefler
                 .FirstOrDefaultAsync(h => h.Yil == hedefYil && 
                                           h.Ay == kaynak.Ay && 
                                           h.MasrafKalemi == kaynak.MasrafKalemi &&
@@ -2017,13 +2069,13 @@ public class BudgetService : IBudgetService
                     CreatedAt = DateTime.UtcNow
                 };
 
-                _context.BudgetHedefler.Add(yeniHedef);
+                context.BudgetHedefler.Add(yeniHedef);
                 kopyalananSayisi++;
             }
         }
 
         if (kopyalananSayisi > 0)
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
         return kopyalananSayisi;
     }
@@ -2034,11 +2086,12 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetHedefGerceklesen>> GetHedefGerceklesenAsync(int yil, int? ay = null, int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Hedefleri al
         var hedefler = await GetHedeflerAsync(yil, ay, firmaId);
 
         // Gerçekleşen ödemeleri al (kategori bazlı toplam)
-        var gerceklesenQuery = _context.BudgetOdemeler
+        var gerceklesenQuery = context.BudgetOdemeler
             .Where(o => o.OdemeYil == yil && 
                         (o.Durum == OdemeDurum.Odendi || o.FaturaIleKapatildi));
 
@@ -2059,7 +2112,7 @@ public class BudgetService : IBudgetService
             .ToListAsync();
 
         // Masraf kalemlerinin renklerini al
-        var masrafKalemleri = await _context.BudgetMasrafKalemleri.ToListAsync();
+        var masrafKalemleri = await context.BudgetMasrafKalemleri.ToListAsync();
 
         // Birleştir
         var sonuc = new List<BudgetHedefGerceklesen>();
@@ -2107,6 +2160,7 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetYillikHedefOzet> GetYillikHedefOzetAsync(int yil, int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ozet = new BudgetYillikHedefOzet { Yil = yil };
 
         // Kategori detayları (yıllık toplam)
@@ -2118,11 +2172,11 @@ public class BudgetService : IBudgetService
         // Aylık detaylar
         for (int ay = 1; ay <= 12; ay++)
         {
-            var aylikHedefler = await _context.BudgetHedefler
+            var aylikHedefler = await context.BudgetHedefler
                 .Where(h => h.Yil == yil && h.Ay == ay)
                 .ToListAsync();
 
-            var aylikGerceklesen = await _context.BudgetOdemeler
+            var aylikGerceklesen = await context.BudgetOdemeler
                 .Where(o => o.OdemeYil == yil && o.OdemeAy == ay && 
                             (o.Durum == OdemeDurum.Odendi || o.FaturaIleKapatildi))
                 .SumAsync(o => o.OdenenTutar ?? o.Miktar);
@@ -2152,7 +2206,8 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetOdeme> KismiOdemeYapAsync(int odemeId, KismiOdemeRequest request)
     {
-        var odeme = await _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.BudgetOdemeler
             .Include(o => o.OdemeYapildigiHesap)
             .FirstOrDefaultAsync(o => o.Id == odemeId);
 
@@ -2219,7 +2274,7 @@ public class BudgetService : IBudgetService
             var hedefYil = request.HedefYil ?? (odeme.OdemeAy == 12 ? odeme.OdemeYil + 1 : odeme.OdemeYil);
 
             // Mevcut devir kaydı var mı kontrol et
-            var mevcutDevir = await _context.BudgetOdemeler
+            var mevcutDevir = await context.BudgetOdemeler
                 .FirstOrDefaultAsync(o => o.OncekiDonemOdemeId == odeme.Id && !o.IsDeleted);
 
             if (mevcutDevir != null)
@@ -2248,9 +2303,9 @@ public class BudgetService : IBudgetService
                     Notlar = $"Önceki dönem ödeme ID: {odeme.Id}, Orijinal tutar: {orijinalMiktar:N2} TL, Ödenen: {yeniToplamOdenen:N2} TL",
                     CreatedAt = DateTime.UtcNow
                 };
-                _context.BudgetOdemeler.Add(yeniDevir);
+                context.BudgetOdemeler.Add(yeniDevir);
                 // Flush ile ID alalım
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
                 sonrakiDonemOdemeId = yeniDevir.Id;
             }
         }
@@ -2263,7 +2318,7 @@ public class BudgetService : IBudgetService
         var yeniMiktar = sonrakiDonemOdemeId.HasValue ? yeniToplamOdenen : orijinalMiktar;
         var updatedAt = DateTime.UtcNow;
 
-        await _context.BudgetOdemeler
+        await context.BudgetOdemeler
             .Where(o => o.Id == odemeId)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(o => o.ToplamKismiOdenen, yeniToplamOdenen)
@@ -2297,13 +2352,14 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetOdeme?> KalanTutariSonrakiDonemeAktarAsync(int odemeId, int? hedefAy = null, int? hedefYil = null)
     {
-        var odeme = await _context.BudgetOdemeler.FindAsync(odemeId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.BudgetOdemeler.FindAsync(odemeId);
         if (odeme == null) return null;
 
         var kalanTutar = odeme.Miktar - odeme.ToplamKismiOdenen;
         if (kalanTutar <= 0) return null;
 
-        var mevcutDevirKayitlari = await _context.BudgetOdemeler
+        var mevcutDevirKayitlari = await context.BudgetOdemeler
             .Where(o => o.OncekiDonemOdemeId == odeme.Id && !o.IsDeleted)
             .OrderBy(o => o.Id)
             .ToListAsync();
@@ -2318,7 +2374,7 @@ public class BudgetService : IBudgetService
         }
 
         var mevcutSonrakiOdeme = odeme.SonrakiDonemOdemeId.HasValue
-            ? await _context.BudgetOdemeler.FindAsync(odeme.SonrakiDonemOdemeId.Value)
+            ? await context.BudgetOdemeler.FindAsync(odeme.SonrakiDonemOdemeId.Value)
             : mevcutDevirKayitlari.FirstOrDefault();
 
         if (mevcutSonrakiOdeme != null && mevcutSonrakiOdeme.IsDeleted)
@@ -2335,7 +2391,7 @@ public class BudgetService : IBudgetService
             mevcutSonrakiOdeme.Aciklama = BuildDevirAciklama(odeme.Aciklama);
             mevcutSonrakiOdeme.UpdatedAt = DateTime.UtcNow;
             odeme.SonrakiDonemOdemeId = mevcutSonrakiOdeme.Id;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return mevcutSonrakiOdeme;
         }
 
@@ -2374,13 +2430,13 @@ public class BudgetService : IBudgetService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.BudgetOdemeler.Add(yeniOdeme);
-        await _context.SaveChangesAsync();
+        context.BudgetOdemeler.Add(yeniOdeme);
+        await context.SaveChangesAsync();
 
         // Ana ödemeyi güncelle
         odeme.SonrakiDonemOdemeId = yeniOdeme.Id;
         odeme.KalanSonrakiDonemeAktarilsin = true;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         return yeniOdeme;
     }
@@ -2401,7 +2457,8 @@ public class BudgetService : IBudgetService
 
     public async Task<List<BudgetOdeme>> GetKismiOdenmislerAsync(int yil, int? ay = null, int? firmaId = null)
     {
-        var query = _context.BudgetOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.BudgetOdemeler
             .Include(o => o.OdemeYapildigiHesap)
             .Include(o => o.Firma)
             .Where(o => o.OdemeYil == yil && o.KismiOdemeMi);
@@ -2424,6 +2481,7 @@ public class BudgetService : IBudgetService
 
     public async Task<BudgetRiskAnalizi> GetRiskAnaliziAsync(int yil, int? ay = null, int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.UtcNow;
         var analiz = new BudgetRiskAnalizi
         {
@@ -2433,7 +2491,7 @@ public class BudgetService : IBudgetService
         };
 
         // Tüm ödemeleri al
-        var query = _context.BudgetOdemeler
+        var query = context.BudgetOdemeler
             .Include(o => o.Firma)
             .Where(o => o.OdemeYil == yil && !o.IsDeleted);
 
@@ -2588,10 +2646,11 @@ public class BudgetService : IBudgetService
     /// </summary>
     public async Task<int> TemizleMukerrerKrediKartiBorclariAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var duzeltmeSayisi = 0;
 
         // 1. KalanSonrakiDonemeAktarilsin=true ama Durum hâlâ KismiOdendi olan kayıtlar
-        var bozukAnaKayitlar = await _context.BudgetOdemeler
+        var bozukAnaKayitlar = await context.BudgetOdemeler
             .Where(o => o.KalanSonrakiDonemeAktarilsin
                         && o.Durum == OdemeDurum.KismiOdendi
                         && o.SonrakiDonemOdemeId.HasValue)
@@ -2607,7 +2666,7 @@ public class BudgetService : IBudgetService
         }
 
         // 2. Aynı açıklama + aynı ay + aynı hesap ile mükerrer Kredi Kartı borç kayıtları
-        var krediKartiKayitlar = await _context.BudgetOdemeler
+        var krediKartiKayitlar = await context.BudgetOdemeler
             .Where(o => o.MasrafKalemi == "Kredi Kartı" && !o.IsDeleted)
             .ToListAsync();
 
@@ -2627,13 +2686,13 @@ public class BudgetService : IBudgetService
         }
 
         // 3. SonrakiDonemOdemeId ile bağlı devir kayıtlarının tutarını kontrol et
-        var devirKayitlari = await _context.BudgetOdemeler
+        var devirKayitlari = await context.BudgetOdemeler
             .Where(o => o.OncekiDonemOdemeId.HasValue && !o.IsDeleted && o.Durum == OdemeDurum.Bekliyor)
             .ToListAsync();
 
         foreach (var devir in devirKayitlari)
         {
-            var anaKayit = await _context.BudgetOdemeler
+            var anaKayit = await context.BudgetOdemeler
                 .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == devir.OncekiDonemOdemeId.Value);
 
@@ -2657,7 +2716,7 @@ public class BudgetService : IBudgetService
         }
 
         if (duzeltmeSayisi > 0)
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
         return duzeltmeSayisi;
     }

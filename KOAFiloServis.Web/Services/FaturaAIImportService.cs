@@ -9,18 +9,18 @@ namespace KOAFiloServis.Web.Services;
 
 public class FaturaAIImportService : IFaturaAIImportService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IOllamaService _ollamaService;
     private readonly ICariService _cariService;
     private readonly ILogger<FaturaAIImportService> _logger;
 
     public FaturaAIImportService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IOllamaService ollamaService,
         ICariService cariService,
         ILogger<FaturaAIImportService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _ollamaService = ollamaService;
         _cariService = cariService;
         _logger = logger;
@@ -30,6 +30,7 @@ public class FaturaAIImportService : IFaturaAIImportService
 
     public async Task<FaturaAIAnalizSonuc> AnalizEtXmlAsync(string xmlIcerik, string dosyaAdi)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new FaturaAIAnalizSonuc
         {
             DosyaAdi = dosyaAdi,
@@ -295,6 +296,7 @@ public class FaturaAIImportService : IFaturaAIImportService
 
     public async Task<FaturaAIAnalizSonuc> AnalizEtPdfAsync(byte[] pdfIcerik, string dosyaAdi)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // PDF analiz için sadece AI kullan - XML verisi yoksa
         var sonuc = new FaturaAIAnalizSonuc
         {
@@ -313,12 +315,13 @@ public class FaturaAIImportService : IFaturaAIImportService
 
     public async Task<CariEslesmeSonuc> CariEslestirAsync(FaturaAICariBilgi cariBilgi)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new CariEslesmeSonuc();
 
         // 1. Vergi No ile ara
         if (!string.IsNullOrEmpty(cariBilgi.VergiNo))
         {
-            var cari = await _context.Cariler
+            var cari = await context.Cariler
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => !c.IsDeleted && c.VergiNo == cariBilgi.VergiNo);
 
@@ -336,7 +339,7 @@ public class FaturaAIImportService : IFaturaAIImportService
         // 2. TC Kimlik No ile ara
         if (!string.IsNullOrEmpty(cariBilgi.TcKimlikNo))
         {
-            var cari = await _context.Cariler
+            var cari = await context.Cariler
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => !c.IsDeleted && c.TcKimlikNo == cariBilgi.TcKimlikNo);
 
@@ -355,7 +358,7 @@ public class FaturaAIImportService : IFaturaAIImportService
         if (!string.IsNullOrEmpty(cariBilgi.Unvan))
         {
             var unvanLower = cariBilgi.Unvan.ToLower().Trim();
-            var cariler = await _context.Cariler
+            var cariler = await context.Cariler
                 .AsNoTracking()
                 .Where(c => !c.IsDeleted)
                 .ToListAsync();
@@ -421,15 +424,16 @@ public class FaturaAIImportService : IFaturaAIImportService
     public async Task<List<FaturaAIKalem>> KalemleriSiniflandirAsync(
         List<FaturaAIKalem> kalemler, int? cariId, string? cariUnvan)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Mevcut güzergahları al
-        var guzergahlar = await _context.Guzergahlar
+        var guzergahlar = await context.Guzergahlar
             .AsNoTracking()
             .Where(g => !g.IsDeleted && g.Aktif)
             .Include(g => g.Cari)
             .ToListAsync();
 
         // Mevcut stok kartlarını al
-        var stokKartlari = await _context.StokKartlari
+        var stokKartlari = await context.StokKartlari
             .AsNoTracking()
             .Where(s => !s.IsDeleted && s.Aktif)
             .ToListAsync();
@@ -618,11 +622,12 @@ Her kalemi sınıflandır ve eşleştir.";
     public async Task<GuzergahEslesmeSonuc> GuzergahEslestirAsync(
         string kalemAciklama, int? cariId, decimal birimFiyat, decimal miktar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new GuzergahEslesmeSonuc();
         var aciklamaLower = kalemAciklama.ToLower().Trim();
 
         // 1. Cari'ye ait güzergahlarla eşleştir
-        var guzergahlar = await _context.Guzergahlar
+        var guzergahlar = await context.Guzergahlar
             .AsNoTracking()
             .Where(g => !g.IsDeleted && g.Aktif)
             .Include(g => g.Cari)
@@ -707,9 +712,10 @@ Her kalemi sınıflandır ve eşleştir.";
 
     public async Task<StokEslesmeSonuc> StokEslestirAsync(string kalemAciklama, string? urunKodu)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new StokEslesmeSonuc();
 
-        var stokKartlari = await _context.StokKartlari
+        var stokKartlari = await context.StokKartlari
             .AsNoTracking()
             .Where(s => !s.IsDeleted && s.Aktif)
             .ToListAsync();
@@ -774,13 +780,14 @@ Her kalemi sınıflandır ve eşleştir.";
 
     public async Task<FaturaAIKaydetSonuc> KaydetAsync(FaturaAIAnalizSonuc sonuc, int? firmaId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kaydetSonuc = new FaturaAIKaydetSonuc();
 
         // ExecutionStrategy ile transaction sarmalama (NpgsqlRetryingExecutionStrategy uyumluluğu)
-        var strategy = _context.Database.CreateExecutionStrategy();
+        var strategy = context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            using var transaction = await context.Database.BeginTransactionAsync();
             try
             {
                 // 1. Cari oluştur (gerekiyorsa)
@@ -812,7 +819,7 @@ Her kalemi sınıflandır ve eşleştir.";
                 {
                     var guzergah = new Guzergah
                     {
-                        GuzergahKodu = await GenerateGuzergahKoduAsync(),
+                        GuzergahKodu = await GenerateGuzergahKoduAsync(context),
                         GuzergahAdi = kalem.GuzergahEslesme.OnerilenGuzergahAdi ?? kalem.Aciklama,
                         BaslangicNoktasi = kalem.GuzergahEslesme.OnerilenBaslangic,
                         BitisNoktasi = kalem.GuzergahEslesme.OnerilenBitis,
@@ -822,8 +829,8 @@ Her kalemi sınıflandır ve eşleştir.";
                         Aktif = true,
                         SeferTipi = SeferTipi.SabahAksam
                     };
-                    _context.Guzergahlar.Add(guzergah);
-                    await _context.SaveChangesAsync();
+                    context.Guzergahlar.Add(guzergah);
+                    await context.SaveChangesAsync();
 
                     kalem.GuzergahEslesme.MevcutGuzergahId = guzergah.Id;
                     kalem.GuzergahEslesme.GuzergahMevcut = true;
@@ -880,8 +887,8 @@ Her kalemi sınıflandır ve eşleştir.";
                 fatura.FaturaKalemleri.Add(faturaKalem);
             }
 
-            _context.Faturalar.Add(fatura);
-            await _context.SaveChangesAsync();
+            context.Faturalar.Add(fatura);
+            await context.SaveChangesAsync();
 
             // 4. Güzergahların FaturaKalemId'sini güncelle
             var faturaKalemler = fatura.FaturaKalemleri.OrderBy(k => k.SiraNo).ToList();
@@ -889,7 +896,7 @@ Her kalemi sınıflandır ve eşleştir.";
             {
                 if (aiKalem.GuzergahEslesme?.MevcutGuzergahId != null)
                 {
-                    var guzergah = await _context.Guzergahlar.FindAsync(aiKalem.GuzergahEslesme.MevcutGuzergahId);
+                    var guzergah = await context.Guzergahlar.FindAsync(aiKalem.GuzergahEslesme.MevcutGuzergahId);
                     if (guzergah != null)
                     {
                         var fk = faturaKalemler.FirstOrDefault(k => k.SiraNo == aiKalem.SiraNo);
@@ -899,12 +906,12 @@ Her kalemi sınıflandır ve eşleştir.";
                             // Birim fiyat güncelle (faturadaki fiyat güncel)
                             if (aiKalem.BirimFiyat > 0)
                                 guzergah.BirimFiyat = aiKalem.BirimFiyat;
-                            _context.Guzergahlar.Update(guzergah);
+                            context.Guzergahlar.Update(guzergah);
                         }
                     }
                 }
             }
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             await transaction.CommitAsync();
 
@@ -992,9 +999,9 @@ Her kalemi sınıflandır ve eşleştir.";
         return maxKelime > 0 ? (int)((double)ortakKelime / maxKelime * 100) : 0;
     }
 
-    private async Task<string> GenerateGuzergahKoduAsync()
+    private async Task<string> GenerateGuzergahKoduAsync(ApplicationDbContext context)
     {
-        var sonKod = await _context.Guzergahlar
+        var sonKod = await context.Guzergahlar
             .AsNoTracking()
             .Where(g => g.GuzergahKodu.StartsWith("GZR"))
             .OrderByDescending(g => g.GuzergahKodu)

@@ -6,19 +6,20 @@ namespace KOAFiloServis.Web.Services;
 
 public class IhaleTeklifKarsilastirmaService : IIhaleTeklifKarsilastirmaService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public IhaleTeklifKarsilastirmaService(ApplicationDbContext context)
+    public IhaleTeklifKarsilastirmaService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<IhaleTeklifKarsilastirmaDto?> CompareAsync(int solVersiyonId, int sagVersiyonId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (solVersiyonId == sagVersiyonId)
             throw new InvalidOperationException("Karşılaştırma için farklı iki versiyon seçilmelidir.");
 
-        var versiyonlar = await _context.IhaleTeklifVersiyonlari
+        var versiyonlar = await context.IhaleTeklifVersiyonlari
             .Where(x => x.Id == solVersiyonId || x.Id == sagVersiyonId)
             .ToListAsync();
 

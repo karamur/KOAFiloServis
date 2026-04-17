@@ -10,16 +10,16 @@ namespace KOAFiloServis.Web.Services;
 /// </summary>
 public class AracTakipService : IAracTakipService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ILogger<AracTakipService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
 
     public AracTakipService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         ILogger<AracTakipService> logger,
         IHttpClientFactory httpClientFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
     }
@@ -28,7 +28,8 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<AracTakipCihaz>> GetAllCihazlarAsync()
     {
-        return await _context.AracTakipCihazlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracTakipCihazlar
             .AsNoTracking()
             .Include(c => c.Arac)
             .Where(c => !c.IsDeleted)
@@ -38,7 +39,8 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<AracTakipCihaz>> GetAktifCihazlarAsync()
     {
-        return await _context.AracTakipCihazlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracTakipCihazlar
             .AsNoTracking()
             .Include(c => c.Arac)
             .Where(c => !c.IsDeleted && c.Aktif)
@@ -48,47 +50,51 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracTakipCihaz?> GetCihazByIdAsync(int id)
     {
-        return await _context.AracTakipCihazlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracTakipCihazlar
             .Include(c => c.Arac)
             .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
     }
 
     public async Task<AracTakipCihaz?> GetCihazByAracIdAsync(int aracId)
     {
-        return await _context.AracTakipCihazlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracTakipCihazlar
             .Include(c => c.Arac)
             .FirstOrDefaultAsync(c => c.AracId == aracId && !c.IsDeleted && c.Aktif);
     }
 
     public async Task<AracTakipCihaz?> GetCihazByCihazIdAsync(string cihazId)
     {
-        return await _context.AracTakipCihazlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracTakipCihazlar
             .Include(c => c.Arac)
             .FirstOrDefaultAsync(c => c.CihazId == cihazId && !c.IsDeleted);
     }
 
     public async Task<AracTakipCihaz> CreateCihazAsync(AracTakipCihaz cihaz)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Aynı cihaz ID var mı kontrol et
-        var mevcutCihaz = await _context.AracTakipCihazlar
+        var mevcutCihaz = await context.AracTakipCihazlar
             .FirstOrDefaultAsync(c => c.CihazId == cihaz.CihazId && !c.IsDeleted);
         
         if (mevcutCihaz != null)
             throw new InvalidOperationException($"Bu cihaz ID ({cihaz.CihazId}) zaten kayıtlı.");
         
         // Araçta aktif cihaz var mı kontrol et
-        var mevcutAracCihaz = await _context.AracTakipCihazlar
+        var mevcutAracCihaz = await context.AracTakipCihazlar
             .FirstOrDefaultAsync(c => c.AracId == cihaz.AracId && c.Aktif && !c.IsDeleted);
         
         if (mevcutAracCihaz != null && cihaz.Aktif)
         {
             // Önceki cihazı pasif yap
             mevcutAracCihaz.Aktif = false;
-            _context.AracTakipCihazlar.Update(mevcutAracCihaz);
+            context.AracTakipCihazlar.Update(mevcutAracCihaz);
         }
         
-        _context.AracTakipCihazlar.Add(cihaz);
-        await _context.SaveChangesAsync();
+        context.AracTakipCihazlar.Add(cihaz);
+        await context.SaveChangesAsync();
         
         _logger.LogInformation("Yeni takip cihazı eklendi. CihazId: {CihazId}, AracId: {AracId}", cihaz.CihazId, cihaz.AracId);
         
@@ -97,7 +103,8 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracTakipCihaz> UpdateCihazAsync(AracTakipCihaz cihaz)
     {
-        var mevcut = await _context.AracTakipCihazlar.FindAsync(cihaz.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcut = await context.AracTakipCihazlar.FindAsync(cihaz.Id);
         if (mevcut == null)
             throw new InvalidOperationException("Cihaz bulunamadı.");
         
@@ -109,19 +116,20 @@ public class AracTakipService : IAracTakipService
         mevcut.KurulumTarihi = cihaz.KurulumTarihi;
         mevcut.Notlar = cihaz.Notlar;
         
-        _context.AracTakipCihazlar.Update(mevcut);
-        await _context.SaveChangesAsync();
+        context.AracTakipCihazlar.Update(mevcut);
+        await context.SaveChangesAsync();
         
         return mevcut;
     }
 
     public async Task DeleteCihazAsync(int id)
     {
-        var cihaz = await _context.AracTakipCihazlar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cihaz = await context.AracTakipCihazlar.FindAsync(id);
         if (cihaz != null)
         {
             cihaz.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             
             _logger.LogInformation("Takip cihazı silindi. CihazId: {CihazId}", cihaz.CihazId);
         }
@@ -133,10 +141,11 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracKonum?> GetSonKonumByAracIdAsync(int aracId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cihaz = await GetCihazByAracIdAsync(aracId);
         if (cihaz == null) return null;
         
-        return await _context.AracKonumlar
+        return await context.AracKonumlar
             .AsNoTracking()
             .Where(k => k.AracTakipCihazId == cihaz.Id && !k.IsDeleted)
             .OrderByDescending(k => k.KayitZamani)
@@ -145,10 +154,11 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracKonum?> GetSonKonumByCihazIdAsync(string cihazId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cihaz = await GetCihazByCihazIdAsync(cihazId);
         if (cihaz == null) return null;
         
-        return await _context.AracKonumlar
+        return await context.AracKonumlar
             .AsNoTracking()
             .Where(k => k.AracTakipCihazId == cihaz.Id && !k.IsDeleted)
             .OrderByDescending(k => k.KayitZamani)
@@ -157,6 +167,7 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<AracKonumDto>> GetTumAraclarinSonKonumlariAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonKonumlar = new List<AracKonumDto>();
         
         // Aktif cihazları al
@@ -164,7 +175,7 @@ public class AracTakipService : IAracTakipService
         
         foreach (var cihaz in cihazlar)
         {
-            var sonKonum = await _context.AracKonumlar
+            var sonKonum = await context.AracKonumlar
                 .AsNoTracking()
                 .Where(k => k.AracTakipCihazId == cihaz.Id && !k.IsDeleted)
                 .OrderByDescending(k => k.KayitZamani)
@@ -245,6 +256,7 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<AracKonum>> GetKonumGecmisiAsync(int aracId, DateTime baslangic, DateTime bitis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cihaz = await GetCihazByAracIdAsync(aracId);
         if (cihaz == null) return new List<AracKonum>();
         
@@ -253,7 +265,8 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<AracKonum>> GetKonumGecmisiByCihazAsync(int cihazId, DateTime baslangic, DateTime bitis)
     {
-        return await _context.AracKonumlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracKonumlar
             .AsNoTracking()
             .Where(k => k.AracTakipCihazId == cihazId 
                 && !k.IsDeleted
@@ -265,48 +278,50 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracKonum> KaydetKonumAsync(AracKonum konum)
     {
-        _context.AracKonumlar.Add(konum);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.AracKonumlar.Add(konum);
+        await context.SaveChangesAsync();
         
         // Cihazın son iletişim zamanını güncelle
-        var cihaz = await _context.AracTakipCihazlar.FindAsync(konum.AracTakipCihazId);
+        var cihaz = await context.AracTakipCihazlar.FindAsync(konum.AracTakipCihazId);
         if (cihaz != null)
         {
             cihaz.SonIletisimZamani = DateTime.Now;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
         
         // Alarm kontrolü
-        await KontrolEtAlarmlar(konum);
+        await KontrolEtAlarmlar(context, konum);
         
         return konum;
     }
 
     public async Task<int> KaydetKonumlarAsync(List<AracKonum> konumlar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (!konumlar.Any()) return 0;
         
-        _context.AracKonumlar.AddRange(konumlar);
-        var kayitSayisi = await _context.SaveChangesAsync();
+        context.AracKonumlar.AddRange(konumlar);
+        var kayitSayisi = await context.SaveChangesAsync();
         
         // Cihazların son iletişim zamanlarını güncelle
         var cihazIdler = konumlar.Select(k => k.AracTakipCihazId).Distinct().ToList();
         foreach (var cihazId in cihazIdler)
         {
-            var cihaz = await _context.AracTakipCihazlar.FindAsync(cihazId);
+            var cihaz = await context.AracTakipCihazlar.FindAsync(cihazId);
             if (cihaz != null)
             {
                 cihaz.SonIletisimZamani = DateTime.Now;
             }
         }
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         
         _logger.LogInformation("{Adet} adet konum kaydedildi.", kayitSayisi);
         
         return kayitSayisi;
     }
 
-    private async Task KontrolEtAlarmlar(AracKonum konum)
+    private async Task KontrolEtAlarmlar(ApplicationDbContext context, AracKonum konum)
     {
         try
         {
@@ -329,7 +344,7 @@ public class AracTakipService : IAracTakipService
             }
             
             // Bölge kontrolü
-            var atamalar = await _context.AracBolgeAtamalar
+            var atamalar = await context.AracBolgeAtamalar
                 .Include(a => a.AracBolge)
                 .Where(a => a.AracId == cihaz.AracId && !a.IsDeleted && a.AracBolge.Aktif)
                 .ToListAsync();
@@ -367,7 +382,8 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<AracBolge>> GetAllBolgelerAsync()
     {
-        return await _context.AracBolgeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracBolgeler
             .AsNoTracking()
             .Where(b => !b.IsDeleted)
             .Include(b => b.Atamalar)
@@ -378,7 +394,8 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracBolge?> GetBolgeByIdAsync(int id)
     {
-        return await _context.AracBolgeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracBolgeler
             .Include(b => b.Atamalar)
                 .ThenInclude(a => a.Arac)
             .FirstOrDefaultAsync(b => b.Id == id && !b.IsDeleted);
@@ -386,7 +403,8 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<AracBolge>> GetBolgelerByAracIdAsync(int aracId)
     {
-        return await _context.AracBolgeAtamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracBolgeAtamalar
             .AsNoTracking()
             .Where(a => a.AracId == aracId && !a.IsDeleted)
             .Select(a => a.AracBolge)
@@ -396,8 +414,9 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracBolge> CreateBolgeAsync(AracBolge bolge)
     {
-        _context.AracBolgeler.Add(bolge);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.AracBolgeler.Add(bolge);
+        await context.SaveChangesAsync();
         
         _logger.LogInformation("Yeni bölge oluşturuldu: {BolgeAdi}", bolge.BolgeAdi);
         
@@ -406,7 +425,8 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracBolge> UpdateBolgeAsync(AracBolge bolge)
     {
-        var mevcut = await _context.AracBolgeler.FindAsync(bolge.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcut = await context.AracBolgeler.FindAsync(bolge.Id);
         if (mevcut == null)
             throw new InvalidOperationException("Bölge bulunamadı.");
         
@@ -422,25 +442,27 @@ public class AracTakipService : IAracTakipService
         mevcut.Aktif = bolge.Aktif;
         mevcut.Notlar = bolge.Notlar;
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         
         return mevcut;
     }
 
     public async Task DeleteBolgeAsync(int id)
     {
-        var bolge = await _context.AracBolgeler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var bolge = await context.AracBolgeler.FindAsync(id);
         if (bolge != null)
         {
             bolge.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task AtaBolgeToAracAsync(int bolgeId, int aracId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Zaten atanmış mı kontrol et
-        var mevcut = await _context.AracBolgeAtamalar
+        var mevcut = await context.AracBolgeAtamalar
             .FirstOrDefaultAsync(a => a.AracBolgeId == bolgeId && a.AracId == aracId && !a.IsDeleted);
         
         if (mevcut != null) return;
@@ -451,19 +473,20 @@ public class AracTakipService : IAracTakipService
             AracId = aracId
         };
         
-        _context.AracBolgeAtamalar.Add(atama);
-        await _context.SaveChangesAsync();
+        context.AracBolgeAtamalar.Add(atama);
+        await context.SaveChangesAsync();
     }
 
     public async Task KaldirBolgeFromAracAsync(int bolgeId, int aracId)
     {
-        var atama = await _context.AracBolgeAtamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var atama = await context.AracBolgeAtamalar
             .FirstOrDefaultAsync(a => a.AracBolgeId == bolgeId && a.AracId == aracId && !a.IsDeleted);
         
         if (atama != null)
         {
             atama.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -473,7 +496,8 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<AracTakipAlarm>> GetAktifAlarmlarAsync()
     {
-        return await _context.AracTakipAlarmlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracTakipAlarmlar
             .AsNoTracking()
             .Include(a => a.AracTakipCihaz)
                 .ThenInclude(c => c.Arac)
@@ -484,10 +508,11 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<AracTakipAlarm>> GetAlarmlarByAracIdAsync(int aracId, DateTime? baslangic = null, DateTime? bitis = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cihaz = await GetCihazByAracIdAsync(aracId);
         if (cihaz == null) return new List<AracTakipAlarm>();
         
-        var query = _context.AracTakipAlarmlar
+        var query = context.AracTakipAlarmlar
             .AsNoTracking()
             .Where(a => a.AracTakipCihazId == cihaz.Id && !a.IsDeleted);
         
@@ -504,8 +529,9 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracTakipAlarm> CreateAlarmAsync(AracTakipAlarm alarm)
     {
-        _context.AracTakipAlarmlar.Add(alarm);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.AracTakipAlarmlar.Add(alarm);
+        await context.SaveChangesAsync();
         
         _logger.LogWarning("Araç takip alarmı: {AlarmTipi} - {Mesaj}", alarm.AlarmTipi, alarm.Mesaj);
         
@@ -514,30 +540,33 @@ public class AracTakipService : IAracTakipService
 
     public async Task OkunduIsaretle(int alarmId)
     {
-        var alarm = await _context.AracTakipAlarmlar.FindAsync(alarmId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var alarm = await context.AracTakipAlarmlar.FindAsync(alarmId);
         if (alarm != null)
         {
             alarm.Okundu = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task IslendiIsaretle(int alarmId, string? notlar = null)
     {
-        var alarm = await _context.AracTakipAlarmlar.FindAsync(alarmId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var alarm = await context.AracTakipAlarmlar.FindAsync(alarmId);
         if (alarm != null)
         {
             alarm.Islendi = true;
             alarm.Okundu = true;
             if (!string.IsNullOrEmpty(notlar))
                 alarm.Notlar = notlar;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<int> GetOkunmamisAlarmSayisiAsync()
     {
-        return await _context.AracTakipAlarmlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracTakipAlarmlar
             .CountAsync(a => !a.IsDeleted && !a.Okundu);
     }
 
@@ -547,6 +576,7 @@ public class AracTakipService : IAracTakipService
 
     public async Task<AracTakipIstatistik> GetIstatistikAsync(int aracId, DateTime baslangic, DateTime bitis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var konumlar = await GetKonumGecmisiAsync(aracId, baslangic, bitis);
         var alarmlar = await GetAlarmlarByAracIdAsync(aracId, baslangic, bitis);
         
@@ -606,6 +636,7 @@ public class AracTakipService : IAracTakipService
 
     public async Task<List<DurakNoktasi>> GetDurakNoktalariAsync(int aracId, DateTime baslangic, DateTime bitis, int minDurakDakika = 5)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var konumlar = await GetKonumGecmisiAsync(aracId, baslangic, bitis);
         var duraklar = new List<DurakNoktasi>();
         
@@ -665,6 +696,7 @@ public class AracTakipService : IAracTakipService
 
     public async Task<double> HesaplaToplamMesafeAsync(int aracId, DateTime baslangic, DateTime bitis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var konumlar = await GetKonumGecmisiAsync(aracId, baslangic, bitis);
         return HesaplaToplamMesafe(konumlar);
     }
@@ -711,6 +743,7 @@ public class AracTakipService : IAracTakipService
 
     public async Task<bool> TestBaglantisiAsync(string apiUrl, string apiKey)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
             var client = _httpClientFactory.CreateClient();
@@ -728,6 +761,7 @@ public class AracTakipService : IAracTakipService
 
     public async Task SenkronizeEtAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Bu metod dış GPS platformundan verileri çekmek için kullanılır
         // Örnek: Teltonika, Queclink API'ları
         _logger.LogInformation("GPS verisi senkronizasyonu başlatıldı...");

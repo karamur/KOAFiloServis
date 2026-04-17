@@ -11,16 +11,16 @@ namespace KOAFiloServis.Web.Services;
 /// </summary>
 public class SemanticSearchService : ISemanticSearchService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IOllamaService _ollamaService;
     private readonly ILogger<SemanticSearchService> _logger;
 
     public SemanticSearchService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IOllamaService ollamaService,
         ILogger<SemanticSearchService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _ollamaService = ollamaService;
         _logger = logger;
     }
@@ -31,13 +31,14 @@ public class SemanticSearchService : ISemanticSearchService
     public async Task<EbysBelgeEmbedding?> EmbeddingOlusturVeKaydetAsync(
         EbysAramaKaynak kaynak, int kaynakId, int? dosyaId, string metin)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (string.IsNullOrWhiteSpace(metin))
             return null;
 
         try
         {
             // Mevcut embedding var mı kontrol et
-            var mevcutEmbedding = await _context.EbysBelgeEmbeddingler
+            var mevcutEmbedding = await context.EbysBelgeEmbeddingler
                 .FirstOrDefaultAsync(e => e.Kaynak == kaynak && e.KaynakId == kaynakId && e.DosyaId == dosyaId);
 
             // Embedding oluştur
@@ -57,8 +58,8 @@ public class SemanticSearchService : ISemanticSearchService
                 mevcutEmbedding.ModelAdi = _ollamaService.EmbeddingModelAdi;
                 mevcutEmbedding.GuncellemeTarihi = DateTime.Now;
                 
-                _context.EbysBelgeEmbeddingler.Update(mevcutEmbedding);
-                await _context.SaveChangesAsync();
+                context.EbysBelgeEmbeddingler.Update(mevcutEmbedding);
+                await context.SaveChangesAsync();
                 return mevcutEmbedding;
             }
             else
@@ -76,8 +77,8 @@ public class SemanticSearchService : ISemanticSearchService
                     OlusturmaTarihi = DateTime.Now
                 };
 
-                _context.EbysBelgeEmbeddingler.Add(yeniEmbedding);
-                await _context.SaveChangesAsync();
+                context.EbysBelgeEmbeddingler.Add(yeniEmbedding);
+                await context.SaveChangesAsync();
                 return yeniEmbedding;
             }
         }
@@ -93,9 +94,10 @@ public class SemanticSearchService : ISemanticSearchService
     /// </summary>
     public async Task<bool> EmbeddingGuncelleAsync(int embeddingId, string yeniMetin)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            var embedding = await _context.EbysBelgeEmbeddingler.FindAsync(embeddingId);
+            var embedding = await context.EbysBelgeEmbeddingler.FindAsync(embeddingId);
             if (embedding == null) return false;
 
             var embeddingVektor = await _ollamaService.EmbeddingOlusturAsync(yeniMetin);
@@ -107,7 +109,7 @@ public class SemanticSearchService : ISemanticSearchService
             embedding.ModelAdi = _ollamaService.EmbeddingModelAdi;
             embedding.GuncellemeTarihi = DateTime.Now;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return true;
         }
         catch (Exception ex)
@@ -122,13 +124,14 @@ public class SemanticSearchService : ISemanticSearchService
     /// </summary>
     public async Task<bool> EmbeddingSilAsync(int embeddingId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            var embedding = await _context.EbysBelgeEmbeddingler.FindAsync(embeddingId);
+            var embedding = await context.EbysBelgeEmbeddingler.FindAsync(embeddingId);
             if (embedding == null) return false;
 
-            _context.EbysBelgeEmbeddingler.Remove(embedding);
-            await _context.SaveChangesAsync();
+            context.EbysBelgeEmbeddingler.Remove(embedding);
+            await context.SaveChangesAsync();
             return true;
         }
         catch (Exception ex)
@@ -143,14 +146,15 @@ public class SemanticSearchService : ISemanticSearchService
     /// </summary>
     public async Task<int> KaynakEmbeddingSilAsync(EbysAramaKaynak kaynak, int kaynakId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            var embeddingler = await _context.EbysBelgeEmbeddingler
+            var embeddingler = await context.EbysBelgeEmbeddingler
                 .Where(e => e.Kaynak == kaynak && e.KaynakId == kaynakId)
                 .ToListAsync();
 
-            _context.EbysBelgeEmbeddingler.RemoveRange(embeddingler);
-            await _context.SaveChangesAsync();
+            context.EbysBelgeEmbeddingler.RemoveRange(embeddingler);
+            await context.SaveChangesAsync();
             return embeddingler.Count;
         }
         catch (Exception ex)
@@ -165,6 +169,7 @@ public class SemanticSearchService : ISemanticSearchService
     /// </summary>
     public async Task<List<SemanticAramaSonuc>> SemanticAraAsync(string sorgu, int maxSonuc = 10, double minBenzerlik = 0.5)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await SemanticAraAsync(sorgu, [], maxSonuc, minBenzerlik);
     }
 
@@ -174,6 +179,7 @@ public class SemanticSearchService : ISemanticSearchService
     public async Task<List<SemanticAramaSonuc>> SemanticAraAsync(
         string sorgu, List<EbysAramaKaynak> kaynaklar, int maxSonuc = 10, double minBenzerlik = 0.5)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuclar = new List<SemanticAramaSonuc>();
 
         if (string.IsNullOrWhiteSpace(sorgu))
@@ -190,7 +196,7 @@ public class SemanticSearchService : ISemanticSearchService
             }
 
             // Tüm embedding'leri getir (kaynak filtresiyle)
-            var embeddingQuery = _context.EbysBelgeEmbeddingler.AsQueryable();
+            var embeddingQuery = context.EbysBelgeEmbeddingler.AsQueryable();
             
             if (kaynaklar.Count > 0)
             {
@@ -214,7 +220,7 @@ public class SemanticSearchService : ISemanticSearchService
                         Embedding = embedding,
                         BenzerlikSkoru = benzerlik,
                         Kaynak = embedding.Kaynak.ToString(),
-                        BelgeAdi = await BelgeAdiniGetirAsync(embedding.Kaynak, embedding.KaynakId),
+                        BelgeAdi = await BelgeAdiniGetirAsync(context, embedding.Kaynak, embedding.KaynakId),
                         Ozet = embedding.MetinOzet,
                         Tarih = embedding.OlusturmaTarihi,
                         DetayUrl = DetayUrlOlustur(embedding.Kaynak, embedding.KaynakId, embedding.DosyaId)
@@ -241,6 +247,7 @@ public class SemanticSearchService : ISemanticSearchService
     public async Task<EmbeddingIndekslemeRaporu> TumBelgeleriIndeksleAsync(
         IProgress<EmbeddingIndekslemeProgress>? progress = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var rapor = new EmbeddingIndekslemeRaporu
         {
             BaslangicZamani = DateTime.Now
@@ -278,11 +285,12 @@ public class SemanticSearchService : ISemanticSearchService
     public async Task<int> KaynakBelgeleriniIndeksleAsync(
         EbysAramaKaynak kaynak, IProgress<EmbeddingIndekslemeProgress>? progress = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var indekslenenSayisi = 0;
 
         try
         {
-            var belgeler = await BelgeMetinleriniGetirAsync(kaynak);
+            var belgeler = await BelgeMetinleriniGetirAsync(context, kaynak);
             var toplam = belgeler.Count;
 
             for (int i = 0; i < belgeler.Count; i++)
@@ -321,11 +329,12 @@ public class SemanticSearchService : ISemanticSearchService
     /// </summary>
     public async Task<EmbeddingIstatistik> IstatistikleriGetirAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var istatistik = new EmbeddingIstatistik();
 
         try
         {
-            var embeddingler = await _context.EbysBelgeEmbeddingler.ToListAsync();
+            var embeddingler = await context.EbysBelgeEmbeddingler.ToListAsync();
             
             istatistik.ToplamEmbedding = embeddingler.Count;
             istatistik.KaynakBazliSayilar = embeddingler
@@ -376,6 +385,7 @@ public class SemanticSearchService : ISemanticSearchService
     /// </summary>
     public async Task<bool> BaglantiKontrolAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await _ollamaService.BaglantiKontrolAsync();
     }
 
@@ -384,20 +394,20 @@ public class SemanticSearchService : ISemanticSearchService
     /// <summary>
     /// Belge adını kaynağa göre getirir
     /// </summary>
-    private async Task<string> BelgeAdiniGetirAsync(EbysAramaKaynak kaynak, int kaynakId)
+    private async Task<string> BelgeAdiniGetirAsync(ApplicationDbContext context, EbysAramaKaynak kaynak, int kaynakId)
     {
         return kaynak switch
         {
-            EbysAramaKaynak.PersonelOzluk => await GetPersonelOzlukAdiAsync(kaynakId),
-            EbysAramaKaynak.AracEvrak => await GetAracEvrakAdiAsync(kaynakId),
-            EbysAramaKaynak.GelenEvrak or EbysAramaKaynak.GidenEvrak => await GetEbysEvrakAdiAsync(kaynakId),
+            EbysAramaKaynak.PersonelOzluk => await GetPersonelOzlukAdiAsync(context, kaynakId),
+            EbysAramaKaynak.AracEvrak => await GetAracEvrakAdiAsync(context, kaynakId),
+            EbysAramaKaynak.GelenEvrak or EbysAramaKaynak.GidenEvrak => await GetEbysEvrakAdiAsync(context, kaynakId),
             _ => "Bilinmeyen Belge"
         };
     }
 
-    private async Task<string> GetPersonelOzlukAdiAsync(int id)
+    private async Task<string> GetPersonelOzlukAdiAsync(ApplicationDbContext context, int id)
     {
-        var evrak = await _context.PersonelOzlukEvraklar
+        var evrak = await context.PersonelOzlukEvraklar
             .Include(e => e.Sofor)
             .Include(e => e.EvrakTanim)
             .FirstOrDefaultAsync(e => e.Id == id);
@@ -406,9 +416,9 @@ public class SemanticSearchService : ISemanticSearchService
             : "Personel Özlük Evrak";
     }
 
-    private async Task<string> GetAracEvrakAdiAsync(int id)
+    private async Task<string> GetAracEvrakAdiAsync(ApplicationDbContext context, int id)
     {
-        var evrak = await _context.AracEvraklari
+        var evrak = await context.AracEvraklari
             .Include(e => e.Arac)
             .FirstOrDefaultAsync(e => e.Id == id);
         return evrak != null 
@@ -416,9 +426,9 @@ public class SemanticSearchService : ISemanticSearchService
             : "Araç Evrak";
     }
 
-    private async Task<string> GetEbysEvrakAdiAsync(int id)
+    private async Task<string> GetEbysEvrakAdiAsync(ApplicationDbContext context, int id)
     {
-        var evrak = await _context.EbysEvraklar.FirstOrDefaultAsync(e => e.Id == id);
+        var evrak = await context.EbysEvraklar.FirstOrDefaultAsync(e => e.Id == id);
         return evrak?.Konu ?? "EBYS Evrak";
     }
 
@@ -440,21 +450,21 @@ public class SemanticSearchService : ISemanticSearchService
     /// <summary>
     /// Belge metinlerini kaynağa göre getirir
     /// </summary>
-    private async Task<List<BelgeMetin>> BelgeMetinleriniGetirAsync(EbysAramaKaynak kaynak)
+    private async Task<List<BelgeMetin>> BelgeMetinleriniGetirAsync(ApplicationDbContext context, EbysAramaKaynak kaynak)
     {
         return kaynak switch
         {
-            EbysAramaKaynak.PersonelOzluk => await GetPersonelOzlukMetinleriAsync(),
-            EbysAramaKaynak.AracEvrak => await GetAracEvrakMetinleriAsync(),
-            EbysAramaKaynak.GelenEvrak => await GetGelenEvrakMetinleriAsync(),
-            EbysAramaKaynak.GidenEvrak => await GetGidenEvrakMetinleriAsync(),
+            EbysAramaKaynak.PersonelOzluk => await GetPersonelOzlukMetinleriAsync(context),
+            EbysAramaKaynak.AracEvrak => await GetAracEvrakMetinleriAsync(context),
+            EbysAramaKaynak.GelenEvrak => await GetGelenEvrakMetinleriAsync(context),
+            EbysAramaKaynak.GidenEvrak => await GetGidenEvrakMetinleriAsync(context),
             _ => []
         };
     }
 
-    private async Task<List<BelgeMetin>> GetPersonelOzlukMetinleriAsync()
+    private async Task<List<BelgeMetin>> GetPersonelOzlukMetinleriAsync(ApplicationDbContext context)
     {
-        var evraklar = await _context.PersonelOzlukEvraklar
+        var evraklar = await context.PersonelOzlukEvraklar
             .Include(e => e.Sofor)
             .Include(e => e.EvrakTanim)
             .Where(e => !e.IsDeleted)
@@ -473,9 +483,9 @@ public class SemanticSearchService : ISemanticSearchService
         }).ToList();
     }
 
-    private async Task<List<BelgeMetin>> GetAracEvrakMetinleriAsync()
+    private async Task<List<BelgeMetin>> GetAracEvrakMetinleriAsync(ApplicationDbContext context)
     {
-        var evraklar = await _context.AracEvraklari
+        var evraklar = await context.AracEvraklari
             .Include(e => e.Arac)
             .Where(e => !e.IsDeleted)
             .ToListAsync();
@@ -494,9 +504,9 @@ public class SemanticSearchService : ISemanticSearchService
         }).ToList();
     }
 
-    private async Task<List<BelgeMetin>> GetGelenEvrakMetinleriAsync()
+    private async Task<List<BelgeMetin>> GetGelenEvrakMetinleriAsync(ApplicationDbContext context)
     {
-        var evraklar = await _context.EbysEvraklar
+        var evraklar = await context.EbysEvraklar
             .Include(e => e.Kategori)
             .Where(e => !e.IsDeleted && e.Yon == EvrakYonu.Gelen)
             .ToListAsync();
@@ -515,9 +525,9 @@ public class SemanticSearchService : ISemanticSearchService
         }).ToList();
     }
 
-    private async Task<List<BelgeMetin>> GetGidenEvrakMetinleriAsync()
+    private async Task<List<BelgeMetin>> GetGidenEvrakMetinleriAsync(ApplicationDbContext context)
     {
-        var evraklar = await _context.EbysEvraklar
+        var evraklar = await context.EbysEvraklar
             .Include(e => e.Kategori)
             .Where(e => !e.IsDeleted && e.Yon == EvrakYonu.Giden)
             .ToListAsync();

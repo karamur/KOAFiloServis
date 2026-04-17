@@ -8,12 +8,12 @@ namespace KOAFiloServis.Web.Services;
 
 public class AracService : IAracService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ISecureFileService _secureFileService;
 
-    public AracService(ApplicationDbContext context, ISecureFileService secureFileService)
+    public AracService(IDbContextFactory<ApplicationDbContext> contextFactory, ISecureFileService secureFileService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _secureFileService = secureFileService;
     }
 
@@ -21,7 +21,8 @@ public class AracService : IAracService
 
     public async Task<List<Arac>> GetAllAsync()
     {
-        var araclar = await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var araclar = await context.Araclar
             .AsNoTracking()
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
             .Where(a => !a.IsDeleted)
@@ -47,7 +48,8 @@ public class AracService : IAracService
 
     public async Task<List<Arac>> GetActiveAsync()
     {
-        var araclar = await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var araclar = await context.Araclar
             .AsNoTracking()
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
             .Where(a => a.Aktif && !a.IsDeleted)
@@ -73,14 +75,16 @@ public class AracService : IAracService
 
     public async Task<int> GetActiveCountAsync()
     {
-        return await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Araclar
             .Where(a => a.Aktif && !a.IsDeleted)
             .CountAsync();
     }
 
     public async Task<Arac?> GetByIdAsync(int id)
     {
-        var arac = await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var arac = await context.Araclar
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted).OrderByDescending(p => p.GirisTarihi))
             .Include(a => a.KiralikCari)
             .Include(a => a.KomisyoncuCari)
@@ -106,8 +110,9 @@ public class AracService : IAracService
 
     public async Task<Arac?> GetByPlakaAsync(string plaka)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Aktif plakaya göre bul (CikisTarihi null veya gelecek tarihli)
-        var aracPlaka = await _context.AracPlakalar
+        var aracPlaka = await context.AracPlakalar
             .Include(ap => ap.Arac)
             .FirstOrDefaultAsync(ap => ap.Plaka == plaka && 
                                        !ap.IsDeleted &&
@@ -118,14 +123,16 @@ public class AracService : IAracService
     
     public async Task<Arac?> GetBySaseNoAsync(string saseNo)
     {
-        return await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Araclar
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
             .FirstOrDefaultAsync(a => a.SaseNo == saseNo && !a.IsDeleted);
     }
     
     public async Task<bool> SaseNoMevcutMu(string saseNo, int? haricAracId = null)
     {
-        return await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Araclar
             .AnyAsync(a => a.SaseNo == saseNo && 
                           !a.IsDeleted &&
                           (!haricAracId.HasValue || a.Id != haricAracId.Value));
@@ -133,8 +140,9 @@ public class AracService : IAracService
     
     public async Task<bool> PlakaMevcutMu(string plaka, int? haricAracPlakaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Aktif plaka kontrolü (CikisTarihi null veya gelecek tarihli)
-        return await _context.AracPlakalar
+        return await context.AracPlakalar
             .Include(ap => ap.Arac)
             .AnyAsync(ap => ap.Plaka == plaka && 
                            !ap.IsDeleted &&
@@ -147,6 +155,7 @@ public class AracService : IAracService
     public async Task<Arac> CreateAsync(Arac arac, string plaka, PlakaIslemTipi islemTipi = PlakaIslemTipi.Alis, 
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Şase no kontrolü
         if (await SaseNoMevcutMu(arac.SaseNo))
             throw new InvalidOperationException($"Bu şase numarası ({arac.SaseNo}) sistemde zaten kayıtlı.");
@@ -158,10 +167,10 @@ public class AracService : IAracService
         try
         {
             // ExecutionStrategy ile transaction sarmalama (NpgsqlRetryingExecutionStrategy uyumluluğu)
-            var strategy = _context.Database.CreateExecutionStrategy();
+            var strategy = context.Database.CreateExecutionStrategy();
             return await strategy.ExecuteAsync(async () =>
             {
-                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await using var transaction = await context.Database.BeginTransactionAsync();
 
                 // Navigation property'leri temizle (tracking sorununu önle)
                 arac.PlakaGecmisi = new List<AracPlaka>();
@@ -182,7 +191,7 @@ public class AracService : IAracService
             arac.AktifPlaka = plaka;
             arac.Plaka = plaka;
             arac.CreatedAt = DateTime.UtcNow;
-            _context.Araclar.Add(arac);
+            context.Araclar.Add(arac);
 
             // İlk plaka kaydını oluştur
             var aracPlaka = new AracPlaka
@@ -197,7 +206,7 @@ public class AracService : IAracService
             };
 
             arac.PlakaGecmisi.Add(aracPlaka);
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             await transaction.CommitAsync();
 
             return arac;
@@ -212,6 +221,7 @@ public class AracService : IAracService
 
     public async Task<Arac> UpdateAsync(Arac arac)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Şase no kontrolü (kendi hariç)
         if (await SaseNoMevcutMu(arac.SaseNo, arac.Id))
             throw new InvalidOperationException($"Bu şase numarası ({arac.SaseNo}) sistemde zaten kayıtlı.");
@@ -219,7 +229,7 @@ public class AracService : IAracService
         try
         {
             // Mevcut kaydı veritabanından al
-            var existing = await _context.Araclar.FindAsync(arac.Id);
+            var existing = await context.Araclar.FindAsync(arac.Id);
             if (existing == null)
                 throw new InvalidOperationException("Araç bulunamadı.");
 
@@ -255,10 +265,10 @@ public class AracService : IAracService
             existing.SatisAciklamasi = arac.SatisAciklamasi;
             existing.UpdatedAt = DateTime.UtcNow;
             
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             
             // Aktif plakayı güncelle
-            await GuncelleAktifPlaka(existing.Id);
+            await GuncelleAktifPlaka(context, existing.Id);
             
             return existing;
         }
@@ -271,7 +281,8 @@ public class AracService : IAracService
 
     public async Task DeleteAsync(int id)
     {
-        var arac = await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var arac = await context.Araclar
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
             .FirstOrDefaultAsync(a => a.Id == id);
 
@@ -286,7 +297,7 @@ public class AracService : IAracService
             arac.AktifPlaka = null;
             arac.IsDeleted = true;
             arac.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
     
@@ -296,7 +307,8 @@ public class AracService : IAracService
     
     public async Task<List<AracPlaka>> GetPlakaGecmisiAsync(int aracId)
     {
-        return await _context.AracPlakalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracPlakalar
             .Include(ap => ap.Cari)
             .Where(ap => ap.AracId == aracId)
             .OrderByDescending(ap => ap.GirisTarihi)
@@ -306,12 +318,13 @@ public class AracService : IAracService
     public async Task<AracPlaka> PlakaEkle(int aracId, string yeniPlaka, PlakaIslemTipi islemTipi, 
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Plaka kontrolü
         if (await PlakaMevcutMu(yeniPlaka))
             throw new InvalidOperationException($"Bu plaka ({yeniPlaka}) başka bir araçta aktif olarak kullanılıyor.");
         
         // Mevcut aktif plakayı kapat
-        var mevcutAktif = await _context.AracPlakalar
+        var mevcutAktif = await context.AracPlakalar
             .FirstOrDefaultAsync(ap => ap.AracId == aracId && ap.CikisTarihi == null);
             
         if (mevcutAktif != null)
@@ -332,22 +345,23 @@ public class AracService : IAracService
             Aciklama = aciklama,
             CreatedAt = DateTime.UtcNow
         };
-        _context.AracPlakalar.Add(yeniPlakaKaydi);
+        context.AracPlakalar.Add(yeniPlakaKaydi);
         
         // Araçtaki aktif plakayı güncelle
-        var arac = await _context.Araclar.FindAsync(aracId);
+        var arac = await context.Araclar.FindAsync(aracId);
         if (arac != null)
         {
             arac.AktifPlaka = yeniPlaka;
             arac.UpdatedAt = DateTime.UtcNow;
         }
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return yeniPlakaKaydi;
     }
 
     public async Task<bool> AddPlakaToAracAsync(AracPlaka yeniPlaka)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (yeniPlaka.AracId <= 0 || string.IsNullOrWhiteSpace(yeniPlaka.Plaka))
             return false;
 
@@ -355,7 +369,7 @@ public class AracService : IAracService
         if (await PlakaMevcutMu(plakaText, yeniPlaka.Id > 0 ? yeniPlaka.Id : null))
             throw new InvalidOperationException($"Bu plaka ({plakaText}) başka bir araçta aktif olarak kullanılıyor.");
 
-        var arac = await _context.Araclar.FindAsync(yeniPlaka.AracId);
+        var arac = await context.Araclar.FindAsync(yeniPlaka.AracId);
         if (arac == null)
             throw new InvalidOperationException("Araç bulunamadı.");
 
@@ -373,44 +387,47 @@ public class AracService : IAracService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.AracPlakalar.Add(yeniKayit);
-        await _context.SaveChangesAsync();
+        context.AracPlakalar.Add(yeniKayit);
+        await context.SaveChangesAsync();
 
-        await GuncelleAktifPlaka(yeniPlaka.AracId);
+        await GuncelleAktifPlaka(context, yeniPlaka.AracId);
         return true;
     }
 
     public async Task<bool> DeletePlakaFromAracAsync(int aracPlakaId)
     {
-        var plakaKaydi = await _context.AracPlakalar.FirstOrDefaultAsync(ap => ap.Id == aracPlakaId && !ap.IsDeleted);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var plakaKaydi = await context.AracPlakalar.FirstOrDefaultAsync(ap => ap.Id == aracPlakaId && !ap.IsDeleted);
         if (plakaKaydi == null)
             return false;
 
         plakaKaydi.IsDeleted = true;
         plakaKaydi.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
-        await GuncelleAktifPlaka(plakaKaydi.AracId);
+        await GuncelleAktifPlaka(context, plakaKaydi.AracId);
         return true;
     }
 
     public async Task ClosePlakaAsync(int aracPlakaId, DateTime cikisTarihi)
     {
-        var plakaKaydi = await _context.AracPlakalar.FirstOrDefaultAsync(ap => ap.Id == aracPlakaId && !ap.IsDeleted);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var plakaKaydi = await context.AracPlakalar.FirstOrDefaultAsync(ap => ap.Id == aracPlakaId && !ap.IsDeleted);
         if (plakaKaydi == null)
             throw new InvalidOperationException("Plaka kaydı bulunamadı.");
 
         plakaKaydi.CikisTarihi = cikisTarihi;
         plakaKaydi.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
-        await GuncelleAktifPlaka(plakaKaydi.AracId);
+        await GuncelleAktifPlaka(context, plakaKaydi.AracId);
     }
     
     public async Task PlakaCikis(int aracPlakaId, PlakaIslemTipi cikisIslemTipi, 
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null)
     {
-        var plakaKaydi = await _context.AracPlakalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var plakaKaydi = await context.AracPlakalar
             .Include(ap => ap.Arac)
             .FirstOrDefaultAsync(ap => ap.Id == aracPlakaId);
             
@@ -434,16 +451,16 @@ public class AracService : IAracService
             plakaKaydi.Arac.UpdatedAt = DateTime.UtcNow;
         }
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
     
-    private async Task GuncelleAktifPlaka(int aracId)
+    private async Task GuncelleAktifPlaka(ApplicationDbContext context, int aracId)
     {
-        var arac = await _context.Araclar.FindAsync(aracId);
+        var arac = await context.Araclar.FindAsync(aracId);
         if (arac == null) return;
         
         // CikisTarihi null olan veya CikisTarihi bugünden sonra olan plakalardan en son eklenen
-        var aktifPlaka = await _context.AracPlakalar
+        var aktifPlaka = await context.AracPlakalar
             .Where(ap => ap.AracId == aracId && 
                         !ap.IsDeleted &&
                         (ap.CikisTarihi == null || ap.CikisTarihi > DateTime.Today))
@@ -451,7 +468,7 @@ public class AracService : IAracService
             .FirstOrDefaultAsync();
             
         arac.AktifPlaka = aktifPlaka?.Plaka;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
     
     #endregion
@@ -460,7 +477,8 @@ public class AracService : IAracService
     
     public async Task<List<Arac>> GetSatisaAcikAraclarAsync()
     {
-        return await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Araclar
             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
             .Where(a => a.SatisaAcik && a.Aktif)
             .OrderBy(a => a.SatisaAcilmaTarihi)
@@ -469,7 +487,8 @@ public class AracService : IAracService
     
     public async Task AracSatisaAc(int aracId, decimal satisFiyati, string? aciklama = null)
     {
-        var arac = await _context.Araclar.FindAsync(aracId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var arac = await context.Araclar.FindAsync(aracId);
         if (arac == null)
             throw new InvalidOperationException("Araç bulunamadı.");
             
@@ -479,12 +498,13 @@ public class AracService : IAracService
         arac.SatisAciklamasi = aciklama;
         arac.UpdatedAt = DateTime.UtcNow;
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
     
     public async Task AracSatisKapat(int aracId)
     {
-        var arac = await _context.Araclar.FindAsync(aracId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var arac = await context.Araclar.FindAsync(aracId);
         if (arac == null)
             throw new InvalidOperationException("Araç bulunamadı.");
             
@@ -494,7 +514,7 @@ public class AracService : IAracService
         arac.SatisAciklamasi = null;
         arac.UpdatedAt = DateTime.UtcNow;
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
     
     #endregion
@@ -503,7 +523,8 @@ public class AracService : IAracService
 
     public async Task<List<AracEvrak>> GetAracEvraklariAsync(int aracId)
     {
-        return await _context.AracEvraklari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracEvraklari
             .Include(e => e.Dosyalar)
             .Where(e => e.AracId == aracId)
             .OrderBy(e => e.EvrakKategorisi)
@@ -513,40 +534,44 @@ public class AracService : IAracService
 
     public async Task<AracEvrak?> GetAracEvrakByIdAsync(int evrakId)
     {
-        return await _context.AracEvraklari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracEvraklari
             .Include(e => e.Dosyalar)
             .FirstOrDefaultAsync(e => e.Id == evrakId);
     }
 
     public async Task<AracEvrak> CreateAracEvrakAsync(AracEvrak evrak)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (evrak.BaslangicTarihi.HasValue)
             evrak.BaslangicTarihi = DateTime.SpecifyKind(evrak.BaslangicTarihi.Value, DateTimeKind.Utc);
         if (evrak.BitisTarihi.HasValue)
             evrak.BitisTarihi = DateTime.SpecifyKind(evrak.BitisTarihi.Value, DateTimeKind.Utc);
         
         evrak.CreatedAt = DateTime.UtcNow;
-        _context.AracEvraklari.Add(evrak);
-        await _context.SaveChangesAsync();
+        context.AracEvraklari.Add(evrak);
+        await context.SaveChangesAsync();
         return evrak;
     }
 
     public async Task<AracEvrak> UpdateAracEvrakAsync(AracEvrak evrak)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (evrak.BaslangicTarihi.HasValue)
             evrak.BaslangicTarihi = DateTime.SpecifyKind(evrak.BaslangicTarihi.Value, DateTimeKind.Utc);
         if (evrak.BitisTarihi.HasValue)
             evrak.BitisTarihi = DateTime.SpecifyKind(evrak.BitisTarihi.Value, DateTimeKind.Utc);
         
         evrak.UpdatedAt = DateTime.UtcNow;
-        _context.AracEvraklari.Update(evrak);
-        await _context.SaveChangesAsync();
+        context.AracEvraklari.Update(evrak);
+        await context.SaveChangesAsync();
         return evrak;
     }
 
     public async Task DeleteAracEvrakAsync(int evrakId)
     {
-        var evrak = await _context.AracEvraklari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var evrak = await context.AracEvraklari
             .Include(e => e.Dosyalar)
             .FirstOrDefaultAsync(e => e.Id == evrakId);
             
@@ -559,13 +584,14 @@ public class AracService : IAracService
             }
             
             evrak.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<AracEvrakDosya> UploadEvrakDosyaAsync(int evrakId, IBrowserFile file)
     {
-        var evrak = await _context.AracEvraklari.FindAsync(evrakId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var evrak = await context.AracEvraklari.FindAsync(evrakId);
         if (evrak == null)
             throw new Exception("Evrak bulunamadi");
 
@@ -588,14 +614,15 @@ public class AracService : IAracService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.AracEvrakDosyalari.Add(evrakDosya);
-        await _context.SaveChangesAsync();
+        context.AracEvrakDosyalari.Add(evrakDosya);
+        await context.SaveChangesAsync();
         return evrakDosya;
     }
 
     public async Task<byte[]> GetEvrakDosyaAsync(int dosyaId)
     {
-        var dosya = await _context.AracEvrakDosyalari.FindAsync(dosyaId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var dosya = await context.AracEvrakDosyalari.FindAsync(dosyaId);
         if (dosya == null)
             throw new Exception("Dosya bulunamadi");
 
@@ -608,13 +635,14 @@ public class AracService : IAracService
 
     public async Task DeleteEvrakDosyaAsync(int dosyaId)
     {
-        var dosya = await _context.AracEvrakDosyalari.FindAsync(dosyaId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var dosya = await context.AracEvrakDosyalari.FindAsync(dosyaId);
         if (dosya != null)
         {
             await _secureFileService.DeleteAsync(dosya.DosyaYolu);
 
-            _context.AracEvrakDosyalari.Remove(dosya);
-            await _context.SaveChangesAsync();
+            context.AracEvrakDosyalari.Remove(dosya);
+            await context.SaveChangesAsync();
         }
     }
 
@@ -624,10 +652,11 @@ public class AracService : IAracService
 
     public async Task<List<AracEvrak>> GetSuresiDolacakEvraklarAsync(int gunSayisi = 30)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.UtcNow.Date;
         var bitisTarihi = bugun.AddDays(gunSayisi);
 
-        return await _context.AracEvraklari
+        return await context.AracEvraklari
             .Include(e => e.Arac)
             .Where(e => e.Durum == EvrakDurum.Aktif && 
                         e.BitisTarihi.HasValue && 
@@ -642,6 +671,7 @@ public class AracService : IAracService
 
     public async Task<byte[]> GetExcelSablonAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new ClosedXML.Excel.XLWorkbook();
         var ws = workbook.Worksheets.Add("Araclar");
         
@@ -696,6 +726,7 @@ public class AracService : IAracService
 
     public async Task<AracImportResult> ImportFromExcelAsync(byte[] fileContent)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var result = new AracImportResult();
         
         try
@@ -739,8 +770,8 @@ public class AracService : IAracService
                 return result;
             }
 
-            var mevcutSaseNolar = await _context.Araclar.Where(a => !a.IsDeleted).Select(a => a.SaseNo.ToUpper()).ToListAsync();
-            var aktifPlakalar = await _context.AracPlakalar
+            var mevcutSaseNolar = await context.Araclar.Where(a => !a.IsDeleted).Select(a => a.SaseNo.ToUpper()).ToListAsync();
+            var aktifPlakalar = await context.AracPlakalar
                 .Include(ap => ap.Arac)
                 .Where(ap => !ap.IsDeleted &&
                              ap.Arac != null &&
@@ -797,7 +828,7 @@ public class AracService : IAracService
                     // İşlemin güncelleme mi yeni kayıt mı olduğunu baştan belirle
                     var isUpdate = mevcutSaseNolar.Contains(saseNo);
                     var mevcutAracOzet = isUpdate
-                        ? await _context.Araclar
+                        ? await context.Araclar
                             .Where(a => a.SaseNo.ToUpper() == saseNo && !a.IsDeleted)
                             .Select(a => new { a.Id, a.AktifPlaka })
                             .FirstOrDefaultAsync()
@@ -821,14 +852,14 @@ public class AracService : IAracService
                     }
 
                     // ExecutionStrategy ile transaction sarmalama (NpgsqlRetryingExecutionStrategy uyumluluğu)
-                    var strategy = _context.Database.CreateExecutionStrategy();
+                    var strategy = context.Database.CreateExecutionStrategy();
                     await strategy.ExecuteAsync(async () =>
                     {
-                        await using var transaction = await _context.Database.BeginTransactionAsync();
+                        await using var transaction = await context.Database.BeginTransactionAsync();
 
                         if (isUpdate)
                     {
-                        var mevcutArac = await _context.Araclar
+                        var mevcutArac = await context.Araclar
                             .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
                             .FirstOrDefaultAsync(a => a.SaseNo.ToUpper() == saseNo && !a.IsDeleted);
 
@@ -851,7 +882,7 @@ public class AracService : IAracService
 
                             if (!string.IsNullOrWhiteSpace(plaka) && !string.Equals(mevcutArac.AktifPlaka, plaka, StringComparison.OrdinalIgnoreCase))
                             {
-                                var plakaKullanimda = await _context.AracPlakalar
+                                var plakaKullanimda = await context.AracPlakalar
                                     .Include(ap => ap.Arac)
                                     .AnyAsync(ap => ap.Plaka == plaka &&
                                                     !ap.IsDeleted &&
@@ -881,7 +912,7 @@ public class AracService : IAracService
                             }
 
                             mevcutArac.UpdatedAt = DateTime.UtcNow;
-                            await _context.SaveChangesAsync();
+                            await context.SaveChangesAsync();
                             await transaction.CommitAsync();
                         }
                     }
@@ -889,7 +920,7 @@ public class AracService : IAracService
                     {
                         if (!string.IsNullOrWhiteSpace(plaka))
                         {
-                            var plakaKullanimda = await _context.AracPlakalar
+                            var plakaKullanimda = await context.AracPlakalar
                                 .Include(ap => ap.Arac)
                                 .AnyAsync(ap => ap.Plaka == plaka &&
                                                 !ap.IsDeleted &&
@@ -935,8 +966,8 @@ public class AracService : IAracService
                             });
                         }
 
-                        _context.Araclar.Add(yeniArac);
-                        await _context.SaveChangesAsync();
+                        context.Araclar.Add(yeniArac);
+                        await context.SaveChangesAsync();
                         await transaction.CommitAsync();
                     }
                     }); // ExecutionStrategy lambda sonu
@@ -970,7 +1001,7 @@ public class AracService : IAracService
                 }
                 catch (Exception ex)
                 {
-                    _context.ChangeTracker.Clear();
+                    context.ChangeTracker.Clear();
                     // Daha açıklayıcı hata mesajı
                     var saseNoHata = ws.Cell(row, saseNoKolon.Value).GetString()?.Trim() ?? "?";
                     var plakaHata = GetCellValue(ws, row, kolonlar, "PLAKA") ?? "";

@@ -7,13 +7,13 @@ namespace KOAFiloServis.Web.Services;
 
 public class WhatsAppService : IWhatsAppService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ILogger<WhatsAppService> _logger;
     private readonly ICRMService _crmService;
 
-    public WhatsAppService(ApplicationDbContext context, ILogger<WhatsAppService> logger, ICRMService crmService)
+    public WhatsAppService(IDbContextFactory<ApplicationDbContext> contextFactory, ILogger<WhatsAppService> logger, ICRMService crmService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _logger = logger;
         _crmService = crmService;
     }
@@ -22,7 +22,8 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<List<WhatsAppKisi>> GetKisilerAsync()
     {
-        return await _context.WhatsAppKisiler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WhatsAppKisiler
             .Include(k => k.Cari)
             .OrderBy(k => k.AdSoyad)
             .ToListAsync();
@@ -30,7 +31,8 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<WhatsAppKisi?> GetKisiByIdAsync(int id)
     {
-        return await _context.WhatsAppKisiler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WhatsAppKisiler
             .Include(k => k.Gruplari)
             .ThenInclude(gu => gu.Grup)
             .FirstOrDefaultAsync(k => k.Id == id);
@@ -38,43 +40,47 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<WhatsAppKisi> CreateKisiAsync(WhatsAppKisi kisi)
     {
-        var mevcut = await _context.WhatsAppKisiler.FirstOrDefaultAsync(k => k.Telefon == kisi.Telefon);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcut = await context.WhatsAppKisiler.FirstOrDefaultAsync(k => k.Telefon == kisi.Telefon);
         if (mevcut != null)
             throw new Exception("Bu telefon numarası ile kayıtlı bir kişi zaten var.");
 
-        _context.WhatsAppKisiler.Add(kisi);
-        await _context.SaveChangesAsync();
+        context.WhatsAppKisiler.Add(kisi);
+        await context.SaveChangesAsync();
         return kisi;
     }
 
     public async Task<WhatsAppKisi> UpdateKisiAsync(WhatsAppKisi kisi)
     {
-        _context.WhatsAppKisiler.Update(kisi);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.WhatsAppKisiler.Update(kisi);
+        await context.SaveChangesAsync();
         return kisi;
     }
 
     public async Task DeleteKisiAsync(int id)
     {
-        var kisi = await _context.WhatsAppKisiler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kisi = await context.WhatsAppKisiler.FindAsync(id);
         if (kisi != null)
         {
             kisi.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task SeciliCarilerdenKisiOlustur(List<int> cariIds)
     {
-        var cariler = await _context.Cariler.Where(c => cariIds.Contains(c.Id)).ToListAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cariler = await context.Cariler.Where(c => cariIds.Contains(c.Id)).ToListAsync();
         foreach (var cari in cariler)
         {
             if (string.IsNullOrWhiteSpace(cari.Telefon)) continue;
 
-            var mevcut = await _context.WhatsAppKisiler.FirstOrDefaultAsync(k => k.Telefon == cari.Telefon);
+            var mevcut = await context.WhatsAppKisiler.FirstOrDefaultAsync(k => k.Telefon == cari.Telefon);
             if (mevcut == null)
             {
-                _context.WhatsAppKisiler.Add(new WhatsAppKisi
+                context.WhatsAppKisiler.Add(new WhatsAppKisi
                 {
                     AdSoyad = cari.Unvan,
                     Telefon = cari.Telefon,
@@ -82,11 +88,12 @@ public class WhatsAppService : IWhatsAppService
                 });
             }
         }
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<int> KisileriSenkronizeEtAsync(List<WhatsAppKisi> kisiler)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (kisiler.Count == 0)
         {
             return 0;
@@ -98,7 +105,7 @@ public class WhatsAppService : IWhatsAppService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var mevcutTelefonlar = await _context.WhatsAppKisiler
+        var mevcutTelefonlar = await context.WhatsAppKisiler
             .Where(k => normalizedTelefonlar.Contains(k.Telefon))
             .Select(k => k.Telefon)
             .ToListAsync();
@@ -121,8 +128,8 @@ public class WhatsAppService : IWhatsAppService
 
         if (eklenecekler.Count > 0)
         {
-            _context.WhatsAppKisiler.AddRange(eklenecekler);
-            await _context.SaveChangesAsync();
+            context.WhatsAppKisiler.AddRange(eklenecekler);
+            await context.SaveChangesAsync();
         }
 
         return eklenecekler.Count;
@@ -134,7 +141,8 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<List<WhatsAppGrup>> GetGruplarAsync()
     {
-        return await _context.WhatsAppGruplar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WhatsAppGruplar
             .Include(g => g.Uyeler)
             .OrderBy(g => g.GrupAdi)
             .ToListAsync();
@@ -142,7 +150,8 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<WhatsAppGrup?> GetGrupByIdAsync(int id)
     {
-        return await _context.WhatsAppGruplar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WhatsAppGruplar
             .Include(g => g.Uyeler)
             .ThenInclude(gu => gu.Kisi)
             .FirstOrDefaultAsync(g => g.Id == id);
@@ -150,45 +159,50 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<WhatsAppGrup> CreateGrupAsync(WhatsAppGrup grup)
     {
-        _context.WhatsAppGruplar.Add(grup);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.WhatsAppGruplar.Add(grup);
+        await context.SaveChangesAsync();
         return grup;
     }
 
     public async Task<WhatsAppGrup> UpdateGrupAsync(WhatsAppGrup grup)
     {
-        _context.WhatsAppGruplar.Update(grup);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.WhatsAppGruplar.Update(grup);
+        await context.SaveChangesAsync();
         return grup;
     }
 
     public async Task DeleteGrupAsync(int id)
     {
-        var grup = await _context.WhatsAppGruplar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var grup = await context.WhatsAppGruplar.FindAsync(id);
         if (grup != null)
         {
             grup.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task GrubaKisiEkleAsync(int grupId, int kisiId)
     {
-        var mevcut = await _context.WhatsAppGrupUyeler.AnyAsync(gu => gu.GrupId == grupId && gu.KisiId == kisiId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcut = await context.WhatsAppGrupUyeler.AnyAsync(gu => gu.GrupId == grupId && gu.KisiId == kisiId);
         if (!mevcut)
         {
-            _context.WhatsAppGrupUyeler.Add(new WhatsAppGrupUye { GrupId = grupId, KisiId = kisiId });
-            await _context.SaveChangesAsync();
+            context.WhatsAppGrupUyeler.Add(new WhatsAppGrupUye { GrupId = grupId, KisiId = kisiId });
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task GruptanKisiCikarAsync(int grupId, int kisiId)
     {
-        var uye = await _context.WhatsAppGrupUyeler.FirstOrDefaultAsync(gu => gu.GrupId == grupId && gu.KisiId == kisiId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var uye = await context.WhatsAppGrupUyeler.FirstOrDefaultAsync(gu => gu.GrupId == grupId && gu.KisiId == kisiId);
         if (uye != null)
         {
-            _context.WhatsAppGrupUyeler.Remove(uye);
-            await _context.SaveChangesAsync();
+            context.WhatsAppGrupUyeler.Remove(uye);
+            await context.SaveChangesAsync();
         }
     }
 
@@ -198,35 +212,40 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<List<WhatsAppSablon>> GetSablonlarAsync()
     {
-        return await _context.WhatsAppSablonlar.OrderBy(s => s.Baslik).ToListAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WhatsAppSablonlar.OrderBy(s => s.Baslik).ToListAsync();
     }
 
     public async Task<WhatsAppSablon?> GetSablonByIdAsync(int id)
     {
-        return await _context.WhatsAppSablonlar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WhatsAppSablonlar.FindAsync(id);
     }
 
     public async Task<WhatsAppSablon> CreateSablonAsync(WhatsAppSablon sablon)
     {
-        _context.WhatsAppSablonlar.Add(sablon);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.WhatsAppSablonlar.Add(sablon);
+        await context.SaveChangesAsync();
         return sablon;
     }
 
     public async Task<WhatsAppSablon> UpdateSablonAsync(WhatsAppSablon sablon)
     {
-        _context.WhatsAppSablonlar.Update(sablon);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.WhatsAppSablonlar.Update(sablon);
+        await context.SaveChangesAsync();
         return sablon;
     }
 
     public async Task DeleteSablonAsync(int id)
     {
-        var sablon = await _context.WhatsAppSablonlar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var sablon = await context.WhatsAppSablonlar.FindAsync(id);
         if (sablon != null)
         {
             sablon.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -236,7 +255,8 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<List<WhatsAppMesaj>> GetMesajlarByKisiAsync(int kisiId)
     {
-        return await _context.WhatsAppMesajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WhatsAppMesajlar
             .Include(m => m.Gonderen)
             .Where(m => m.KisiId == kisiId)
             .OrderBy(m => m.MesajTarihi)
@@ -245,7 +265,8 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<List<WhatsAppMesaj>> GetMesajlarByGrupAsync(int grupId)
     {
-        return await _context.WhatsAppMesajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WhatsAppMesajlar
             .Include(m => m.Gonderen)
             .Where(m => m.GrupId == grupId)
             .OrderBy(m => m.MesajTarihi)
@@ -254,7 +275,8 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<WhatsAppMesaj> SendMesajToKisiAsync(int kisiId, string icerik, int? gonderenId = null)
     {
-        var kisi = await _context.WhatsAppKisiler.FindAsync(kisiId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kisi = await context.WhatsAppKisiler.FindAsync(kisiId);
         if (kisi == null) throw new Exception("Kişi bulunamadı.");
 
         var mesaj = new WhatsAppMesaj
@@ -268,8 +290,8 @@ public class WhatsAppService : IWhatsAppService
             Okundu = true
         };
 
-        _context.WhatsAppMesajlar.Add(mesaj);
-        await _context.SaveChangesAsync();
+        context.WhatsAppMesajlar.Add(mesaj);
+        await context.SaveChangesAsync();
 
         // Arka planda gerçek gönderim yapılabilir
         await _crmService.SendWhatsAppAsync(gonderenId ?? 0, kisi.Telefon, icerik);
@@ -279,7 +301,8 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<WhatsAppMesaj> SendMesajToGrupAsync(int grupId, string icerik, int? gonderenId = null)
     {
-        var grup = await _context.WhatsAppGruplar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var grup = await context.WhatsAppGruplar
             .Include(g => g.Uyeler).ThenInclude(gu => gu.Kisi)
             .FirstOrDefaultAsync(g => g.Id == grupId);
 
@@ -296,8 +319,8 @@ public class WhatsAppService : IWhatsAppService
             Okundu = true
         };
 
-        _context.WhatsAppMesajlar.Add(mesaj);
-        await _context.SaveChangesAsync();
+        context.WhatsAppMesajlar.Add(mesaj);
+        await context.SaveChangesAsync();
 
         // Her üyeye mesajı gönder
         foreach (var uye in grup.Uyeler)
@@ -310,13 +333,15 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<int> GetOkunmamisMesajSayisiAsync()
     {
-        return await _context.WhatsAppMesajlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.WhatsAppMesajlar
             .CountAsync(m => m.Tipi == WhatsAppMesaj.Yon.Gelen && !m.Okundu);
     }
 
     public async Task MesajlariOkunduIsaretleAsync(int? kisiId = null, int? grupId = null)
     {
-        var query = _context.WhatsAppMesajlar.Where(m => m.Tipi == WhatsAppMesaj.Yon.Gelen && !m.Okundu);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.WhatsAppMesajlar.Where(m => m.Tipi == WhatsAppMesaj.Yon.Gelen && !m.Okundu);
 
         if (kisiId.HasValue)
             query = query.Where(m => m.KisiId == kisiId.Value);

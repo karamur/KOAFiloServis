@@ -7,14 +7,14 @@ namespace KOAFiloServis.Web.Services;
 
 public class EbysService : IEbysService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ISecureFileService _secureFileService;
     private readonly IAracService _aracService;
     private readonly IPersonelOzlukService _personelOzlukService;
 
-    public EbysService(ApplicationDbContext context, ISecureFileService secureFileService, IAracService aracService, IPersonelOzlukService personelOzlukService)
+    public EbysService(IDbContextFactory<ApplicationDbContext> contextFactory, ISecureFileService secureFileService, IAracService aracService, IPersonelOzlukService personelOzlukService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _secureFileService = secureFileService;
         _aracService = aracService;
         _personelOzlukService = personelOzlukService;
@@ -22,6 +22,7 @@ public class EbysService : IEbysService
 
     public async Task<List<EbysBelgeKaydi>> GetBelgeKayitlariAsync(EbysBelgeListeFiltre filtre)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kayitlar = await GetTumBelgeKayitlariAsync();
 
         if (filtre.SadeceDosyasiOlanlar)
@@ -66,6 +67,7 @@ public class EbysService : IEbysService
 
     public async Task<List<string>> GetKategorilerAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kayitlar = await GetTumBelgeKayitlariAsync();
 
         return kayitlar
@@ -78,6 +80,7 @@ public class EbysService : IEbysService
 
     public async Task<List<EbysKategoriOzet>> GetKategoriOzetleriAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kayitlar = await GetTumBelgeKayitlariAsync();
 
         return kayitlar
@@ -98,7 +101,8 @@ public class EbysService : IEbysService
 
     public async Task<EbysBelgeOlusturmaSecenekleri> GetBelgeOlusturmaSecenekleriAsync()
     {
-        var personeller = await _context.Soforler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personeller = await context.Soforler
             .AsNoTracking()
             .Where(x => !x.IsDeleted && x.Aktif)
             .OrderBy(x => x.Ad)
@@ -111,7 +115,7 @@ public class EbysService : IEbysService
             })
             .ToListAsync();
 
-        var araclar = await _context.Araclar
+        var araclar = await context.Araclar
             .AsNoTracking()
             .Where(x => !x.IsDeleted && x.Aktif)
             .OrderBy(x => x.AktifPlaka)
@@ -124,7 +128,7 @@ public class EbysService : IEbysService
             })
             .ToListAsync();
 
-        var evrakTanimlari = await _context.OzlukEvrakTanimlari
+        var evrakTanimlari = await context.OzlukEvrakTanimlari
             .AsNoTracking()
             .Where(x => !x.IsDeleted && x.Aktif)
             .OrderBy(x => x.Kategori)
@@ -148,6 +152,7 @@ public class EbysService : IEbysService
 
     public async Task<EbysBelgeKaydi> BelgeOlusturAsync(EbysBelgeOlusturmaModeli model)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return model.Kaynak switch
         {
             EbysBelgeKaynak.Personel => await CreatePersonelBelgeAsync(model),
@@ -158,9 +163,10 @@ public class EbysService : IEbysService
 
     private async Task<List<EbysBelgeKaydi>> GetTumBelgeKayitlariAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kayitlar = new List<EbysBelgeKaydi>();
 
-        var personelEvraklari = await _context.PersonelOzlukEvraklar
+        var personelEvraklari = await context.PersonelOzlukEvraklar
             .AsNoTracking()
             .Include(x => x.Sofor)
             .Include(x => x.EvrakTanim)
@@ -186,7 +192,7 @@ public class EbysService : IEbysService
             KaynakDetayUrl = "/personel/ozluk-evrak"
         }));
 
-        var aracEvraklari = await _context.AracEvraklari
+        var aracEvraklari = await context.AracEvraklari
             .AsNoTracking()
             .Include(x => x.Arac)
             .Include(x => x.Dosyalar.Where(d => !d.IsDeleted))
@@ -236,6 +242,7 @@ public class EbysService : IEbysService
 
     public async Task<EbysBelgeDosya?> GetBelgeDosyasiAsync(EbysBelgeKaynak kaynak, int belgeId, int? dosyaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return kaynak switch
         {
             EbysBelgeKaynak.Personel => await GetPersonelBelgeDosyasiAsync(belgeId),
@@ -246,6 +253,7 @@ public class EbysService : IEbysService
 
     public async Task<EbysBelgeDuzenlemeModeli?> GetBelgeDuzenlemeModeliAsync(EbysBelgeKaynak kaynak, int belgeId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return kaynak switch
         {
             EbysBelgeKaynak.Personel => await GetPersonelBelgeDuzenlemeModeliAsync(belgeId),
@@ -256,6 +264,7 @@ public class EbysService : IEbysService
 
     public async Task BelgeGuncelleAsync(EbysBelgeDuzenlemeModeli model)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         switch (model.Kaynak)
         {
             case EbysBelgeKaynak.Personel:
@@ -269,6 +278,7 @@ public class EbysService : IEbysService
 
     public async Task BelgeDosyasiYukleAsync(EbysBelgeKaynak kaynak, int belgeId, IBrowserFile file)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         switch (kaynak)
         {
             case EbysBelgeKaynak.Personel:
@@ -282,7 +292,8 @@ public class EbysService : IEbysService
 
     private async Task<EbysBelgeDosya?> GetPersonelBelgeDosyasiAsync(int belgeId)
     {
-        var belge = await _context.PersonelOzlukEvraklar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var belge = await context.PersonelOzlukEvraklar
             .AsNoTracking()
             .Include(x => x.EvrakTanim)
             .FirstOrDefaultAsync(x => x.Id == belgeId && !x.IsDeleted);
@@ -309,7 +320,8 @@ public class EbysService : IEbysService
 
     private async Task<EbysBelgeDosya?> GetAracBelgeDosyasiAsync(int belgeId, int? dosyaId)
     {
-        var belge = await _context.AracEvraklari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var belge = await context.AracEvraklari
             .AsNoTracking()
             .Include(x => x.Dosyalar.Where(d => !d.IsDeleted))
             .FirstOrDefaultAsync(x => x.Id == belgeId && !x.IsDeleted);
@@ -339,6 +351,7 @@ public class EbysService : IEbysService
 
     private async Task<EbysBelgeDuzenlemeModeli?> GetPersonelBelgeDuzenlemeModeliAsync(int belgeId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var belge = await _personelOzlukService.GetPersonelEvrakByIdAsync(belgeId);
         if (belge == null)
         {
@@ -362,6 +375,7 @@ public class EbysService : IEbysService
 
     private async Task<EbysBelgeDuzenlemeModeli?> GetAracBelgeDuzenlemeModeliAsync(int belgeId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var belge = await _aracService.GetAracEvrakByIdAsync(belgeId);
         if (belge == null)
         {
@@ -389,6 +403,7 @@ public class EbysService : IEbysService
 
     private async Task UpdatePersonelBelgeAsync(EbysBelgeDuzenlemeModeli model)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var belge = await _personelOzlukService.GetPersonelEvrakByIdAsync(model.BelgeId)
             ?? throw new InvalidOperationException("Personel belge kaydı bulunamadı.");
 
@@ -403,6 +418,7 @@ public class EbysService : IEbysService
 
     private async Task UpdateAracBelgeAsync(EbysBelgeDuzenlemeModeli model)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var belge = await _aracService.GetAracEvrakByIdAsync(model.BelgeId)
             ?? throw new InvalidOperationException("Araç belge kaydı bulunamadı.");
 
@@ -424,6 +440,7 @@ public class EbysService : IEbysService
 
     private async Task UploadPersonelBelgeDosyasiAsync(int belgeId, IBrowserFile file)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var belge = await _personelOzlukService.GetPersonelEvrakByIdAsync(belgeId)
             ?? throw new InvalidOperationException("Personel belge kaydı bulunamadı.");
 
@@ -446,16 +463,17 @@ public class EbysService : IEbysService
 
     private async Task<EbysBelgeKaydi> CreatePersonelBelgeAsync(EbysBelgeOlusturmaModeli model)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (!model.IlgiliKayitId.HasValue || !model.EvrakTanimId.HasValue)
             throw new InvalidOperationException("Personel ve evrak seçimi zorunludur.");
 
-        var personel = await _context.Soforler
+        var personel = await context.Soforler
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == model.IlgiliKayitId.Value && !x.IsDeleted);
         if (personel == null)
             throw new InvalidOperationException("Personel bulunamadı.");
 
-        var evrakTanim = await _context.OzlukEvrakTanimlari
+        var evrakTanim = await context.OzlukEvrakTanimlari
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == model.EvrakTanimId.Value && !x.IsDeleted && x.Aktif);
         if (evrakTanim == null)
@@ -468,7 +486,7 @@ public class EbysService : IEbysService
                 throw new InvalidOperationException("Seçilen evrak bu personel görevi için geçerli değil.");
         }
 
-        var mevcutKayit = await _context.PersonelOzlukEvraklar
+        var mevcutKayit = await context.PersonelOzlukEvraklar
             .AsNoTracking()
             .AnyAsync(x => x.SoforId == model.IlgiliKayitId.Value && x.EvrakTanimId == model.EvrakTanimId.Value && !x.IsDeleted);
         if (mevcutKayit)
@@ -484,8 +502,8 @@ public class EbysService : IEbysService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.PersonelOzlukEvraklar.Add(belge);
-        await _context.SaveChangesAsync();
+        context.PersonelOzlukEvraklar.Add(belge);
+        await context.SaveChangesAsync();
 
         var kayitlar = await GetBelgeKayitlariAsync(new EbysBelgeListeFiltre { Kaynak = EbysBelgeKaynakFiltre.Personel });
         return kayitlar.First(x => x.Kaynak == EbysBelgeKaynak.Personel && x.BelgeId == belge.Id);
@@ -493,6 +511,7 @@ public class EbysService : IEbysService
 
     private async Task<EbysBelgeKaydi> CreateAracBelgeAsync(EbysBelgeOlusturmaModeli model)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (!model.IlgiliKayitId.HasValue)
             throw new InvalidOperationException("Araç seçimi zorunludur.");
 

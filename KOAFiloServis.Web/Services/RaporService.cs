@@ -8,11 +8,11 @@ namespace KOAFiloServis.Web.Services;
 
 public class RaporService : IRaporService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public RaporService(ApplicationDbContext context)
+    public RaporService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<List<ServisCalismaRaporItem>> GetServisCalismaRaporuAsync(
@@ -24,7 +24,8 @@ public class RaporService : IRaporService
         int? cariId = null,
         AracSahiplikTipi? sahiplikTipi = null)
     {
-        var query = _context.ServisCalismalari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.ServisCalismalari
             .Include(s => s.Arac)
             .Include(s => s.Sofor)
             .Include(s => s.Guzergah)
@@ -79,7 +80,8 @@ public class RaporService : IRaporService
         int? cariId = null,
         bool? sadeceBekleyenler = null)
     {
-        var query = _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Faturalar
             .Include(f => f.Cari)
             .AsQueryable();
 
@@ -121,7 +123,8 @@ public class RaporService : IRaporService
         int? aracId = null,
         AracSahiplikTipi? sahiplikTipi = null)
     {
-        var query = _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.AracMasraflari
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Guzergah)
@@ -155,7 +158,8 @@ public class RaporService : IRaporService
         DateTime? startDate = null,
         DateTime? endDate = null)
     {
-        var cari = await _context.Cariler.FindAsync(cariId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cari = await context.Cariler.FindAsync(cariId);
         if (cari == null)
             throw new ArgumentException("Cari bulunamadı", nameof(cariId));
 
@@ -171,7 +175,7 @@ public class RaporService : IRaporService
         var hareketler = new List<CariEkstreItem>();
 
         // Faturaları getir
-        var faturalar = await _context.Faturalar
+        var faturalar = await context.Faturalar
             .Where(f => f.CariId == cariId)
             .Where(f => !startDate.HasValue || f.FaturaTarihi >= startDate.Value)
             .Where(f => !endDate.HasValue || f.FaturaTarihi <= endDate.Value)
@@ -193,7 +197,7 @@ public class RaporService : IRaporService
         }
 
         // Banka/Kasa hareketlerini getir
-        var bankaHareketler = await _context.BankaKasaHareketleri
+        var bankaHareketler = await context.BankaKasaHareketleri
             .Where(h => h.CariId == cariId)
             .Where(h => !startDate.HasValue || h.IslemTarihi >= startDate.Value)
             .Where(h => !endDate.HasValue || h.IslemTarihi <= endDate.Value)
@@ -237,11 +241,12 @@ public class RaporService : IRaporService
         DateTime endDate,
         AracSahiplikTipi? sahiplikTipi = null)
     {
-        var sofor = await _context.Soforler.FindAsync(soforId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var sofor = await context.Soforler.FindAsync(soforId);
         if (sofor == null)
             throw new ArgumentException("Şoför bulunamadı", nameof(soforId));
 
-        var query = _context.ServisCalismalari
+        var query = context.ServisCalismalari
             .Include(s => s.Arac)
             .Include(s => s.Guzergah)
                 .ThenInclude(g => g.Cari)
@@ -319,7 +324,8 @@ public class RaporService : IRaporService
         DateTime endDate,
         AracSahiplikTipi? sahiplikTipi = null)
     {
-        var query = _context.ServisCalismalari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.ServisCalismalari
             .Include(s => s.Sofor)
             .Include(s => s.Arac)
             .Include(s => s.Guzergah)
@@ -352,7 +358,8 @@ public class RaporService : IRaporService
         DateTime startDate,
         DateTime endDate)
     {
-        var arac = await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var arac = await context.Araclar
             .Include(a => a.KiralikCari)
             .FirstOrDefaultAsync(a => a.Id == aracId);
 
@@ -360,7 +367,7 @@ public class RaporService : IRaporService
             throw new ArgumentException("Araç bulunamadı", nameof(aracId));
 
         // Servis çalışmalarını getir (gelir)
-        var calismalar = await _context.ServisCalismalari
+        var calismalar = await context.ServisCalismalari
             .Include(s => s.Guzergah)
                 .ThenInclude(g => g.Cari)
             .Where(s => s.AracId == aracId)
@@ -370,7 +377,7 @@ public class RaporService : IRaporService
             .ToListAsync();
 
         // Masrafları getir (gider)
-        var masraflar = await _context.AracMasraflari
+        var masraflar = await context.AracMasraflari
             .Include(m => m.MasrafKalemi)
             .Where(m => m.AracId == aracId)
             .Where(m => m.MasrafTarihi >= startDate && m.MasrafTarihi <= endDate)
@@ -494,8 +501,9 @@ public class RaporService : IRaporService
         DateTime endDate,
         AracSahiplikTipi? sahiplikTipi = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Tüm aktif araçları getir
-        var araclarQuery = _context.Araclar
+        var araclarQuery = context.Araclar
             .Where(a => a.Aktif && !a.IsDeleted);
 
         // Sahiplik tipi filtreleme
@@ -505,7 +513,7 @@ public class RaporService : IRaporService
         var araclar = await araclarQuery.AsNoTracking().ToListAsync();
 
         // Servis çalışmalarını getir
-        var calismaQuery = _context.ServisCalismalari
+        var calismaQuery = context.ServisCalismalari
             .Include(s => s.Guzergah)
             .Include(s => s.Arac)
             .Where(s => s.CalismaTarihi >= startDate && s.CalismaTarihi <= endDate)
@@ -518,7 +526,7 @@ public class RaporService : IRaporService
         var calismalar = await calismaQuery.AsNoTracking().ToListAsync();
 
         // Masrafları getir
-        var masrafQuery = _context.AracMasraflari
+        var masrafQuery = context.AracMasraflari
             .Include(m => m.Arac)
             .Where(m => m.MasrafTarihi >= startDate && m.MasrafTarihi <= endDate)
             .Where(m => !m.IsDeleted);
@@ -594,10 +602,11 @@ public class RaporService : IRaporService
         CariTipi? cariTipi = null,
         bool sadeceBorcluCariler = false)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = raporTarihi?.Date ?? DateTime.Today;
 
         // Tüm carileri al
-        var carilerQuery = _context.Cariler
+        var carilerQuery = context.Cariler
             .Include(c => c.Faturalar.Where(f => !f.IsDeleted))
             .Where(c => !c.IsDeleted && c.Aktif);
 
@@ -709,9 +718,10 @@ public class RaporService : IRaporService
         int cariId,
         DateTime? raporTarihi = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = raporTarihi?.Date ?? DateTime.Today;
 
-        var cari = await _context.Cariler
+        var cari = await context.Cariler
             .Include(c => c.Faturalar.Where(f => !f.IsDeleted))
             .Where(c => c.Id == cariId && !c.IsDeleted)
             .AsNoTracking()
@@ -812,10 +822,11 @@ public class RaporService : IRaporService
         IseGirisCikisFiltreTipi filtreTipi = IseGirisCikisFiltreTipi.Tumu,
         PersonelGorev? gorev = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var baslangic = baslangicTarihi.Date;
         var bitis = bitisTarihi.Date;
 
-        var query = _context.Soforler
+        var query = context.Soforler
             .Where(x => !x.IsDeleted)
             .AsNoTracking();
 
@@ -910,6 +921,7 @@ public class RaporService : IRaporService
         IseGirisCikisFiltreTipi filtreTipi = IseGirisCikisFiltreTipi.Tumu,
         PersonelGorev? gorev = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var rapor = await GetIseGirisCikisBildirgeAsync(baslangicTarihi, bitisTarihi, filtreTipi, gorev);
 
         using var workbook = new XLWorkbook();

@@ -14,7 +14,7 @@ namespace KOAFiloServis.Web.Services;
 /// </summary>
 public class AuditLogService : IAuditLogService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ITenantService _tenantService;
     private readonly ILogger<AuditLogService> _logger;
@@ -28,12 +28,12 @@ public class AuditLogService : IAuditLogService
     };
     
     public AuditLogService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IHttpContextAccessor httpContextAccessor,
         ITenantService tenantService,
         ILogger<AuditLogService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _httpContextAccessor = httpContextAccessor;
         _tenantService = tenantService;
         _logger = logger;
@@ -143,6 +143,7 @@ public class AuditLogService : IAuditLogService
     
     public async Task<AuditLog> LogAsync(AuditLogCreateDto dto)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var (kullaniciId, kullaniciAdi, ipAdresi, userAgent, requestPath) = GetRequestInfo();
         
         var log = new AuditLog
@@ -169,14 +170,15 @@ public class AuditLogService : IAuditLogService
             IslemTarihi = DateTime.UtcNow
         };
         
-        _context.Set<AuditLog>().Add(log);
-        await _context.SaveChangesAsync();
+        context.Set<AuditLog>().Add(log);
+        await context.SaveChangesAsync();
         
         return log;
     }
     
     public async Task LogCreateAsync<T>(T entity, string? aciklama = null) where T : class
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var entityAdi = typeof(T).Name;
         var entityId = GetEntityId(entity);
         
@@ -193,6 +195,7 @@ public class AuditLogService : IAuditLogService
     
     public async Task LogUpdateAsync<T>(T eskiEntity, T yeniEntity, string? aciklama = null) where T : class
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var entityAdi = typeof(T).Name;
         var entityId = GetEntityId(yeniEntity);
         
@@ -211,6 +214,7 @@ public class AuditLogService : IAuditLogService
     
     public async Task LogDeleteAsync<T>(T entity, string? aciklama = null) where T : class
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var entityAdi = typeof(T).Name;
         var entityId = GetEntityId(entity);
         
@@ -228,6 +232,7 @@ public class AuditLogService : IAuditLogService
     
     public async Task LogSoftDeleteAsync<T>(T entity, string? aciklama = null) where T : class
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var entityAdi = typeof(T).Name;
         var entityId = GetEntityId(entity);
         
@@ -243,6 +248,7 @@ public class AuditLogService : IAuditLogService
     
     public async Task LogRestoreAsync<T>(T entity, string? aciklama = null) where T : class
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var entityAdi = typeof(T).Name;
         var entityId = GetEntityId(entity);
         
@@ -258,6 +264,7 @@ public class AuditLogService : IAuditLogService
     
     public async Task LogLoginAsync(int kullaniciId, string kullaniciAdi, bool basarili, string? hataMesaji = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var (_, _, ipAdresi, userAgent, requestPath) = GetRequestInfo();
         
         var log = new AuditLog
@@ -278,12 +285,13 @@ public class AuditLogService : IAuditLogService
             IslemTarihi = DateTime.UtcNow
         };
         
-        _context.Set<AuditLog>().Add(log);
-        await _context.SaveChangesAsync();
+        context.Set<AuditLog>().Add(log);
+        await context.SaveChangesAsync();
     }
     
     public async Task LogLogoutAsync(int kullaniciId, string kullaniciAdi)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         await LogAsync(new AuditLogCreateDto
         {
             IslemTipi = AuditIslemTipleri.Logout,
@@ -296,6 +304,7 @@ public class AuditLogService : IAuditLogService
     
     public async Task LogExportAsync(string entityAdi, int kayitSayisi, string format, string? aciklama = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         await LogAsync(new AuditLogCreateDto
         {
             IslemTipi = AuditIslemTipleri.Export,
@@ -307,6 +316,7 @@ public class AuditLogService : IAuditLogService
     
     public async Task LogImportAsync(string entityAdi, int kayitSayisi, bool basarili, string? hataMesaji = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         await LogAsync(new AuditLogCreateDto
         {
             IslemTipi = AuditIslemTipleri.Import,
@@ -324,6 +334,7 @@ public class AuditLogService : IAuditLogService
     public async Task LogCustomAsync(string islemTipi, string entityAdi, int? entityId, string? aciklama = null,
         string kategori = AuditKategorileri.Sistem, string seviye = AuditSeviyeleri.Info)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         await LogAsync(new AuditLogCreateDto
         {
             IslemTipi = islemTipi,
@@ -341,7 +352,8 @@ public class AuditLogService : IAuditLogService
     
     public async Task<AuditLogPagedResult> GetPagedAsync(AuditLogFiltre filtre)
     {
-        var query = _context.Set<AuditLog>().AsNoTracking().AsQueryable();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Set<AuditLog>().AsNoTracking().AsQueryable();
         
         // Filtreler
         if (filtre.BaslangicTarihi.HasValue)
@@ -423,7 +435,8 @@ public class AuditLogService : IAuditLogService
     
     public async Task<List<AuditLog>> GetEntityHistoryAsync(string entityAdi, int entityId)
     {
-        return await _context.Set<AuditLog>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<AuditLog>()
             .AsNoTracking()
             .Where(x => x.EntityAdi == entityAdi && x.EntityId == entityId)
             .OrderByDescending(x => x.IslemTarihi)
@@ -433,7 +446,8 @@ public class AuditLogService : IAuditLogService
     
     public async Task<List<AuditLog>> GetByKullaniciAsync(int kullaniciId, DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.Set<AuditLog>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Set<AuditLog>()
             .AsNoTracking()
             .Where(x => x.KullaniciId == kullaniciId);
         
@@ -451,7 +465,8 @@ public class AuditLogService : IAuditLogService
     
     public async Task<List<AuditLog>> GetByDateRangeAsync(DateTime baslangic, DateTime bitis)
     {
-        return await _context.Set<AuditLog>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<AuditLog>()
             .AsNoTracking()
             .Where(x => x.IslemTarihi >= baslangic && x.IslemTarihi <= bitis)
             .OrderByDescending(x => x.IslemTarihi)
@@ -461,7 +476,8 @@ public class AuditLogService : IAuditLogService
     
     public async Task<AuditLog?> GetByIdAsync(int id)
     {
-        return await _context.Set<AuditLog>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<AuditLog>()
             .AsNoTracking()
             .Include(x => x.Kullanici)
             .FirstOrDefaultAsync(x => x.Id == id);
@@ -473,12 +489,13 @@ public class AuditLogService : IAuditLogService
     
     public async Task<AuditLogDashboard> GetDashboardAsync(DateTime? baslangic = null, DateTime? bitis = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var now = DateTime.UtcNow;
         var bas = baslangic ?? now.AddDays(-30);
         var bit = bitis ?? now;
         var bugun = now.Date;
         
-        var query = _context.Set<AuditLog>().AsNoTracking();
+        var query = context.Set<AuditLog>().AsNoTracking();
         
         // Multi-tenant
         if (!_tenantService.IsSuperAdmin && _tenantService.CurrentSirketId.HasValue)
@@ -559,7 +576,8 @@ public class AuditLogService : IAuditLogService
     
     public async Task<List<AuditLogIslemStat>> GetIslemStatistikleriAsync(DateTime baslangic, DateTime bitis)
     {
-        var query = _context.Set<AuditLog>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Set<AuditLog>()
             .AsNoTracking()
             .Where(x => x.IslemTarihi >= baslangic && x.IslemTarihi <= bitis);
         
@@ -580,7 +598,8 @@ public class AuditLogService : IAuditLogService
     
     public async Task<List<AuditLogKullaniciStat>> GetKullaniciStatistikleriAsync(DateTime baslangic, DateTime bitis)
     {
-        var data = await _context.Set<AuditLog>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var data = await context.Set<AuditLog>()
             .AsNoTracking()
             .Where(x => x.IslemTarihi >= baslangic && x.IslemTarihi <= bitis && x.KullaniciId != null)
             .GroupBy(x => new { x.KullaniciId, x.KullaniciAdi })
@@ -616,17 +635,18 @@ public class AuditLogService : IAuditLogService
     
     public async Task<int> CleanupOldLogsAsync(int gunSayisi)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kesimTarihi = DateTime.UtcNow.AddDays(-gunSayisi);
         
         // Kritik olmayan logları sil
-        var silinecekler = await _context.Set<AuditLog>()
+        var silinecekler = await context.Set<AuditLog>()
             .Where(x => x.IslemTarihi < kesimTarihi && x.Seviye != AuditSeviyeleri.Critical)
             .ToListAsync();
         
         if (silinecekler.Count > 0)
         {
-            _context.Set<AuditLog>().RemoveRange(silinecekler);
-            await _context.SaveChangesAsync();
+            context.Set<AuditLog>().RemoveRange(silinecekler);
+            await context.SaveChangesAsync();
             
             _logger.LogInformation("{Count} adet eski audit log silindi (>{GunSayisi} gün)", silinecekler.Count, gunSayisi);
         }
@@ -636,7 +656,8 @@ public class AuditLogService : IAuditLogService
     
     public async Task<string> ArchiveLogsAsync(DateTime oncesiTarih)
     {
-        var arsivlenecekler = await _context.Set<AuditLog>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var arsivlenecekler = await context.Set<AuditLog>()
             .AsNoTracking()
             .Where(x => x.IslemTarihi < oncesiTarih)
             .OrderBy(x => x.IslemTarihi)

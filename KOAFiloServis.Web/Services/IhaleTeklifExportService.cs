@@ -10,20 +10,20 @@ namespace KOAFiloServis.Web.Services;
 
 public class IhaleTeklifExportService : IIhaleTeklifExportService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IExcelService _excelService;
     private readonly IKullaniciService _kullaniciService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<IhaleTeklifExportService> _logger;
 
     public IhaleTeklifExportService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IExcelService excelService,
         IKullaniciService kullaniciService,
         IAuditLogService auditLogService,
         ILogger<IhaleTeklifExportService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _excelService = excelService;
         _kullaniciService = kullaniciService;
         _auditLogService = auditLogService;
@@ -34,8 +34,9 @@ public class IhaleTeklifExportService : IIhaleTeklifExportService
 
     public async Task<byte[]> ExportPdfAsync(int versiyonId)
     {
-        var (versiyon, proje, kalemler) = await GetExportDataAsync(versiyonId);
-        await ValidateExportAsync(versiyon);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var (versiyon, proje, kalemler) = await GetExportDataAsync(context, versiyonId);
+        await ValidateExportAsync(context, versiyon);
 
         var document = Document.Create(container =>
         {
@@ -126,14 +127,15 @@ public class IhaleTeklifExportService : IIhaleTeklifExportService
             });
         });
 
-        await TryAuditAsync(versiyon.Id, "PDF");
+        await TryAuditAsync(context, versiyon.Id, "PDF");
         return document.GeneratePdf();
     }
 
     public async Task<byte[]> ExportExcelAsync(int versiyonId)
     {
-        var (versiyon, proje, kalemler) = await GetExportDataAsync(versiyonId);
-        await ValidateExportAsync(versiyon);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var (versiyon, proje, kalemler) = await GetExportDataAsync(context, versiyonId);
+        await ValidateExportAsync(context, versiyon);
 
         var headers = new[]
         {
@@ -170,19 +172,19 @@ public class IhaleTeklifExportService : IIhaleTeklifExportService
             versiyon.KarMarjiOrani
         });
 
-        await TryAuditAsync(versiyon.Id, "Excel");
+        await TryAuditAsync(context, versiyon.Id, "Excel");
         return _excelService.CreateExcel(headers, rows, SanitizeSheetName($"{proje.ProjeKodu}-{versiyon.RevizyonKodu}"));
     }
 
-    private async Task<(IhaleTeklifVersiyon versiyon, IhaleProje proje, List<IhaleGuzergahKalem> kalemler)> GetExportDataAsync(int versiyonId)
+    private async Task<(IhaleTeklifVersiyon versiyon, IhaleProje proje, List<IhaleGuzergahKalem> kalemler)> GetExportDataAsync(ApplicationDbContext context, int versiyonId)
     {
-        var versiyon = await _context.IhaleTeklifVersiyonlari
+        var versiyon = await context.IhaleTeklifVersiyonlari
             .FirstOrDefaultAsync(x => x.Id == versiyonId);
 
         if (versiyon == null)
             throw new InvalidOperationException("Teklif versiyonu bulunamadı.");
 
-        var proje = await _context.IhaleProjeleri
+        var proje = await context.IhaleProjeleri
             .Include(p => p.Cari)
             .Include(p => p.Firma)
             .FirstOrDefaultAsync(p => p.Id == versiyon.IhaleProjeId);
@@ -190,7 +192,7 @@ public class IhaleTeklifExportService : IIhaleTeklifExportService
         if (proje == null)
             throw new InvalidOperationException("İhale projesi bulunamadı.");
 
-        var kalemler = await _context.IhaleGuzergahKalemleri
+        var kalemler = await context.IhaleGuzergahKalemleri
             .Where(k => k.IhaleProjeId == proje.Id)
             .OrderBy(k => k.HatAdi)
             .ToListAsync();
@@ -198,7 +200,7 @@ public class IhaleTeklifExportService : IIhaleTeklifExportService
         return (versiyon, proje, kalemler);
     }
 
-    private async Task ValidateExportAsync(IhaleTeklifVersiyon versiyon)
+    private async Task ValidateExportAsync(ApplicationDbContext context, IhaleTeklifVersiyon versiyon)
     {
         var kullanici = await _kullaniciService.GetAktifKullaniciAsync();
         var rolAdi = kullanici?.Rol?.RolAdi;
@@ -210,7 +212,7 @@ public class IhaleTeklifExportService : IIhaleTeklifExportService
             throw new InvalidOperationException("Sadece onaylı teklifler export edilebilir.");
     }
 
-    private async Task TryAuditAsync(int versiyonId, string format)
+    private async Task TryAuditAsync(ApplicationDbContext context, int versiyonId, string format)
     {
         try
         {

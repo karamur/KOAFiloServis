@@ -10,13 +10,13 @@ namespace KOAFiloServis.Web.Services;
 /// </summary>
 public class BildirimService : IBildirimService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ILogger<BildirimService> _logger;
     private readonly IEmailService _emailService;
 
-    public BildirimService(ApplicationDbContext context, ILogger<BildirimService> logger, IEmailService emailService)
+    public BildirimService(IDbContextFactory<ApplicationDbContext> contextFactory, ILogger<BildirimService> logger, IEmailService emailService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _logger = logger;
         _emailService = emailService;
     }
@@ -25,7 +25,8 @@ public class BildirimService : IBildirimService
 
     public async Task<List<Bildirim>> GetKullaniciBildirimlerAsync(int kullaniciId, bool sadeceOkunmamis = false)
     {
-        var query = _context.Bildirimler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Bildirimler
             .Where(b => !b.IsDeleted && b.KullaniciId == kullaniciId);
 
         if (sadeceOkunmamis)
@@ -41,39 +42,44 @@ public class BildirimService : IBildirimService
 
     public async Task<int> GetOkunmamisBildirimSayisiAsync(int kullaniciId)
     {
-        return await _context.Bildirimler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Bildirimler
             .CountAsync(b => !b.IsDeleted && b.KullaniciId == kullaniciId && !b.Okundu);
     }
 
     public async Task<Bildirim?> GetByIdAsync(int id)
     {
-        return await _context.Bildirimler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Bildirimler
             .Include(b => b.Kullanici)
             .FirstOrDefaultAsync(b => b.Id == id && !b.IsDeleted);
     }
 
     public async Task<Bildirim> CreateAsync(Bildirim bildirim)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         bildirim.CreatedAt = DateTime.Now;
-        _context.Bildirimler.Add(bildirim);
-        await _context.SaveChangesAsync();
+        context.Bildirimler.Add(bildirim);
+        await context.SaveChangesAsync();
         return bildirim;
     }
 
     public async Task OkunduOlarakIsaretle(int bildirimId)
     {
-        var bildirim = await _context.Bildirimler.FindAsync(bildirimId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var bildirim = await context.Bildirimler.FindAsync(bildirimId);
         if (bildirim != null)
         {
             bildirim.Okundu = true;
             bildirim.OkunmaTarihi = DateTime.Now;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task TumunuOkunduYapAsync(int kullaniciId)
     {
-        var bildirimler = await _context.Bildirimler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var bildirimler = await context.Bildirimler
             .Where(b => !b.IsDeleted && b.KullaniciId == kullaniciId && !b.Okundu)
             .ToListAsync();
 
@@ -83,16 +89,17 @@ public class BildirimService : IBildirimService
             bildirim.OkunmaTarihi = DateTime.Now;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(int id)
     {
-        var bildirim = await _context.Bildirimler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var bildirim = await context.Bildirimler.FindAsync(id);
         if (bildirim != null)
         {
             bildirim.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -102,24 +109,26 @@ public class BildirimService : IBildirimService
 
     public async Task<BildirimAyar?> GetKullaniciAyarAsync(int kullaniciId)
     {
-        return await _context.BildirimAyarlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BildirimAyarlari
             .FirstOrDefaultAsync(a => !a.IsDeleted && a.KullaniciId == kullaniciId);
     }
 
     public async Task<BildirimAyar> SaveAyarAsync(BildirimAyar ayar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (ayar.Id == 0)
         {
             ayar.CreatedAt = DateTime.Now;
-            _context.BildirimAyarlari.Add(ayar);
+            context.BildirimAyarlari.Add(ayar);
         }
         else
         {
             ayar.UpdatedAt = DateTime.Now;
-            _context.BildirimAyarlari.Update(ayar);
+            context.BildirimAyarlari.Update(ayar);
         }
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return ayar;
     }
 
@@ -129,6 +138,7 @@ public class BildirimService : IBildirimService
 
     public async Task<List<BildirimOzet>> TaraVeBildirimOlusturAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ozetler = new List<BildirimOzet>();
         
         // Vade yaklaşan faturaları tara
@@ -140,7 +150,7 @@ public class BildirimService : IBildirimService
         ozetler.AddRange(belgeOzetleri);
         
         // Tüm kullanıcılara bildirim oluştur
-        var kullanicilar = await _context.Kullanicilar
+        var kullanicilar = await context.Kullanicilar
             .Where(k => !k.IsDeleted && k.Aktif)
             .ToListAsync();
         
@@ -154,7 +164,7 @@ public class BildirimService : IBildirimService
                     continue;
                 
                 // Aynı bildirim daha önce oluşturulmuş mu kontrol et
-                var mevcutBildirim = await _context.Bildirimler
+                var mevcutBildirim = await context.Bildirimler
                     .AnyAsync(b => !b.IsDeleted 
                         && b.KullaniciId == kullanici.Id 
                         && b.Tip == ozet.Tip
@@ -180,11 +190,11 @@ public class BildirimService : IBildirimService
                     CreatedAt = DateTime.Now
                 };
                 
-                _context.Bildirimler.Add(bildirim);
+                context.Bildirimler.Add(bildirim);
             }
         }
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         _logger.LogInformation("Bildirim taraması tamamlandı. {Count} yeni bildirim özeti oluşturuldu.", ozetler.Count);
         
         return ozetler;
@@ -192,12 +202,13 @@ public class BildirimService : IBildirimService
 
     public async Task<List<BildirimOzet>> VadeYaklasanFaturalariTaraAsync(int gunSayisi = 7)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ozetler = new List<BildirimOzet>();
         var bugun = DateTime.Today;
         var bitisTarihi = bugun.AddDays(gunSayisi);
         
         // Vadesi yaklaşan veya geçmiş ödenmemiş faturalar
-        var faturalar = await _context.Faturalar
+        var faturalar = await context.Faturalar
             .Include(f => f.Firma)
             .Where(f => !f.IsDeleted 
                 && f.VadeTarihi != null 
@@ -239,12 +250,13 @@ public class BildirimService : IBildirimService
 
     public async Task<List<BildirimOzet>> SuresiDolanBelgeleriTaraAsync(int gunSayisi = 30)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ozetler = new List<BildirimOzet>();
         var bugun = DateTime.Today;
         var bitisTarihi = bugun.AddDays(gunSayisi);
         
         // ARAÇ BELGELERİ
-        var araclar = await _context.Araclar
+        var araclar = await context.Araclar
             .Where(a => !a.IsDeleted && a.Aktif)
             .ToListAsync();
         
@@ -281,7 +293,7 @@ public class BildirimService : IBildirimService
         }
         
         // ŞOFÖR BELGELERİ
-        var soforler = await _context.Soforler
+        var soforler = await context.Soforler
             .Where(s => !s.IsDeleted && s.Aktif && s.Gorev == PersonelGorev.Sofor)
             .ToListAsync();
         
@@ -383,7 +395,8 @@ public class BildirimService : IBildirimService
 
     public async Task<BildirimDashboardDto> GetDashboardOzetAsync(int? kullaniciId = null)
     {
-        var query = _context.Bildirimler.Where(b => !b.IsDeleted);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Bildirimler.Where(b => !b.IsDeleted);
         
         if (kullaniciId.HasValue)
         {
@@ -410,7 +423,7 @@ public class BildirimService : IBildirimService
             .ToDictionary(g => g.Key, g => g.Count());
         
         // Vade yaklaşan fatura sayısı
-        dto.VadeYaklasanFatura = await _context.Faturalar
+        dto.VadeYaklasanFatura = await context.Faturalar
             .CountAsync(f => !f.IsDeleted 
                 && f.VadeTarihi != null 
                 && f.VadeTarihi <= DateTime.Today.AddDays(7)
@@ -421,14 +434,14 @@ public class BildirimService : IBildirimService
         var bugun = DateTime.Today;
         var bitisTarihi = bugun.AddDays(30);
         
-        var aracBelgeSayisi = await _context.Araclar
+        var aracBelgeSayisi = await context.Araclar
             .Where(a => !a.IsDeleted && a.Aktif)
             .CountAsync(a => 
                 (a.TrafikSigortaBitisTarihi != null && a.TrafikSigortaBitisTarihi <= bitisTarihi) ||
                 (a.KaskoBitisTarihi != null && a.KaskoBitisTarihi <= bitisTarihi) ||
                 (a.MuayeneBitisTarihi != null && a.MuayeneBitisTarihi <= bitisTarihi));
         
-        var soforBelgeSayisi = await _context.Soforler
+        var soforBelgeSayisi = await context.Soforler
             .Where(s => !s.IsDeleted && s.Aktif && s.Gorev == PersonelGorev.Sofor)
             .CountAsync(s => 
                 (s.EhliyetGecerlilikTarihi != null && s.EhliyetGecerlilikTarihi <= bitisTarihi) ||
@@ -455,12 +468,13 @@ public class BildirimService : IBildirimService
 
     public async Task<int> EpostaBildirimGonderAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var gonderimSayisi = 0;
 
         try
         {
             // E-posta almak isteyen ve e-posta adresi olan kullanıcıları al
-            var ayarlar = await _context.BildirimAyarlari
+            var ayarlar = await context.BildirimAyarlari
                 .Include(a => a.Kullanici)
                 .Where(a => !a.IsDeleted && a.EpostaAlsin && !string.IsNullOrEmpty(a.EpostaAdresi))
                 .ToListAsync();
@@ -523,7 +537,7 @@ public class BildirimService : IBildirimService
                     if (uyarilar.Any())
                     {
                         // Son 24 saatte aynı kullanıcıya e-posta gönderilmiş mi kontrol et
-                        var sonGonderim = await _context.Set<EpostaBildirimLog>()
+                        var sonGonderim = await context.Set<EpostaBildirimLog>()
                             .Where(l => l.KullaniciId == ayar.KullaniciId && l.GonderimTarihi > DateTime.Now.AddHours(-24))
                             .AnyAsync();
 
@@ -534,7 +548,7 @@ public class BildirimService : IBildirimService
                             if (basarili)
                             {
                                 // Log kaydı oluştur
-                                _context.Set<EpostaBildirimLog>().Add(new EpostaBildirimLog
+                                context.Set<EpostaBildirimLog>().Add(new EpostaBildirimLog
                                 {
                                     KullaniciId = ayar.KullaniciId,
                                     EpostaAdresi = ayar.EpostaAdresi!,
@@ -560,7 +574,7 @@ public class BildirimService : IBildirimService
                 }
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -573,6 +587,7 @@ public class BildirimService : IBildirimService
 
     public async Task<bool> TestEpostaGonderAsync(int kullaniciId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
             var ayar = await GetKullaniciAyarAsync(kullaniciId);

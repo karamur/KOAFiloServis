@@ -6,16 +6,17 @@ namespace KOAFiloServis.Web.Services;
 
 public class TekrarlayanOdemeService : ITekrarlayanOdemeService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public TekrarlayanOdemeService(ApplicationDbContext context)
+    public TekrarlayanOdemeService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<List<TekrarlayanOdeme>> GetTekrarlayanOdemelerAsync(int? firmaId = null)
     {
-        var query = _context.TekrarlayanOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.TekrarlayanOdemeler
             .Where(t => !t.IsDeleted)
             .AsQueryable();
 
@@ -32,7 +33,8 @@ public class TekrarlayanOdemeService : ITekrarlayanOdemeService
 
     public async Task<List<TekrarlayanOdeme>> GetAktifTekrarlayanOdemelerAsync(int? firmaId = null)
     {
-        var query = _context.TekrarlayanOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.TekrarlayanOdemeler
             .Where(t => !t.IsDeleted && t.Aktif);
 
         if (firmaId.HasValue)
@@ -47,29 +49,32 @@ public class TekrarlayanOdemeService : ITekrarlayanOdemeService
 
     public async Task<TekrarlayanOdeme?> GetTekrarlayanOdemeByIdAsync(int id)
     {
-        return await _context.TekrarlayanOdemeler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.TekrarlayanOdemeler
             .Include(t => t.Firma)
             .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
     }
 
     public async Task<TekrarlayanOdeme> CreateTekrarlayanOdemeAsync(TekrarlayanOdeme odeme)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         odeme.BaslangicTarihi = DateTime.SpecifyKind(odeme.BaslangicTarihi, DateTimeKind.Utc);
         if (odeme.BitisTarihi.HasValue)
             odeme.BitisTarihi = DateTime.SpecifyKind(odeme.BitisTarihi.Value, DateTimeKind.Utc);
         odeme.CreatedAt = DateTime.UtcNow;
 
-        _context.TekrarlayanOdemeler.Add(odeme);
-        await _context.SaveChangesAsync();
+        context.TekrarlayanOdemeler.Add(odeme);
+        await context.SaveChangesAsync();
 
-        _context.Entry(odeme).State = EntityState.Detached;
+        context.Entry(odeme).State = EntityState.Detached;
 
         return odeme;
     }
 
     public async Task<TekrarlayanOdeme> UpdateTekrarlayanOdemeAsync(TekrarlayanOdeme odeme)
     {
-        var existing = await _context.TekrarlayanOdemeler.FindAsync(odeme.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.TekrarlayanOdemeler.FindAsync(odeme.Id);
         if (existing == null)
             throw new Exception("Tekrarlayan odeme bulunamadi");
 
@@ -91,28 +96,30 @@ public class TekrarlayanOdemeService : ITekrarlayanOdemeService
         existing.Notlar = odeme.Notlar;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
-        _context.Entry(existing).State = EntityState.Detached;
+        context.Entry(existing).State = EntityState.Detached;
 
         return existing;
     }
 
     public async Task DeleteTekrarlayanOdemeAsync(int id)
     {
-        var odeme = await _context.TekrarlayanOdemeler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var odeme = await context.TekrarlayanOdemeler.FindAsync(id);
         if (odeme != null)
         {
             odeme.IsDeleted = true;
             odeme.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
-            _context.Entry(odeme).State = EntityState.Detached;
+            context.Entry(odeme).State = EntityState.Detached;
         }
     }
 
     public async Task<int> TekrarlayanOdemelerdenKayitOlusturAsync(int yil, int ay, int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var aktifPlanlar = await GetAktifTekrarlayanOdemelerAsync(firmaId);
         var olusturulanSayisi = 0;
 
@@ -124,7 +131,7 @@ public class TekrarlayanOdemeService : ITekrarlayanOdemeService
             var gunSayisi = DateTime.DaysInMonth(yil, ay);
             var odemeGunu = Math.Min(plan.OdemeGunu, gunSayisi);
 
-            var mevcutKayit = await _context.BudgetOdemeler
+            var mevcutKayit = await context.BudgetOdemeler
                 .AnyAsync(o => o.OdemeYil == yil &&
                                o.OdemeAy == ay &&
                                o.MasrafKalemi == plan.MasrafKalemi &&
@@ -152,13 +159,13 @@ public class TekrarlayanOdemeService : ITekrarlayanOdemeService
                     CreatedAt = DateTime.UtcNow
                 };
 
-                _context.BudgetOdemeler.Add(yeniOdeme);
+                context.BudgetOdemeler.Add(yeniOdeme);
                 olusturulanSayisi++;
             }
         }
 
         if (olusturulanSayisi > 0)
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
         return olusturulanSayisi;
     }

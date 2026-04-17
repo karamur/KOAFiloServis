@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -10,16 +10,16 @@ namespace KOAFiloServis.Web.Services;
 
 public class IhaleHazirlikService : IIhaleHazirlikService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IOllamaService _ollamaService;
     private readonly ILogger<IhaleHazirlikService> _logger;
 
     private static readonly string[] AyAdlari = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
         "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
-    public IhaleHazirlikService(ApplicationDbContext context, IOllamaService ollamaService, ILogger<IhaleHazirlikService> logger)
+    public IhaleHazirlikService(IDbContextFactory<ApplicationDbContext> contextFactory, IOllamaService ollamaService, ILogger<IhaleHazirlikService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _ollamaService = ollamaService;
         _logger = logger;
     }
@@ -28,7 +28,8 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<List<IhaleProje>> GetProjelerAsync()
     {
-        return await _context.IhaleProjeleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.IhaleProjeleri
             .Include(p => p.Cari)
             .Include(p => p.Firma)
             .Include(p => p.Kalemler)
@@ -39,7 +40,8 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleProje?> GetProjeByIdAsync(int id)
     {
-        return await _context.IhaleProjeleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.IhaleProjeleri
             .Include(p => p.Cari)
             .Include(p => p.Firma)
             .Include(p => p.Kalemler).ThenInclude(k => k.Guzergah)
@@ -50,17 +52,19 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleProje> CreateProjeAsync(IhaleProje proje)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (string.IsNullOrEmpty(proje.ProjeKodu))
             proje.ProjeKodu = await GenerateProjeKoduAsync();
 
-        _context.IhaleProjeleri.Add(proje);
-        await _context.SaveChangesAsync();
+        context.IhaleProjeleri.Add(proje);
+        await context.SaveChangesAsync();
         return proje;
     }
 
     public async Task<IhaleProje> UpdateProjeAsync(IhaleProje proje)
     {
-        var mevcut = await _context.IhaleProjeleri.FindAsync(proje.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcut = await context.IhaleProjeleri.FindAsync(proje.Id);
         if (mevcut == null) throw new Exception("Proje bulunamadı.");
 
         mevcut.ProjeAdi = proje.ProjeAdi;
@@ -78,23 +82,25 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         mevcut.Notlar = proje.Notlar;
         mevcut.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return mevcut;
     }
 
     public async Task<bool> DeleteProjeAsync(int id)
     {
-        var proje = await _context.IhaleProjeleri.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var proje = await context.IhaleProjeleri.FindAsync(id);
         if (proje == null) return false;
 
         proje.IsDeleted = true;
         proje.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
     public async Task<IhaleProje> KopyalaProjeAsync(int projeId, string yeniProjeAdi)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kaynak = await GetProjeByIdAsync(projeId);
         if (kaynak == null) throw new Exception("Kaynak proje bulunamadı.");
 
@@ -152,23 +158,24 @@ public class IhaleHazirlikService : IIhaleHazirlikService
             });
         }
 
-        _context.IhaleProjeleri.Add(yeni);
-        await _context.SaveChangesAsync();
+        context.IhaleProjeleri.Add(yeni);
+        await context.SaveChangesAsync();
 
         // Kopyalanan kalemler için maliyet hesapla
         foreach (var kalem in yeni.Kalemler)
         {
             await HesaplaKalemMaliyetAsync(kalem, yeni);
         }
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         return yeni;
     }
 
     public async Task<string> GenerateProjeKoduAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var yil = DateTime.Now.Year;
-        var sonProje = await _context.IhaleProjeleri
+        var sonProje = await context.IhaleProjeleri
             .Where(p => p.ProjeKodu.StartsWith($"IHL-{yil}-"))
             .OrderByDescending(p => p.ProjeKodu)
             .FirstOrDefaultAsync();
@@ -188,13 +195,14 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleGuzergahKalem> AddKalemAsync(IhaleGuzergahKalem kalem)
     {
-        var proje = await _context.IhaleProjeleri.FindAsync(kalem.IhaleProjeId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var proje = await context.IhaleProjeleri.FindAsync(kalem.IhaleProjeId);
         if (proje == null) throw new Exception("Proje bulunamadı.");
 
         // Güzergah seçildiyse bilgileri aktar
         if (kalem.GuzergahId.HasValue)
         {
-            var guzergah = await _context.Guzergahlar.FindAsync(kalem.GuzergahId.Value);
+            var guzergah = await context.Guzergahlar.FindAsync(kalem.GuzergahId.Value);
             if (guzergah != null)
             {
                 if (string.IsNullOrEmpty(kalem.HatAdi)) kalem.HatAdi = guzergah.GuzergahAdi;
@@ -210,7 +218,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         // Araç seçildiyse bilgileri aktar
         if (kalem.AracId.HasValue)
         {
-            var arac = await _context.Araclar.FindAsync(kalem.AracId.Value);
+            var arac = await context.Araclar.FindAsync(kalem.AracId.Value);
             if (arac != null)
             {
                 kalem.AracModelBilgi = $"{arac.ModelYili} {arac.Marka} {arac.Model}";
@@ -231,7 +239,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         // Şoför seçildiyse maaş bilgisi aktar
         if (kalem.SoforId.HasValue)
         {
-            var sofor = await _context.Soforler.FindAsync(kalem.SoforId.Value);
+            var sofor = await context.Soforler.FindAsync(kalem.SoforId.Value);
             if (sofor != null)
             {
                 kalem.SoforBrutMaas = sofor.BrutMaas;
@@ -241,14 +249,15 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
         await HesaplaKalemMaliyetAsync(kalem, proje);
 
-        _context.IhaleGuzergahKalemleri.Add(kalem);
-        await _context.SaveChangesAsync();
+        context.IhaleGuzergahKalemleri.Add(kalem);
+        await context.SaveChangesAsync();
         return kalem;
     }
 
     public async Task<IhaleGuzergahKalem> UpdateKalemAsync(IhaleGuzergahKalem kalem)
     {
-        var mevcut = await _context.IhaleGuzergahKalemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcut = await context.IhaleGuzergahKalemleri
             .Include(k => k.IhaleProje)
             .FirstOrDefaultAsync(k => k.Id == kalem.Id);
         if (mevcut == null) throw new Exception("Kalem bulunamadı.");
@@ -292,13 +301,14 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         mevcut.UpdatedAt = DateTime.UtcNow;
 
         await HesaplaKalemMaliyetAsync(mevcut, mevcut.IhaleProje);
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return mevcut;
     }
 
     public async Task<List<IhaleSozlesmeRevizyon>> GetSozlesmeRevizyonlariAsync(int ihaleProjeId)
     {
-        return await _context.IhaleSozlesmeRevizyonlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.IhaleSozlesmeRevizyonlari
             .Where(x => x.IhaleProjeId == ihaleProjeId)
             .OrderByDescending(x => x.RevizyonTarihi)
             .ThenByDescending(x => x.CreatedAt)
@@ -307,22 +317,24 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleSozlesmeRevizyon> AddSozlesmeRevizyonAsync(IhaleSozlesmeRevizyon revizyon)
     {
-        var proje = await _context.IhaleProjeleri.FindAsync(revizyon.IhaleProjeId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var proje = await context.IhaleProjeleri.FindAsync(revizyon.IhaleProjeId);
         if (proje == null)
             throw new Exception("Proje bulunamadı.");
 
         if (string.IsNullOrWhiteSpace(revizyon.RevizyonNo))
-            revizyon.RevizyonNo = await GetSonrakiRevizyonNoAsync(revizyon.IhaleProjeId);
+            revizyon.RevizyonNo = await GetSonrakiRevizyonNoAsync(context, revizyon.IhaleProjeId);
 
         revizyon.CreatedAt = DateTime.UtcNow;
-        _context.IhaleSozlesmeRevizyonlari.Add(revizyon);
-        await _context.SaveChangesAsync();
+        context.IhaleSozlesmeRevizyonlari.Add(revizyon);
+        await context.SaveChangesAsync();
         return revizyon;
     }
 
     public async Task<IhaleSozlesmeRevizyon> UpdateSozlesmeRevizyonAsync(IhaleSozlesmeRevizyon revizyon)
     {
-        var mevcut = await _context.IhaleSozlesmeRevizyonlari.FindAsync(revizyon.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcut = await context.IhaleSozlesmeRevizyonlari.FindAsync(revizyon.Id);
         if (mevcut == null)
             throw new Exception("Sözleşme revizyon kaydı bulunamadı.");
 
@@ -337,30 +349,32 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         mevcut.Aktif = revizyon.Aktif;
         mevcut.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return mevcut;
     }
 
     public async Task<bool> DeleteSozlesmeRevizyonAsync(int revizyonId)
     {
-        var mevcut = await _context.IhaleSozlesmeRevizyonlari.FindAsync(revizyonId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcut = await context.IhaleSozlesmeRevizyonlari.FindAsync(revizyonId);
         if (mevcut == null)
             return false;
 
         mevcut.IsDeleted = true;
         mevcut.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> DeleteKalemAsync(int kalemId)
     {
-        var kalem = await _context.IhaleGuzergahKalemleri.FindAsync(kalemId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kalem = await context.IhaleGuzergahKalemleri.FindAsync(kalemId);
         if (kalem == null) return false;
 
         kalem.IsDeleted = true;
         kalem.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
@@ -464,6 +478,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleProjeOzet> GetProjeOzetAsync(int projeId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var proje = await GetProjeByIdAsync(projeId);
         if (proje == null) throw new Exception("Proje bulunamadı.");
 
@@ -568,6 +583,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleGerceklesenAnalizOzet> GetProjeGerceklesenAnalizAsync(int projeId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var proje = await GetProjeByIdAsync(projeId);
         if (proje == null)
             throw new Exception("Proje bulunamadı.");
@@ -587,7 +603,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
         var gecenAySayisi = GetInclusiveMonthCount(analizBaslangic, analizBitis);
         var aktifKalemler = proje.Kalemler.Where(k => !k.IsDeleted).ToList();
-        var aktifRevizyonlar = await _context.IhaleSozlesmeRevizyonlari
+        var aktifRevizyonlar = await context.IhaleSozlesmeRevizyonlari
             .AsNoTracking()
             .Where(x => x.IhaleProjeId == proje.Id && x.Aktif)
             .OrderByDescending(x => x.RevizyonTarihi)
@@ -616,7 +632,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
         foreach (var kalem in aktifKalemler)
         {
-            var servisler = await GetKalemServisCalismalariAsync(kalem, analizBaslangic, analizBitis);
+            var servisler = await GetKalemServisCalismalariAsync(context, kalem, analizBaslangic, analizBitis);
             var gerceklesenSeferSayisi = servisler.Count(s => s.Durum == CalismaDurum.Tamamlandi);
             var aktifAySayisi = servisler
                 .Where(s => s.Durum == CalismaDurum.Tamamlandi)
@@ -625,8 +641,8 @@ public class IhaleHazirlikService : IIhaleHazirlikService
                 .Count();
 
             var gerceklesenYakitMaliyeti = gerceklesenSeferSayisi * kalem.MesafeKm * kalem.YakitTuketimi / 100m * kalem.YakitFiyati;
-            var gerceklesenAracMasrafi = await GetGerceklesenAracMasrafiAsync(kalem, analizBaslangic, analizBitis);
-            var gerceklesenSoforMaliyeti = await GetGerceklesenSoforMaliyetiAsync(kalem, analizBaslangic, analizBitis, gecenAySayisi);
+            var gerceklesenAracMasrafi = await GetGerceklesenAracMasrafiAsync(context, kalem, analizBaslangic, analizBitis);
+            var gerceklesenSoforMaliyeti = await GetGerceklesenSoforMaliyetiAsync(context, kalem, analizBaslangic, analizBitis, gecenAySayisi);
             var gerceklesenKiraKomisyon = kalem.SahiplikDurumu switch
             {
                 AracSahiplikKalem.Kiralik => kalem.AylikKiraBedeli * gecenAySayisi,
@@ -711,7 +727,8 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleOperasyonDashboardOzet> GetOperasyonDashboardOzetAsync()
     {
-        var kazanilanProjeler = await _context.IhaleProjeleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kazanilanProjeler = await context.IhaleProjeleri
             .AsNoTracking()
             .Where(p => !p.IsDeleted && p.Durum == IhaleProjeDurum.Kazanildi)
             .OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt)
@@ -771,9 +788,9 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         return sonuc;
     }
 
-    private async Task<List<ServisCalisma>> GetKalemServisCalismalariAsync(IhaleGuzergahKalem kalem, DateTime baslangic, DateTime bitis)
+    private async Task<List<ServisCalisma>> GetKalemServisCalismalariAsync(ApplicationDbContext context, IhaleGuzergahKalem kalem, DateTime baslangic, DateTime bitis)
     {
-        var query = _context.ServisCalismalari
+        var query = context.ServisCalismalari
             .AsNoTracking()
             .Include(s => s.Guzergah)
             .Where(s => !s.IsDeleted && s.CalismaTarihi >= baslangic && s.CalismaTarihi <= bitis);
@@ -793,9 +810,9 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         return await query.ToListAsync();
     }
 
-    private async Task<decimal> GetGerceklesenAracMasrafiAsync(IhaleGuzergahKalem kalem, DateTime baslangic, DateTime bitis)
+    private async Task<decimal> GetGerceklesenAracMasrafiAsync(ApplicationDbContext context, IhaleGuzergahKalem kalem, DateTime baslangic, DateTime bitis)
     {
-        var query = _context.AracMasraflari
+        var query = context.AracMasraflari
             .AsNoTracking()
             .Where(m => !m.IsDeleted && m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis);
 
@@ -815,13 +832,13 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         return await query.SumAsync(m => (decimal?)m.Tutar) ?? 0m;
     }
 
-    private async Task<decimal> GetGerceklesenSoforMaliyetiAsync(IhaleGuzergahKalem kalem, DateTime baslangic, DateTime bitis, int gecenAySayisi)
+    private async Task<decimal> GetGerceklesenSoforMaliyetiAsync(ApplicationDbContext context, IhaleGuzergahKalem kalem, DateTime baslangic, DateTime bitis, int gecenAySayisi)
     {
         if (!kalem.SoforId.HasValue)
             return 0m;
 
         var aktifAylar = GetMonthKeysBetween(baslangic, bitis).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var maaslar = await _context.PersonelMaaslari
+        var maaslar = await context.PersonelMaaslari
             .AsNoTracking()
             .Where(x => !x.IsDeleted && x.SoforId == kalem.SoforId.Value)
             .ToListAsync();
@@ -863,9 +880,9 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     private static string GetMonthKey(int yil, int ay) => $"{yil:D4}-{ay:D2}";
 
-    private async Task<string> GetSonrakiRevizyonNoAsync(int ihaleProjeId)
+    private async Task<string> GetSonrakiRevizyonNoAsync(ApplicationDbContext context, int ihaleProjeId)
     {
-        var mevcutNumaralar = await _context.IhaleSozlesmeRevizyonlari
+        var mevcutNumaralar = await context.IhaleSozlesmeRevizyonlari
             .Where(x => x.IhaleProjeId == ihaleProjeId)
             .Select(x => x.RevizyonNo)
             .ToListAsync();
@@ -916,12 +933,13 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleMaliyetTahminSonuc> AIAracMasrafTahminAsync(IhaleMaliyetTahminIstek istek)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new IhaleMaliyetTahminSonuc();
 
         try
         {
             // Gerçek verileri topla
-            var gercekVeriler = await ToplamGercekMasrafVerisi(istek);
+            var gercekVeriler = await ToplamGercekMasrafVerisi(context, istek);
 
             var prompt = $$"""
                 Personel servis aracı için aylık masraf tahmini yap.
@@ -997,6 +1015,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleSoforMaasTahmin> AISoforMaasTahminAsync(string aracTipi, decimal mesafeKm, int seferSayisi, decimal enflasyonOrani, int sozlesmeSuresiAy)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new IhaleSoforMaasTahmin();
 
         try
@@ -1073,6 +1092,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<string> AIProjeAnalizAsync(int projeId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ozet = await GetProjeOzetAsync(projeId);
 
         var kalemDetay = string.Join("\n", ozet.KalemOzetleri.Select(k =>
@@ -1122,8 +1142,9 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<decimal> GetGecmisMasrafOrtalamaAsync(int? aracId, MasrafKategori kategori, int aySayisi = 12)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var baslangic = DateTime.Today.AddMonths(-aySayisi);
-        var query = _context.AracMasraflari
+        var query = context.AracMasraflari
             .Include(m => m.MasrafKalemi)
             .Where(m => !m.IsDeleted && m.MasrafTarihi >= baslangic && m.MasrafKalemi.Kategori == kategori);
 
@@ -1136,7 +1157,8 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<decimal> GetGecmisSoforMaasOrtalamaAsync(int aySayisi = 6)
     {
-        var soforlar = await _context.Soforler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var soforlar = await context.Soforler
             .Where(s => !s.IsDeleted && s.Aktif && s.Gorev == PersonelGorev.Sofor && s.BrutMaas > 0)
             .ToListAsync();
 
@@ -1146,7 +1168,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     // ===== Private Yardımcılar =====
 
-    private async Task<string> ToplamGercekMasrafVerisi(IhaleMaliyetTahminIstek istek)
+    private async Task<string> ToplamGercekMasrafVerisi(ApplicationDbContext context, IhaleMaliyetTahminIstek istek)
     {
         var sb = new System.Text.StringBuilder();
 
@@ -1187,12 +1209,13 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
     public async Task<IhaleProje> OrnekProjeOlusturAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Rastgele değerler için
         var random = new Random();
         var simdi = DateTime.Now;
 
         // Önce örnek güzergah oluştur (veritabanında yoksa)
-        var ornekGuzergah = await _context.Guzergahlar
+        var ornekGuzergah = await context.Guzergahlar
             .FirstOrDefaultAsync(g => g.GuzergahAdi == "Merkez - Organize Sanayi (ÖRNEK)" && !g.IsDeleted);
 
         if (ornekGuzergah == null)
@@ -1209,12 +1232,12 @@ public class IhaleHazirlikService : IIhaleHazirlikService
                 Aktif = true,
                 FirmaId = 1
             };
-            _context.Guzergahlar.Add(ornekGuzergah);
-            await _context.SaveChangesAsync();
+            context.Guzergahlar.Add(ornekGuzergah);
+            await context.SaveChangesAsync();
         }
 
         // Örnek şoför oluştur (veritabanında yoksa)
-        var ornekSofor = await _context.Soforler
+        var ornekSofor = await context.Soforler
             .FirstOrDefaultAsync(s => s.Ad == "Örnek" && s.Soyad == "Şoför" && !s.IsDeleted);
 
         if (ornekSofor == null)
@@ -1232,12 +1255,12 @@ public class IhaleHazirlikService : IIhaleHazirlikService
                 NetMaas = 26500,
                 EhliyetNo = "TR123456"
             };
-            _context.Soforler.Add(ornekSofor);
-            await _context.SaveChangesAsync();
+            context.Soforler.Add(ornekSofor);
+            await context.SaveChangesAsync();
         }
 
         // Örnek araç oluştur (veritabanında yoksa)
-        var ornekArac = await _context.Araclar
+        var ornekArac = await context.Araclar
             .FirstOrDefaultAsync(a => a.SaseNo == "ORNEK2022001" && !a.IsDeleted);
 
         if (ornekArac == null)
@@ -1253,8 +1276,8 @@ public class IhaleHazirlikService : IIhaleHazirlikService
                 SahiplikTipi = AracSahiplikTipi.Ozmal,
                 Aktif = true
             };
-            _context.Araclar.Add(ornekArac);
-            await _context.SaveChangesAsync();
+            context.Araclar.Add(ornekArac);
+            await context.SaveChangesAsync();
         }
 
         // Örnek proje oluştur
@@ -1274,8 +1297,8 @@ public class IhaleHazirlikService : IIhaleHazirlikService
             Notlar = "Bu örnek proje, ihale hazırlık modülünün test edilmesi için otomatik oluşturulmuştur. Puantaj verileri de dahildir."
         };
 
-        _context.IhaleProjeleri.Add(proje);
-        await _context.SaveChangesAsync();
+        context.IhaleProjeleri.Add(proje);
+        await context.SaveChangesAsync();
 
         // Örnek güzergah kalemi oluştur
         var kalem = new IhaleGuzergahKalem
@@ -1329,8 +1352,8 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
         await HesaplaKalemMaliyetAsync(kalem, proje);
 
-        _context.IhaleGuzergahKalemleri.Add(kalem);
-        await _context.SaveChangesAsync();
+        context.IhaleGuzergahKalemleri.Add(kalem);
+        await context.SaveChangesAsync();
 
         // Puantaj kaydı oluştur (mevcut ay için)
         var puantaj = new PuantajKayit
@@ -1403,8 +1426,8 @@ public class IhaleHazirlikService : IIhaleHazirlikService
         puantaj.GiderKdv20Tutari = puantaj.ToplamGider * 20 / 100;
         puantaj.Odenecek = puantaj.ToplamGider + puantaj.GiderKdv20Tutari;
 
-        _context.PuantajKayitlar.Add(puantaj);
-        await _context.SaveChangesAsync();
+        context.PuantajKayitlar.Add(puantaj);
+        await context.SaveChangesAsync();
 
         // Güncel proje ile döndür
         return await GetProjeByIdAsync(proje.Id) ?? proje;

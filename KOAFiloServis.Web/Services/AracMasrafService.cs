@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,18 +6,19 @@ namespace KOAFiloServis.Web.Services;
 
 public class AracMasrafService : IAracMasrafService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IMuhasebeService _muhasebeService;
 
-    public AracMasrafService(ApplicationDbContext context, IMuhasebeService muhasebeService)
+    public AracMasrafService(IDbContextFactory<ApplicationDbContext> contextFactory, IMuhasebeService muhasebeService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _muhasebeService = muhasebeService;
     }
 
     public async Task<List<AracMasraf>> GetAllAsync()
     {
-        return await _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracMasraflari
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Guzergah)
@@ -31,7 +32,8 @@ public class AracMasrafService : IAracMasrafService
 
     public async Task<List<AracMasraf>> GetByAracIdAsync(int aracId)
     {
-        return await _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracMasraflari
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Guzergah)
             .Include(m => m.Sofor)
@@ -43,7 +45,8 @@ public class AracMasrafService : IAracMasrafService
 
     public async Task<List<AracMasraf>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
     {
-        return await _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracMasraflari
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Guzergah)
@@ -56,7 +59,8 @@ public class AracMasrafService : IAracMasrafService
 
     public async Task<List<AracMasraf>> GetByAracAndDateRangeAsync(int aracId, DateTime startDate, DateTime endDate)
     {
-        return await _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracMasraflari
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Guzergah)
             .Include(m => m.Sofor)
@@ -68,7 +72,8 @@ public class AracMasrafService : IAracMasrafService
 
     public async Task<List<AracMasraf>> GetArizaMasraflariAsync()
     {
-        return await _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracMasraflari
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Guzergah)
@@ -82,7 +87,8 @@ public class AracMasrafService : IAracMasrafService
 
     public async Task<List<AracMasraf>> GetByKategoriAsync(MasrafKategori kategori, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.AracMasraflari
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Sofor)
@@ -100,7 +106,8 @@ public class AracMasrafService : IAracMasrafService
 
     public async Task<AracMasraf?> GetByIdAsync(int id)
     {
-        return await _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracMasraflari
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Guzergah)
@@ -113,22 +120,24 @@ public class AracMasrafService : IAracMasrafService
 
     public async Task<AracMasraf> CreateAsync(AracMasraf aracMasraf, bool muhasebeFisiOlustur = true)
     {
-        await UygulaSahiplikKurallariAsync(aracMasraf);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        await UygulaSahiplikKurallariAsync(context, aracMasraf);
         ValidateMuhtapSecimi(aracMasraf);
 
-        _context.AracMasraflari.Add(aracMasraf);
-        await _context.SaveChangesAsync();
+        context.AracMasraflari.Add(aracMasraf);
+        await context.SaveChangesAsync();
 
-        await SenkronizeMuhasebeDurumuAsync(aracMasraf.Id, muhasebeFisiOlustur);
+        await SenkronizeMuhasebeDurumuAsync(context, aracMasraf.Id, muhasebeFisiOlustur);
         return (await GetByIdAsync(aracMasraf.Id))!;
     }
 
     public async Task<AracMasraf> UpdateAsync(AracMasraf aracMasraf, bool muhasebeFisiOlustur = true)
     {
-        await UygulaSahiplikKurallariAsync(aracMasraf);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        await UygulaSahiplikKurallariAsync(context, aracMasraf);
         ValidateMuhtapSecimi(aracMasraf);
 
-        var existing = await _context.AracMasraflari
+        var existing = await context.AracMasraflari
             .FirstOrDefaultAsync(m => m.Id == aracMasraf.Id && !m.IsDeleted);
 
         if (existing == null)
@@ -147,15 +156,16 @@ public class AracMasrafService : IAracMasrafService
         existing.CariId = aracMasraf.CariId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
-        await SenkronizeMuhasebeDurumuAsync(existing.Id, muhasebeFisiOlustur);
+        await context.SaveChangesAsync();
+        await SenkronizeMuhasebeDurumuAsync(context, existing.Id, muhasebeFisiOlustur);
 
         return (await GetByIdAsync(existing.Id))!;
     }
 
     public async Task DeleteAsync(int id)
     {
-        var aracMasraf = await _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var aracMasraf = await context.AracMasraflari
             .FirstOrDefaultAsync(m => m.Id == id);
 
         if (aracMasraf == null)
@@ -169,12 +179,13 @@ public class AracMasrafService : IAracMasrafService
 
         aracMasraf.IsDeleted = true;
         aracMasraf.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<decimal> GetToplamMasrafByAracAsync(int aracId, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var query = _context.AracMasraflari.Where(m => m.AracId == aracId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.AracMasraflari.Where(m => m.AracId == aracId);
         query = query.Where(m => !m.IsDeleted);
 
         if (startDate.HasValue)
@@ -192,9 +203,9 @@ public class AracMasrafService : IAracMasrafService
             throw new InvalidOperationException("Aynı masraf kaydı için hem personel hem cari seçilemez.");
     }
 
-    private async Task UygulaSahiplikKurallariAsync(AracMasraf aracMasraf)
+    private async Task UygulaSahiplikKurallariAsync(ApplicationDbContext context, AracMasraf aracMasraf)
     {
-        var arac = await _context.Araclar
+        var arac = await context.Araclar
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == aracMasraf.AracId && !a.IsDeleted);
 
@@ -211,9 +222,9 @@ public class AracMasrafService : IAracMasrafService
             throw new InvalidOperationException("Komisyon araç masraflarında komisyoncu cari tanımlı olmalı.");
     }
 
-    private async Task MuhasebeFisSenkronizeEtAsync(int aracMasrafId)
+    private async Task MuhasebeFisSenkronizeEtAsync(ApplicationDbContext context, int aracMasrafId)
     {
-        var aracMasraf = await _context.AracMasraflari
+        var aracMasraf = await context.AracMasraflari
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Sofor)
@@ -223,8 +234,8 @@ public class AracMasrafService : IAracMasrafService
         if (aracMasraf == null || aracMasraf.Tutar <= 0)
             return;
 
-        var giderHesabi = await GetMasrafHesabiAsync(aracMasraf.MasrafKalemi?.Kategori ?? MasrafKategori.Diger);
-        var karsiHesap = await GetKarsiHesapAsync(aracMasraf);
+        var giderHesabi = await GetMasrafHesabiAsync(context, aracMasraf.MasrafKalemi?.Kategori ?? MasrafKategori.Diger);
+        var karsiHesap = await GetKarsiHesapAsync(context, aracMasraf);
         var mevcutFis = aracMasraf.MuhasebeFisId.HasValue
             ? await _muhasebeService.GetFisByIdAsync(aracMasraf.MuhasebeFisId.Value)
             : null;
@@ -267,16 +278,16 @@ public class AracMasrafService : IAracMasrafService
         {
             var createdFis = await _muhasebeService.CreateFisAsync(fis);
             aracMasraf.MuhasebeFisId = createdFis.Id;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return;
         }
 
         await _muhasebeService.UpdateFisAsync(fis);
     }
 
-    private async Task SenkronizeMuhasebeDurumuAsync(int aracMasrafId, bool muhasebeFisiOlustur)
+    private async Task SenkronizeMuhasebeDurumuAsync(ApplicationDbContext context, int aracMasrafId, bool muhasebeFisiOlustur)
     {
-        var aracMasraf = await _context.AracMasraflari
+        var aracMasraf = await context.AracMasraflari
             .AsTracking()
             .FirstOrDefaultAsync(m => m.Id == aracMasrafId && !m.IsDeleted);
 
@@ -289,16 +300,16 @@ public class AracMasrafService : IAracMasrafService
             {
                 await _muhasebeService.DeleteFisAsync(aracMasraf.MuhasebeFisId.Value);
                 aracMasraf.MuhasebeFisId = null;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
             }
 
             return;
         }
 
-        await MuhasebeFisSenkronizeEtAsync(aracMasrafId);
+        await MuhasebeFisSenkronizeEtAsync(context, aracMasrafId);
     }
 
-    private async Task<MuhasebeHesap> GetMasrafHesabiAsync(MasrafKategori kategori)
+    private async Task<MuhasebeHesap> GetMasrafHesabiAsync(ApplicationDbContext context, MasrafKategori kategori)
     {
         var hesapKodu = kategori switch
         {
@@ -317,32 +328,32 @@ public class AracMasrafService : IAracMasrafService
             ?? throw new InvalidOperationException("Masraf için uygun muhasebe hesabı bulunamadı.");
     }
 
-    private async Task<MuhasebeHesap> GetKarsiHesapAsync(AracMasraf aracMasraf)
+    private async Task<MuhasebeHesap> GetKarsiHesapAsync(ApplicationDbContext context, AracMasraf aracMasraf)
     {
         if (aracMasraf.Arac?.SahiplikTipi == AracSahiplikTipi.Komisyon)
         {
             var komisyonCariId = aracMasraf.CariId ?? aracMasraf.Arac.KomisyoncuCariId;
             if (komisyonCariId.HasValue)
-                return await GetOrCreateCariHesapAsync(komisyonCariId.Value);
+                return await GetOrCreateCariHesapAsync(context, komisyonCariId.Value);
         }
 
         if (aracMasraf.SoforId.HasValue)
-            return await GetOrCreatePersonelHesapAsync(aracMasraf.SoforId.Value);
+            return await GetOrCreatePersonelHesapAsync(context, aracMasraf.SoforId.Value);
 
         if (aracMasraf.CariId.HasValue)
-            return await GetOrCreateCariHesapAsync(aracMasraf.CariId.Value);
+            return await GetOrCreateCariHesapAsync(context, aracMasraf.CariId.Value);
 
         return await _muhasebeService.GetHesapByKodAsync("100.01")
             ?? await _muhasebeService.GetHesapByKodAsync("100")
             ?? throw new InvalidOperationException("Kasa hesabı bulunamadı.");
     }
 
-    private async Task<MuhasebeHesap> GetOrCreateCariHesapAsync(int cariId)
+    private async Task<MuhasebeHesap> GetOrCreateCariHesapAsync(ApplicationDbContext context, int cariId)
     {
         var anaHesap = await _muhasebeService.GetHesapByKodAsync("320")
             ?? throw new InvalidOperationException("320 Satıcılar hesabı bulunamadı.");
 
-        var cari = await _context.Cariler.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == cariId)
+        var cari = await context.Cariler.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == cariId)
             ?? throw new InvalidOperationException("Cari bulunamadı.");
 
         var hesapKodu = BuildAltHesapKodu("320", cari.Id);
@@ -350,13 +361,13 @@ public class AracMasrafService : IAracMasrafService
         if (mevcut != null)
             return mevcut;
 
-        mevcut = await _context.MuhasebeHesaplari
+        mevcut = await context.MuhasebeHesaplari
             .FirstOrDefaultAsync(h => h.UstHesapId == anaHesap.Id && h.HesapAdi == cari.Unvan && !h.IsDeleted);
         if (mevcut != null)
             return mevcut;
 
         anaHesap.AltHesapVar = true;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         return await _muhasebeService.CreateHesapAsync(new MuhasebeHesap
         {
@@ -369,12 +380,12 @@ public class AracMasrafService : IAracMasrafService
         });
     }
 
-    private async Task<MuhasebeHesap> GetOrCreatePersonelHesapAsync(int soforId)
+    private async Task<MuhasebeHesap> GetOrCreatePersonelHesapAsync(ApplicationDbContext context, int soforId)
     {
         var anaHesap = await _muhasebeService.GetHesapByKodAsync("335")
             ?? throw new InvalidOperationException("335 Personellere Borçlar hesabı bulunamadı.");
 
-        var sofor = await _context.Soforler.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == soforId)
+        var sofor = await context.Soforler.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == soforId)
             ?? throw new InvalidOperationException("Personel bulunamadı.");
 
         var hesapKodu = BuildAltHesapKodu("335", sofor.Id);
@@ -382,13 +393,13 @@ public class AracMasrafService : IAracMasrafService
         if (mevcut != null)
             return mevcut;
 
-        mevcut = await _context.MuhasebeHesaplari
+        mevcut = await context.MuhasebeHesaplari
             .FirstOrDefaultAsync(h => h.UstHesapId == anaHesap.Id && h.HesapAdi == sofor.TamAd && !h.IsDeleted);
         if (mevcut != null)
             return mevcut;
 
         anaHesap.AltHesapVar = true;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         return await _muhasebeService.CreateHesapAsync(new MuhasebeHesap
         {

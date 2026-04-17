@@ -9,12 +9,12 @@ namespace KOAFiloServis.Web.Services;
 /// </summary>
 public class BelgeVersiyonService : IBelgeVersiyonService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IWebHostEnvironment _environment;
 
-    public BelgeVersiyonService(ApplicationDbContext context, IWebHostEnvironment environment)
+    public BelgeVersiyonService(IDbContextFactory<ApplicationDbContext> contextFactory, IWebHostEnvironment environment)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _environment = environment;
     }
 
@@ -22,7 +22,8 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task<List<EbysEvrakDosyaVersiyon>> GetEbysEvrakDosyaVersiyonlariAsync(int evrakDosyaId)
     {
-        return await _context.EbysEvrakDosyaVersiyonlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.EbysEvrakDosyaVersiyonlar
             .Include(v => v.OlusturanKullanici)
             .Where(v => v.EvrakDosyaId == evrakDosyaId && !v.IsDeleted)
             .OrderByDescending(v => v.VersiyonNo)
@@ -31,14 +32,16 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task<EbysEvrakDosyaVersiyon?> GetEbysEvrakDosyaVersiyonAsync(int versiyonId)
     {
-        return await _context.EbysEvrakDosyaVersiyonlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.EbysEvrakDosyaVersiyonlar
             .Include(v => v.OlusturanKullanici)
             .FirstOrDefaultAsync(v => v.Id == versiyonId && !v.IsDeleted);
     }
 
     public async Task ArsivleEbysEvrakDosyaAsync(int evrakDosyaId, string? degisiklikNotu = null, int? kullaniciId = null)
     {
-        var dosya = await _context.EbysEvrakDosyalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var dosya = await context.EbysEvrakDosyalar
             .FirstOrDefaultAsync(d => d.Id == evrakDosyaId && !d.IsDeleted);
 
         if (dosya == null)
@@ -59,18 +62,19 @@ public class BelgeVersiyonService : IBelgeVersiyonService
             OlusturmaTarihi = DateTime.Now
         };
 
-        _context.EbysEvrakDosyaVersiyonlar.Add(versiyon);
+        context.EbysEvrakDosyaVersiyonlar.Add(versiyon);
 
         // Ana dosyanın versiyon numarasını artır
         dosya.VersiyonNo++;
         dosya.SonDegisiklikNotu = degisiklikNotu;
         dosya.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<byte[]?> GetEbysEvrakVersiyonIcerikAsync(int versiyonId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var versiyon = await GetEbysEvrakDosyaVersiyonAsync(versiyonId);
         if (versiyon == null || string.IsNullOrEmpty(versiyon.DosyaYolu))
             return null;
@@ -85,14 +89,15 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task SilEbysEvrakVersiyonAsync(int versiyonId)
     {
-        var versiyon = await _context.EbysEvrakDosyaVersiyonlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var versiyon = await context.EbysEvrakDosyaVersiyonlar
             .FirstOrDefaultAsync(v => v.Id == versiyonId && !v.IsDeleted);
 
         if (versiyon != null)
         {
             versiyon.IsDeleted = true;
             versiyon.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -102,7 +107,8 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task<List<AracEvrakDosyaVersiyon>> GetAracEvrakDosyaVersiyonlariAsync(int aracEvrakDosyaId)
     {
-        return await _context.AracEvrakDosyaVersiyonlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracEvrakDosyaVersiyonlar
             .Include(v => v.OlusturanKullanici)
             .Where(v => v.AracEvrakDosyaId == aracEvrakDosyaId && !v.IsDeleted)
             .OrderByDescending(v => v.VersiyonNo)
@@ -111,14 +117,16 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task<AracEvrakDosyaVersiyon?> GetAracEvrakDosyaVersiyonAsync(int versiyonId)
     {
-        return await _context.AracEvrakDosyaVersiyonlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracEvrakDosyaVersiyonlar
             .Include(v => v.OlusturanKullanici)
             .FirstOrDefaultAsync(v => v.Id == versiyonId && !v.IsDeleted);
     }
 
     public async Task ArsivleAracEvrakDosyaAsync(int aracEvrakDosyaId, string? degisiklikNotu = null, int? kullaniciId = null)
     {
-        var dosya = await _context.AracEvrakDosyalari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var dosya = await context.AracEvrakDosyalari
             .FirstOrDefaultAsync(d => d.Id == aracEvrakDosyaId && !d.IsDeleted);
 
         if (dosya == null)
@@ -138,17 +146,18 @@ public class BelgeVersiyonService : IBelgeVersiyonService
             OlusturmaTarihi = DateTime.Now
         };
 
-        _context.AracEvrakDosyaVersiyonlar.Add(versiyon);
+        context.AracEvrakDosyaVersiyonlar.Add(versiyon);
 
         dosya.VersiyonNo++;
         dosya.SonDegisiklikNotu = degisiklikNotu;
         dosya.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<byte[]?> GetAracEvrakVersiyonIcerikAsync(int versiyonId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var versiyon = await GetAracEvrakDosyaVersiyonAsync(versiyonId);
         if (versiyon == null || string.IsNullOrEmpty(versiyon.DosyaYolu))
             return null;
@@ -163,14 +172,15 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task SilAracEvrakVersiyonAsync(int versiyonId)
     {
-        var versiyon = await _context.AracEvrakDosyaVersiyonlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var versiyon = await context.AracEvrakDosyaVersiyonlar
             .FirstOrDefaultAsync(v => v.Id == versiyonId && !v.IsDeleted);
 
         if (versiyon != null)
         {
             versiyon.IsDeleted = true;
             versiyon.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -180,7 +190,8 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task<List<PersonelOzlukEvrakVersiyon>> GetPersonelOzlukEvrakVersiyonlariAsync(int personelOzlukEvrakId)
     {
-        return await _context.PersonelOzlukEvrakVersiyonlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelOzlukEvrakVersiyonlar
             .Include(v => v.OlusturanKullanici)
             .Where(v => v.PersonelOzlukEvrakId == personelOzlukEvrakId && !v.IsDeleted)
             .OrderByDescending(v => v.VersiyonNo)
@@ -189,14 +200,16 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task<PersonelOzlukEvrakVersiyon?> GetPersonelOzlukEvrakVersiyonAsync(int versiyonId)
     {
-        return await _context.PersonelOzlukEvrakVersiyonlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelOzlukEvrakVersiyonlar
             .Include(v => v.OlusturanKullanici)
             .FirstOrDefaultAsync(v => v.Id == versiyonId && !v.IsDeleted);
     }
 
     public async Task ArsivlePersonelOzlukEvrakAsync(int personelOzlukEvrakId, string? degisiklikNotu = null, int? kullaniciId = null)
     {
-        var evrak = await _context.PersonelOzlukEvraklar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var evrak = await context.PersonelOzlukEvraklar
             .FirstOrDefaultAsync(e => e.Id == personelOzlukEvrakId && !e.IsDeleted);
 
         if (evrak == null)
@@ -216,17 +229,18 @@ public class BelgeVersiyonService : IBelgeVersiyonService
             OlusturmaTarihi = DateTime.Now
         };
 
-        _context.PersonelOzlukEvrakVersiyonlar.Add(versiyon);
+        context.PersonelOzlukEvrakVersiyonlar.Add(versiyon);
 
         evrak.VersiyonNo++;
         evrak.SonDegisiklikNotu = degisiklikNotu;
         evrak.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<byte[]?> GetPersonelOzlukEvrakVersiyonIcerikAsync(int versiyonId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var versiyon = await GetPersonelOzlukEvrakVersiyonAsync(versiyonId);
         if (versiyon == null || string.IsNullOrEmpty(versiyon.DosyaYolu))
             return null;
@@ -241,14 +255,15 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task SilPersonelOzlukEvrakVersiyonAsync(int versiyonId)
     {
-        var versiyon = await _context.PersonelOzlukEvrakVersiyonlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var versiyon = await context.PersonelOzlukEvrakVersiyonlar
             .FirstOrDefaultAsync(v => v.Id == versiyonId && !v.IsDeleted);
 
         if (versiyon != null)
         {
             versiyon.IsDeleted = true;
             versiyon.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -258,6 +273,7 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task<BelgeVersiyonKarsilastirma?> KarsilastirEbysVersiyonlarAsync(int versiyon1Id, int versiyon2Id)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var v1 = await GetEbysEvrakDosyaVersiyonAsync(versiyon1Id);
         var v2 = await GetEbysEvrakDosyaVersiyonAsync(versiyon2Id);
 
@@ -279,6 +295,7 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task<BelgeVersiyonKarsilastirma?> KarsilastirAracVersiyonlarAsync(int versiyon1Id, int versiyon2Id)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var v1 = await GetAracEvrakDosyaVersiyonAsync(versiyon1Id);
         var v2 = await GetAracEvrakDosyaVersiyonAsync(versiyon2Id);
 
@@ -304,11 +321,12 @@ public class BelgeVersiyonService : IBelgeVersiyonService
 
     public async Task GeriYukleEbysVersiyonAsync(int versiyonId, string? geriYuklemeNotu = null, int? kullaniciId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var versiyon = await GetEbysEvrakDosyaVersiyonAsync(versiyonId);
         if (versiyon == null)
             throw new ArgumentException("Versiyon bulunamadı.", nameof(versiyonId));
 
-        var dosya = await _context.EbysEvrakDosyalar
+        var dosya = await context.EbysEvrakDosyalar
             .FirstOrDefaultAsync(d => d.Id == versiyon.EvrakDosyaId && !d.IsDeleted);
 
         if (dosya == null)
@@ -326,16 +344,17 @@ public class BelgeVersiyonService : IBelgeVersiyonService
         dosya.SonDegisiklikNotu = geriYuklemeNotu ?? $"v{versiyon.VersiyonNo}'dan geri yüklendi";
         dosya.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task GeriYukleAracVersiyonAsync(int versiyonId, string? geriYuklemeNotu = null, int? kullaniciId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var versiyon = await GetAracEvrakDosyaVersiyonAsync(versiyonId);
         if (versiyon == null)
             throw new ArgumentException("Versiyon bulunamadı.", nameof(versiyonId));
 
-        var dosya = await _context.AracEvrakDosyalari
+        var dosya = await context.AracEvrakDosyalari
             .FirstOrDefaultAsync(d => d.Id == versiyon.AracEvrakDosyaId && !d.IsDeleted);
 
         if (dosya == null)
@@ -353,16 +372,17 @@ public class BelgeVersiyonService : IBelgeVersiyonService
         dosya.SonDegisiklikNotu = geriYuklemeNotu ?? $"v{versiyon.VersiyonNo}'dan geri yüklendi";
         dosya.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task GeriYuklePersonelOzlukVersiyonAsync(int versiyonId, string? geriYuklemeNotu = null, int? kullaniciId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var versiyon = await GetPersonelOzlukEvrakVersiyonAsync(versiyonId);
         if (versiyon == null)
             throw new ArgumentException("Versiyon bulunamadı.", nameof(versiyonId));
 
-        var evrak = await _context.PersonelOzlukEvraklar
+        var evrak = await context.PersonelOzlukEvraklar
             .FirstOrDefaultAsync(e => e.Id == versiyon.PersonelOzlukEvrakId && !e.IsDeleted);
 
         if (evrak == null)
@@ -380,7 +400,7 @@ public class BelgeVersiyonService : IBelgeVersiyonService
         evrak.SonDegisiklikNotu = geriYuklemeNotu ?? $"v{versiyon.VersiyonNo}'dan geri yüklendi";
         evrak.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion

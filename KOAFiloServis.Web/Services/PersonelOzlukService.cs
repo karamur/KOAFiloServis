@@ -10,11 +10,11 @@ namespace KOAFiloServis.Web.Services;
 
 public class PersonelOzlukService : IPersonelOzlukService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public PersonelOzlukService(ApplicationDbContext context)
+    public PersonelOzlukService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
@@ -22,7 +22,8 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<List<OzlukEvrakTanim>> GetEvrakTanimlariAsync()
     {
-        return await _context.OzlukEvrakTanimlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.OzlukEvrakTanimlari
             .Where(e => !e.IsDeleted)
             .OrderBy(e => e.Kategori)
             .ThenBy(e => e.SiraNo)
@@ -31,7 +32,8 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<List<OzlukEvrakTanim>> GetAktifEvrakTanimlariAsync()
     {
-        return await _context.OzlukEvrakTanimlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.OzlukEvrakTanimlari
             .Where(e => !e.IsDeleted && e.Aktif)
             .OrderBy(e => e.Kategori)
             .ThenBy(e => e.SiraNo)
@@ -40,20 +42,23 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<OzlukEvrakTanim?> GetEvrakTanimByIdAsync(int id)
     {
-        return await _context.OzlukEvrakTanimlari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.OzlukEvrakTanimlari.FindAsync(id);
     }
 
     public async Task<OzlukEvrakTanim> CreateEvrakTanimAsync(OzlukEvrakTanim tanim)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         tanim.CreatedAt = DateTime.UtcNow;
-        _context.OzlukEvrakTanimlari.Add(tanim);
-        await _context.SaveChangesAsync();
+        context.OzlukEvrakTanimlari.Add(tanim);
+        await context.SaveChangesAsync();
         return tanim;
     }
 
     public async Task<OzlukEvrakTanim> UpdateEvrakTanimAsync(OzlukEvrakTanim tanim)
     {
-        var existing = await _context.OzlukEvrakTanimlari.FindAsync(tanim.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.OzlukEvrakTanimlari.FindAsync(tanim.Id);
         if (existing == null)
             throw new InvalidOperationException("Evrak tanımı bulunamadı.");
 
@@ -66,17 +71,18 @@ public class PersonelOzlukService : IPersonelOzlukService
         existing.GecerliGorevler = tanim.GecerliGorevler;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteEvrakTanimAsync(int id)
     {
-        var tanim = await _context.OzlukEvrakTanimlari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var tanim = await context.OzlukEvrakTanimlari.FindAsync(id);
         if (tanim == null)
             return;
 
-        var dahaOnceIslemGormus = await _context.PersonelOzlukEvraklar
+        var dahaOnceIslemGormus = await context.PersonelOzlukEvraklar
             .AnyAsync(e => e.EvrakTanimId == id);
 
         if (dahaOnceIslemGormus)
@@ -84,22 +90,23 @@ public class PersonelOzlukService : IPersonelOzlukService
             tanim.IsDeleted = true;
             tanim.Aktif = false;
             tanim.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return;
         }
 
-        _context.OzlukEvrakTanimlari.Remove(tanim);
-        await _context.SaveChangesAsync();
+        context.OzlukEvrakTanimlari.Remove(tanim);
+        await context.SaveChangesAsync();
     }
 
     public async Task SeedDefaultEvrakTanimlariAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            if (!await TableExistsAsync("OzlukEvrakTanimlari"))
+            if (!await TableExistsAsync(context, "OzlukEvrakTanimlari"))
                 return;
 
-            if (await _context.OzlukEvrakTanimlari.AnyAsync())
+            if (await context.OzlukEvrakTanimlari.AnyAsync())
                 return;
 
             var defaultEvraklar = new List<OzlukEvrakTanim>
@@ -153,8 +160,8 @@ public class PersonelOzlukService : IPersonelOzlukService
                 evrak.CreatedAt = DateTime.UtcNow;
             }
 
-            _context.OzlukEvrakTanimlari.AddRange(defaultEvraklar);
-            await _context.SaveChangesAsync();
+            context.OzlukEvrakTanimlari.AddRange(defaultEvraklar);
+            await context.SaveChangesAsync();
         }
         catch
         {
@@ -162,9 +169,9 @@ public class PersonelOzlukService : IPersonelOzlukService
         }
     }
 
-    private async Task<bool> TableExistsAsync(string tableName)
+    private async Task<bool> TableExistsAsync(ApplicationDbContext context, string tableName)
     {
-        var connection = _context.Database.GetDbConnection();
+        var connection = context.Database.GetDbConnection();
         var closeAfter = connection.State != ConnectionState.Open;
 
         if (closeAfter)
@@ -174,11 +181,11 @@ public class PersonelOzlukService : IPersonelOzlukService
         {
             await using var command = connection.CreateCommand();
 
-            if (_context.Database.IsNpgsql())
+            if (context.Database.IsNpgsql())
             {
                 command.CommandText = $"SELECT to_regclass('\"{tableName}\"') IS NOT NULL";
             }
-            else if (_context.Database.IsSqlite())
+            else if (context.Database.IsSqlite())
             {
                 command.CommandText = $"SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '{tableName}')";
             }
@@ -203,7 +210,8 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<List<PersonelOzlukEvrak>> GetPersonelEvraklariAsync(int soforId)
     {
-        return await _context.PersonelOzlukEvraklar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelOzlukEvraklar
             .Include(e => e.EvrakTanim)
             .Where(e => e.SoforId == soforId && !e.IsDeleted)
             .OrderBy(e => e.EvrakTanim.Kategori)
@@ -213,7 +221,8 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<PersonelOzlukEvrak?> GetPersonelEvrakByIdAsync(int evrakId)
     {
-        return await _context.PersonelOzlukEvraklar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelOzlukEvraklar
             .Include(e => e.Sofor)
             .Include(e => e.EvrakTanim)
             .FirstOrDefaultAsync(e => e.Id == evrakId && !e.IsDeleted);
@@ -221,11 +230,12 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<PersonelOzlukEvrakDurum> GetPersonelEvrakDurumuAsync(int soforId)
     {
-        var personel = await _context.Soforler.FindAsync(soforId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personel = await context.Soforler.FindAsync(soforId);
         if (personel == null)
             throw new InvalidOperationException("Personel bulunamadı.");
 
-        var evrakTanimlari = await GetGecerliEvrakTanimlariAsync(personel.Gorev);
+        var evrakTanimlari = await GetGecerliEvrakTanimlariAsync(context, personel.Gorev);
         var personelEvraklari = await GetPersonelEvraklariAsync(soforId);
 
         var durum = new PersonelOzlukEvrakDurum
@@ -266,7 +276,8 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<List<PersonelOzlukEvrakDurum>> GetTumPersonelEvrakDurumlariAsync()
     {
-        var personeller = await _context.Soforler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personeller = await context.Soforler
             .Where(s => !s.IsDeleted && s.Aktif)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -284,7 +295,8 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<PersonelOzlukEvrak> EvrakIsaretle(int soforId, int evrakTanimId, bool tamamlandi, string? aciklama = null)
     {
-        var existing = await _context.PersonelOzlukEvraklar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.PersonelOzlukEvraklar
             .FirstOrDefaultAsync(e => e.SoforId == soforId && e.EvrakTanimId == evrakTanimId && !e.IsDeleted);
 
         if (existing != null)
@@ -305,16 +317,17 @@ public class PersonelOzlukService : IPersonelOzlukService
                 Aciklama = aciklama,
                 CreatedAt = DateTime.UtcNow
             };
-            _context.PersonelOzlukEvraklar.Add(existing);
+            context.PersonelOzlukEvraklar.Add(existing);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task<PersonelOzlukEvrak> EvrakDosyaYukle(int soforId, int evrakTanimId, string dosyaYolu)
     {
-        var existing = await _context.PersonelOzlukEvraklar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.PersonelOzlukEvraklar
             .FirstOrDefaultAsync(e => e.SoforId == soforId && e.EvrakTanimId == evrakTanimId && !e.IsDeleted);
 
         if (existing != null)
@@ -335,16 +348,17 @@ public class PersonelOzlukService : IPersonelOzlukService
                 TamamlanmaTarihi = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow
             };
-            _context.PersonelOzlukEvraklar.Add(existing);
+            context.PersonelOzlukEvraklar.Add(existing);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task<PersonelOzlukEvrak> UpdatePersonelEvrakAsync(PersonelOzlukEvrak evrak)
     {
-        var existing = await _context.PersonelOzlukEvraklar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.PersonelOzlukEvraklar
             .FirstOrDefaultAsync(e => e.Id == evrak.Id && !e.IsDeleted);
 
         if (existing == null)
@@ -357,7 +371,7 @@ public class PersonelOzlukService : IPersonelOzlukService
         existing.Aciklama = evrak.Aciklama;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
@@ -367,12 +381,14 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<List<PersonelOzlukEvrakDurum>> GetEksikEvrakliPersonellerAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var tumDurumlar = await GetTumPersonelEvrakDurumlariAsync();
         return tumDurumlar.Where(d => d.EksikEvrak > 0).OrderByDescending(d => d.EksikEvrak).ToList();
     }
 
     public async Task<byte[]> ExportChecklistPdfAsync(int soforId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var durum = await GetPersonelEvrakDurumuAsync(soforId);
 
         var document = Document.Create(container =>
@@ -467,6 +483,7 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<byte[]> ExportTumChecklistExcelAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var durumlar = await GetTumPersonelEvrakDurumlariAsync();
         var evrakTanimlari = await GetAktifEvrakTanimlariAsync();
 
@@ -542,16 +559,18 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     public async Task<byte[]> ExportPersonelDosyaPdfAsync(int soforId)
     {
-        var personel = await _context.Soforler.FirstOrDefaultAsync(s => s.Id == soforId && !s.IsDeleted);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personel = await context.Soforler.FirstOrDefaultAsync(s => s.Id == soforId && !s.IsDeleted);
         if (personel == null)
             throw new InvalidOperationException("Personel bulunamadı.");
 
-        var evrakTanimlari = await GetGecerliEvrakTanimlariAsync(personel.Gorev);
+        var evrakTanimlari = await GetGecerliEvrakTanimlariAsync(context, personel.Gorev);
         return GeneratePersonelDosyaPdf(personel, evrakTanimlari, true);
     }
 
     public async Task<byte[]> ExportBosPersonelDosyaPdfAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var evrakTanimlari = await GetAktifEvrakTanimlariAsync();
         return GeneratePersonelDosyaPdf(null, evrakTanimlari, false);
     }
@@ -684,7 +703,7 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     #region Yardımcı Metodlar
 
-    private async Task<List<OzlukEvrakTanim>> GetGecerliEvrakTanimlariAsync(PersonelGorev gorev)
+    private async Task<List<OzlukEvrakTanim>> GetGecerliEvrakTanimlariAsync(ApplicationDbContext context, PersonelGorev gorev)
     {
         var tanimlar = await GetAktifEvrakTanimlariAsync();
         var gorevStr = ((int)gorev).ToString();

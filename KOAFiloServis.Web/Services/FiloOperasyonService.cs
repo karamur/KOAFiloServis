@@ -51,18 +51,19 @@ public interface IFiloOperasyonService
 
 public class FiloOperasyonService : IFiloOperasyonService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public FiloOperasyonService(ApplicationDbContext context)
+    public FiloOperasyonService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     #region Komisyonculuk İş
 
     public async Task<List<KomisyonculukIs>> GetKomisyonculukIslerAsync()
     {
-        return await _context.KomisyonculukIsler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.KomisyonculukIsler
             .Include(k => k.MusteriCari)
             .Include(k => k.AlinanIsFatura)
             .Include(k => k.Atamalar)
@@ -75,7 +76,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<List<KomisyonculukIs>> GetAktifKomisyonculukIslerAsync()
     {
-        return await _context.KomisyonculukIsler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.KomisyonculukIsler
             .Include(k => k.MusteriCari)
             .Include(k => k.Atamalar)
                 .ThenInclude(a => a.Arac)
@@ -86,7 +88,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<KomisyonculukIs?> GetKomisyonculukIsAsync(int id)
     {
-        return await _context.KomisyonculukIsler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.KomisyonculukIsler
             .Include(k => k.MusteriCari)
             .Include(k => k.AlinanIsFatura)
             .Include(k => k.Atamalar)
@@ -102,20 +105,22 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<KomisyonculukIs> CreateKomisyonculukIsAsync(KomisyonculukIs komisyonculukIs)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (string.IsNullOrEmpty(komisyonculukIs.IsKodu))
         {
             komisyonculukIs.IsKodu = await GenerateIsKoduAsync();
         }
         
         komisyonculukIs.CreatedAt = DateTime.UtcNow;
-        _context.KomisyonculukIsler.Add(komisyonculukIs);
-        await _context.SaveChangesAsync();
+        context.KomisyonculukIsler.Add(komisyonculukIs);
+        await context.SaveChangesAsync();
         return komisyonculukIs;
     }
 
     public async Task<KomisyonculukIs> UpdateKomisyonculukIsAsync(KomisyonculukIs komisyonculukIs)
     {
-        var existing = await _context.KomisyonculukIsler.FindAsync(komisyonculukIs.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.KomisyonculukIsler.FindAsync(komisyonculukIs.Id);
         if (existing == null)
             throw new InvalidOperationException("Komisyonculuk işi bulunamadı.");
 
@@ -136,27 +141,29 @@ public class FiloOperasyonService : IFiloOperasyonService
         existing.FaturaKesimTarihi = komisyonculukIs.FaturaKesimTarihi;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteKomisyonculukIsAsync(int id)
     {
-        var komisyonculukIs = await _context.KomisyonculukIsler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var komisyonculukIs = await context.KomisyonculukIsler.FindAsync(id);
         if (komisyonculukIs != null)
         {
             komisyonculukIs.IsDeleted = true;
             komisyonculukIs.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<string> GenerateIsKoduAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var yil = DateTime.Today.Year;
         var prefix = $"KOM-{yil}-";
         
-        var lastIs = await _context.KomisyonculukIsler
+        var lastIs = await context.KomisyonculukIsler
             .IgnoreQueryFilters()
             .Where(k => k.IsKodu.StartsWith(prefix))
             .OrderByDescending(k => k.IsKodu)
@@ -181,7 +188,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<List<KomisyonculukIsAtama>> GetIsAtamalarAsync(int komisyonculukIsId)
     {
-        return await _context.KomisyonculukIsAtamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.KomisyonculukIsAtamalar
             .Include(a => a.Arac)
             .Include(a => a.Sofor)
             .Include(a => a.TedarikciCari)
@@ -193,7 +201,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<KomisyonculukIsAtama?> GetIsAtamaAsync(int id)
     {
-        return await _context.KomisyonculukIsAtamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.KomisyonculukIsAtamalar
             .Include(a => a.Arac)
             .Include(a => a.Sofor)
             .Include(a => a.TedarikciCari)
@@ -204,17 +213,19 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<KomisyonculukIsAtama> CreateIsAtamaAsync(KomisyonculukIsAtama atama)
     {
-        await UygulaAtamaKurallariAsync(atama);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        await UygulaAtamaKurallariAsync(context, atama);
         atama.CreatedAt = DateTime.UtcNow;
-        _context.KomisyonculukIsAtamalar.Add(atama);
-        await _context.SaveChangesAsync();
+        context.KomisyonculukIsAtamalar.Add(atama);
+        await context.SaveChangesAsync();
         return atama;
     }
 
     public async Task<KomisyonculukIsAtama> UpdateIsAtamaAsync(KomisyonculukIsAtama atama)
     {
-        await UygulaAtamaKurallariAsync(atama);
-        var existing = await _context.KomisyonculukIsAtamalar.FindAsync(atama.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        await UygulaAtamaKurallariAsync(context, atama);
+        var existing = await context.KomisyonculukIsAtamalar.FindAsync(atama.Id);
         if (existing == null)
             throw new InvalidOperationException("İş ataması bulunamadı.");
 
@@ -238,27 +249,28 @@ public class FiloOperasyonService : IFiloOperasyonService
         existing.Notlar = atama.Notlar;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteIsAtamaAsync(int id)
     {
-        var atama = await _context.KomisyonculukIsAtamalar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var atama = await context.KomisyonculukIsAtamalar.FindAsync(id);
         if (atama != null)
         {
             atama.IsDeleted = true;
             atama.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
-    private async Task UygulaAtamaKurallariAsync(KomisyonculukIsAtama atama)
+    private async Task UygulaAtamaKurallariAsync(ApplicationDbContext context, KomisyonculukIsAtama atama)
     {
         if (!atama.AracId.HasValue)
             return;
 
-        var arac = await _context.Araclar
+        var arac = await context.Araclar
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == atama.AracId.Value && !a.IsDeleted);
 
@@ -316,7 +328,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<List<AracAlimSatim>> GetAracAlimSatimlarAsync()
     {
-        return await _context.AracAlimSatimlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracAlimSatimlar
             .Include(a => a.Arac)
             .Include(a => a.KarsiTarafCari)
             .Include(a => a.Fatura)
@@ -326,7 +339,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<List<AracAlimSatim>> GetAracAlimSatimlarAsync(int aracId)
     {
-        return await _context.AracAlimSatimlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracAlimSatimlar
             .Include(a => a.KarsiTarafCari)
             .Include(a => a.Fatura)
             .Where(a => a.AracId == aracId)
@@ -336,7 +350,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<AracAlimSatim?> GetAracAlimSatimAsync(int id)
     {
-        return await _context.AracAlimSatimlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracAlimSatimlar
             .Include(a => a.Arac)
             .Include(a => a.KarsiTarafCari)
             .Include(a => a.Fatura)
@@ -345,20 +360,21 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<AracAlimSatim> CreateAracAlimSatimAsync(AracAlimSatim alimSatim)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         alimSatim.CreatedAt = DateTime.UtcNow;
-        _context.AracAlimSatimlar.Add(alimSatim);
-        await _context.SaveChangesAsync();
+        context.AracAlimSatimlar.Add(alimSatim);
+        await context.SaveChangesAsync();
         
         // Araç satıldıysa durumu güncelle
         if (alimSatim.IslemTipi == AracIslemTipiDetay.Satis && alimSatim.OdemeDurum == AracIslemOdemeDurum.TamOdendi)
         {
-            var arac = await _context.Araclar.FindAsync(alimSatim.AracId);
+            var arac = await context.Araclar.FindAsync(alimSatim.AracId);
             if (arac != null)
             {
                 arac.Aktif = false;
                 arac.SatisaAcik = false;
                 arac.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
             }
         }
         
@@ -367,7 +383,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<AracAlimSatim> UpdateAracAlimSatimAsync(AracAlimSatim alimSatim)
     {
-        var existing = await _context.AracAlimSatimlar.FindAsync(alimSatim.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.AracAlimSatimlar.FindAsync(alimSatim.Id);
         if (existing == null)
             throw new InvalidOperationException("Araç alım/satım kaydı bulunamadı.");
 
@@ -402,24 +419,26 @@ public class FiloOperasyonService : IFiloOperasyonService
         existing.EksikBelgeler = alimSatim.EksikBelgeler;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteAracAlimSatimAsync(int id)
     {
-        var alimSatim = await _context.AracAlimSatimlar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var alimSatim = await context.AracAlimSatimlar.FindAsync(id);
         if (alimSatim != null)
         {
             alimSatim.IsDeleted = true;
             alimSatim.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<List<AracAlimSatim>> GetFaturaKontrolBekleyenlerAsync()
     {
-        return await _context.AracAlimSatimlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracAlimSatimlar
             .Include(a => a.Arac)
             .Include(a => a.KarsiTarafCari)
             .Include(a => a.Fatura)
@@ -434,7 +453,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<List<PlakaDonusum>> GetPlakaDonusumlerAsync()
     {
-        return await _context.PlakaDonusumler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PlakaDonusumler
             .Include(p => p.Arac)
             .Include(p => p.PlakaSatisCarisi)
             .OrderByDescending(p => p.BasvuruTarihi)
@@ -443,7 +463,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<PlakaDonusum?> GetPlakaDonusumAsync(int id)
     {
-        return await _context.PlakaDonusumler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PlakaDonusumler
             .Include(p => p.Arac)
             .Include(p => p.PlakaSatisCarisi)
             .FirstOrDefaultAsync(p => p.Id == id);
@@ -451,15 +472,17 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<PlakaDonusum> CreatePlakaDonusumAsync(PlakaDonusum donusum)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         donusum.CreatedAt = DateTime.UtcNow;
-        _context.PlakaDonusumler.Add(donusum);
-        await _context.SaveChangesAsync();
+        context.PlakaDonusumler.Add(donusum);
+        await context.SaveChangesAsync();
         return donusum;
     }
 
     public async Task<PlakaDonusum> UpdatePlakaDonusumAsync(PlakaDonusum donusum)
     {
-        var existing = await _context.PlakaDonusumler.FindAsync(donusum.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.PlakaDonusumler.FindAsync(donusum.Id);
         if (existing == null)
             throw new InvalidOperationException("Plaka dönüşüm kaydı bulunamadı.");
 
@@ -480,18 +503,19 @@ public class FiloOperasyonService : IFiloOperasyonService
         existing.Notlar = donusum.Notlar;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeletePlakaDonusumAsync(int id)
     {
-        var donusum = await _context.PlakaDonusumler.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var donusum = await context.PlakaDonusumler.FindAsync(id);
         if (donusum != null)
         {
             donusum.IsDeleted = true;
             donusum.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -501,7 +525,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<List<AracOperasyonDurum>> GetAracOperasyonDurumlariAsync(int yil, int ay)
     {
-        return await _context.AracOperasyonDurumlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracOperasyonDurumlari
             .Include(a => a.Arac)
             .Where(a => a.Yil == yil && a.Ay == ay)
             .OrderBy(a => a.Arac.AktifPlaka)
@@ -510,20 +535,22 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<AracOperasyonDurum?> GetAracOperasyonDurumAsync(int aracId, int yil, int ay)
     {
-        return await _context.AracOperasyonDurumlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracOperasyonDurumlari
             .Include(a => a.Arac)
             .FirstOrDefaultAsync(a => a.AracId == aracId && a.Yil == yil && a.Ay == ay);
     }
 
     public async Task<AracOperasyonDurum> CreateOrUpdateOperasyonDurumAsync(AracOperasyonDurum durum)
     {
-        var existing = await _context.AracOperasyonDurumlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.AracOperasyonDurumlari
             .FirstOrDefaultAsync(a => a.AracId == durum.AracId && a.Yil == durum.Yil && a.Ay == durum.Ay);
 
         if (existing == null)
         {
             durum.CreatedAt = DateTime.UtcNow;
-            _context.AracOperasyonDurumlari.Add(durum);
+            context.AracOperasyonDurumlari.Add(durum);
         }
         else
         {
@@ -546,7 +573,7 @@ public class FiloOperasyonService : IFiloOperasyonService
             durum = existing;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return durum;
     }
 
@@ -556,7 +583,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<KomisyonculukKazancRaporu> GetKomisyonculukKazancRaporuAsync(DateTime baslangic, DateTime bitis)
     {
-        var isler = await _context.KomisyonculukIsler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var isler = await context.KomisyonculukIsler
             .Include(k => k.MusteriCari)
             .Include(k => k.Atamalar)
             .Where(k => k.BaslangicTarihi >= baslangic && k.BaslangicTarihi <= bitis)
@@ -599,7 +627,8 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<List<AracKarZararRaporu>> GetAracKarZararRaporuAsync(int yil, int ay)
     {
-        var durumlar = await _context.AracOperasyonDurumlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var durumlar = await context.AracOperasyonDurumlari
             .Include(a => a.Arac)
             .Where(a => a.Yil == yil && a.Ay == ay)
             .ToListAsync();
@@ -621,23 +650,24 @@ public class FiloOperasyonService : IFiloOperasyonService
 
     public async Task<FiloOzetRaporu> GetFiloOzetRaporuAsync(DateTime? tarih = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = tarih ?? DateTime.Today;
         var yil = bugun.Year;
         var ay = bugun.Month;
 
-        var araclar = await _context.Araclar
+        var araclar = await context.Araclar
             .Where(a => a.Aktif)
             .ToListAsync();
 
-        var komisyonculukIsler = await _context.KomisyonculukIsler
+        var komisyonculukIsler = await context.KomisyonculukIsler
             .Where(k => k.Durum == KomisyonculukIsDurum.Aktif)
             .ToListAsync();
 
-        var satisaBekleyenler = await _context.AracAlimSatimlar
+        var satisaBekleyenler = await context.AracAlimSatimlar
             .Where(a => a.IslemTipi == AracIslemTipiDetay.Satis && !a.NoterIslemTamam)
             .CountAsync();
 
-        var plakaDonusumleri = await _context.PlakaDonusumler
+        var plakaDonusumleri = await context.PlakaDonusumler
             .Where(p => p.Durum != PlakaDonusumDurum.Tamamlandi && p.Durum != PlakaDonusumDurum.IptalEdildi)
             .CountAsync();
 

@@ -48,19 +48,20 @@ public interface IMusteriKiralamaService
 // M��teri kiralama servisi implementasyonu
 public class MusteriKiralamaService : IMusteriKiralamaService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ILogger<MusteriKiralamaService> _logger;
 
-    public MusteriKiralamaService(ApplicationDbContext context, ILogger<MusteriKiralamaService> logger)
+    public MusteriKiralamaService(IDbContextFactory<ApplicationDbContext> contextFactory, ILogger<MusteriKiralamaService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _logger = logger;
     }
 
     // T�m kiralamalar� getir, silinmemi� olanlar, tarihe g�re s�ral�
     public async Task<List<MusteriKiralama>> GetAllAsync()
     {
-        return await _context.MusteriKiralamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MusteriKiralamalar
             .Where(x => !x.IsDeleted)
             .OrderByDescending(x => x.BaslangicTarihi)
             .ToListAsync();
@@ -69,14 +70,16 @@ public class MusteriKiralamaService : IMusteriKiralamaService
     // ID'ye g�re kiralama getir
     public async Task<MusteriKiralama?> GetByIdAsync(int id)
     {
-        return await _context.MusteriKiralamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MusteriKiralamalar
             .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
     }
 
     // Sadece aktif durumda olan kiralamalar� getir
     public async Task<List<MusteriKiralama>> GetAktifKiralamalarAsync()
     {
-        return await _context.MusteriKiralamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MusteriKiralamalar
             .Where(x => !x.IsDeleted && x.Durum == KiralamaDurumu.Aktif)
             .OrderBy(x => x.PlanlananBitisTarihi)
             .ToListAsync();
@@ -85,7 +88,8 @@ public class MusteriKiralamaService : IMusteriKiralamaService
     // M��teriye ait t�m kiralamalar� getir
     public async Task<List<MusteriKiralama>> GetByMusteriIdAsync(int musteriId)
     {
-        return await _context.MusteriKiralamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MusteriKiralamalar
             .Where(x => !x.IsDeleted && x.MusteriId == musteriId)
             .OrderByDescending(x => x.BaslangicTarihi)
             .ToListAsync();
@@ -94,7 +98,8 @@ public class MusteriKiralamaService : IMusteriKiralamaService
     // Araca ait t�m kiralamalar� getir
     public async Task<List<MusteriKiralama>> GetByAracIdAsync(int aracId)
     {
-        return await _context.MusteriKiralamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MusteriKiralamalar
             .Where(x => !x.IsDeleted && x.AracId == aracId)
             .OrderByDescending(x => x.BaslangicTarihi)
             .ToListAsync();
@@ -103,6 +108,7 @@ public class MusteriKiralamaService : IMusteriKiralamaService
     // Yeni kiralama olu�tur, �nce ara� m�saitli�ini kontrol et
     public async Task<MusteriKiralama> CreateAsync(MusteriKiralama kiralama)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Ara� m�sait mi kontrol et
         var musaitMi = await AracMusaitMiAsync(kiralama.AracId, kiralama.BaslangicTarihi, kiralama.PlanlananBitisTarihi);
         if (!musaitMi)
@@ -117,8 +123,8 @@ public class MusteriKiralamaService : IMusteriKiralamaService
         kiralama.SozlesmeNo = $"KR-{DateTime.Now:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 4).ToUpper()}";
 
         kiralama.CreatedAt = DateTime.Now;
-        _context.MusteriKiralamalar.Add(kiralama);
-        await _context.SaveChangesAsync();
+        context.MusteriKiralamalar.Add(kiralama);
+        await context.SaveChangesAsync();
 
         _logger.LogInformation("Yeni kiralama olu�turuldu: {SozlesmeNo}", kiralama.SozlesmeNo);
         return kiralama;
@@ -127,6 +133,7 @@ public class MusteriKiralamaService : IMusteriKiralamaService
     // Kiralama g�ncelle
     public async Task<MusteriKiralama> UpdateAsync(MusteriKiralama kiralama)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var existing = await GetByIdAsync(kiralama.Id);
         if (existing == null)
         {
@@ -149,8 +156,8 @@ public class MusteriKiralamaService : IMusteriKiralamaService
         kiralama.ToplamTutar = ToplamTutarHesapla(kiralama.BaslangicTarihi, kiralama.PlanlananBitisTarihi, kiralama.GunlukFiyat);
 
         kiralama.UpdatedAt = DateTime.Now;
-        _context.MusteriKiralamalar.Update(kiralama);
-        await _context.SaveChangesAsync();
+        context.MusteriKiralamalar.Update(kiralama);
+        await context.SaveChangesAsync();
 
         return kiralama;
     }
@@ -158,6 +165,7 @@ public class MusteriKiralamaService : IMusteriKiralamaService
     // Kiralama iptal et
     public async Task<bool> IptalEtAsync(int id, string? iptalNedeni = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kiralama = await GetByIdAsync(id);
         if (kiralama == null) return false;
 
@@ -172,7 +180,7 @@ public class MusteriKiralamaService : IMusteriKiralamaService
             : $"{kiralama.Notlar}\n�ptal nedeni: {iptalNedeni}";
         kiralama.UpdatedAt = DateTime.Now;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         _logger.LogInformation("Kiralama iptal edildi: {Id}", id);
         return true;
     }
@@ -180,6 +188,7 @@ public class MusteriKiralamaService : IMusteriKiralamaService
     // Ara� teslim al - kiralama ba�lat
     public async Task<MusteriKiralama> TeslimAlAsync(int kiralamaId, int baslangicKm, int personelId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kiralama = await GetByIdAsync(kiralamaId);
         if (kiralama == null)
         {
@@ -197,7 +206,7 @@ public class MusteriKiralamaService : IMusteriKiralamaService
         kiralama.BaslangicTarihi = DateTime.Now; // Ger�ek ba�lang�� zaman�
         kiralama.UpdatedAt = DateTime.Now;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         _logger.LogInformation("Ara� teslim al�nd�: Kiralama {Id}, KM: {Km}", kiralamaId, baslangicKm);
         return kiralama;
     }
@@ -205,6 +214,7 @@ public class MusteriKiralamaService : IMusteriKiralamaService
     // Ara� teslim et - kiralama bitir
     public async Task<MusteriKiralama> TeslimEtAsync(int kiralamaId, int bitisKm, int personelId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kiralama = await GetByIdAsync(kiralamaId);
         if (kiralama == null)
         {
@@ -230,7 +240,7 @@ public class MusteriKiralamaService : IMusteriKiralamaService
         // Ger�ek s�reye g�re tutar� yeniden hesapla
         kiralama.ToplamTutar = ToplamTutarHesapla(kiralama.BaslangicTarihi, kiralama.GercekBitisTarihi.Value, kiralama.GunlukFiyat);
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         _logger.LogInformation("Ara� teslim edildi: Kiralama {Id}, KM: {Km}, Tutar: {Tutar}", kiralamaId, bitisKm, kiralama.ToplamTutar);
         return kiralama;
     }
@@ -238,7 +248,8 @@ public class MusteriKiralamaService : IMusteriKiralamaService
     // Ara� belirli tarihler aras�nda m�sait mi kontrol et
     public async Task<bool> AracMusaitMiAsync(int aracId, DateTime baslangic, DateTime bitis, int? haricKiralamaId = null)
     {
-        var query = _context.MusteriKiralamalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.MusteriKiralamalar
             .Where(x => !x.IsDeleted 
                 && x.AracId == aracId 
                 && x.Durum != KiralamaDurumu.IptalEdildi

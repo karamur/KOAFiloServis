@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -7,16 +7,14 @@ namespace KOAFiloServis.Web.Services;
 
 public class CariService : ICariService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public CariService(ApplicationDbContext context)
-    {
-        _context = context;
-    }
+    public CariService(IDbContextFactory<ApplicationDbContext> contextFactory){_contextFactory = contextFactory;}
 
     public async Task<List<Cari>> GetAllAsync()
     {
-        var cariler = await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cariler = await context.Cariler
             .AsNoTracking()
             .Include(c => c.MuhasebeHesap)
             .Where(c => !c.IsDeleted)
@@ -25,7 +23,7 @@ public class CariService : ICariService
 
         foreach (var cari in cariler)
         {
-            await FillMuhasebeBilgisiAsync(cari);
+            await FillMuhasebeBilgisiAsync(context, cari);
         }
 
         return cariler;
@@ -33,7 +31,8 @@ public class CariService : ICariService
 
     public async Task<List<Cari>> GetAllWithBakiyeAsync()
     {
-        var cariler = await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cariler = await context.Cariler
             .AsNoTracking()
             .Include(c => c.MuhasebeHesap)
             .Where(c => !c.IsDeleted)
@@ -42,11 +41,11 @@ public class CariService : ICariService
 
         // Toplu bakiye hesaplama (N+1 sorunu çözümü)
         var cariIds = cariler.Select(c => c.Id).ToList();
-        var bakiyeVerileri = await GetBulkBakiyeVerileriAsync(cariIds);
+        var bakiyeVerileri = await GetBulkBakiyeVerileriAsync(context, cariIds);
 
         foreach (var cari in cariler)
         {
-            await FillMuhasebeBilgisiAsync(cari);
+            await FillMuhasebeBilgisiAsync(context, cari);
             ApplyBakiyeFromBulkData(cari, bakiyeVerileri);
         }
 
@@ -55,14 +54,16 @@ public class CariService : ICariService
 
     public async Task<int> GetCountAsync()
     {
-        return await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Cariler
             .Where(c => !c.IsDeleted)
             .CountAsync();
     }
 
     public async Task<PagedResult<Cari>> GetPagedAsync(CariFilterParams filter)
     {
-        var query = _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Cariler
             .AsNoTracking()
             .Include(c => c.MuhasebeHesap)
             .Where(c => !c.IsDeleted)
@@ -103,11 +104,11 @@ public class CariService : ICariService
 
         // Toplu bakiye hesaplama (N+1 sorunu çözümü)
         var cariIds = items.Select(c => c.Id).ToList();
-        var bakiyeVerileri = await GetBulkBakiyeVerileriAsync(cariIds);
+        var bakiyeVerileri = await GetBulkBakiyeVerileriAsync(context, cariIds);
 
         foreach (var cari in items)
         {
-            await FillMuhasebeBilgisiAsync(cari);
+            await FillMuhasebeBilgisiAsync(context, cari);
             ApplyBakiyeFromBulkData(cari, bakiyeVerileri);
         }
 
@@ -131,13 +132,13 @@ public class CariService : ICariService
     /// <summary>
     /// Toplu bakiye verilerini tek sorguda çeker (N+1 sorunu çözümü)
     /// </summary>
-    private async Task<BulkBakiyeData> GetBulkBakiyeVerileriAsync(List<int> cariIds)
+    private async Task<BulkBakiyeData> GetBulkBakiyeVerileriAsync(ApplicationDbContext context, List<int> cariIds)
     {
         if (!cariIds.Any())
             return new BulkBakiyeData();
 
         // Fatura toplamları - tek sorgu ile tüm carilerin fatura verilerini al
-        var faturaTotals = await _context.Faturalar
+        var faturaTotals = await context.Faturalar
             .AsNoTracking()
             .Where(f => cariIds.Contains(f.CariId))
             .GroupBy(f => new { f.CariId, f.FaturaYonu })
@@ -150,7 +151,7 @@ public class CariService : ICariService
             .ToListAsync();
 
         // Banka hareket toplamları - tek sorgu ile tüm carilerin hareket verilerini al
-        var hareketTotals = await _context.BankaKasaHareketleri
+        var hareketTotals = await context.BankaKasaHareketleri
             .AsNoTracking()
             .Where(h => h.CariId.HasValue && cariIds.Contains(h.CariId.Value))
             .GroupBy(h => new { CariId = h.CariId!.Value, h.HareketTipi })
@@ -222,24 +223,24 @@ public class CariService : ICariService
         public Dictionary<int, decimal> Tahsilatlar { get; set; } = new();
     }
 
-    private async Task CalculateBakiyeAsync(Cari cari)
+    private async Task CalculateBakiyeAsync(ApplicationDbContext context, Cari cari)
     {
         // Gelen faturalar (Alis) = Borcumuz
-        var gelenFaturalar = await _context.Faturalar
+        var gelenFaturalar = await context.Faturalar
             .Where(f => f.CariId == cari.Id && f.FaturaYonu == FaturaYonu.Gelen)
             .SumAsync(f => (decimal?)f.GenelToplam) ?? 0;
 
         // Giden faturalar (Satis) = Alacagimiz
-        var gidenFaturalar = await _context.Faturalar
+        var gidenFaturalar = await context.Faturalar
             .Where(f => f.CariId == cari.Id && f.FaturaYonu == FaturaYonu.Giden)
             .SumAsync(f => (decimal?)f.GenelToplam) ?? 0;
 
         // Banka hareketlerinden odeme/tahsilat
-        var odemeler = await _context.BankaKasaHareketleri
+        var odemeler = await context.BankaKasaHareketleri
             .Where(h => h.CariId == cari.Id && h.HareketTipi == HareketTipi.Cikis)
             .SumAsync(h => (decimal?)h.Tutar) ?? 0;
 
-        var tahsilatlar = await _context.BankaKasaHareketleri
+        var tahsilatlar = await context.BankaKasaHareketleri
             .Where(h => h.CariId == cari.Id && h.HareketTipi == HareketTipi.Giris)
             .SumAsync(h => (decimal?)h.Tutar) ?? 0;
 
@@ -267,7 +268,8 @@ public class CariService : ICariService
 
     public async Task<Cari?> GetByIdAsync(int id)
     {
-        var cari = await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cari = await context.Cariler
             .Include(c => c.Guzergahlar)
             .Include(c => c.MuhasebeHesap)
             .Where(c => !c.IsDeleted)
@@ -275,7 +277,7 @@ public class CariService : ICariService
 
         if (cari != null)
         {
-            await FillMuhasebeBilgisiAsync(cari);
+            await FillMuhasebeBilgisiAsync(context, cari);
         }
 
         return cari;
@@ -283,14 +285,15 @@ public class CariService : ICariService
 
     public async Task<Cari?> GetByKodAsync(string cariKodu)
     {
-        var cari = await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cari = await context.Cariler
             .Include(c => c.MuhasebeHesap)
             .Where(c => !c.IsDeleted)
             .FirstOrDefaultAsync(c => c.CariKodu == cariKodu);
 
         if (cari != null)
         {
-            await FillMuhasebeBilgisiAsync(cari);
+            await FillMuhasebeBilgisiAsync(context, cari);
         }
 
         return cari;
@@ -298,7 +301,8 @@ public class CariService : ICariService
 
     public async Task<List<Cari>> GetByTipAsync(CariTipi tip)
     {
-        return await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Cariler
             .Where(c => !c.IsDeleted)
             .Where(c => c.CariTipi == tip || c.CariTipi == CariTipi.MusteriTedarikci)
             .OrderBy(c => c.Unvan)
@@ -307,18 +311,19 @@ public class CariService : ICariService
 
     public async Task<Cari> CreateAsync(Cari cari)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var girilenCariKodu = cari.CariKodu?.Trim();
 
         if (!cari.MuhasebeHesapId.HasValue && IsMuhasebeHesapKodu(girilenCariKodu))
         {
-            var existingHesap = await FindMuhasebeHesapByKodAsync(girilenCariKodu);
+            var existingHesap = await FindMuhasebeHesapByKodAsync(context, girilenCariKodu);
             if (existingHesap != null)
             {
                 cari.MuhasebeHesapId = existingHesap.Id;
             }
             else
             {
-                var ozelHesap = await CreateMuhasebeHesapAsync(cari, girilenCariKodu);
+                var ozelHesap = await CreateMuhasebeHesapAsync(context, cari, girilenCariKodu);
                 if (ozelHesap != null)
                 {
                     cari.MuhasebeHesapId = ozelHesap.Id;
@@ -328,7 +333,7 @@ public class CariService : ICariService
 
         if (!cari.MuhasebeHesapId.HasValue)
         {
-            var muhasebeHesap = await CreateMuhasebeHesapAsync(cari);
+            var muhasebeHesap = await CreateMuhasebeHesapAsync(context, cari);
             if (muhasebeHesap != null)
             {
                 cari.MuhasebeHesapId = muhasebeHesap.Id;
@@ -342,14 +347,15 @@ public class CariService : ICariService
 
         cari.IsDeleted = false;
         cari.CreatedAt = DateTime.UtcNow;
-        _context.Cariler.Add(cari);
-        await _context.SaveChangesAsync();
+        context.Cariler.Add(cari);
+        await context.SaveChangesAsync();
         return cari;
     }
 
     public async Task<Cari> UpdateAsync(Cari cari)
     {
-        var existing = await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.Cariler
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.Id == cari.Id && !c.IsDeleted);
             
@@ -366,14 +372,14 @@ public class CariService : ICariService
 
             if (!string.IsNullOrWhiteSpace(eslesecekKod))
             {
-                var existingHesap = await FindMuhasebeHesapByKodAsync(eslesecekKod);
+                var existingHesap = await FindMuhasebeHesapByKodAsync(context, eslesecekKod);
                 if (existingHesap != null)
                 {
                     cari.MuhasebeHesapId = existingHesap.Id;
                 }
                 else if (IsMuhasebeHesapKodu(girilenCariKodu) && kodDegisti)
                 {
-                    var ozelHesap = await CreateMuhasebeHesapAsync(cari, girilenCariKodu);
+                    var ozelHesap = await CreateMuhasebeHesapAsync(context, cari, girilenCariKodu);
                     if (ozelHesap != null)
                     {
                         cari.MuhasebeHesapId = ozelHesap.Id;
@@ -384,7 +390,7 @@ public class CariService : ICariService
 
         if (!cari.MuhasebeHesapId.HasValue && !existing.MuhasebeHesapId.HasValue)
         {
-            var muhasebeHesap = await CreateMuhasebeHesapAsync(cari);
+            var muhasebeHesap = await CreateMuhasebeHesapAsync(context, cari);
             if (muhasebeHesap != null)
             {
                 cari.MuhasebeHesapId = muhasebeHesap.Id;
@@ -393,12 +399,12 @@ public class CariService : ICariService
         else if ((existing.MuhasebeHesapId ?? cari.MuhasebeHesapId).HasValue && existing.Unvan != cari.Unvan)
         {
             var hesapId = cari.MuhasebeHesapId ?? existing.MuhasebeHesapId;
-            var mHesap = await _context.MuhasebeHesaplari.FindAsync(hesapId!.Value);
+            var mHesap = await context.MuhasebeHesaplari.FindAsync(hesapId!.Value);
             if (mHesap != null)
             {
                 mHesap.HesapAdi = cari.Unvan;
                 mHesap.UpdatedAt = DateTime.UtcNow;
-                _context.MuhasebeHesaplari.Update(mHesap);
+                context.MuhasebeHesaplari.Update(mHesap);
             }
         }
 
@@ -423,13 +429,14 @@ public class CariService : ICariService
         existing.FirmaId = cari.FirmaId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task<Cari> MatchMuhasebeHesapByKodAsync(int cariId, string hesapKodu)
     {
-        var cari = await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cari = await context.Cariler
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.Id == cariId && !c.IsDeleted);
 
@@ -443,7 +450,7 @@ public class CariService : ICariService
             throw new Exception("Hesap kodu bos olamaz");
         }
 
-        var muhasebeHesap = await FindMuhasebeHesapByKodAsync(hesapKodu);
+        var muhasebeHesap = await FindMuhasebeHesapByKodAsync(context, hesapKodu);
         if (muhasebeHesap == null)
         {
             throw new Exception("Girilen hesap kodu hesap planinda bulunamadi");
@@ -452,13 +459,14 @@ public class CariService : ICariService
         cari.MuhasebeHesapId = muhasebeHesap.Id;
         cari.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return cari;
     }
 
     public async Task<Cari> EnsureMuhasebeHesapAsync(int cariId)
     {
-        var cari = await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cari = await context.Cariler
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.Id == cariId && !c.IsDeleted);
 
@@ -469,7 +477,7 @@ public class CariService : ICariService
 
         if (cari.MuhasebeHesapId.HasValue)
         {
-            var bagliHesap = await _context.MuhasebeHesaplari.FindAsync(cari.MuhasebeHesapId.Value);
+            var bagliHesap = await context.MuhasebeHesaplari.FindAsync(cari.MuhasebeHesapId.Value);
             if (bagliHesap != null)
             {
                 return cari;
@@ -478,17 +486,17 @@ public class CariService : ICariService
 
         if (IsMuhasebeHesapKodu(cari.CariKodu))
         {
-            var existingHesap = await FindMuhasebeHesapByKodAsync(cari.CariKodu);
+            var existingHesap = await FindMuhasebeHesapByKodAsync(context, cari.CariKodu);
             if (existingHesap != null)
             {
                 cari.MuhasebeHesapId = existingHesap.Id;
                 cari.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
                 return cari;
             }
         }
 
-        var olusanHesap = await CreateMuhasebeHesapAsync(cari);
+        var olusanHesap = await CreateMuhasebeHesapAsync(context, cari);
         if (olusanHesap == null)
         {
             throw new Exception("Muhasebe hesap kodu olusturulamadi");
@@ -496,14 +504,15 @@ public class CariService : ICariService
 
         cari.MuhasebeHesapId = olusanHesap.Id;
         cari.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return cari;
     }
 
     public async Task<bool> DeleteAsync(int id)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // IgnoreQueryFilters ile bul
-        var cari = await _context.Cariler
+        var cari = await context.Cariler
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.Id == id);
             
@@ -513,7 +522,7 @@ public class CariService : ICariService
             cari.Aktif = false;
             cari.UpdatedAt = DateTime.UtcNow;
             
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return true;
         }
         return false;
@@ -521,9 +530,10 @@ public class CariService : ICariService
 
     public async Task<string> GenerateNextKodAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // EF tarafında Substring/Convert kombinasyonu PostgreSQL'e güvenli çevrilemediği için
         // kodları belleğe alıp sayısal kısmı burada parse ediyoruz.
-        var cariKodlari = await _context.Cariler
+        var cariKodlari = await context.Cariler
             .IgnoreQueryFilters()
             .Where(c => c.CariKodu != null && c.CariKodu.StartsWith("CRI-"))
             .Select(c => c.CariKodu!)
@@ -549,7 +559,7 @@ public class CariService : ICariService
         var nextNumber = maxNumber + 1 + (int)timestamp;
 
         // Eğer bu kod mevcutsa, daha yüksek bir sayı bul
-        while (await _context.Cariler.IgnoreQueryFilters().AnyAsync(c => c.CariKodu == $"CRI-{nextNumber:D5}"))
+        while (await context.Cariler.IgnoreQueryFilters().AnyAsync(c => c.CariKodu == $"CRI-{nextNumber:D5}"))
         {
             nextNumber++;
         }
@@ -563,12 +573,12 @@ public class CariService : ICariService
     /// Tedarikci: 320.01.xxx (Saticilar)
     /// Personel: 335.XX.PRSXXXXX (Personel Borclari - XX = FirmaId)
     /// </summary>
-    private async Task<MuhasebeHesap?> CreateMuhasebeHesapAsync(Cari cari, string? ozelHesapKodu = null)
+    private async Task<MuhasebeHesap?> CreateMuhasebeHesapAsync(ApplicationDbContext context, Cari cari, string? ozelHesapKodu = null)
     {
         try
         {
             // Ayarları al (Eğer DB'de yoksa default ayarları kullan)
-            var ayar = await _context.MuhasebeAyarlari.FirstOrDefaultAsync() ?? new MuhasebeAyar();
+            var ayar = await context.MuhasebeAyarlari.FirstOrDefaultAsync() ?? new MuhasebeAyar();
 
             if (!ayar.OtomatikHesapDuzenlensin)
             {
@@ -611,7 +621,7 @@ public class CariService : ICariService
             var prefixBasKisim = anaHesapKodu.Split('.')[0];
             if (cari.CariTipi == CariTipi.Personel)
             {
-                var anaPersonelHesap = await _context.MuhasebeHesaplari
+                var anaPersonelHesap = await context.MuhasebeHesaplari
                     .FirstOrDefaultAsync(h => h.HesapKodu == prefixBasKisim);
                 
                 if (anaPersonelHesap == null)
@@ -626,20 +636,20 @@ public class CariService : ICariService
                         Aktif = true,
                         CreatedAt = DateTime.UtcNow
                     };
-                    _context.MuhasebeHesaplari.Add(anaPersonelHesap);
-                    await _context.SaveChangesAsync();
+                    context.MuhasebeHesaplari.Add(anaPersonelHesap);
+                    await context.SaveChangesAsync();
                 }
             }
 
             // Ana hesabi bul veya olustur
-            var anaHesap = await _context.MuhasebeHesaplari
+            var anaHesap = await context.MuhasebeHesaplari
                 .FirstOrDefaultAsync(h => h.HesapKodu == anaHesapKodu);
 
             if (anaHesap == null)
             {
                 // Ust hesabi bul
                 var ustHesapKodu = anaHesapKodu.Split('.')[0];
-                var ustHesap = await _context.MuhasebeHesaplari
+                var ustHesap = await context.MuhasebeHesaplari
                     .FirstOrDefaultAsync(h => h.HesapKodu == ustHesapKodu);
 
                 anaHesap = new MuhasebeHesap
@@ -653,12 +663,12 @@ public class CariService : ICariService
                     Aktif = true,
                     CreatedAt = DateTime.UtcNow
                 };
-                _context.MuhasebeHesaplari.Add(anaHesap);
-                await _context.SaveChangesAsync();
+                context.MuhasebeHesaplari.Add(anaHesap);
+                await context.SaveChangesAsync();
             }
 
             // Ayni unvana ve ana hesaba sahip mevcut bir kayit var mi kontrol et
-            var ayniUnvanliHesap = await _context.MuhasebeHesaplari
+            var ayniUnvanliHesap = await context.MuhasebeHesaplari
                 .FirstOrDefaultAsync(h => h.HesapKodu.StartsWith(anaHesapKodu + ".") && h.HesapAdi == cari.Unvan);
 
             if (ayniUnvanliHesap != null && string.IsNullOrEmpty(ozelHesapKodu))
@@ -678,7 +688,7 @@ public class CariService : ICariService
             else
             {
                 // Tum cariler icin sayisal format (Prefix.001) otomatik uretim
-                var sonAltHesap = await _context.MuhasebeHesaplari
+                var sonAltHesap = await context.MuhasebeHesaplari
                     .Where(h => h.HesapKodu.StartsWith(anaHesapKodu + "."))
                     .OrderByDescending(h => h.HesapKodu)
                     .FirstOrDefaultAsync();
@@ -722,8 +732,8 @@ public class CariService : ICariService
                 Aktif = true,
                 CreatedAt = DateTime.UtcNow
             };
-            _context.MuhasebeHesaplari.Add(cariHesap);
-            await _context.SaveChangesAsync();
+            context.MuhasebeHesaplari.Add(cariHesap);
+            await context.SaveChangesAsync();
 
             return cariHesap;
         }
@@ -733,7 +743,7 @@ public class CariService : ICariService
         }
     }
 
-    private async Task<MuhasebeHesap?> FindMuhasebeHesapByKodAsync(string? hesapKodu)
+    private async Task<MuhasebeHesap?> FindMuhasebeHesapByKodAsync(ApplicationDbContext context, string? hesapKodu)
     {
         if (string.IsNullOrWhiteSpace(hesapKodu))
         {
@@ -741,31 +751,31 @@ public class CariService : ICariService
         }
 
         var normalizedKod = hesapKodu.Trim();
-        return await _context.MuhasebeHesaplari
+        return await context.MuhasebeHesaplari
             .FirstOrDefaultAsync(h => h.HesapKodu == normalizedKod);
     }
 
-    private async Task FillMuhasebeBilgisiAsync(Cari cari)
+    private async Task FillMuhasebeBilgisiAsync(ApplicationDbContext context, Cari cari)
     {
         var muhasebeHesap = cari.MuhasebeHesap;
 
         if (muhasebeHesap == null && cari.MuhasebeHesapId.HasValue)
         {
-            muhasebeHesap = await _context.MuhasebeHesaplari.FindAsync(cari.MuhasebeHesapId.Value);
+            muhasebeHesap = await context.MuhasebeHesaplari.FindAsync(cari.MuhasebeHesapId.Value);
         }
 
         if (muhasebeHesap == null && IsMuhasebeHesapKodu(cari.CariKodu))
         {
-            muhasebeHesap = await FindMuhasebeHesapByKodAsync(cari.CariKodu);
+            muhasebeHesap = await FindMuhasebeHesapByKodAsync(context, cari.CariKodu);
         }
 
         if (muhasebeHesap == null && !string.IsNullOrWhiteSpace(cari.Unvan))
         {
             var unvan = cari.Unvan.Trim();
 
-            muhasebeHesap = await _context.MuhasebeHesaplari
+            muhasebeHesap = await context.MuhasebeHesaplari
                 .FirstOrDefaultAsync(h => h.HesapAdi == unvan)
-                ?? await _context.MuhasebeHesaplari
+                ?? await context.MuhasebeHesaplari
                     .FirstOrDefaultAsync(h => !string.IsNullOrWhiteSpace(h.HesapAdi) &&
                                               (h.HesapAdi.Contains(unvan) || unvan.Contains(h.HesapAdi)));
         }
@@ -794,7 +804,8 @@ public class CariService : ICariService
 
     public async Task<List<CariIletisimNot>> GetIletisimNotlariAsync(int cariId, int? adet = null)
     {
-        var query = _context.CariIletisimNotlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.CariIletisimNotlar
             .Where(n => n.CariId == cariId && !n.IsDeleted)
             .OrderByDescending(n => n.IletisimTarihi)
             .AsQueryable();
@@ -807,14 +818,16 @@ public class CariService : ICariService
 
     public async Task<CariIletisimNot> AddIletisimNotuAsync(CariIletisimNot not)
     {
-        _context.CariIletisimNotlar.Add(not);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.CariIletisimNotlar.Add(not);
+        await context.SaveChangesAsync();
         return not;
     }
 
     public async Task<CariIletisimNot> UpdateIletisimNotuAsync(CariIletisimNot not)
     {
-        var mevcut = await _context.CariIletisimNotlar.FindAsync(not.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var mevcut = await context.CariIletisimNotlar.FindAsync(not.Id);
         if (mevcut == null) throw new Exception("İletişim notu bulunamadı.");
 
         mevcut.Konu = not.Konu;
@@ -826,18 +839,19 @@ public class CariService : ICariService
         mevcut.AksiyonTamamlandi = not.AksiyonTamamlandi;
         mevcut.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return mevcut;
     }
 
     public async Task<bool> DeleteIletisimNotuAsync(int notId)
     {
-        var not = await _context.CariIletisimNotlar.FindAsync(notId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var not = await context.CariIletisimNotlar.FindAsync(notId);
         if (not == null) return false;
 
         not.IsDeleted = true;
         not.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
@@ -845,7 +859,8 @@ public class CariService : ICariService
 
     public async Task<List<Hatirlatici>> GetCariHatirlaticilariAsync(int cariId)
     {
-        return await _context.Hatirlaticilar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Hatirlaticilar
             .Where(h => h.CariId == cariId && !h.IsDeleted)
             .OrderByDescending(h => h.BaslangicTarihi)
             .ToListAsync();
@@ -853,8 +868,9 @@ public class CariService : ICariService
 
     public async Task<Hatirlatici> AddCariHatirlaticiAsync(Hatirlatici hatirlatici)
     {
-        _context.Hatirlaticilar.Add(hatirlatici);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.Hatirlaticilar.Add(hatirlatici);
+        await context.SaveChangesAsync();
         return hatirlatici;
     }
 
@@ -862,10 +878,11 @@ public class CariService : ICariService
 
     public async Task<List<CariVadeUyari>> GetVadeUyarilariAsync(int? cariId = null, int yaklasmaSuresiGun = 7)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
         var uyarilar = new List<CariVadeUyari>();
 
-        var query = _context.Faturalar
+        var query = context.Faturalar
             .Include(f => f.Cari)
             .Where(f => !f.IsDeleted && f.VadeTarihi.HasValue && f.Durum != FaturaDurum.Odendi && f.Durum != FaturaDurum.IptalEdildi);
 
@@ -913,3 +930,8 @@ public class CariService : ICariService
         return uyarilar.OrderBy(u => u.KalanGun).ToList();
     }
 }
+
+
+
+
+

@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,18 +6,19 @@ namespace KOAFiloServis.Web.Services;
 
 public class PersonelMaasIzinService : IPersonelMaasIzinService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public PersonelMaasIzinService(ApplicationDbContext context)
+    public PersonelMaasIzinService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     #region Maa� ��lemleri
 
     public async Task<List<PersonelMaas>> GetMaaslarAsync(int yil, int ay)
     {
-        return await _context.PersonelMaaslari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelMaaslari
             .Include(m => m.Sofor)
             .Where(m => m.Yil == yil && m.Ay == ay)
             .OrderBy(m => m.Sofor.Ad)
@@ -26,45 +27,51 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
 
     public async Task<PersonelMaas?> GetMaasByIdAsync(int id)
     {
-        return await _context.PersonelMaaslari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelMaaslari
             .Include(m => m.Sofor)
             .FirstOrDefaultAsync(m => m.Id == id);
     }
 
     public async Task<PersonelMaas?> GetMaasBySoforAsync(int soforId, int yil, int ay)
     {
-        return await _context.PersonelMaaslari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelMaaslari
             .Include(m => m.Sofor)
             .FirstOrDefaultAsync(m => m.SoforId == soforId && m.Yil == yil && m.Ay == ay);
     }
 
     public async Task<PersonelMaas> CreateMaasAsync(PersonelMaas maas)
     {
-        _context.PersonelMaaslari.Add(maas);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.PersonelMaaslari.Add(maas);
+        await context.SaveChangesAsync();
         return maas;
     }
 
     public async Task<PersonelMaas> UpdateMaasAsync(PersonelMaas maas)
     {
-        _context.PersonelMaaslari.Update(maas);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.PersonelMaaslari.Update(maas);
+        await context.SaveChangesAsync();
         return maas;
     }
 
     public async Task DeleteMaasAsync(int id)
     {
-        var maas = await _context.PersonelMaaslari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var maas = await context.PersonelMaaslari.FindAsync(id);
         if (maas != null)
         {
             maas.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<List<PersonelMaas>> GetSoforMaasGecmisiAsync(int soforId)
     {
-        return await _context.PersonelMaaslari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelMaaslari
             .Include(m => m.Sofor)
             .Where(m => m.SoforId == soforId)
             .OrderByDescending(m => m.Yil)
@@ -74,18 +81,20 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
 
     public async Task MaasOdemeYapAsync(int maasId, DateTime odemeTarihi)
     {
-        var maas = await _context.PersonelMaaslari.FindAsync(maasId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var maas = await context.PersonelMaaslari.FindAsync(maasId);
         if (maas != null)
         {
             maas.OdemeTarihi = odemeTarihi;
             maas.OdemeDurum = MaasOdemeDurum.Odendi;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task TopluMaasOlusturAsync(int yil, int ay)
     {
-        var aktifSoforler = await _context.Soforler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var aktifSoforler = await context.Soforler
             .Where(s => s.Aktif)
             .ToListAsync();
 
@@ -115,11 +124,11 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
                 var vergiMatrahi = yeniMaas.BrutMaas - yeniMaas.SGKIsciPayi - yeniMaas.IssizlikPrimi;
                 yeniMaas.GelirVergisi = vergiMatrahi * 0.15m; // Basit hesaplama
 
-                _context.PersonelMaaslari.Add(yeniMaas);
+                context.PersonelMaaslari.Add(yeniMaas);
             }
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -128,7 +137,8 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
 
     public async Task<List<PersonelIzin>> GetIzinlerAsync(int? soforId = null, DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.PersonelIzinleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.PersonelIzinleri
             .Include(i => i.Sofor)
             .AsQueryable();
 
@@ -146,20 +156,22 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
 
     public async Task<PersonelIzin?> GetIzinByIdAsync(int id)
     {
-        return await _context.PersonelIzinleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelIzinleri
             .Include(i => i.Sofor)
             .FirstOrDefaultAsync(i => i.Id == id);
     }
 
     public async Task<PersonelIzin> CreateIzinAsync(PersonelIzin izin)
     {
-        _context.PersonelIzinleri.Add(izin);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.PersonelIzinleri.Add(izin);
+        await context.SaveChangesAsync();
 
         // Yıllık izinse, izin hakkından düş
         if (izin.IzinTipi == IzinTipi.YillikIzin && izin.Durum == IzinDurum.Onaylandi)
         {
-            await UpdateIzinHakkiKullanimAsync(izin.SoforId, izin.BaslangicTarihi.Year, izin.ToplamGun);
+            await UpdateIzinHakkiKullanimAsync(context, izin.SoforId, izin.BaslangicTarihi.Year, izin.ToplamGun);
         }
 
         return izin;
@@ -167,24 +179,27 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
 
     public async Task<PersonelIzin> UpdateIzinAsync(PersonelIzin izin)
     {
-        _context.PersonelIzinleri.Update(izin);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.PersonelIzinleri.Update(izin);
+        await context.SaveChangesAsync();
         return izin;
     }
 
     public async Task DeleteIzinAsync(int id)
     {
-        var izin = await _context.PersonelIzinleri.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var izin = await context.PersonelIzinleri.FindAsync(id);
         if (izin != null)
         {
             izin.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task IzinOnaylaAsync(int izinId, string onaylayanKisi)
     {
-        var izin = await _context.PersonelIzinleri.FindAsync(izinId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var izin = await context.PersonelIzinleri.FindAsync(izinId);
         if (izin != null)
         {
             izin.Durum = IzinDurum.Onaylandi;
@@ -194,31 +209,32 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
             // Yıllık izinse kullanımı güncelle
             if (izin.IzinTipi == IzinTipi.YillikIzin)
             {
-                await UpdateIzinHakkiKullanimAsync(izin.SoforId, izin.BaslangicTarihi.Year, izin.ToplamGun);
+                await UpdateIzinHakkiKullanimAsync(context, izin.SoforId, izin.BaslangicTarihi.Year, izin.ToplamGun);
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task IzinReddetAsync(int izinId, string redNedeni)
     {
-        var izin = await _context.PersonelIzinleri.FindAsync(izinId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var izin = await context.PersonelIzinleri.FindAsync(izinId);
         if (izin != null)
         {
             izin.Durum = IzinDurum.Reddedildi;
             izin.RedNedeni = redNedeni;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
-    private async Task UpdateIzinHakkiKullanimAsync(int soforId, int yil, int gun)
+    private async Task UpdateIzinHakkiKullanimAsync(ApplicationDbContext context, int soforId, int yil, int gun)
     {
         var izinHakki = await GetIzinHakkiAsync(soforId, yil);
         if (izinHakki != null)
         {
             izinHakki.KullanilanIzin += gun;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -228,17 +244,19 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
 
     public async Task<PersonelIzinHakki?> GetIzinHakkiAsync(int soforId, int yil)
     {
-        return await _context.PersonelIzinHaklari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.PersonelIzinHaklari
             .Include(h => h.Sofor)
             .FirstOrDefaultAsync(h => h.SoforId == soforId && h.Yil == yil);
     }
 
     public async Task<PersonelIzinHakki> CreateOrUpdateIzinHakkiAsync(PersonelIzinHakki izinHakki)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var mevcut = await GetIzinHakkiAsync(izinHakki.SoforId, izinHakki.Yil);
         if (mevcut == null)
         {
-            _context.PersonelIzinHaklari.Add(izinHakki);
+            context.PersonelIzinHaklari.Add(izinHakki);
         }
         else
         {
@@ -246,13 +264,14 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
             mevcut.DevirenIzin = izinHakki.DevirenIzin;
             mevcut.Notlar = izinHakki.Notlar;
         }
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return izinHakki;
     }
 
     public async Task YillikIzinHaklariOlusturAsync(int yil)
     {
-        var aktifSoforler = await _context.Soforler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var aktifSoforler = await context.Soforler
             .Where(s => s.Aktif)
             .ToListAsync();
 
@@ -287,11 +306,11 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
                     KullanilanIzin = 0
                 };
 
-                _context.PersonelIzinHaklari.Add(yeniHak);
+                context.PersonelIzinHaklari.Add(yeniHak);
             }
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -300,6 +319,7 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
 
     public async Task<MaasRaporOzet> GetMaasRaporuAsync(int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var maaslar = await GetMaaslarAsync(yil, ay);
 
         var ozet = new MaasRaporOzet
@@ -337,12 +357,13 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
 
     public async Task<IzinRaporOzet> GetIzinRaporuAsync(int yil)
     {
-        var izinHaklari = await _context.PersonelIzinHaklari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var izinHaklari = await context.PersonelIzinHaklari
             .Include(h => h.Sofor)
             .Where(h => h.Yil == yil)
             .ToListAsync();
 
-        var izinler = await _context.PersonelIzinleri
+        var izinler = await context.PersonelIzinleri
             .Include(i => i.Sofor)
             .Where(i => i.BaslangicTarihi.Year == yil && i.Durum == IzinDurum.Onaylandi)
             .ToListAsync();
@@ -379,18 +400,19 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
 
     public async Task<List<PersonelOzet>> GetPersonelOzetListesiAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var buAy = DateTime.Today.Month;
         var buYil = DateTime.Today.Year;
 
-        var soforler = await _context.Soforler
+        var soforler = await context.Soforler
             .Where(s => s.Aktif)
             .ToListAsync();
 
-        var izinHaklari = await _context.PersonelIzinHaklari
+        var izinHaklari = await context.PersonelIzinHaklari
             .Where(h => h.Yil == buYil)
             .ToListAsync();
 
-        var seferler = await _context.ServisCalismalari
+        var seferler = await context.ServisCalismalari
             .Where(s => s.CalismaTarihi.Month == buAy && s.CalismaTarihi.Year == buYil)
             .GroupBy(s => s.SoforId)
             .Select(g => new { SoforId = g.Key, Sayi = g.Count() })

@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -7,16 +7,16 @@ namespace KOAFiloServis.Web.Services;
 
 public class KolayMuhasebeService : IKolayMuhasebeService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IMuhasebeService _muhasebeService;
     private readonly ICariService _cariService;
 
     public KolayMuhasebeService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IMuhasebeService muhasebeService,
         ICariService cariService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _muhasebeService = muhasebeService;
         _cariService = cariService;
     }
@@ -25,6 +25,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<MuhasebeOnizleme> OnizlemeOlusturAsync(KolayMuhasebeGiris giris)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ayar = await GetMuhasebeAyarAsync();
         var fisTipi = GetFisTipi(giris.IslemTuru);
         var fisNo = await _muhasebeService.GenerateNextFisNoAsync(fisTipi);
@@ -40,13 +41,13 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         // İşlem türüne göre kalemler oluştur
         var kalemler = giris.IslemTuru switch
         {
-            KolayIslemTuru.GelirFatura => await OlusturGelirFaturaKalemleri(giris, ayar),
-            KolayIslemTuru.GiderFatura => await OlusturGiderFaturaKalemleri(giris, ayar),
-            KolayIslemTuru.MasrafGirisi => await OlusturMasrafKalemleri(giris, ayar),
-            KolayIslemTuru.TahsilatGirisi => await OlusturTahsilatKalemleri(giris, ayar),
-            KolayIslemTuru.OdemeGirisi => await OlusturOdemeKalemleri(giris, ayar),
-            KolayIslemTuru.MahsupKaydi => await OlusturMahsupKalemleri(giris, ayar),
-            KolayIslemTuru.AvansGirisi => await OlusturAvansKalemleri(giris, ayar),
+            KolayIslemTuru.GelirFatura => await OlusturGelirFaturaKalemleri(context, giris, ayar),
+            KolayIslemTuru.GiderFatura => await OlusturGiderFaturaKalemleri(context, giris, ayar),
+            KolayIslemTuru.MasrafGirisi => await OlusturMasrafKalemleri(context, giris, ayar),
+            KolayIslemTuru.TahsilatGirisi => await OlusturTahsilatKalemleri(context, giris, ayar),
+            KolayIslemTuru.OdemeGirisi => await OlusturOdemeKalemleri(context, giris, ayar),
+            KolayIslemTuru.MahsupKaydi => await OlusturMahsupKalemleri(context, giris, ayar),
+            KolayIslemTuru.AvansGirisi => await OlusturAvansKalemleri(context, giris, ayar),
             _ => new List<MuhasebeKalemOnizleme>()
         };
 
@@ -54,7 +55,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return onizleme;
     }
 
-    private async Task<List<MuhasebeKalemOnizleme>> OlusturGelirFaturaKalemleri(KolayMuhasebeGiris giris, MuhasebeAyar ayar)
+    private async Task<List<MuhasebeKalemOnizleme>> OlusturGelirFaturaKalemleri(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeAyar ayar)
     {
         var kalemler = new List<MuhasebeKalemOnizleme>();
         var siraNo = 1;
@@ -65,7 +66,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -82,7 +83,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = cariHesapKodu,
             HesapAdi = $"Alıcılar - {cariUnvan}",
-            HesapId = await GetHesapIdAsync(cariHesapKodu),
+            HesapId = await GetHesapIdAsync(context, cariHesapKodu),
             Borc = alicidanAlinacak,
             Alacak = 0,
             Aciklama = $"Fatura: {giris.BelgeNo}",
@@ -98,7 +99,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 SiraNo = siraNo++,
                 HesapKodu = ayar.TevkifatAlacakHesabi,
                 HesapAdi = "Tevkifat Alacağı",
-                HesapId = await GetHesapIdAsync(ayar.TevkifatAlacakHesabi),
+                HesapId = await GetHesapIdAsync(context, ayar.TevkifatAlacakHesabi),
                 Borc = giris.TevkifatTutar,
                 Alacak = 0,
                 Aciklama = $"Tevkifat ({giris.TevkifatKodu})"
@@ -111,7 +112,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = ayar.SatisGelirHesabi,
             HesapAdi = "Yurtiçi Satışlar",
-            HesapId = await GetHesapIdAsync(ayar.SatisGelirHesabi),
+            HesapId = await GetHesapIdAsync(context, ayar.SatisGelirHesabi),
             Borc = 0,
             Alacak = giris.AraToplam,
             Aciklama = "Satış Geliri"
@@ -125,7 +126,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 SiraNo = siraNo++,
                 HesapKodu = ayar.HesaplananKdvHesabi,
                 HesapAdi = "Hesaplanan KDV",
-                HesapId = await GetHesapIdAsync(ayar.HesaplananKdvHesabi),
+                HesapId = await GetHesapIdAsync(context, ayar.HesaplananKdvHesabi),
                 Borc = 0,
                 Alacak = giris.KdvTutar,
                 Aciklama = $"KDV %{giris.KdvOrani}"
@@ -135,7 +136,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return kalemler;
     }
 
-    private async Task<List<MuhasebeKalemOnizleme>> OlusturGiderFaturaKalemleri(KolayMuhasebeGiris giris, MuhasebeAyar ayar)
+    private async Task<List<MuhasebeKalemOnizleme>> OlusturGiderFaturaKalemleri(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeAyar ayar)
     {
         var kalemler = new List<MuhasebeKalemOnizleme>();
         var siraNo = 1;
@@ -146,7 +147,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -164,7 +165,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = giderHesabi,
             HesapAdi = "Gider/Mal Alışı",
-            HesapId = await GetHesapIdAsync(giderHesabi),
+            HesapId = await GetHesapIdAsync(context, giderHesabi),
             Borc = giris.AraToplam,
             Alacak = 0,
             Aciklama = giris.Aciklama ?? "Alış"
@@ -178,7 +179,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 SiraNo = siraNo++,
                 HesapKodu = ayar.IndirilecekKdvHesabi,
                 HesapAdi = "İndirilecek KDV",
-                HesapId = await GetHesapIdAsync(ayar.IndirilecekKdvHesabi),
+                HesapId = await GetHesapIdAsync(context, ayar.IndirilecekKdvHesabi),
                 Borc = giris.KdvTutar,
                 Alacak = 0,
                 Aciklama = $"KDV %{giris.KdvOrani}"
@@ -191,7 +192,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = cariHesapKodu,
             HesapAdi = $"Satıcılar - {cariUnvan}",
-            HesapId = await GetHesapIdAsync(cariHesapKodu),
+            HesapId = await GetHesapIdAsync(context, cariHesapKodu),
             Borc = 0,
             Alacak = saticiyaOdenecek,
             Aciklama = $"Fatura: {giris.BelgeNo}",
@@ -207,7 +208,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 SiraNo = siraNo++,
                 HesapKodu = ayar.TevkifatKdvHesabi,
                 HesapAdi = "Sorumlu Sıfatıyla Ödenen KDV",
-                HesapId = await GetHesapIdAsync(ayar.TevkifatKdvHesabi),
+                HesapId = await GetHesapIdAsync(context, ayar.TevkifatKdvHesabi),
                 Borc = 0,
                 Alacak = giris.TevkifatTutar,
                 Aciklama = $"Tevkifat KDV ({giris.TevkifatKodu})"
@@ -217,7 +218,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return kalemler;
     }
 
-    private async Task<List<MuhasebeKalemOnizleme>> OlusturMasrafKalemleri(KolayMuhasebeGiris giris, MuhasebeAyar ayar)
+    private async Task<List<MuhasebeKalemOnizleme>> OlusturMasrafKalemleri(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeAyar ayar)
     {
         var kalemler = new List<MuhasebeKalemOnizleme>();
         var siraNo = 1;
@@ -228,7 +229,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.MasrafKalemiId.HasValue)
         {
-            var masrafKalemi = await _context.MasrafKalemleri.AsNoTracking()
+            var masrafKalemi = await context.MasrafKalemleri.AsNoTracking()
                 .FirstOrDefaultAsync(m => m.Id == giris.MasrafKalemiId);
             if (masrafKalemi != null)
             {
@@ -244,7 +245,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = masrafHesapKodu,
             HesapAdi = masrafAdi,
-            HesapId = await GetHesapIdAsync(masrafHesapKodu),
+            HesapId = await GetHesapIdAsync(context, masrafHesapKodu),
             Borc = giris.AraToplam,
             Alacak = 0,
             Aciklama = giris.Aciklama ?? masrafAdi
@@ -258,21 +259,21 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 SiraNo = siraNo++,
                 HesapKodu = ayar.IndirilecekKdvHesabi,
                 HesapAdi = "İndirilecek KDV",
-                HesapId = await GetHesapIdAsync(ayar.IndirilecekKdvHesabi),
+                HesapId = await GetHesapIdAsync(context, ayar.IndirilecekKdvHesabi),
                 Borc = giris.KdvTutar,
                 Alacak = 0,
                 Aciklama = $"KDV %{giris.KdvOrani}"
             });
         }
 
-        var (odemeHesapKodu, odemeHesapAdi, odemeCariId, odemeCariUnvan) = await GetMasrafOdemeHesabiAsync(giris);
+        var (odemeHesapKodu, odemeHesapAdi, odemeCariId, odemeCariUnvan) = await GetMasrafOdemeHesabiAsync(context, giris);
 
         kalemler.Add(new MuhasebeKalemOnizleme
         {
             SiraNo = siraNo++,
             HesapKodu = odemeHesapKodu,
             HesapAdi = odemeHesapAdi,
-            HesapId = await GetHesapIdAsync(odemeHesapKodu),
+            HesapId = await GetHesapIdAsync(context, odemeHesapKodu),
             Borc = 0,
             Alacak = giris.GenelToplam,
             Aciklama = $"Masraf ödemesi: {giris.BelgeNo}",
@@ -283,7 +284,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return kalemler;
     }
 
-    private async Task<List<MuhasebeKalemOnizleme>> OlusturTahsilatKalemleri(KolayMuhasebeGiris giris, MuhasebeAyar ayar)
+    private async Task<List<MuhasebeKalemOnizleme>> OlusturTahsilatKalemleri(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeAyar ayar)
     {
         var kalemler = new List<MuhasebeKalemOnizleme>();
         var siraNo = 1;
@@ -294,7 +295,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.BankaHesapId.HasValue)
         {
-            var bankaHesap = await _context.BankaHesaplari.AsNoTracking()
+            var bankaHesap = await context.BankaHesaplari.AsNoTracking()
                 .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
             if (bankaHesap != null)
             {
@@ -308,7 +309,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = bankaHesapKodu,
             HesapAdi = bankaHesapAdi,
-            HesapId = await GetHesapIdAsync(bankaHesapKodu),
+            HesapId = await GetHesapIdAsync(context, bankaHesapKodu),
             Borc = giris.GenelToplam,
             Alacak = 0,
             Aciklama = $"Tahsilat: {giris.BelgeNo}"
@@ -320,7 +321,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -334,7 +335,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = cariHesapKodu,
             HesapAdi = $"Alıcılar - {cariUnvan}",
-            HesapId = await GetHesapIdAsync(cariHesapKodu),
+            HesapId = await GetHesapIdAsync(context, cariHesapKodu),
             Borc = 0,
             Alacak = giris.GenelToplam,
             Aciklama = $"Tahsilat: {giris.BelgeNo}",
@@ -345,7 +346,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return kalemler;
     }
 
-    private async Task<List<MuhasebeKalemOnizleme>> OlusturOdemeKalemleri(KolayMuhasebeGiris giris, MuhasebeAyar ayar)
+    private async Task<List<MuhasebeKalemOnizleme>> OlusturOdemeKalemleri(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeAyar ayar)
     {
         var kalemler = new List<MuhasebeKalemOnizleme>();
         var siraNo = 1;
@@ -356,7 +357,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -370,7 +371,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = cariHesapKodu,
             HesapAdi = $"Satıcılar - {cariUnvan}",
-            HesapId = await GetHesapIdAsync(cariHesapKodu),
+            HesapId = await GetHesapIdAsync(context, cariHesapKodu),
             Borc = giris.GenelToplam,
             Alacak = 0,
             Aciklama = $"Ödeme: {giris.BelgeNo}",
@@ -384,7 +385,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.BankaHesapId.HasValue)
         {
-            var bankaHesap = await _context.BankaHesaplari.AsNoTracking()
+            var bankaHesap = await context.BankaHesaplari.AsNoTracking()
                 .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
             if (bankaHesap != null)
             {
@@ -398,7 +399,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = bankaHesapKodu,
             HesapAdi = bankaHesapAdi,
-            HesapId = await GetHesapIdAsync(bankaHesapKodu),
+            HesapId = await GetHesapIdAsync(context, bankaHesapKodu),
             Borc = 0,
             Alacak = giris.GenelToplam,
             Aciklama = $"Ödeme: {giris.BelgeNo}"
@@ -407,7 +408,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return kalemler;
     }
 
-    private async Task<List<MuhasebeKalemOnizleme>> OlusturMahsupKalemleri(KolayMuhasebeGiris giris, MuhasebeAyar ayar)
+    private async Task<List<MuhasebeKalemOnizleme>> OlusturMahsupKalemleri(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeAyar ayar)
     {
         var kalemler = new List<MuhasebeKalemOnizleme>();
         var siraNo = 1;
@@ -419,7 +420,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await _context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -447,7 +448,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.BankaHesapId.HasValue)
         {
-            var bankaHesap = await _context.BankaHesaplari.AsNoTracking()
+            var bankaHesap = await context.BankaHesaplari.AsNoTracking()
                 .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
             if (bankaHesap != null)
             {
@@ -469,7 +470,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 SiraNo = siraNo++,
                 HesapKodu = bankaHesapKodu,
                 HesapAdi = bankaHesapAdi,
-                HesapId = await GetHesapIdAsync(bankaHesapKodu),
+                HesapId = await GetHesapIdAsync(context, bankaHesapKodu),
                 Borc = giris.GenelToplam,
                 Alacak = 0,
                 Aciklama = $"Mahsup tahsilat: {giris.BelgeNo}"
@@ -480,7 +481,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 SiraNo = siraNo++,
                 HesapKodu = cariHesapKodu,
                 HesapAdi = $"Alıcılar - {cariUnvan}",
-                HesapId = await GetHesapIdAsync(cariHesapKodu),
+                HesapId = await GetHesapIdAsync(context, cariHesapKodu),
                 Borc = 0,
                 Alacak = giris.GenelToplam,
                 Aciklama = $"Mahsup: {giris.BelgeNo}",
@@ -496,7 +497,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 SiraNo = siraNo++,
                 HesapKodu = cariHesapKodu,
                 HesapAdi = $"Satıcılar - {cariUnvan}",
-                HesapId = await GetHesapIdAsync(cariHesapKodu),
+                HesapId = await GetHesapIdAsync(context, cariHesapKodu),
                 Borc = giris.GenelToplam,
                 Alacak = 0,
                 Aciklama = $"Mahsup ödeme: {giris.BelgeNo}",
@@ -509,7 +510,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 SiraNo = siraNo++,
                 HesapKodu = bankaHesapKodu,
                 HesapAdi = bankaHesapAdi,
-                HesapId = await GetHesapIdAsync(bankaHesapKodu),
+                HesapId = await GetHesapIdAsync(context, bankaHesapKodu),
                 Borc = 0,
                 Alacak = giris.GenelToplam,
                 Aciklama = $"Mahsup: {giris.BelgeNo}"
@@ -519,7 +520,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return kalemler;
     }
 
-    private async Task<List<MuhasebeKalemOnizleme>> OlusturAvansKalemleri(KolayMuhasebeGiris giris, MuhasebeAyar ayar)
+    private async Task<List<MuhasebeKalemOnizleme>> OlusturAvansKalemleri(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeAyar ayar)
     {
         var kalemler = new List<MuhasebeKalemOnizleme>();
         var siraNo = 1;
@@ -530,7 +531,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = "195.01",
             HesapAdi = "Personel Avansları",
-            HesapId = await GetHesapIdAsync("195.01"),
+            HesapId = await GetHesapIdAsync(context, "195.01"),
             Borc = giris.GenelToplam,
             Alacak = 0,
             Aciklama = giris.Aciklama ?? "Personel avansı",
@@ -544,7 +545,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.BankaHesapId.HasValue)
         {
-            var bankaHesap = await _context.BankaHesaplari.AsNoTracking()
+            var bankaHesap = await context.BankaHesaplari.AsNoTracking()
                 .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
             if (bankaHesap != null)
             {
@@ -558,7 +559,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             SiraNo = siraNo++,
             HesapKodu = bankaHesapKodu,
             HesapAdi = bankaHesapAdi,
-            HesapId = await GetHesapIdAsync(bankaHesapKodu),
+            HesapId = await GetHesapIdAsync(context, bankaHesapKodu),
             Borc = 0,
             Alacak = giris.GenelToplam,
             Aciklama = "Avans ödemesi"
@@ -573,6 +574,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<KolayMuhasebeSonuc> KaydetAsync(KolayMuhasebeGiris giris, MuhasebeOnizleme? manuelOnizleme = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new KolayMuhasebeSonuc();
 
         try
@@ -606,26 +608,26 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             switch (giris.IslemTuru)
             {
                 case KolayIslemTuru.GelirFatura:
-                    sonuc = await KaydetGelirFatura(giris, onizleme);
+                    sonuc = await KaydetGelirFatura(context, giris, onizleme);
                     break;
                 case KolayIslemTuru.GiderFatura:
-                    sonuc = await KaydetGiderFatura(giris, onizleme);
+                    sonuc = await KaydetGiderFatura(context, giris, onizleme);
                     break;
                 case KolayIslemTuru.MasrafGirisi:
-                    sonuc = await KaydetMasraf(giris, onizleme);
+                    sonuc = await KaydetMasraf(context, giris, onizleme);
                     break;
                 case KolayIslemTuru.TahsilatGirisi:
-                    sonuc = await KaydetTahsilat(giris, onizleme);
+                    sonuc = await KaydetTahsilat(context, giris, onizleme);
                     break;
                 case KolayIslemTuru.OdemeGirisi:
-                    sonuc = await KaydetOdeme(giris, onizleme);
+                    sonuc = await KaydetOdeme(context, giris, onizleme);
                     break;
                 case KolayIslemTuru.AvansGirisi:
-                    sonuc = await KaydetAvans(giris, onizleme);
+                    sonuc = await KaydetAvans(context, giris, onizleme);
                     break;
                 default:
                     // Sadece muhasebe fişi oluştur
-                    sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(onizleme);
+                    sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme);
                     sonuc.Basarili = true;
                     sonuc.Mesaj = "Muhasebe fişi oluşturuldu.";
                     break;
@@ -640,14 +642,14 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return sonuc;
     }
 
-    private async Task<KolayMuhasebeSonuc> KaydetGelirFatura(KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
+    private async Task<KolayMuhasebeSonuc> KaydetGelirFatura(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
     {
         var sonuc = new KolayMuhasebeSonuc();
 
         // Fatura oluştur
         var fatura = new Fatura
         {
-            FaturaNo = giris.BelgeNo ?? await GenerateFaturaNo("SF"),
+            FaturaNo = giris.BelgeNo ?? await GenerateFaturaNo(context, "SF"),
             FaturaTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
             VadeTarihi = giris.VadeTarihi.HasValue ? DateTime.SpecifyKind(giris.VadeTarihi.Value, DateTimeKind.Utc) : null,
             FaturaTipi = FaturaTipi.SatisFaturasi,
@@ -669,32 +671,32 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.Faturalar.Add(fatura);
-        await _context.SaveChangesAsync();
+        context.Faturalar.Add(fatura);
+        await context.SaveChangesAsync();
         sonuc.FaturaId = fatura.Id;
 
         // Muhasebe fişi oluştur
-        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(onizleme, FisKaynak.Fatura, fatura.Id);
+        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.Fatura, fatura.Id);
 
         // Faturayı güncelle
         fatura.MuhasebeFisiOlusturuldu = true;
         fatura.MuhasebeFisId = sonuc.MuhasebeFisId;
-        _context.Faturalar.Update(fatura);
-        await _context.SaveChangesAsync();
+        context.Faturalar.Update(fatura);
+        await context.SaveChangesAsync();
 
         sonuc.Basarili = true;
         sonuc.Mesaj = $"Gelir faturası ve muhasebe kaydı oluşturuldu. Fatura No: {fatura.FaturaNo}";
         return sonuc;
     }
 
-    private async Task<KolayMuhasebeSonuc> KaydetGiderFatura(KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
+    private async Task<KolayMuhasebeSonuc> KaydetGiderFatura(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
     {
         var sonuc = new KolayMuhasebeSonuc();
 
         // Fatura oluştur
         var fatura = new Fatura
         {
-            FaturaNo = giris.BelgeNo ?? await GenerateFaturaNo("AF"),
+            FaturaNo = giris.BelgeNo ?? await GenerateFaturaNo(context, "AF"),
             FaturaTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
             VadeTarihi = giris.VadeTarihi.HasValue ? DateTime.SpecifyKind(giris.VadeTarihi.Value, DateTimeKind.Utc) : null,
             FaturaTipi = FaturaTipi.AlisFaturasi,
@@ -716,25 +718,25 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.Faturalar.Add(fatura);
-        await _context.SaveChangesAsync();
+        context.Faturalar.Add(fatura);
+        await context.SaveChangesAsync();
         sonuc.FaturaId = fatura.Id;
 
         // Muhasebe fişi oluştur
-        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(onizleme, FisKaynak.Fatura, fatura.Id);
+        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.Fatura, fatura.Id);
 
         // Faturayı güncelle
         fatura.MuhasebeFisiOlusturuldu = true;
         fatura.MuhasebeFisId = sonuc.MuhasebeFisId;
-        _context.Faturalar.Update(fatura);
-        await _context.SaveChangesAsync();
+        context.Faturalar.Update(fatura);
+        await context.SaveChangesAsync();
 
         sonuc.Basarili = true;
         sonuc.Mesaj = $"Gider faturası ve muhasebe kaydı oluşturuldu. Fatura No: {fatura.FaturaNo}";
         return sonuc;
     }
 
-    private async Task<KolayMuhasebeSonuc> KaydetMasraf(KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
+    private async Task<KolayMuhasebeSonuc> KaydetMasraf(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
     {
         var sonuc = new KolayMuhasebeSonuc();
 
@@ -753,20 +755,20 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.AracMasraflari.Add(masraf);
-            await _context.SaveChangesAsync();
+            context.AracMasraflari.Add(masraf);
+            await context.SaveChangesAsync();
             sonuc.MasrafId = masraf.Id;
 
             // Muhasebe fişi
-            sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(onizleme, FisKaynak.Otomatik, masraf.Id, "AracMasraf");
+            sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.Otomatik, masraf.Id, "AracMasraf");
             masraf.MuhasebeFisId = sonuc.MuhasebeFisId;
-            _context.AracMasraflari.Update(masraf);
-            await _context.SaveChangesAsync();
+            context.AracMasraflari.Update(masraf);
+            await context.SaveChangesAsync();
         }
         else
         {
             // Genel masraf - sadece muhasebe fişi
-            sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(onizleme, FisKaynak.Manuel, null, "Masraf");
+            sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.Manuel, null, "Masraf");
         }
 
         // Banka hareketi oluştur (ödeme yapıldıysa)
@@ -775,7 +777,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             var hareket = new BankaKasaHareket
             {
                 BankaHesapId = giris.BankaHesapId.Value,
-                IslemNo = await GenerateIslemNo(),
+                IslemNo = await GenerateIslemNo(context),
                 IslemTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
                 Tutar = giris.GenelToplam,
                 HareketTipi = HareketTipi.Cikis,
@@ -785,8 +787,8 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.BankaKasaHareketleri.Add(hareket);
-            await _context.SaveChangesAsync();
+            context.BankaKasaHareketleri.Add(hareket);
+            await context.SaveChangesAsync();
             sonuc.BankaHareketId = hareket.Id;
         }
 
@@ -800,7 +802,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return sonuc;
     }
 
-    private async Task<KolayMuhasebeSonuc> KaydetTahsilat(KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
+    private async Task<KolayMuhasebeSonuc> KaydetTahsilat(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
     {
         var sonuc = new KolayMuhasebeSonuc();
 
@@ -815,7 +817,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         var hareket = new BankaKasaHareket
         {
             BankaHesapId = giris.BankaHesapId.Value,
-            IslemNo = await GenerateIslemNo(),
+            IslemNo = await GenerateIslemNo(context),
             IslemTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
             Tutar = giris.GenelToplam,
             HareketTipi = HareketTipi.Giris,
@@ -825,19 +827,19 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.BankaKasaHareketleri.Add(hareket);
-        await _context.SaveChangesAsync();
+        context.BankaKasaHareketleri.Add(hareket);
+        await context.SaveChangesAsync();
         sonuc.BankaHareketId = hareket.Id;
 
         // Muhasebe fişi
-        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(onizleme, FisKaynak.BankaHareket, hareket.Id);
+        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.BankaHareket, hareket.Id);
 
         sonuc.Basarili = true;
         sonuc.Mesaj = $"Tahsilat kaydedildi. Tutar: {giris.GenelToplam:N2} TL";
         return sonuc;
     }
 
-    private async Task<KolayMuhasebeSonuc> KaydetOdeme(KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
+    private async Task<KolayMuhasebeSonuc> KaydetOdeme(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
     {
         var sonuc = new KolayMuhasebeSonuc();
 
@@ -852,7 +854,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         var hareket = new BankaKasaHareket
         {
             BankaHesapId = giris.BankaHesapId.Value,
-            IslemNo = await GenerateIslemNo(),
+            IslemNo = await GenerateIslemNo(context),
             IslemTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
             Tutar = giris.GenelToplam,
             HareketTipi = HareketTipi.Cikis,
@@ -862,19 +864,19 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.BankaKasaHareketleri.Add(hareket);
-        await _context.SaveChangesAsync();
+        context.BankaKasaHareketleri.Add(hareket);
+        await context.SaveChangesAsync();
         sonuc.BankaHareketId = hareket.Id;
 
         // Muhasebe fişi
-        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(onizleme, FisKaynak.BankaHareket, hareket.Id);
+        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.BankaHareket, hareket.Id);
 
         sonuc.Basarili = true;
         sonuc.Mesaj = $"Ödeme kaydedildi. Tutar: {giris.GenelToplam:N2} TL";
         return sonuc;
     }
 
-    private async Task<KolayMuhasebeSonuc> KaydetAvans(KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
+    private async Task<KolayMuhasebeSonuc> KaydetAvans(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
     {
         var sonuc = new KolayMuhasebeSonuc();
 
@@ -889,7 +891,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         var hareket = new BankaKasaHareket
         {
             BankaHesapId = giris.BankaHesapId.Value,
-            IslemNo = await GenerateIslemNo(),
+            IslemNo = await GenerateIslemNo(context),
             IslemTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
             Tutar = giris.GenelToplam,
             HareketTipi = HareketTipi.Cikis,
@@ -899,19 +901,19 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.BankaKasaHareketleri.Add(hareket);
-        await _context.SaveChangesAsync();
+        context.BankaKasaHareketleri.Add(hareket);
+        await context.SaveChangesAsync();
         sonuc.BankaHareketId = hareket.Id;
 
         // Muhasebe fişi
-        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(onizleme, FisKaynak.BankaHareket, hareket.Id);
+        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.BankaHareket, hareket.Id);
 
         sonuc.Basarili = true;
         sonuc.Mesaj = $"Avans kaydedildi. Tutar: {giris.GenelToplam:N2} TL";
         return sonuc;
     }
 
-    private async Task<int> KaydetMuhasebeFisi(MuhasebeOnizleme onizleme, FisKaynak kaynak = FisKaynak.Manuel, int? kaynakId = null, string? kaynakTip = null)
+    private async Task<int> KaydetMuhasebeFisi(ApplicationDbContext context, MuhasebeOnizleme onizleme, FisKaynak kaynak = FisKaynak.Manuel, int? kaynakId = null, string? kaynakTip = null)
     {
         var fis = new MuhasebeFis
         {
@@ -928,8 +930,8 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
 
         // Kalemleri ekle
         foreach (var kalem in onizleme.Kalemler)
@@ -947,10 +949,10 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.MuhasebeFisKalemleri.Add(fisKalem);
+            context.MuhasebeFisKalemleri.Add(fisKalem);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return fis.Id;
     }
 
@@ -960,12 +962,13 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<List<Cari>> GetCarilerAsync(CariTipi? tip = null, string? arama = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (tip == CariTipi.Personel)
         {
-            await EnsurePersonelCariKayitlariAsync(arama);
+            await EnsurePersonelCariKayitlariAsync(context, arama);
         }
 
-        var query = _context.Cariler.AsNoTracking().Where(c => c.Aktif);
+        var query = context.Cariler.AsNoTracking().Where(c => c.Aktif);
 
         if (tip.HasValue)
         {
@@ -988,9 +991,9 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return await query.OrderBy(c => c.Unvan).Take(50).ToListAsync();
     }
 
-    private async Task EnsurePersonelCariKayitlariAsync(string? arama)
+    private async Task EnsurePersonelCariKayitlariAsync(ApplicationDbContext context, string? arama)
     {
-        var personelQuery = _context.Soforler
+        var personelQuery = context.Soforler
             .Where(s => s.Aktif && !s.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(arama))
@@ -1015,7 +1018,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         var personelIds = personeller.Select(s => s.Id).ToList();
 
         // Mevcut cari kayıtlarını bul
-        var mevcutCariler = await _context.Cariler
+        var mevcutCariler = await context.Cariler
             .Where(c => c.CariTipi == CariTipi.Personel && c.SoforId.HasValue && personelIds.Contains(c.SoforId.Value))
             .ToListAsync();
 
@@ -1053,13 +1056,13 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             };
 
             yeniCariler.Add(cari);
-            _context.Cariler.Add(cari);
+            context.Cariler.Add(cari);
         }
 
         // Değişiklikleri kaydet (hem güncelleme hem yeni eklemeler)
         if (mevcutCariler.Any(c => c.UpdatedAt != null) || yeniCariler.Any())
         {
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
 
         // Yeni cariler için muhasebe hesabı oluştur
@@ -1071,7 +1074,8 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<List<MasrafKalemiBasit>> GetMasrafKalemleriAsync()
     {
-        return await _context.MasrafKalemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MasrafKalemleri
             .AsNoTracking()
             .Where(m => m.Aktif)
             .GroupBy(m => new { m.Id, m.MasrafAdi, m.Kategori })
@@ -1087,7 +1091,8 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<List<BankaHesapBasit>> GetBankaHesaplariAsync()
     {
-        return await _context.BankaHesaplari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BankaHesaplari
             .AsNoTracking()
             .Where(b => b.Aktif)
             .OrderBy(b => b.HesapAdi)
@@ -1103,7 +1108,8 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<List<Arac>> GetAraclarAsync()
     {
-        return await _context.Araclar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Araclar
             .AsNoTracking()
             .Where(a => a.Aktif)
             .OrderBy(a => a.AktifPlaka)
@@ -1112,7 +1118,8 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<List<StokBasit>> GetStoklarAsync(string? arama = null)
     {
-        var query = _context.StokKartlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.StokKartlari
             .AsNoTracking()
             .Where(s => s.Aktif);
 
@@ -1140,8 +1147,9 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<Cari> HizliCariOlusturAsync(string unvan, CariTipi tip)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Önce aynı unvan ile mevcut cari var mı kontrol et
-        var mevcutCari = await _context.Cariler
+        var mevcutCari = await context.Cariler
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.Unvan == unvan && !c.IsDeleted);
 
@@ -1159,7 +1167,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         do
         {
             cariKodu = await _cariService.GenerateNextKodAsync();
-            var kodMevcut = await _context.Cariler
+            var kodMevcut = await context.Cariler
                 .IgnoreQueryFilters()
                 .AnyAsync(c => c.CariKodu == cariKodu);
 
@@ -1179,8 +1187,8 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.Cariler.Add(cari);
-        await _context.SaveChangesAsync();
+        context.Cariler.Add(cari);
+        await context.SaveChangesAsync();
 
         if (tip == CariTipi.Personel)
         {
@@ -1190,7 +1198,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return cari;
     }
 
-    private async Task<(string HesapKodu, string HesapAdi, int? CariId, string? CariUnvan)> GetMasrafOdemeHesabiAsync(KolayMuhasebeGiris giris)
+    private async Task<(string HesapKodu, string HesapAdi, int? CariId, string? CariUnvan)> GetMasrafOdemeHesabiAsync(ApplicationDbContext context, KolayMuhasebeGiris giris)
     {
         if (giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.KasaBanka)
         {
@@ -1199,7 +1207,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
             if (giris.BankaHesapId.HasValue)
             {
-                var bankaHesap = await _context.BankaHesaplari.AsNoTracking()
+                var bankaHesap = await context.BankaHesaplari.AsNoTracking()
                     .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
                 if (bankaHesap != null)
                 {
@@ -1218,7 +1226,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 : ("320.01", "Satıcılar", null, null);
         }
 
-        var cari = await _context.Cariler
+        var cari = await context.Cariler
             .AsNoTracking()
             .Include(c => c.MuhasebeHesap)
             .FirstOrDefaultAsync(c => c.Id == giris.CariId.Value);
@@ -1252,6 +1260,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<Cari> HizliCariOlusturDetayliAsync(HizliCariModel model)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cari = new Cari
         {
             CariKodu = await _cariService.GenerateNextKodAsync(),
@@ -1275,8 +1284,8 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         cari.Email = model.Email;
         cari.Adres = model.Adres;
 
-        _context.Cariler.Add(cari);
-        await _context.SaveChangesAsync();
+        context.Cariler.Add(cari);
+        await context.SaveChangesAsync();
 
         if (model.CariTipi == CariTipi.Personel)
         {
@@ -1288,7 +1297,8 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<List<MuhasebeHesap>> GetMuhasebeHesaplariAsync()
     {
-        return await _context.MuhasebeHesaplari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeHesaplari
             .AsNoTracking()
             .Where(h => h.Aktif)
             .OrderBy(h => h.HesapKodu)
@@ -1297,12 +1307,13 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     public async Task<MuhasebeAyar> GetMuhasebeAyarAsync()
     {
-        return await _context.MuhasebeAyarlari.FirstOrDefaultAsync() ?? new MuhasebeAyar();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeAyarlari.FirstOrDefaultAsync() ?? new MuhasebeAyar();
     }
 
-    private async Task<int?> GetHesapIdAsync(string hesapKodu)
+    private async Task<int?> GetHesapIdAsync(ApplicationDbContext context, string hesapKodu)
     {
-        var hesap = await _context.MuhasebeHesaplari
+        var hesap = await context.MuhasebeHesaplari
             .AsNoTracking()
             .FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu || h.HesapKodu.StartsWith(hesapKodu.Split('.')[0]));
         return hesap?.Id;
@@ -1342,12 +1353,12 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return $"{islemAdi}: {detay}";
     }
 
-    private async Task<(int? SoforId, int? CariId, string? PersonelAdi)> ResolveMasrafPersoneliAsync(int? cariId, string? fallbackUnvan)
+    private async Task<(int? SoforId, int? CariId, string? PersonelAdi)> ResolveMasrafPersoneliAsync(ApplicationDbContext context, int? cariId, string? fallbackUnvan)
     {
         if (!cariId.HasValue)
             return (null, null, fallbackUnvan);
 
-        var cari = await _context.Cariler
+        var cari = await context.Cariler
             .Include(c => c.Sofor)
             .FirstOrDefaultAsync(c => c.Id == cariId.Value);
 
@@ -1360,19 +1371,19 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (cari.CariTipi != CariTipi.Personel)
             return (null, cari.Id, cari.Unvan);
 
-        var sofor = await FindMatchingSoforAsync(cari);
+        var sofor = await FindMatchingSoforAsync(context, cari);
         if (sofor == null)
             return (null, cari.Id, cari.Unvan);
 
         cari.SoforId = sofor.Id;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         return (sofor.Id, null, sofor.TamAd);
     }
 
-    private async Task<Sofor?> FindMatchingSoforAsync(Cari cari)
+    private async Task<Sofor?> FindMatchingSoforAsync(ApplicationDbContext context, Cari cari)
     {
-        IQueryable<Sofor> query = _context.Soforler.Where(s => s.Aktif && !s.IsDeleted);
+        IQueryable<Sofor> query = context.Soforler.Where(s => s.Aktif && !s.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(cari.TcKimlikNo))
         {
@@ -1449,10 +1460,10 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         };
     }
 
-    private async Task<string> GenerateFaturaNo(string prefix)
+    private async Task<string> GenerateFaturaNo(ApplicationDbContext context, string prefix)
     {
         var yil = DateTime.Now.Year;
-        var lastNo = await _context.Faturalar
+        var lastNo = await context.Faturalar
             .Where(f => f.FaturaNo.StartsWith($"{prefix}{yil}"))
             .OrderByDescending(f => f.FaturaNo)
             .Select(f => f.FaturaNo)
@@ -1465,13 +1476,13 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return $"{prefix}{yil}{nextNum:D6}";
     }
 
-    private async Task<string> GenerateIslemNo()
+    private async Task<string> GenerateIslemNo(ApplicationDbContext context)
     {
         var yil = DateTime.Now.Year;
         var ay = DateTime.Now.Month;
         var prefix = $"ISL{yil}{ay:D2}";
 
-        var lastNo = await _context.BankaKasaHareketleri
+        var lastNo = await context.BankaKasaHareketleri
             .Where(h => h.IslemNo.StartsWith(prefix))
             .OrderByDescending(h => h.IslemNo)
             .Select(h => h.IslemNo)

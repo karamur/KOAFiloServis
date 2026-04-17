@@ -7,20 +7,20 @@ namespace KOAFiloServis.Web.Services;
 
 public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IIhaleHazirlikService _ihaleHazirlikService;
     private readonly IKullaniciService _kullaniciService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<IhaleTeklifVersiyonService> _logger;
 
     public IhaleTeklifVersiyonService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IIhaleHazirlikService ihaleHazirlikService,
         IKullaniciService kullaniciService,
         IAuditLogService auditLogService,
         ILogger<IhaleTeklifVersiyonService> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _ihaleHazirlikService = ihaleHazirlikService;
         _kullaniciService = kullaniciService;
         _auditLogService = auditLogService;
@@ -29,7 +29,8 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
 
     public async Task<IhaleTeklifVersiyon?> GetByIdAsync(int versiyonId)
     {
-        return await _context.IhaleTeklifVersiyonlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.IhaleTeklifVersiyonlari
             .Include(v => v.IhaleProje)
             .Include(v => v.HazirlayanKullanici)
             .Include(v => v.OnaylayanKullanici)
@@ -38,7 +39,8 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
 
     public async Task<List<IhaleTeklifVersiyon>> GetListByIhaleProjeIdAsync(int ihaleProjeId)
     {
-        return await _context.IhaleTeklifVersiyonlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.IhaleTeklifVersiyonlari
             .Include(v => v.HazirlayanKullanici)
             .Include(v => v.OnaylayanKullanici)
             .Where(v => v.IhaleProjeId == ihaleProjeId)
@@ -48,7 +50,8 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
 
     public async Task<IhaleTeklifVersiyon?> GetAktifVersiyonAsync(int ihaleProjeId)
     {
-        return await _context.IhaleTeklifVersiyonlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.IhaleTeklifVersiyonlari
             .Include(v => v.HazirlayanKullanici)
             .Include(v => v.OnaylayanKullanici)
             .FirstOrDefaultAsync(v => v.IhaleProjeId == ihaleProjeId && v.AktifVersiyon);
@@ -56,7 +59,8 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
 
     public async Task<List<IhaleTeklifKararLog>> GetKararLoglariAsync(int versiyonId)
     {
-        return await _context.IhaleTeklifKararLoglari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.IhaleTeklifKararLoglari
             .Include(l => l.IslemYapanKullanici)
             .Where(l => l.IhaleTeklifVersiyonId == versiyonId)
             .OrderByDescending(l => l.IslemTarihi)
@@ -65,11 +69,12 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
 
     public async Task<IhaleTeklifVersiyon> CreateInitialAsync(int ihaleProjeId)
     {
-        var kullanici = await GetCurrentUserOrThrowAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await GetCurrentUserOrThrowAsync(context);
         EnsureCanManageDrafts(kullanici);
 
-        var proje = await GetProjeAsync(ihaleProjeId);
-        var mevcutVersiyonVar = await _context.IhaleTeklifVersiyonlari
+        var proje = await GetProjeAsync(context, ihaleProjeId);
+        var mevcutVersiyonVar = await context.IhaleTeklifVersiyonlari
             .AnyAsync(v => v.IhaleProjeId == ihaleProjeId);
 
         if (mevcutVersiyonVar)
@@ -86,12 +91,12 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
             AktifVersiyon = true
         };
 
-        await SnapshotDoldurAsync(versiyon);
+        await SnapshotDoldurAsync(context, versiyon);
 
-        _context.IhaleTeklifVersiyonlari.Add(versiyon);
-        await _context.SaveChangesAsync();
+        context.IhaleTeklifVersiyonlari.Add(versiyon);
+        await context.SaveChangesAsync();
 
-        await KararLogEkleAsync(
+        await KararLogEkleAsync(context, 
             versiyon.Id,
             IhaleTeklifIslemTipi.Olustur,
             null,
@@ -99,28 +104,29 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
             "İlk teklif versiyonu oluşturuldu.",
             kullanici?.Id);
 
-        await _context.SaveChangesAsync();
-        await TryAuditAsync("IhaleTeklifVersiyonOlustur", versiyon.Id, $"{proje.ProjeKodu} için ilk teklif versiyonu oluşturuldu.");
+        await context.SaveChangesAsync();
+        await TryAuditAsync(context, "IhaleTeklifVersiyonOlustur", versiyon.Id, $"{proje.ProjeKodu} için ilk teklif versiyonu oluşturuldu.");
 
         return versiyon;
     }
 
     public async Task<IhaleTeklifVersiyon> CreateRevisionAsync(int kaynakVersiyonId, string? revizyonNotu)
     {
-        var kullanici = await GetCurrentUserOrThrowAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await GetCurrentUserOrThrowAsync(context);
         EnsureCanManageDrafts(kullanici);
 
-        var kaynakVersiyon = await _context.IhaleTeklifVersiyonlari
+        var kaynakVersiyon = await context.IhaleTeklifVersiyonlari
             .AsTracking()
             .FirstOrDefaultAsync(v => v.Id == kaynakVersiyonId);
 
         if (kaynakVersiyon == null)
             throw new InvalidOperationException("Kaynak teklif versiyonu bulunamadı.");
 
-        var proje = await GetProjeAsync(kaynakVersiyon.IhaleProjeId);
-        var yeniVersiyonNo = await GetSonrakiVersiyonNoAsync(kaynakVersiyon.IhaleProjeId);
+        var proje = await GetProjeAsync(context, kaynakVersiyon.IhaleProjeId);
+        var yeniVersiyonNo = await GetSonrakiVersiyonNoAsync(context, kaynakVersiyon.IhaleProjeId);
 
-        await PasiflestirDigerAktifVersiyonlarAsync(kaynakVersiyon.IhaleProjeId, null);
+        await PasiflestirDigerAktifVersiyonlarAsync(context, kaynakVersiyon.IhaleProjeId, null);
 
         var yeniVersiyon = new IhaleTeklifVersiyon
         {
@@ -138,12 +144,12 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
             KarMarjiOrani = kaynakVersiyon.KarMarjiOrani
         };
 
-        await SnapshotDoldurAsync(yeniVersiyon);
+        await SnapshotDoldurAsync(context, yeniVersiyon);
 
-        _context.IhaleTeklifVersiyonlari.Add(yeniVersiyon);
-        await _context.SaveChangesAsync();
+        context.IhaleTeklifVersiyonlari.Add(yeniVersiyon);
+        await context.SaveChangesAsync();
 
-        await KararLogEkleAsync(
+        await KararLogEkleAsync(context, 
             yeniVersiyon.Id,
             IhaleTeklifIslemTipi.RevizyonOlustur,
             null,
@@ -151,18 +157,19 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
             revizyonNotu ?? $"{kaynakVersiyon.RevizyonKodu} versiyonundan revizyon oluşturuldu.",
             kullanici?.Id);
 
-        await _context.SaveChangesAsync();
-        await TryAuditAsync("IhaleTeklifRevizyonOlustur", yeniVersiyon.Id, $"{proje.ProjeKodu} için {yeniVersiyon.RevizyonKodu} revizyonu oluşturuldu.");
+        await context.SaveChangesAsync();
+        await TryAuditAsync(context, "IhaleTeklifRevizyonOlustur", yeniVersiyon.Id, $"{proje.ProjeKodu} için {yeniVersiyon.RevizyonKodu} revizyonu oluşturuldu.");
 
         return yeniVersiyon;
     }
 
     public async Task<IhaleTeklifVersiyon> SetActiveAsync(int versiyonId)
     {
-        var kullanici = await GetCurrentUserOrThrowAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await GetCurrentUserOrThrowAsync(context);
         EnsureCanManageDrafts(kullanici);
 
-        var versiyon = await _context.IhaleTeklifVersiyonlari
+        var versiyon = await context.IhaleTeklifVersiyonlari
             .AsTracking()
             .FirstOrDefaultAsync(v => v.Id == versiyonId);
 
@@ -171,10 +178,10 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
 
         if (!versiyon.AktifVersiyon)
         {
-            await PasiflestirDigerAktifVersiyonlarAsync(versiyon.IhaleProjeId, versiyon.Id);
+            await PasiflestirDigerAktifVersiyonlarAsync(context, versiyon.IhaleProjeId, versiyon.Id);
             versiyon.AktifVersiyon = true;
             versiyon.UpdatedAt = DateTime.UtcNow;
-            await KararLogEkleAsync(
+            await KararLogEkleAsync(context, 
                 versiyon.Id,
                 IhaleTeklifIslemTipi.AktifVersiyonDegisti,
                 versiyon.Durum,
@@ -182,8 +189,8 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
                 $"{versiyon.RevizyonKodu} aktif versiyon olarak işaretlendi.",
                 kullanici?.Id);
 
-            await _context.SaveChangesAsync();
-            await TryAuditAsync("IhaleTeklifAktifVersiyon", versiyon.Id, $"{versiyon.RevizyonKodu} aktif versiyon yapıldı.");
+            await context.SaveChangesAsync();
+            await TryAuditAsync(context, "IhaleTeklifAktifVersiyon", versiyon.Id, $"{versiyon.RevizyonKodu} aktif versiyon yapıldı.");
         }
 
         return versiyon;
@@ -191,10 +198,11 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
 
     public async Task<IhaleTeklifVersiyon> SendToReviewAsync(int versiyonId)
     {
-        var kullanici = await GetCurrentUserOrThrowAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await GetCurrentUserOrThrowAsync(context);
         EnsureCanManageDrafts(kullanici);
 
-        var versiyon = await _context.IhaleTeklifVersiyonlari
+        var versiyon = await context.IhaleTeklifVersiyonlari
             .AsTracking()
             .FirstOrDefaultAsync(v => v.Id == versiyonId);
 
@@ -209,7 +217,7 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
         versiyon.Durum = IhaleTeklifVersiyonDurum.Incelemede;
         versiyon.UpdatedAt = DateTime.UtcNow;
 
-        await KararLogEkleAsync(
+        await KararLogEkleAsync(context, 
             versiyon.Id,
             IhaleTeklifIslemTipi.IncelemeyeGonder,
             oncekiDurum,
@@ -217,18 +225,19 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
             "Teklif incelemeye gönderildi.",
             kullanici?.Id);
 
-        await _context.SaveChangesAsync();
-        await TryAuditAsync("IhaleTeklifInceleme", versiyon.Id, $"{versiyon.RevizyonKodu} incelemeye gönderildi.");
+        await context.SaveChangesAsync();
+        await TryAuditAsync(context, "IhaleTeklifInceleme", versiyon.Id, $"{versiyon.RevizyonKodu} incelemeye gönderildi.");
 
         return versiyon;
     }
 
     public async Task<IhaleTeklifVersiyon> ApproveAsync(int versiyonId, string? kararNotu)
     {
-        var kullanici = await GetCurrentUserOrThrowAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await GetCurrentUserOrThrowAsync(context);
         EnsureCanApprove(kullanici);
 
-        var versiyon = await _context.IhaleTeklifVersiyonlari
+        var versiyon = await context.IhaleTeklifVersiyonlari
             .AsTracking()
             .FirstOrDefaultAsync(v => v.Id == versiyonId);
 
@@ -246,7 +255,7 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
         versiyon.OnayTarihi = DateTime.UtcNow;
         versiyon.UpdatedAt = DateTime.UtcNow;
 
-        await KararLogEkleAsync(
+        await KararLogEkleAsync(context, 
             versiyon.Id,
             IhaleTeklifIslemTipi.Onayla,
             oncekiDurum,
@@ -254,21 +263,22 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
             kararNotu ?? "Teklif onaylandı.",
             kullanici?.Id);
 
-        await _context.SaveChangesAsync();
-        await TryAuditAsync("IhaleTeklifOnay", versiyon.Id, $"{versiyon.RevizyonKodu} onaylandı.");
+        await context.SaveChangesAsync();
+        await TryAuditAsync(context, "IhaleTeklifOnay", versiyon.Id, $"{versiyon.RevizyonKodu} onaylandı.");
 
         return versiyon;
     }
 
     public async Task<IhaleTeklifVersiyon> RejectAsync(int versiyonId, string kararNotu)
     {
-        var kullanici = await GetCurrentUserOrThrowAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kullanici = await GetCurrentUserOrThrowAsync(context);
         EnsureCanApprove(kullanici);
 
         if (string.IsNullOrWhiteSpace(kararNotu))
             throw new InvalidOperationException("Reddedilen teklifler için karar notu zorunludur.");
 
-        var versiyon = await _context.IhaleTeklifVersiyonlari
+        var versiyon = await context.IhaleTeklifVersiyonlari
             .AsTracking()
             .FirstOrDefaultAsync(v => v.Id == versiyonId);
 
@@ -286,7 +296,7 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
         versiyon.OnayTarihi = DateTime.UtcNow;
         versiyon.UpdatedAt = DateTime.UtcNow;
 
-        await KararLogEkleAsync(
+        await KararLogEkleAsync(context, 
             versiyon.Id,
             IhaleTeklifIslemTipi.Reddet,
             oncekiDurum,
@@ -294,15 +304,15 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
             kararNotu,
             kullanici?.Id);
 
-        await _context.SaveChangesAsync();
-        await TryAuditAsync("IhaleTeklifRed", versiyon.Id, $"{versiyon.RevizyonKodu} reddedildi.");
+        await context.SaveChangesAsync();
+        await TryAuditAsync(context, "IhaleTeklifRed", versiyon.Id, $"{versiyon.RevizyonKodu} reddedildi.");
 
         return versiyon;
     }
 
-    private async Task<IhaleProje> GetProjeAsync(int ihaleProjeId)
+    private async Task<IhaleProje> GetProjeAsync(ApplicationDbContext context, int ihaleProjeId)
     {
-        var proje = await _context.IhaleProjeleri
+        var proje = await context.IhaleProjeleri
             .FirstOrDefaultAsync(p => p.Id == ihaleProjeId);
 
         if (proje == null)
@@ -311,16 +321,16 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
         return proje;
     }
 
-    private async Task<int> GetSonrakiVersiyonNoAsync(int ihaleProjeId)
+    private async Task<int> GetSonrakiVersiyonNoAsync(ApplicationDbContext context, int ihaleProjeId)
     {
-        var sonVersiyonNo = await _context.IhaleTeklifVersiyonlari
+        var sonVersiyonNo = await context.IhaleTeklifVersiyonlari
             .Where(v => v.IhaleProjeId == ihaleProjeId)
             .MaxAsync(v => (int?)v.VersiyonNo) ?? 0;
 
         return sonVersiyonNo + 1;
     }
 
-    private async Task<Kullanici> GetCurrentUserOrThrowAsync()
+    private async Task<Kullanici> GetCurrentUserOrThrowAsync(ApplicationDbContext context)
     {
         var kullanici = await _kullaniciService.GetAktifKullaniciAsync();
         if (kullanici == null)
@@ -350,7 +360,7 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
         return roller.Any(rol => string.Equals(rolAdi, rol, StringComparison.OrdinalIgnoreCase));
     }
 
-    private async Task SnapshotDoldurAsync(IhaleTeklifVersiyon versiyon)
+    private async Task SnapshotDoldurAsync(ApplicationDbContext context, IhaleTeklifVersiyon versiyon)
     {
         var ozet = await _ihaleHazirlikService.GetProjeOzetAsync(versiyon.IhaleProjeId);
         versiyon.ToplamMaliyet = ozet.ToplamProjeMaliyeti;
@@ -359,9 +369,9 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
         versiyon.KarMarjiOrani = ozet.KarMarjiOrtalama;
     }
 
-    private async Task PasiflestirDigerAktifVersiyonlarAsync(int ihaleProjeId, int? haricVersiyonId)
+    private async Task PasiflestirDigerAktifVersiyonlarAsync(ApplicationDbContext context, int ihaleProjeId, int? haricVersiyonId)
     {
-        var aktifVersiyonlar = await _context.IhaleTeklifVersiyonlari
+        var aktifVersiyonlar = await context.IhaleTeklifVersiyonlari
             .AsTracking()
             .Where(v => v.IhaleProjeId == ihaleProjeId && v.AktifVersiyon && (!haricVersiyonId.HasValue || v.Id != haricVersiyonId.Value))
             .ToListAsync();
@@ -373,7 +383,7 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
         }
     }
 
-    private Task KararLogEkleAsync(
+    private Task KararLogEkleAsync(ApplicationDbContext context, 
         int versiyonId,
         IhaleTeklifIslemTipi islemTipi,
         IhaleTeklifVersiyonDurum? oncekiDurum,
@@ -381,7 +391,7 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
         string? not,
         int? kullaniciId)
     {
-        _context.IhaleTeklifKararLoglari.Add(new IhaleTeklifKararLog
+        context.IhaleTeklifKararLoglari.Add(new IhaleTeklifKararLog
         {
             IhaleTeklifVersiyonId = versiyonId,
             IslemTipi = islemTipi,
@@ -395,7 +405,7 @@ public class IhaleTeklifVersiyonService : IIhaleTeklifVersiyonService
         return Task.CompletedTask;
     }
 
-    private async Task TryAuditAsync(string islemTipi, int entityId, string aciklama)
+    private async Task TryAuditAsync(ApplicationDbContext context, string islemTipi, int entityId, string aciklama)
     {
         try
         {

@@ -6,21 +6,22 @@ namespace KOAFiloServis.Web.Services;
 
 public class BelgeUyariService : IBelgeUyariService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public BelgeUyariService(ApplicationDbContext context)
+    public BelgeUyariService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<BelgeUyariOzet> GetBelgeUyarilarAsync(int yaklasanGunSayisi = 30)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ozet = new BelgeUyariOzet();
         var bugun = DateTime.Today;
         var limitTarih = bugun.AddDays(yaklasanGunSayisi);
 
         // Aktif şoförleri al
-        var soforler = await _context.Soforler
+        var soforler = await context.Soforler
             .Where(s => s.Aktif && s.Gorev == PersonelGorev.Sofor)
             .ToListAsync();
 
@@ -84,7 +85,7 @@ public class BelgeUyariService : IBelgeUyariService
         }
 
         // Aktif araçları al
-        var araclar = await _context.Araclar
+        var araclar = await context.Araclar
             .Where(a => a.Aktif)
             .ToListAsync();
 
@@ -140,7 +141,7 @@ public class BelgeUyariService : IBelgeUyariService
             EvrakKategorileri.TrafikSigortasi
         };
 
-        var digerAracEvraklari = await _context.AracEvraklari
+        var digerAracEvraklari = await context.AracEvraklari
             .AsNoTracking()
             .Include(x => x.Arac)
             .Where(x => !x.IsDeleted

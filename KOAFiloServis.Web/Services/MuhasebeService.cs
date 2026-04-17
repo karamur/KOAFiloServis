@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using ClosedXML.Excel;
@@ -8,27 +8,29 @@ namespace KOAFiloServis.Web.Services;
 
 public class MuhasebeService : IMuhasebeService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private static readonly string[] AyAdlari = { "", "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", 
                                                    "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik" };
 
-    public MuhasebeService(ApplicationDbContext context)
+    public MuhasebeService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     #region Hesap Plani
 
     public async Task<List<MuhasebeHesap>> GetHesapPlaniAsync()
     {
-        return await _context.MuhasebeHesaplari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeHesaplari
             .OrderBy(h => h.HesapKodu)
             .ToListAsync();
     }
 
     public async Task<List<MuhasebeHesap>> GetHesaplarByGrupAsync(HesapGrubu grup)
     {
-        return await _context.MuhasebeHesaplari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeHesaplari
             .Where(h => h.HesapGrubu == grup && h.Aktif)
             .OrderBy(h => h.HesapKodu)
             .ToListAsync();
@@ -36,26 +38,30 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MuhasebeHesap?> GetHesapByKodAsync(string hesapKodu)
     {
-        return await _context.MuhasebeHesaplari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeHesaplari
             .FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu);
     }
 
     public async Task<MuhasebeHesap?> GetHesapByIdAsync(int id)
     {
-        return await _context.MuhasebeHesaplari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeHesaplari.FindAsync(id);
     }
 
     public async Task<MuhasebeHesap> CreateHesapAsync(MuhasebeHesap hesap)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         hesap.CreatedAt = DateTime.UtcNow;
-        _context.MuhasebeHesaplari.Add(hesap);
-        await _context.SaveChangesAsync();
+        context.MuhasebeHesaplari.Add(hesap);
+        await context.SaveChangesAsync();
         return hesap;
     }
 
     public async Task<MuhasebeHesap> UpdateHesapAsync(MuhasebeHesap hesap)
     {
-        var existing = await _context.MuhasebeHesaplari.FindAsync(hesap.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.MuhasebeHesaplari.FindAsync(hesap.Id);
         if (existing == null) throw new Exception("Hesap bulunamadi");
 
         existing.HesapAdi = hesap.HesapAdi;
@@ -63,27 +69,29 @@ public class MuhasebeService : IMuhasebeService
         existing.Aktif = hesap.Aktif;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteHesapAsync(int id)
     {
-        var hesap = await _context.MuhasebeHesaplari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var hesap = await context.MuhasebeHesaplari.FindAsync(id);
         if (hesap == null) return;
         if (hesap.SistemHesabi) throw new Exception("Sistem hesabi silinemez");
 
         // Hesapta hareket var mi kontrol et
-        var hareketVar = await _context.MuhasebeFisKalemleri.AnyAsync(k => k.HesapId == id);
+        var hareketVar = await context.MuhasebeFisKalemleri.AnyAsync(k => k.HesapId == id);
         if (hareketVar) throw new Exception("Hesapta hareket var, silinemez");
 
         hesap.IsDeleted = true;
         hesap.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task SeedVarsayilanHesapPlaniAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var hesaplar = new List<MuhasebeHesap>
         {
             // 1 - DONEN VARLIKLAR
@@ -158,7 +166,7 @@ public class MuhasebeService : IMuhasebeService
             new() { HesapKodu = "780", HesapAdi = "FINANSMAN GIDERLERI", HesapTuru = HesapTuru.Gider, HesapGrubu = HesapGrubu.MaliyetHesaplari }
         };
 
-        var mevcutKodlar = await _context.MuhasebeHesaplari
+        var mevcutKodlar = await context.MuhasebeHesaplari
             .Select(h => h.HesapKodu)
             .ToListAsync();
 
@@ -175,17 +183,19 @@ public class MuhasebeService : IMuhasebeService
         if (eklenecekHesaplar.Count == 0)
             return;
 
-        _context.MuhasebeHesaplari.AddRange(eklenecekHesaplar);
-        await _context.SaveChangesAsync();
+        context.MuhasebeHesaplari.AddRange(eklenecekHesaplar);
+        await context.SaveChangesAsync();
     }
 
     public async Task<bool> HesapIslemGormusMuAsync(int hesapId)
     {
-        return await _context.MuhasebeFisKalemleri.AnyAsync(k => k.HesapId == hesapId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeFisKalemleri.AnyAsync(k => k.HesapId == hesapId);
     }
 
     public async Task<HesapPlaniImportResult> ImportHesapPlaniFromExcelAsync(byte[] fileContent)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var result = new HesapPlaniImportResult();
         
         try
@@ -195,7 +205,7 @@ public class MuhasebeService : IMuhasebeService
             var ws = workbook.Worksheets.First();
             
             var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
-            var mevcutHesaplar = await _context.MuhasebeHesaplari.ToListAsync();
+            var mevcutHesaplar = await context.MuhasebeHesaplari.ToListAsync();
             var mevcutKodlar = mevcutHesaplar.ToDictionary(h => h.HesapKodu.Trim().ToUpper(), h => h);
             
             for (int row = 2; row <= lastRow; row++) // 1. satır başlık
@@ -237,7 +247,7 @@ public class MuhasebeService : IMuhasebeService
                             AltHesapVar = !hesapKodu.Contains('.'),
                             CreatedAt = DateTime.UtcNow
                         };
-                        _context.MuhasebeHesaplari.Add(yeniHesap);
+                        context.MuhasebeHesaplari.Add(yeniHesap);
                         mevcutKodlar[hesapKodu.ToUpper()] = yeniHesap;
                         result.ImportedCount++;
                     }
@@ -249,7 +259,7 @@ public class MuhasebeService : IMuhasebeService
                 }
             }
             
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             result.Success = true;
         }
         catch (Exception ex)
@@ -263,6 +273,7 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<byte[]> GetHesapPlaniSablonAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new ClosedXML.Excel.XLWorkbook();
         var ws = workbook.Worksheets.Add("Hesap Plani");
         
@@ -334,7 +345,8 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<List<MuhasebeFis>> GetFislerAsync(int yil, int? ay = null)
     {
-        var query = _context.MuhasebeFisleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.MuhasebeFisleri
             .Include(f => f.Kalemler)
             .ThenInclude(k => k.Hesap)
             .Where(f => f.FisTarihi.Year == yil);
@@ -347,7 +359,8 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<List<MuhasebeFis>> GetFislerByTipAsync(FisTipi tip, int yil, int? ay = null)
     {
-        var query = _context.MuhasebeFisleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.MuhasebeFisleri
             .Include(f => f.Kalemler)
             .Where(f => f.FisTipi == tip && f.FisTarihi.Year == yil);
 
@@ -359,7 +372,8 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MuhasebeFis?> GetFisByIdAsync(int id)
     {
-        return await _context.MuhasebeFisleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeFisleri
             .Include(f => f.Kalemler)
             .ThenInclude(k => k.Hesap)
             .FirstOrDefaultAsync(f => f.Id == id);
@@ -367,6 +381,7 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MuhasebeFis> CreateFisAsync(MuhasebeFis fis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Borc/Alacak toplamlarini hesapla
         fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
         fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
@@ -378,14 +393,15 @@ public class MuhasebeService : IMuhasebeService
         fis.FisTarihi = DateTime.SpecifyKind(fis.FisTarihi, DateTimeKind.Utc);
         fis.CreatedAt = DateTime.UtcNow;
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
         return fis;
     }
 
     public async Task<MuhasebeFis> UpdateFisAsync(MuhasebeFis fis)
     {
-        var existing = await _context.MuhasebeFisleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.MuhasebeFisleri
             .Include(f => f.Kalemler)
             .FirstOrDefaultAsync(f => f.Id == fis.Id);
 
@@ -397,35 +413,37 @@ public class MuhasebeService : IMuhasebeService
         existing.UpdatedAt = DateTime.UtcNow;
 
         // Mevcut kalemleri sil
-        _context.MuhasebeFisKalemleri.RemoveRange(existing.Kalemler);
+        context.MuhasebeFisKalemleri.RemoveRange(existing.Kalemler);
 
         // Yeni kalemleri ekle
         foreach (var kalem in fis.Kalemler)
         {
             kalem.FisId = existing.Id;
-            _context.MuhasebeFisKalemleri.Add(kalem);
+            context.MuhasebeFisKalemleri.Add(kalem);
         }
 
         existing.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
         existing.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteFisAsync(int id)
     {
-        var fis = await _context.MuhasebeFisleri.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fis = await context.MuhasebeFisleri.FindAsync(id);
         if (fis == null) return;
         if (fis.Durum == FisDurum.Onaylandi) throw new Exception("Onaylanmis fis silinemez");
 
         fis.IsDeleted = true;
         fis.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<string> GenerateNextFisNoAsync(FisTipi tip)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var prefix = tip switch
         {
             FisTipi.Mahsup => "MH",
@@ -440,7 +458,7 @@ public class MuhasebeService : IMuhasebeService
         var yil = DateTime.Now.Year;
         var ay = DateTime.Now.Month;
 
-        var lastFis = await _context.MuhasebeFisleri
+        var lastFis = await context.MuhasebeFisleri
             .Where(f => f.FisNo.StartsWith($"{prefix}-{yil}{ay:D2}"))
             .OrderByDescending(f => f.FisNo)
             .FirstOrDefaultAsync();
@@ -458,12 +476,13 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task OnayliFisAsync(int fisId)
     {
-        var fis = await _context.MuhasebeFisleri.FindAsync(fisId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fis = await context.MuhasebeFisleri.FindAsync(fisId);
         if (fis == null) throw new Exception("Fis bulunamadi");
 
         fis.Durum = FisDurum.Onaylandi;
         fis.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -478,8 +497,9 @@ public class MuhasebeService : IMuhasebeService
     /// </summary>
     public async Task<MuhasebeFis> CreateFaturaFisiAsync(Fatura fatura)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Ayarları al
-        var ayar = await _context.MuhasebeAyarlari.FirstOrDefaultAsync();
+        var ayar = await context.MuhasebeAyarlari.FirstOrDefaultAsync();
 
         var fisNo = await GenerateNextFisNoAsync(FisTipi.Mahsup);
         var fis = new MuhasebeFis
@@ -507,7 +527,7 @@ public class MuhasebeService : IMuhasebeService
                 : fatura.GenelToplam;
 
             // 120 Alıcılar BORÇ
-            var alicilarHesap = await GetOrCreateCariHesapAsync("120", fatura.CariId);
+            var alicilarHesap = await GetOrCreateCariHesapAsync(context, "120", fatura.CariId);
             kalemler.Add(new MuhasebeFisKalem
             {
                 HesapId = alicilarHesap.Id,
@@ -578,7 +598,7 @@ public class MuhasebeService : IMuhasebeService
                 : fatura.GenelToplam;
 
             // 320 Satıcılar ALACAK
-            var saticilarHesap = await GetOrCreateCariHesapAsync("320", fatura.CariId);
+            var saticilarHesap = await GetOrCreateCariHesapAsync(context, "320", fatura.CariId);
             kalemler.Add(new MuhasebeFisKalem
             {
                 HesapId = saticilarHesap.Id,
@@ -667,16 +687,16 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = kalemler.Sum(k => k.Borc);
         fis.ToplamAlacak = kalemler.Sum(k => k.Alacak);
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
 
         // Faturaya fiş ID'sini kaydet
-        var faturaEntity = await _context.Faturalar.FindAsync(fatura.Id);
+        var faturaEntity = await context.Faturalar.FindAsync(fatura.Id);
         if (faturaEntity != null)
         {
             faturaEntity.MuhasebeFisiOlusturuldu = true;
             faturaEntity.MuhasebeFisId = fis.Id;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
 
         return fis;
@@ -687,13 +707,14 @@ public class MuhasebeService : IMuhasebeService
     /// </summary>
     public async Task<MuhasebeFis> CreateTahsilatFisiAsync(BankaKasaHareket hareket, int faturaId)
     {
-        var fatura = await _context.Faturalar.FindAsync(faturaId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fatura = await context.Faturalar.FindAsync(faturaId);
         if (fatura == null)
             throw new Exception("Fatura bulunamadi");
 
         var fisNo = await GenerateNextFisNoAsync(FisTipi.Tahsilat);
 
-        var bankaHesap = await _context.BankaHesaplari.FindAsync(hareket.BankaHesapId);
+        var bankaHesap = await context.BankaHesaplari.FindAsync(hareket.BankaHesapId);
         if (bankaHesap == null)
             throw new Exception("Banka/Kasa hesabi bulunamadi");
 
@@ -704,7 +725,7 @@ public class MuhasebeService : IMuhasebeService
         if (kasaBankaHesap == null)
             throw new Exception("Kasa/Banka muhasebe hesabi bulunamadi");
 
-        var alicilarHesap = await GetOrCreateCariHesapAsync("120", fatura.CariId);
+        var alicilarHesap = await GetOrCreateCariHesapAsync(context, "120", fatura.CariId);
 
         var fis = new MuhasebeFis
         {
@@ -727,8 +748,8 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = hareket.Tutar;
         fis.ToplamAlacak = hareket.Tutar;
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
         return fis;
     }
 
@@ -737,10 +758,11 @@ public class MuhasebeService : IMuhasebeService
     /// </summary>
     public async Task<MuhasebeFis> CreateTediyeFisiAsync(BankaKasaHareket hareket, int? faturaId = null)
     {
-        var fatura = faturaId.HasValue ? await _context.Faturalar.FindAsync(faturaId.Value) : null;
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fatura = faturaId.HasValue ? await context.Faturalar.FindAsync(faturaId.Value) : null;
         var fisNo = await GenerateNextFisNoAsync(FisTipi.Tediye);
 
-        var bankaHesap = await _context.BankaHesaplari.FindAsync(hareket.BankaHesapId);
+        var bankaHesap = await context.BankaHesaplari.FindAsync(hareket.BankaHesapId);
         if (bankaHesap == null)
             throw new Exception("Banka/Kasa hesabi bulunamadi");
 
@@ -768,7 +790,7 @@ public class MuhasebeService : IMuhasebeService
         if (fatura != null)
         {
             // Faturali odeme: 320 Saticilar BORC
-            var saticilarHesap = await GetOrCreateCariHesapAsync("320", fatura.CariId);
+            var saticilarHesap = await GetOrCreateCariHesapAsync(context, "320", fatura.CariId);
             fis.Kalemler.Add(new MuhasebeFisKalem { HesapId = saticilarHesap.Id, Borc = hareket.Tutar, Alacak = 0, CariId = fatura.CariId, SiraNo = 1 });
         }
         else
@@ -787,12 +809,12 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = hareket.Tutar;
         fis.ToplamAlacak = hareket.Tutar;
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
         return fis;
     }
 
-    private async Task<MuhasebeHesap> GetOrCreateCariHesapAsync(string ustHesapKodu, int? cariId)
+    private async Task<MuhasebeHesap> GetOrCreateCariHesapAsync(ApplicationDbContext context, string ustHesapKodu, int? cariId)
     {
         var ustHesap = await GetHesapByKodAsync(ustHesapKodu);
         if (ustHesap == null)
@@ -801,7 +823,7 @@ public class MuhasebeService : IMuhasebeService
         if (!cariId.HasValue)
             return ustHesap;
 
-        var cari = await _context.Cariler.FindAsync(cariId.Value);
+        var cari = await context.Cariler.FindAsync(cariId.Value);
         if (cari == null)
             return ustHesap;
 
@@ -823,12 +845,12 @@ public class MuhasebeService : IMuhasebeService
                 SistemHesabi = false,
                 CreatedAt = DateTime.UtcNow
             };
-            _context.MuhasebeHesaplari.Add(cariHesap);
+            context.MuhasebeHesaplari.Add(cariHesap);
 
             // Ust hesabin AltHesapVar flag'ini guncelle
             ustHesap.AltHesapVar = true;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
 
         return cariHesap;
@@ -854,7 +876,8 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<List<MuhasebeDonem>> GetDonemlerAsync(int yil)
     {
-        return await _context.MuhasebeDonemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeDonemleri
             .Where(d => d.Yil == yil)
             .OrderBy(d => d.Ay)
             .ToListAsync();
@@ -862,7 +885,8 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MuhasebeDonem?> GetAktifDonemAsync()
     {
-        return await _context.MuhasebeDonemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeDonemleri
             .Where(d => d.Durum == DonemDurum.Acik)
             .OrderByDescending(d => d.Yil)
             .ThenByDescending(d => d.Ay)
@@ -871,12 +895,13 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task DonemKapatAsync(int donemId)
     {
-        var donem = await _context.MuhasebeDonemleri.FindAsync(donemId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var donem = await context.MuhasebeDonemleri.FindAsync(donemId);
         if (donem == null) throw new Exception("Donem bulunamadi");
 
         donem.Durum = DonemDurum.Kapali;
         donem.KapanisTarihi = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -885,6 +910,7 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MuavinRapor> GetMuavinRaporuAsync(string hesapKodu, DateTime baslangic, DateTime bitis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var hesap = await GetHesapByKodAsync(hesapKodu);
         if (hesap == null)
             throw new Exception("Hesap bulunamadi");
@@ -894,19 +920,19 @@ public class MuhasebeService : IMuhasebeService
 
         // Alt hesaplari da dahil et
         var hesapKodlari = new List<string> { hesapKodu };
-        var altHesaplar = await _context.MuhasebeHesaplari
+        var altHesaplar = await context.MuhasebeHesaplari
             .Where(h => h.HesapKodu.StartsWith(hesapKodu + "."))
             .Select(h => h.HesapKodu)
             .ToListAsync();
         hesapKodlari.AddRange(altHesaplar);
 
-        var hesapIds = await _context.MuhasebeHesaplari
+        var hesapIds = await context.MuhasebeHesaplari
             .Where(h => hesapKodlari.Contains(h.HesapKodu))
             .Select(h => h.Id)
             .ToListAsync();
 
         // Devir (onceki donem toplamlar)
-        var devirKalemler = await _context.MuhasebeFisKalemleri
+        var devirKalemler = await context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Where(k => hesapIds.Contains(k.HesapId) && k.Fis.FisTarihi < baslangicUtc && k.Fis.Durum == FisDurum.Onaylandi)
             .ToListAsync();
@@ -915,7 +941,7 @@ public class MuhasebeService : IMuhasebeService
         var devirAlacak = devirKalemler.Sum(k => k.Alacak);
 
         // Donem hareketleri
-        var kalemler = await _context.MuhasebeFisKalemleri
+        var kalemler = await context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Include(k => k.Hesap)
             .Where(k => hesapIds.Contains(k.HesapId) && 
@@ -959,10 +985,11 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<YevmiyeRapor> GetYevmiyeRaporuAsync(DateTime baslangic, DateTime bitis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var baslangicUtc = DateTime.SpecifyKind(baslangic.Date, DateTimeKind.Utc);
         var bitisUtc = DateTime.SpecifyKind(bitis.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
 
-        var kalemler = await _context.MuhasebeFisKalemleri
+        var kalemler = await context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Include(k => k.Hesap)
             .Where(k => k.Fis.FisTarihi >= baslangicUtc && 
@@ -1002,11 +1029,12 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<GelirGiderRapor> GetGelirGiderRaporuAsync(int yil, int? ay = null)
     {
-        var gelirHesaplar = await _context.MuhasebeHesaplari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var gelirHesaplar = await context.MuhasebeHesaplari
             .Where(h => h.HesapGrubu == HesapGrubu.GelirTablosu && h.HesapTuru == HesapTuru.Gelir)
             .ToListAsync();
 
-        var giderHesaplar = await _context.MuhasebeHesaplari
+        var giderHesaplar = await context.MuhasebeHesaplari
             .Where(h => (h.HesapGrubu == HesapGrubu.GelirTablosu || h.HesapGrubu == HesapGrubu.MaliyetHesaplari) && 
                        (h.HesapTuru == HesapTuru.Gider || h.HesapTuru == HesapTuru.Maliyet))
             .ToListAsync();
@@ -1014,7 +1042,7 @@ public class MuhasebeService : IMuhasebeService
         var gelirIds = gelirHesaplar.Select(h => h.Id).ToList();
         var giderIds = giderHesaplar.Select(h => h.Id).ToList();
 
-        var query = _context.MuhasebeFisKalemleri
+        var query = context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Include(k => k.Hesap)
             .Where(k => k.Fis.FisTarihi.Year == yil && k.Fis.Durum == FisDurum.Onaylandi);
@@ -1087,11 +1115,12 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<BilancoRapor> GetBilancoRaporuAsync(DateTime tarih)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var tarihUtc = DateTime.SpecifyKind(tarih.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
 
-        var hesaplar = await _context.MuhasebeHesaplari.ToListAsync();
+        var hesaplar = await context.MuhasebeHesaplari.ToListAsync();
 
-        var kalemler = await _context.MuhasebeFisKalemleri
+        var kalemler = await context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Where(k => k.Fis.FisTarihi <= tarihUtc && k.Fis.Durum == FisDurum.Onaylandi)
             .ToListAsync();
@@ -1145,12 +1174,13 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MizanRapor> GetMizanRaporuAsync(DateTime baslangic, DateTime bitis)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var baslangicUtc = DateTime.SpecifyKind(baslangic.Date, DateTimeKind.Utc);
         var bitisUtc = DateTime.SpecifyKind(bitis.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
 
-        var hesaplar = await _context.MuhasebeHesaplari.ToListAsync();
+        var hesaplar = await context.MuhasebeHesaplari.ToListAsync();
 
-        var kalemler = await _context.MuhasebeFisKalemleri
+        var kalemler = await context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Where(k => k.Fis.FisTarihi >= baslangicUtc && 
                        k.Fis.FisTarihi <= bitisUtc &&
@@ -1201,10 +1231,11 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<decimal> GetHesapBakiyeAsync(string hesapKodu, DateTime? tarih = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var hesap = await GetHesapByKodAsync(hesapKodu);
         if (hesap == null) return 0;
 
-        var query = _context.MuhasebeFisKalemleri
+        var query = context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Where(k => k.HesapId == hesap.Id && k.Fis.Durum == FisDurum.Onaylandi);
 
@@ -1220,11 +1251,12 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<List<HesapBakiye>> GetHesapBakiyeleriAsync(HesapGrubu grup, DateTime? tarih = null)
     {
-        var hesaplar = await _context.MuhasebeHesaplari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var hesaplar = await context.MuhasebeHesaplari
             .Where(h => h.HesapGrubu == grup && h.Aktif)
             .ToListAsync();
 
-        var query = _context.MuhasebeFisKalemleri
+        var query = context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Where(k => hesaplar.Select(h => h.Id).Contains(k.HesapId) && k.Fis.Durum == FisDurum.Onaylandi);
 
@@ -1262,6 +1294,7 @@ public class MuhasebeService : IMuhasebeService
     /// </summary>
     public async Task<KdvBeyanRapor> GetKdvBeyanRaporuAsync(int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var baslangic = new DateTime(yil, ay, 1, 0, 0, 0, DateTimeKind.Utc);
         var bitis = baslangic.AddMonths(1).AddTicks(-1);
 
@@ -1273,7 +1306,7 @@ public class MuhasebeService : IMuhasebeService
         };
 
         // Faturalardan KDV bilgileri
-        var faturalar = await _context.Faturalar
+        var faturalar = await context.Faturalar
             .Where(f => f.FaturaTarihi >= baslangic && f.FaturaTarihi <= bitis && !f.IsDeleted)
             .ToListAsync();
 
@@ -1319,7 +1352,7 @@ public class MuhasebeService : IMuhasebeService
 
         // DEVREDİLEN KDV (önceki aydan)
         var oncekiAyBitis = baslangic.AddTicks(-1);
-        var oncekiKdv = await GetKdvBakiyeAsync(oncekiAyBitis);
+        var oncekiKdv = await GetKdvBakiyeAsync(context, oncekiAyBitis);
         rapor.DevredenKdv = oncekiKdv > 0 ? oncekiKdv : 0;
 
         // ÖDENECEK/DEVREDEN HESAPLAMA
@@ -1343,7 +1376,7 @@ public class MuhasebeService : IMuhasebeService
     /// <summary>
     /// Belirli bir tarihe kadar olan KDV bakiyesini hesaplar
     /// </summary>
-    private async Task<decimal> GetKdvBakiyeAsync(DateTime tarih)
+    private async Task<decimal> GetKdvBakiyeAsync(ApplicationDbContext context, DateTime tarih)
     {
         var tarihUtc = DateTime.SpecifyKind(tarih, DateTimeKind.Utc);
 
@@ -1358,7 +1391,7 @@ public class MuhasebeService : IMuhasebeService
 
         if (indirilecekKdvHesap != null)
         {
-            var kalemler = await _context.MuhasebeFisKalemleri
+            var kalemler = await context.MuhasebeFisKalemleri
                 .Include(k => k.Fis)
                 .Where(k => k.HesapId == indirilecekKdvHesap.Id && 
                            k.Fis.FisTarihi <= tarihUtc && 
@@ -1369,7 +1402,7 @@ public class MuhasebeService : IMuhasebeService
 
         if (hesaplananKdvHesap != null)
         {
-            var kalemler = await _context.MuhasebeFisKalemleri
+            var kalemler = await context.MuhasebeFisKalemleri
                 .Include(k => k.Fis)
                 .Where(k => k.HesapId == hesaplananKdvHesap.Id && 
                            k.Fis.FisTarihi <= tarihUtc && 
@@ -1380,7 +1413,7 @@ public class MuhasebeService : IMuhasebeService
 
         if (devredenKdvHesap != null)
         {
-            var kalemler = await _context.MuhasebeFisKalemleri
+            var kalemler = await context.MuhasebeFisKalemleri
                 .Include(k => k.Fis)
                 .Where(k => k.HesapId == devredenKdvHesap.Id && 
                            k.Fis.FisTarihi <= tarihUtc && 
@@ -1398,6 +1431,7 @@ public class MuhasebeService : IMuhasebeService
     /// </summary>
     public async Task<List<KdvAylikOzet>> GetYillikKdvOzetiAsync(int yil)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ozet = new List<KdvAylikOzet>();
 
         for (int ay = 1; ay <= 12; ay++)
@@ -1434,6 +1468,7 @@ public class MuhasebeService : IMuhasebeService
         BankaHesap kaynakHesap, 
         BankaHesap hedefHesap)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Hesap tipine göre muhasebe hesap kodlarını belirle
         var kaynakMuhasebeKodu = kaynakHesap.VarsayilanMuhasebeKodu ?? GetDefaultMuhasebeKodu(kaynakHesap.HesapTipi);
         var hedefMuhasebeKodu = hedefHesap.VarsayilanMuhasebeKodu ?? GetDefaultMuhasebeKodu(hedefHesap.HesapTipi);
@@ -1484,8 +1519,8 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
         fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
 
         return fis;
     }
@@ -1501,6 +1536,7 @@ public class MuhasebeService : IMuhasebeService
         BankaHesap hesap,
         bool tahsilatMi)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var hesapMuhasebeKodu = hesap.VarsayilanMuhasebeKodu ?? GetDefaultMuhasebeKodu(hesap.HesapTipi);
         var kasaBankaHesap = await GetHesapByKodAsync(hesapMuhasebeKodu);
 
@@ -1509,7 +1545,7 @@ public class MuhasebeService : IMuhasebeService
 
         // Cari hesap kodunu belirle (Müşteri: 120, Tedarikçi: 320)
         var cariUstKod = tahsilatMi ? "120" : "320";
-        var cariHesap = await GetOrCreateCariHesapAsync(cariUstKod, cari.Id);
+        var cariHesap = await GetOrCreateCariHesapAsync(context, cariUstKod, cari.Id);
 
         var fisNo = await GenerateNextFisNoAsync(tahsilatMi ? FisTipi.Tahsilat : FisTipi.Tediye);
 
@@ -1573,8 +1609,8 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
         fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
 
         return fis;
     }
@@ -1584,15 +1620,16 @@ public class MuhasebeService : IMuhasebeService
     /// </summary>
     public async Task IptalFisiOlusturAsync(Guid mahsupGrupId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // İlişkili muhasebe fişini bul
-        var mevcutFisler = await _context.MuhasebeFisleri
+        var mevcutFisler = await context.MuhasebeFisleri
             .Include(f => f.Kalemler)
                 .ThenInclude(k => k.Hesap)
             .Where(f => f.KaynakTip == "HesapTransfer" || f.KaynakTip == "CariMahsup")
             .ToListAsync();
 
         // MahsupGrupId ile eşleşen hareketlerin KaynakId'lerini bul
-        var iliskiliHareketler = await _context.BankaKasaHareketleri
+        var iliskiliHareketler = await context.BankaKasaHareketleri
             .Where(h => h.MahsupGrupId == mahsupGrupId)
             .Select(h => h.Id)
             .ToListAsync();
@@ -1644,10 +1681,10 @@ public class MuhasebeService : IMuhasebeService
             tersFis.ToplamBorc = tersFis.Kalemler.Sum(k => k.Borc);
             tersFis.ToplamAlacak = tersFis.Kalemler.Sum(k => k.Alacak);
 
-            _context.MuhasebeFisleri.Add(tersFis);
+            context.MuhasebeFisleri.Add(tersFis);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     /// <summary>
@@ -1672,15 +1709,16 @@ public class MuhasebeService : IMuhasebeService
     /// </summary>
     public async Task<NakitAkisRapor> GetNakitAkisRaporuAsync(int yil, int? ay = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var rapor = new NakitAkisRapor { Yil = yil, Ay = ay };
 
         // Kasa ve Banka hesapları
-        var kasaHesaplar = await _context.MuhasebeHesaplari
+        var kasaHesaplar = await context.MuhasebeHesaplari
             .Where(h => h.HesapKodu.StartsWith("100"))
             .Select(h => h.Id)
             .ToListAsync();
 
-        var bankaHesaplar = await _context.MuhasebeHesaplari
+        var bankaHesaplar = await context.MuhasebeHesaplari
             .Where(h => h.HesapKodu.StartsWith("102"))
             .Select(h => h.Id)
             .ToListAsync();
@@ -1692,7 +1730,7 @@ public class MuhasebeService : IMuhasebeService
             ? new DateTime(yil, ay.Value, 1, 0, 0, 0, DateTimeKind.Utc)
             : new DateTime(yil, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        var oncekiKalemler = await _context.MuhasebeFisKalemleri
+        var oncekiKalemler = await context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Where(k => nakitHesaplar.Contains(k.HesapId) && 
                        k.Fis.FisTarihi < donemBasiTarih &&
@@ -1706,7 +1744,7 @@ public class MuhasebeService : IMuhasebeService
             ? donemBasiTarih.AddMonths(1).AddTicks(-1)
             : new DateTime(yil, 12, 31, 23, 59, 59, DateTimeKind.Utc);
 
-        var donemKalemler = await _context.MuhasebeFisKalemleri
+        var donemKalemler = await context.MuhasebeFisKalemleri
             .Include(k => k.Fis)
             .Include(k => k.Hesap)
             .Where(k => nakitHesaplar.Contains(k.HesapId) && 
@@ -1786,6 +1824,7 @@ public class MuhasebeService : IMuhasebeService
         /// </summary>
         public async Task<byte[]> ExportYevmiyeToExcelAsync(DateTime baslangic, DateTime bitis)
         {
+        await using var context = await _contextFactory.CreateDbContextAsync();
             var rapor = await GetYevmiyeRaporuAsync(baslangic, bitis);
 
             using var workbook = new ClosedXML.Excel.XLWorkbook();
@@ -1862,6 +1901,7 @@ public class MuhasebeService : IMuhasebeService
         /// </summary>
         public async Task<byte[]> GetYevmiyeYazdirDataAsync(DateTime baslangic, DateTime bitis)
         {
+        await using var context = await _contextFactory.CreateDbContextAsync();
             var rapor = await GetYevmiyeRaporuAsync(baslangic, bitis);
             var json = System.Text.Json.JsonSerializer.Serialize(rapor);
             return System.Text.Encoding.UTF8.GetBytes(json);
@@ -1877,6 +1917,7 @@ public class MuhasebeService : IMuhasebeService
         /// </summary>
         public async Task<byte[]> ExportZirveFormatAsync(DateTime baslangic, DateTime bitis)
         {
+        await using var context = await _contextFactory.CreateDbContextAsync();
             var rapor = await GetYevmiyeRaporuAsync(baslangic, bitis);
 
             using var workbook = new ClosedXML.Excel.XLWorkbook();
@@ -2008,10 +2049,11 @@ public class MuhasebeService : IMuhasebeService
         /// </summary>
         public async Task<byte[]> ExportMuhasebeKontrolListesiAsync(DateTime baslangic, DateTime bitis)
         {
+        await using var context = await _contextFactory.CreateDbContextAsync();
             var baslangicUtc = DateTime.SpecifyKind(baslangic.Date, DateTimeKind.Utc);
             var bitisUtc = DateTime.SpecifyKind(bitis.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
 
-            var fisler = await _context.MuhasebeFisleri
+            var fisler = await context.MuhasebeFisleri
                 .Include(f => f.Kalemler)
                     .ThenInclude(k => k.Hesap)
                 .Where(f => f.FisTarihi >= baslangicUtc && f.FisTarihi <= bitisUtc)
@@ -2132,11 +2174,12 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MuhasbelestirmeDurum> GetMuhasbelestirmeDurumuAsync()
     {
-        var faturalar = await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var faturalar = await context.Faturalar
             .Where(f => !f.IsDeleted)
             .ToListAsync();
 
-        var masraflar = await _context.AracMasraflari
+        var masraflar = await context.AracMasraflari
             .Where(m => !m.IsDeleted)
             .ToListAsync();
 
@@ -2159,7 +2202,8 @@ public class MuhasebeService : IMuhasebeService
     public async Task<List<MuhasebeFaturaOzet>> GetMuhasbelestirilmemisFaturalarAsync(
         DateTime? baslangic = null, DateTime? bitis = null, FaturaYonu? faturaYonu = null)
     {
-        var query = _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Faturalar
             .Include(f => f.Cari)
             .Where(f => !f.IsDeleted && !f.MuhasebeFisiOlusturuldu)
             .AsQueryable();
@@ -2193,7 +2237,8 @@ public class MuhasebeService : IMuhasebeService
     public async Task<List<MuhasebeMasrafOzet>> GetMuhasbelestirilmemisMasraflarAsync(
         DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.AracMasraflari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.AracMasraflari
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Cari)
@@ -2226,13 +2271,14 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MuhasbelestirmeSonuc> TopluFaturaMuhasbelestirAsync(List<int> faturaIdleri)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new MuhasbelestirmeSonuc();
 
         foreach (var faturaId in faturaIdleri)
         {
             try
             {
-                var fatura = await _context.Faturalar
+                var fatura = await context.Faturalar
                     .Include(f => f.Cari)
                     .Include(f => f.FaturaKalemleri)
                     .FirstOrDefaultAsync(f => f.Id == faturaId && !f.IsDeleted);
@@ -2266,13 +2312,14 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MuhasbelestirmeSonuc> TopluMasrafMuhasbelestirAsync(List<int> masrafIdleri)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new MuhasbelestirmeSonuc();
 
         foreach (var masrafId in masrafIdleri)
         {
             try
             {
-                var masraf = await _context.AracMasraflari
+                var masraf = await context.AracMasraflari
                     .Include(m => m.Arac)
                     .Include(m => m.MasrafKalemi)
                     .Include(m => m.Sofor)
@@ -2293,7 +2340,7 @@ public class MuhasebeService : IMuhasebeService
                 }
 
                 // Masraf muhasebe fişi oluştur
-                var fis = await CreateMasrafMuhasebeFisiAsync(masraf);
+                var fis = await CreateMasrafMuhasebeFisiAsync(context, masraf);
                 sonuc.BasariliSayisi++;
                 sonuc.OlusturulanFisIdleri.Add(fis.Id);
             }
@@ -2307,9 +2354,9 @@ public class MuhasebeService : IMuhasebeService
         return sonuc;
     }
 
-    private async Task<MuhasebeFis> CreateMasrafMuhasebeFisiAsync(AracMasraf masraf)
+    private async Task<MuhasebeFis> CreateMasrafMuhasebeFisiAsync(ApplicationDbContext context, AracMasraf masraf)
     {
-        var ayar = await _context.MuhasebeAyarlari.FirstOrDefaultAsync();
+        var ayar = await context.MuhasebeAyarlari.FirstOrDefaultAsync();
 
         // Masraf kategorisine göre gider hesabı
         var giderHesapKodu = masraf.MasrafKalemi?.Kategori switch
@@ -2331,7 +2378,7 @@ public class MuhasebeService : IMuhasebeService
 
         if (masraf.CariId.HasValue)
         {
-            karsiHesap = await GetOrCreateCariHesapAsync("320", masraf.CariId.Value);
+            karsiHesap = await GetOrCreateCariHesapAsync(context, "320", masraf.CariId.Value);
             karsiAciklama = $"Cari: {masraf.Cari?.Unvan}";
         }
         else if (masraf.SoforId.HasValue)
@@ -2389,22 +2436,23 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
         fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
 
         // Masrafa fiş ID kaydet
         masraf.MuhasebeFisId = fis.Id;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         return fis;
     }
 
     public async Task<MuhasbelestirmeKontrol> KontrolYapAsync(List<int>? faturaIdleri = null, List<int>? masrafIdleri = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kontrol = new MuhasbelestirmeKontrol();
 
         // Hesap planı kontrol
-        var hesapSayisi = await _context.MuhasebeHesaplari.CountAsync();
+        var hesapSayisi = await context.MuhasebeHesaplari.CountAsync();
         if (hesapSayisi == 0)
         {
             kontrol.HazirMi = false;
@@ -2417,7 +2465,7 @@ public class MuhasebeService : IMuhasebeService
         }
 
         // Muhasebe ayarları kontrol
-        var ayar = await _context.MuhasebeAyarlari.FirstOrDefaultAsync();
+        var ayar = await context.MuhasebeAyarlari.FirstOrDefaultAsync();
         if (ayar == null)
         {
             kontrol.Maddeler.Add(new KontrolMaddesi
@@ -2443,7 +2491,7 @@ public class MuhasebeService : IMuhasebeService
         // Fatura kontrolleri
         if (faturaIdleri?.Count > 0)
         {
-            var faturalar = await _context.Faturalar
+            var faturalar = await context.Faturalar
                 .Include(f => f.Cari)
                 .Where(f => faturaIdleri.Contains(f.Id) && !f.IsDeleted)
                 .ToListAsync();
@@ -2518,7 +2566,7 @@ public class MuhasebeService : IMuhasebeService
         // Masraf kontrolleri
         if (masrafIdleri?.Count > 0)
         {
-            var masraflar = await _context.AracMasraflari
+            var masraflar = await context.AracMasraflari
                 .Include(m => m.MasrafKalemi)
                 .Include(m => m.Arac)
                 .Where(m => masrafIdleri.Contains(m.Id) && !m.IsDeleted)
@@ -2578,12 +2626,13 @@ public class MuhasebeService : IMuhasebeService
     public async Task<List<MuhasbelestirilmisKayit>> GetMuhasbelestirilmisKayitlarAsync(
         DateTime? baslangic = null, DateTime? bitis = null, string? kaynakTip = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var kayitlar = new List<MuhasbelestirilmisKayit>();
 
         // Muhasebeleştirilmiş faturalar
         if (kaynakTip == null || kaynakTip == "Fatura")
         {
-            var faturaQuery = _context.Faturalar
+            var faturaQuery = context.Faturalar
                 .Include(f => f.Cari)
                 .Where(f => !f.IsDeleted && f.MuhasebeFisiOlusturuldu && f.MuhasebeFisId != null)
                 .AsQueryable();
@@ -2598,7 +2647,7 @@ public class MuhasebeService : IMuhasebeService
             foreach (var f in faturalar)
             {
                 var fis = f.MuhasebeFisId.HasValue
-                    ? await _context.MuhasebeFisleri.AsNoTracking().FirstOrDefaultAsync(fi => fi.Id == f.MuhasebeFisId.Value)
+                    ? await context.MuhasebeFisleri.AsNoTracking().FirstOrDefaultAsync(fi => fi.Id == f.MuhasebeFisId.Value)
                     : null;
 
                 kayitlar.Add(new MuhasbelestirilmisKayit
@@ -2620,7 +2669,7 @@ public class MuhasebeService : IMuhasebeService
         // Muhasebeleştirilmiş masraflar
         if (kaynakTip == null || kaynakTip == "Masraf")
         {
-            var masrafQuery = _context.AracMasraflari
+            var masrafQuery = context.AracMasraflari
                 .Include(m => m.Arac)
                 .Include(m => m.MasrafKalemi)
                 .Include(m => m.Cari)
@@ -2637,7 +2686,7 @@ public class MuhasebeService : IMuhasebeService
             foreach (var m in masraflar)
             {
                 var fis = m.MuhasebeFisId.HasValue
-                    ? await _context.MuhasebeFisleri.AsNoTracking().FirstOrDefaultAsync(fi => fi.Id == m.MuhasebeFisId.Value)
+                    ? await context.MuhasebeFisleri.AsNoTracking().FirstOrDefaultAsync(fi => fi.Id == m.MuhasebeFisId.Value)
                     : null;
 
                 kayitlar.Add(new MuhasbelestirilmisKayit
@@ -2661,13 +2710,14 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<MuhasbelestirmeSonuc> TopluGeriAlAsync(List<int> fisIdleri)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new MuhasbelestirmeSonuc();
 
         foreach (var fisId in fisIdleri)
         {
             try
             {
-                var fis = await _context.MuhasebeFisleri
+                var fis = await context.MuhasebeFisleri
                     .Include(f => f.Kalemler)
                     .FirstOrDefaultAsync(f => f.Id == fisId);
 
@@ -2679,7 +2729,7 @@ public class MuhasebeService : IMuhasebeService
                 }
 
                 // İlişkili faturayı bul ve geri al
-                var fatura = await _context.Faturalar
+                var fatura = await context.Faturalar
                     .FirstOrDefaultAsync(f => f.MuhasebeFisId == fisId && !f.IsDeleted);
                 if (fatura != null)
                 {
@@ -2688,7 +2738,7 @@ public class MuhasebeService : IMuhasebeService
                 }
 
                 // İlişkili masrafı bul ve geri al
-                var masraf = await _context.AracMasraflari
+                var masraf = await context.AracMasraflari
                     .FirstOrDefaultAsync(m => m.MuhasebeFisId == fisId && !m.IsDeleted);
                 if (masraf != null)
                 {
@@ -2696,10 +2746,10 @@ public class MuhasebeService : IMuhasebeService
                 }
 
                 // Fişi sil
-                _context.MuhasebeFisKalemleri.RemoveRange(fis.Kalemler);
-                _context.MuhasebeFisleri.Remove(fis);
+                context.MuhasebeFisKalemleri.RemoveRange(fis.Kalemler);
+                context.MuhasebeFisleri.Remove(fis);
 
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
                 sonuc.BasariliSayisi++;
             }
             catch (Exception ex)
@@ -2714,12 +2764,13 @@ public class MuhasebeService : IMuhasebeService
 
     public async Task<byte[]> ExportMuhasbelestirmeKontrolExcelAsync(List<int>? faturaIdleri = null, List<int>? masrafIdleri = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new XLWorkbook();
 
         // Fatura sayfası
         if (faturaIdleri?.Count > 0)
         {
-            var faturalar = await _context.Faturalar
+            var faturalar = await context.Faturalar
                 .Include(f => f.Cari)
                 .Where(f => faturaIdleri.Contains(f.Id) && !f.IsDeleted)
                 .OrderBy(f => f.FaturaTarihi)
@@ -2763,7 +2814,7 @@ public class MuhasebeService : IMuhasebeService
         // Masraf sayfası
         if (masrafIdleri?.Count > 0)
         {
-            var masraflar = await _context.AracMasraflari
+            var masraflar = await context.AracMasraflari
                 .Include(m => m.Arac)
                 .Include(m => m.MasrafKalemi)
                 .Include(m => m.Cari)

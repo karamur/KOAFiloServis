@@ -6,16 +6,17 @@ namespace KOAFiloServis.Web.Services;
 
 public class MasrafKalemiService : IMasrafKalemiService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public MasrafKalemiService(ApplicationDbContext context)
+    public MasrafKalemiService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<List<MasrafKalemi>> GetAllAsync()
     {
-        return await _context.MasrafKalemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MasrafKalemleri
             .AsNoTracking()
             .OrderBy(m => m.Kategori)
             .ThenBy(m => m.MasrafAdi)
@@ -24,7 +25,8 @@ public class MasrafKalemiService : IMasrafKalemiService
 
     public async Task<List<MasrafKalemi>> GetActiveAsync()
     {
-        return await _context.MasrafKalemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MasrafKalemleri
             .AsNoTracking()
             .Where(m => m.Aktif)
             .OrderBy(m => m.Kategori)
@@ -34,7 +36,8 @@ public class MasrafKalemiService : IMasrafKalemiService
 
     public async Task<List<MasrafKalemi>> GetByKategoriAsync(MasrafKategori kategori)
     {
-        return await _context.MasrafKalemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MasrafKalemleri
             .AsNoTracking()
             .Where(m => m.Kategori == kategori && m.Aktif)
             .OrderBy(m => m.MasrafAdi)
@@ -43,21 +46,24 @@ public class MasrafKalemiService : IMasrafKalemiService
 
     public async Task<MasrafKalemi?> GetByIdAsync(int id)
     {
-        return await _context.MasrafKalemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MasrafKalemleri
             .AsNoTracking()
             .FirstOrDefaultAsync(m => m.Id == id);
     }
 
     public async Task<MasrafKalemi> CreateAsync(MasrafKalemi masrafKalemi)
     {
-        _context.MasrafKalemleri.Add(masrafKalemi);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.MasrafKalemleri.Add(masrafKalemi);
+        await context.SaveChangesAsync();
         return masrafKalemi;
     }
 
     public async Task<MasrafKalemi> UpdateAsync(MasrafKalemi masrafKalemi)
     {
-        var existing = await _context.MasrafKalemleri.FindAsync(masrafKalemi.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.MasrafKalemleri.FindAsync(masrafKalemi.Id);
         if (existing == null)
             throw new InvalidOperationException($"Masraf kalemi bulunamadı. Id: {masrafKalemi.Id}");
 
@@ -69,24 +75,26 @@ public class MasrafKalemiService : IMasrafKalemiService
         existing.IsDeleted = masrafKalemi.IsDeleted;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteAsync(int id)
     {
-        var masrafKalemi = await _context.MasrafKalemleri.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var masrafKalemi = await context.MasrafKalemleri.FindAsync(id);
         if (masrafKalemi != null)
         {
             masrafKalemi.IsDeleted = true;
             masrafKalemi.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<string> GenerateNextKodAsync()
     {
-        var last = await _context.MasrafKalemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var last = await context.MasrafKalemleri
             .IgnoreQueryFilters()
             .OrderByDescending(m => m.Id)
             .FirstOrDefaultAsync();

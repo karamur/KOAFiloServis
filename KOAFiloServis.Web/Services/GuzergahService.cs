@@ -6,16 +6,17 @@ namespace KOAFiloServis.Web.Services;
 
 public class GuzergahService : IGuzergahService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public GuzergahService(ApplicationDbContext context)
+    public GuzergahService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<List<Guzergah>> GetAllAsync()
     {
-        return await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Guzergahlar
             .AsNoTracking()
             .Include(g => g.Cari)
             .Include(g => g.Firma)
@@ -26,7 +27,8 @@ public class GuzergahService : IGuzergahService
 
     public async Task<List<Guzergah>> GetActiveAsync()
     {
-        return await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Guzergahlar
             .AsNoTracking()
             .Include(g => g.Cari)
             .Include(g => g.Firma)
@@ -38,7 +40,8 @@ public class GuzergahService : IGuzergahService
 
     public async Task<List<Guzergah>> GetByCariIdAsync(int cariId)
     {
-        return await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Guzergahlar
             .AsNoTracking()
             .Where(g => g.CariId == cariId)
             .OrderBy(g => g.GuzergahAdi)
@@ -47,7 +50,8 @@ public class GuzergahService : IGuzergahService
 
     public async Task<List<Guzergah>> GetByFirmaIdAsync(int firmaId)
     {
-        return await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Guzergahlar
             .AsNoTracking()
             .Include(g => g.VarsayilanArac)
             .Include(g => g.VarsayilanSofor)
@@ -58,7 +62,8 @@ public class GuzergahService : IGuzergahService
 
     public async Task<Guzergah?> GetByIdAsync(int id)
     {
-        return await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Guzergahlar
             .AsNoTracking()
             .Include(g => g.Cari)
             .Include(g => g.Firma)
@@ -69,19 +74,22 @@ public class GuzergahService : IGuzergahService
 
     public async Task<Guzergah> CreateAsync(Guzergah guzergah)
     {
-        _context.Guzergahlar.Add(guzergah);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        context.Guzergahlar.Add(guzergah);
+        await context.SaveChangesAsync();
         return guzergah;
     }
 
     public async Task<Guzergah> AddAsync(Guzergah guzergah)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await CreateAsync(guzergah);
     }
 
     public async Task<Guzergah> UpdateAsync(Guzergah guzergah)
     {
-        var existing = await _context.Guzergahlar.FindAsync(guzergah.Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.Guzergahlar.FindAsync(guzergah.Id);
         if (existing == null)
             throw new InvalidOperationException($"Güzergah bulunamadı. Id: {guzergah.Id}");
 
@@ -100,24 +108,26 @@ public class GuzergahService : IGuzergahService
         existing.IsDeleted = guzergah.IsDeleted;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteAsync(int id)
     {
-        var guzergah = await _context.Guzergahlar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var guzergah = await context.Guzergahlar.FindAsync(id);
         if (guzergah != null)
         {
             guzergah.IsDeleted = true;
             guzergah.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<string> GenerateNextKodAsync()
     {
-        var lastGuzergah = await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var lastGuzergah = await context.Guzergahlar
             .IgnoreQueryFilters()
             .OrderByDescending(g => g.Id)
             .FirstOrDefaultAsync();
@@ -128,14 +138,15 @@ public class GuzergahService : IGuzergahService
 
     public async Task<string> GenerateGuzergahKoduAsync(int firmaId)
     {
-        var firma = await _context.Firmalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var firma = await context.Firmalar
             .AsNoTracking()
             .FirstOrDefaultAsync(f => f.Id == firmaId);
         var firmaKisaltma = firma?.FirmaAdi?.Length >= 3 
             ? firma.FirmaAdi.Substring(0, 3).ToUpperInvariant() 
             : "GZR";
 
-        var sonGuzergah = await _context.Guzergahlar
+        var sonGuzergah = await context.Guzergahlar
             .IgnoreQueryFilters()
             .Where(g => g.FirmaId == firmaId)
             .OrderByDescending(g => g.Id)
@@ -152,7 +163,7 @@ public class GuzergahService : IGuzergahService
             }
             else
             {
-                sayi = await _context.Guzergahlar
+                sayi = await context.Guzergahlar
                     .AsNoTracking()
                     .CountAsync(g => g.FirmaId == firmaId) + 1;
             }
@@ -165,14 +176,16 @@ public class GuzergahService : IGuzergahService
 
     public async Task<bool> FaturaKalemdenGuzergahVarMiAsync(int faturaKalemId)
     {
-        return await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Guzergahlar
             .AsNoTracking()
             .AnyAsync(g => g.FaturaKalemId == faturaKalemId && !g.IsDeleted);
     }
 
     public async Task<Guzergah?> GetByFaturaKalemIdAsync(int faturaKalemId)
     {
-        return await _context.Guzergahlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Guzergahlar
             .AsNoTracking()
             .Include(g => g.Firma)
             .FirstOrDefaultAsync(g => g.FaturaKalemId == faturaKalemId && !g.IsDeleted);
@@ -180,9 +193,10 @@ public class GuzergahService : IGuzergahService
 
     public async Task<bool> BenzersizGuzergahMiAsync(int firmaId, string guzergahAdi, int? haricId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var normalizedAdi = guzergahAdi.Trim().ToLowerInvariant();
 
-        var query = _context.Guzergahlar
+        var query = context.Guzergahlar
             .AsNoTracking()
             .Where(g => g.FirmaId == firmaId && !g.IsDeleted);
 

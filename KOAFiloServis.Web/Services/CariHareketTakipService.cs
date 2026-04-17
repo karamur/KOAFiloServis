@@ -11,11 +11,11 @@ namespace KOAFiloServis.Web.Services;
 /// </summary>
 public class CariHareketTakipService : ICariHareketTakipService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public CariHareketTakipService(ApplicationDbContext context)
+    public CariHareketTakipService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     #region Özet Raporlar
@@ -27,12 +27,13 @@ public class CariHareketTakipService : ICariHareketTakipService
         bool sadeceBorclu = false,
         bool sadeceRiskli = false)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
         var baslangic = baslangicTarihi ?? DateTime.MinValue;
         var bitis = bitisTarihi ?? DateTime.MaxValue;
 
         // Carileri getir
-        var cariler = await _context.Cariler
+        var cariler = await context.Cariler
             .AsNoTracking()
             .Where(c => !c.IsDeleted && c.Aktif)
             .Where(c => cariTipi == null || c.CariTipi == cariTipi)
@@ -44,20 +45,20 @@ public class CariHareketTakipService : ICariHareketTakipService
         foreach (var cari in cariler)
         {
             // Faturaları getir
-            var faturalar = await _context.Faturalar
+            var faturalar = await context.Faturalar
                 .AsNoTracking()
                 .Where(f => !f.IsDeleted && f.CariId == cari.Id)
                 .Where(f => f.FaturaTarihi >= baslangic && f.FaturaTarihi <= bitis)
                 .ToListAsync();
 
             // Ödemeleri getir
-            var odemeler = await _context.BankaKasaHareketleri
+            var odemeler = await context.BankaKasaHareketleri
                 .AsNoTracking()
                 .Where(h => !h.IsDeleted && h.CariId == cari.Id)
                 .Where(h => h.IslemTarihi >= baslangic && h.IslemTarihi <= bitis)
                 .ToListAsync();
 
-            var aracMasraflari = await _context.AracMasraflari
+            var aracMasraflari = await context.AracMasraflari
                 .AsNoTracking()
                 .Where(m => !m.IsDeleted && m.CariId == cari.Id)
                 .Where(m => m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis)
@@ -133,7 +134,7 @@ public class CariHareketTakipService : ICariHareketTakipService
         result.RiskliCariSayisi = ozecListesi.Count(c => c.RiskSkoru >= 60);
 
         // Vade analizi
-        await HesaplaVadeAnaliziAsync(result, bugun);
+        await HesaplaVadeAnaliziAsync(context, result, bugun);
 
         // Cari tipi dağılımı
         result.TipiDagilimi = ozecListesi
@@ -150,7 +151,7 @@ public class CariHareketTakipService : ICariHareketTakipService
             .ToList();
 
         // Aylık trend
-        result.AylikTrendler = await GetGenelAylikTrendAsync(baslangic, bitis);
+        result.AylikTrendler = await GetGenelAylikTrendAsync(context, baslangic, bitis);
 
         return result;
     }
@@ -160,11 +161,12 @@ public class CariHareketTakipService : ICariHareketTakipService
         DateTime? baslangicTarihi = null,
         DateTime? bitisTarihi = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
         var baslangic = baslangicTarihi ?? DateTime.MinValue;
         var bitis = bitisTarihi ?? DateTime.MaxValue;
 
-        var cari = await _context.Cariler
+        var cari = await context.Cariler
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == cariId && !c.IsDeleted);
 
@@ -183,7 +185,7 @@ public class CariHareketTakipService : ICariHareketTakipService
         };
 
         // Faturaları getir
-        var faturalar = await _context.Faturalar
+        var faturalar = await context.Faturalar
             .AsNoTracking()
             .Where(f => !f.IsDeleted && f.CariId == cariId)
             .Where(f => f.FaturaTarihi >= baslangic && f.FaturaTarihi <= bitis)
@@ -191,7 +193,7 @@ public class CariHareketTakipService : ICariHareketTakipService
             .ToListAsync();
 
         // Ödemeleri getir
-        var odemeler = await _context.BankaKasaHareketleri
+        var odemeler = await context.BankaKasaHareketleri
             .AsNoTracking()
             .Include(h => h.BankaHesap)
             .Where(h => !h.IsDeleted && h.CariId == cariId)
@@ -199,7 +201,7 @@ public class CariHareketTakipService : ICariHareketTakipService
             .OrderBy(h => h.IslemTarihi)
             .ToListAsync();
 
-        var aracMasraflari = await _context.AracMasraflari
+        var aracMasraflari = await context.AracMasraflari
             .AsNoTracking()
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
@@ -274,13 +276,14 @@ public class CariHareketTakipService : ICariHareketTakipService
         DateTime? baslangicTarihi = null,
         DateTime? bitisTarihi = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var baslangic = baslangicTarihi ?? DateTime.MinValue;
         var bitis = bitisTarihi ?? DateTime.MaxValue;
 
         var hareketler = new List<CariHareketDetay>();
 
         // Faturaları ekle
-        var faturalar = await _context.Faturalar
+        var faturalar = await context.Faturalar
             .AsNoTracking()
             .Where(f => !f.IsDeleted && f.CariId == cariId)
             .Where(f => f.FaturaTarihi >= baslangic && f.FaturaTarihi <= bitis)
@@ -303,7 +306,7 @@ public class CariHareketTakipService : ICariHareketTakipService
         }
 
         // Ödemeleri ekle
-        var odemeler = await _context.BankaKasaHareketleri
+        var odemeler = await context.BankaKasaHareketleri
             .AsNoTracking()
             .Include(h => h.BankaHesap)
             .Where(h => !h.IsDeleted && h.CariId == cariId)
@@ -325,7 +328,7 @@ public class CariHareketTakipService : ICariHareketTakipService
             });
         }
 
-        var aracMasraflari = await _context.AracMasraflari
+        var aracMasraflari = await context.AracMasraflari
             .AsNoTracking()
             .Include(m => m.Arac)
             .Include(m => m.MasrafKalemi)
@@ -363,9 +366,10 @@ public class CariHareketTakipService : ICariHareketTakipService
 
     public async Task<List<CariAcikFatura>> GetAcikFaturalarAsync(int cariId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
 
-        var faturalar = await _context.Faturalar
+        var faturalar = await context.Faturalar
             .AsNoTracking()
             .Where(f => !f.IsDeleted && f.CariId == cariId && f.KalanTutar > 0)
             .OrderBy(f => f.VadeTarihi)
@@ -387,9 +391,10 @@ public class CariHareketTakipService : ICariHareketTakipService
         CariTipi? cariTipi = null,
         bool sadeceVadesiGecmis = false)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
 
-        var sorgu = _context.Faturalar
+        var sorgu = context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
             .Where(f => !f.IsDeleted && f.KalanTutar > 0);
@@ -420,15 +425,16 @@ public class CariHareketTakipService : ICariHareketTakipService
 
     public async Task<List<CariAylikTrend>> GetAylikTrendAsync(int cariId, int aySayisi = 12)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
         var baslangic = new DateTime(bugun.Year, bugun.Month, 1).AddMonths(-aySayisi + 1);
 
-        var faturalar = await _context.Faturalar
+        var faturalar = await context.Faturalar
             .AsNoTracking()
             .Where(f => !f.IsDeleted && f.CariId == cariId && f.FaturaTarihi >= baslangic)
             .ToListAsync();
 
-        var odemeler = await _context.BankaKasaHareketleri
+        var odemeler = await context.BankaKasaHareketleri
             .AsNoTracking()
             .Where(h => !h.IsDeleted && h.CariId == cariId && h.IslemTarihi >= baslangic)
             .ToListAsync();
@@ -468,19 +474,19 @@ public class CariHareketTakipService : ICariHareketTakipService
         return trendler;
     }
 
-    private async Task<List<GenelAylikTrend>> GetGenelAylikTrendAsync(DateTime baslangic, DateTime bitis)
+    private async Task<List<GenelAylikTrend>> GetGenelAylikTrendAsync(ApplicationDbContext context, DateTime baslangic, DateTime bitis)
     {
         var bugun = DateTime.Today;
         var trendBaslangic = baslangic == DateTime.MinValue 
             ? new DateTime(bugun.Year, bugun.Month, 1).AddMonths(-11)
             : new DateTime(baslangic.Year, baslangic.Month, 1);
 
-        var faturalar = await _context.Faturalar
+        var faturalar = await context.Faturalar
             .AsNoTracking()
             .Where(f => !f.IsDeleted && f.FaturaTarihi >= trendBaslangic)
             .ToListAsync();
 
-        var odemeler = await _context.BankaKasaHareketleri
+        var odemeler = await context.BankaKasaHareketleri
             .AsNoTracking()
             .Where(h => !h.IsDeleted && h.CariId != null && h.IslemTarihi >= trendBaslangic)
             .ToListAsync();
@@ -527,6 +533,7 @@ public class CariHareketTakipService : ICariHareketTakipService
 
     public async Task<int> HesaplaRiskSkoruAsync(int cariId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cari = await GetCariDetayAsync(cariId);
         return cari.RiskSkoru;
     }
@@ -585,6 +592,7 @@ public class CariHareketTakipService : ICariHareketTakipService
 
     public async Task<List<TahsilatPlanItem>> OlusturTahsilatPlaniAsync(int cariId)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var acikFaturalar = await GetAcikFaturalarAsync(cariId);
         var plan = new List<TahsilatPlanItem>();
         var sira = 1;
@@ -623,10 +631,10 @@ public class CariHareketTakipService : ICariHareketTakipService
         return plan.OrderBy(p => p.OncelikSirasi).ThenBy(p => p.PlanTarihi).ToList();
     }
 
-    private async Task HesaplaVadeAnaliziAsync(CariBorcAlacakOzet result, DateTime bugun)
+    private async Task HesaplaVadeAnaliziAsync(ApplicationDbContext context, CariBorcAlacakOzet result, DateTime bugun)
     {
         // NOT: KalanTutar hesaplanmış property, LINQ'da (GenelToplam - OdenenTutar) kullanılmalı
-        var acikFaturalar = await _context.Faturalar
+        var acikFaturalar = await context.Faturalar
             .AsNoTracking()
             .Where(f => !f.IsDeleted && (f.GenelToplam - f.OdenenTutar) > 0 && f.FaturaYonu == FaturaYonu.Giden)
             .ToListAsync();
@@ -656,6 +664,7 @@ public class CariHareketTakipService : ICariHareketTakipService
 
     public async Task<byte[]> ExportToExcelAsync(CariBorcAlacakOzet rapor)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Cari Borç Alacak");
 
@@ -723,6 +732,7 @@ public class CariHareketTakipService : ICariHareketTakipService
 
     public async Task<byte[]> ExportCariDetayToExcelAsync(CariHareketTakipRapor rapor)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var workbook = new XLWorkbook();
         
         // Özet sayfası

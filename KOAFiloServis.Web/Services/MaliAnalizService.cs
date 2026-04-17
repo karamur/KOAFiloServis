@@ -7,15 +7,16 @@ namespace KOAFiloServis.Web.Services;
 
 public class MaliAnalizService : IMaliAnalizService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public MaliAnalizService(ApplicationDbContext context)
+    public MaliAnalizService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<MaliAnalizDashboard> GetDashboardAsync(int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var dashboard = new MaliAnalizDashboard { Yil = yil, Ay = ay };
 
         var ayBaslangic = new DateTime(yil, ay, 1);
@@ -24,13 +25,13 @@ public class MaliAnalizService : IMaliAnalizService
         var oncekiAyBitis = ayBaslangic.AddDays(-1);
 
         // Özmal Araç Analizi
-        dashboard.OzmalAracAnaliz = await GetOzmalSegmentAnalizAsync(ayBaslangic, ayBitis);
+        dashboard.OzmalAracAnaliz = await GetOzmalSegmentAnalizAsync(context, ayBaslangic, ayBitis);
 
         // Kiralık Araç Analizi
-        dashboard.KiralikAracAnaliz = await GetKiralikSegmentAnalizAsync(ayBaslangic, ayBitis);
+        dashboard.KiralikAracAnaliz = await GetKiralikSegmentAnalizAsync(context, ayBaslangic, ayBitis);
 
         // Komisyon Analizi
-        dashboard.KomisyonAnaliz = await GetKomisyonSegmentAnalizAsync(ayBaslangic, ayBitis);
+        dashboard.KomisyonAnaliz = await GetKomisyonSegmentAnalizAsync(context, ayBaslangic, ayBitis);
 
         // Toplam hesaplamalar
         dashboard.ToplamGelir = dashboard.OzmalAracAnaliz.Gelir + 
@@ -42,9 +43,9 @@ public class MaliAnalizService : IMaliAnalizService
                                 dashboard.KomisyonAnaliz.Gider;
 
         // Önceki ay karşılaştırma
-        var oncekiOzmal = await GetOzmalSegmentAnalizAsync(oncekiAyBaslangic, oncekiAyBitis);
-        var oncekiKiralik = await GetKiralikSegmentAnalizAsync(oncekiAyBaslangic, oncekiAyBitis);
-        var oncekiKomisyon = await GetKomisyonSegmentAnalizAsync(oncekiAyBaslangic, oncekiAyBitis);
+        var oncekiOzmal = await GetOzmalSegmentAnalizAsync(context, oncekiAyBaslangic, oncekiAyBitis);
+        var oncekiKiralik = await GetKiralikSegmentAnalizAsync(context, oncekiAyBaslangic, oncekiAyBitis);
+        var oncekiKomisyon = await GetKomisyonSegmentAnalizAsync(context, oncekiAyBaslangic, oncekiAyBitis);
 
         dashboard.OncekiAyGelir = oncekiOzmal.Gelir + oncekiKiralik.Gelir + oncekiKomisyon.Gelir;
         dashboard.OncekiAyGider = oncekiOzmal.Gider + oncekiKiralik.Gider + oncekiKomisyon.Gider;
@@ -57,9 +58,9 @@ public class MaliAnalizService : IMaliAnalizService
             new() { Etiket = "Komisyon İşleri", Deger = dashboard.KomisyonAnaliz.Gelir, Renk = "#17a2b8" }
         };
 
-        dashboard.GiderDagilimi = await GetGiderDagilimiAsync(ayBaslangic, ayBitis);
-        dashboard.EnKarliGuzergahlar = await GetEnKarliGuzergahlarAsync(ayBaslangic, ayBitis, 5);
-        dashboard.AracBazliKarlilik = await GetAracBazliKarlilikAsync(ayBaslangic, ayBitis, 5);
+        dashboard.GiderDagilimi = await GetGiderDagilimiAsync(context, ayBaslangic, ayBitis);
+        dashboard.EnKarliGuzergahlar = await GetEnKarliGuzergahlarAsync(context, ayBaslangic, ayBitis, 5);
+        dashboard.AracBazliKarlilik = await GetAracBazliKarlilikAsync(context, ayBaslangic, ayBitis, 5);
         dashboard.AylikTrend = await GetYillikTrendAsync(yil);
 
         return dashboard;
@@ -67,12 +68,13 @@ public class MaliAnalizService : IMaliAnalizService
 
     public async Task<OzmalAracRaporu> GetOzmalAracRaporuAsync(int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var rapor = new OzmalAracRaporu { Yil = yil, Ay = ay };
         var ayBaslangic = new DateTime(yil, ay, 1);
         var ayBitis = ayBaslangic.AddMonths(1).AddDays(-1);
 
         // Özmal araçları getir
-        var ozmalAraclar = await _context.Araclar
+        var ozmalAraclar = await context.Araclar
             .Where(a => a.SahiplikTipi == AracSahiplikTipi.Ozmal && a.Aktif && !a.IsDeleted)
             .ToListAsync();
 
@@ -87,7 +89,7 @@ public class MaliAnalizService : IMaliAnalizService
             };
 
             // Sefer gelirleri
-            var seferler = await _context.ServisCalismalari
+            var seferler = await context.ServisCalismalari
                 .Include(s => s.Guzergah)
                     .ThenInclude(g => g.Cari)
                 .Include(s => s.Sofor)
@@ -126,7 +128,7 @@ public class MaliAnalizService : IMaliAnalizService
                 .ToList();
 
             // Masraflar
-            var masraflar = await _context.AracMasraflari
+            var masraflar = await context.AracMasraflari
                 .Include(m => m.MasrafKalemi)
                 .Where(m => m.AracId == arac.Id &&
                            m.MasrafTarihi >= ayBaslangic &&
@@ -156,12 +158,13 @@ public class MaliAnalizService : IMaliAnalizService
 
     public async Task<KiralikAracRaporu> GetKiralikAracRaporuAsync(int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var rapor = new KiralikAracRaporu { Yil = yil, Ay = ay };
         var ayBaslangic = new DateTime(yil, ay, 1);
         var ayBitis = ayBaslangic.AddMonths(1).AddDays(-1);
 
         // Kiralık araçların çalışmalarını getir
-        var kiralikCalismalar = await _context.ServisCalismalari
+        var kiralikCalismalar = await context.ServisCalismalari
             .Include(s => s.Arac)
                 .ThenInclude(a => a.KiralikCari)
             .Include(s => s.Sofor)
@@ -176,7 +179,7 @@ public class MaliAnalizService : IMaliAnalizService
                        s.Durum == CalismaDurum.Tamamlandi)
             .ToListAsync();
 
-        var kiralikMasrafToplamlari = await _context.AracMasraflari
+        var kiralikMasrafToplamlari = await context.AracMasraflari
             .Where(m => !m.IsDeleted &&
                        m.MasrafTarihi >= ayBaslangic &&
                        m.MasrafTarihi <= ayBitis &&
@@ -252,12 +255,13 @@ public class MaliAnalizService : IMaliAnalizService
 
     public async Task<KomisyonRaporu> GetKomisyonRaporuAsync(int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var rapor = new KomisyonRaporu { Yil = yil, Ay = ay };
         var ayBaslangic = new DateTime(yil, ay, 1);
         var ayBitis = ayBaslangic.AddMonths(1).AddDays(-1);
 
         // Komisyonlu çalışmaları getir
-        var komisyonluCalismalar = await _context.ServisCalismalari
+        var komisyonluCalismalar = await context.ServisCalismalari
             .Include(s => s.Arac)
                 .ThenInclude(a => a.KomisyoncuCari)
             .Include(s => s.Guzergah)
@@ -325,12 +329,13 @@ public class MaliAnalizService : IMaliAnalizService
 
     public async Task<ChecklistOzet> GetChecklistOzetAsync(int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ozet = new ChecklistOzet { Yil = yil, Ay = ay };
         var bugun = DateTime.Today;
         var uyariGunSayisi = 30; // 30 gün kala uyarı
 
         // Şoför Checklist
-        var soforler = await _context.Soforler.Where(s => s.Aktif).ToListAsync();
+        var soforler = await context.Soforler.Where(s => s.Aktif).ToListAsync();
         foreach (var sofor in soforler)
         {
             var soforChecklist = new SoforChecklistOzet
@@ -351,7 +356,7 @@ public class MaliAnalizService : IMaliAnalizService
         }
 
         // Araç Checklist
-        var araclar = await _context.Araclar.Where(a => a.Aktif && !a.IsDeleted).ToListAsync();
+        var araclar = await context.Araclar.Where(a => a.Aktif && !a.IsDeleted).ToListAsync();
         foreach (var arac in araclar)
         {
             var aracChecklist = new AracChecklistOzet
@@ -391,7 +396,7 @@ public class MaliAnalizService : IMaliAnalizService
         }
 
         // Güzergah Checklist
-        var guzergahlar = await _context.Guzergahlar
+        var guzergahlar = await context.Guzergahlar
             .Include(g => g.Cari)
             .Where(g => g.Aktif && !g.IsDeleted)
             .ToListAsync();
@@ -413,7 +418,7 @@ public class MaliAnalizService : IMaliAnalizService
             guzergahChecklist.FiyatDurum = "Tamam";
 
             // Sefer durumu
-            var seferSayisi = await _context.ServisCalismalari
+            var seferSayisi = await context.ServisCalismalari
                 .Where(s => s.GuzergahId == guzergah.Id &&
                            s.CalismaTarihi >= ayBaslangic &&
                            s.CalismaTarihi <= ayBitis &&
@@ -424,7 +429,7 @@ public class MaliAnalizService : IMaliAnalizService
             guzergahChecklist.SeferDurum = "Tamam";
 
             // Ödeme durumu
-            var bekleyenFaturalar = await _context.Faturalar
+            var bekleyenFaturalar = await context.Faturalar
                 .Where(f => f.CariId == guzergah.CariId && 
                            f.KalanTutar > 0 &&
                            f.Durum != FaturaDurum.IptalEdildi)
@@ -443,6 +448,7 @@ public class MaliAnalizService : IMaliAnalizService
 
     public async Task<List<GrafikVeri>> GetYillikTrendAsync(int yil)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var trend = new List<GrafikVeri>();
 
         for (int ay = 1; ay <= 12; ay++)
@@ -453,7 +459,7 @@ public class MaliAnalizService : IMaliAnalizService
             if (ayBaslangic > DateTime.Today)
                 break;
 
-            var gelir = await _context.ServisCalismalari
+            var gelir = await context.ServisCalismalari
                 .Include(s => s.Guzergah)
                 .Where(s => s.CalismaTarihi >= ayBaslangic &&
                            s.CalismaTarihi <= ayBitis &&
@@ -461,9 +467,9 @@ public class MaliAnalizService : IMaliAnalizService
                            s.Durum == CalismaDurum.Tamamlandi)
                 .SumAsync(s => s.Fiyat ?? s.Guzergah.BirimFiyat);
 
-            var ozmal = await GetOzmalSegmentAnalizAsync(ayBaslangic, ayBitis);
-            var kiralik = await GetKiralikSegmentAnalizAsync(ayBaslangic, ayBitis);
-            var komisyon = await GetKomisyonSegmentAnalizAsync(ayBaslangic, ayBitis);
+            var ozmal = await GetOzmalSegmentAnalizAsync(context, ayBaslangic, ayBitis);
+            var kiralik = await GetKiralikSegmentAnalizAsync(context, ayBaslangic, ayBitis);
+            var komisyon = await GetKomisyonSegmentAnalizAsync(context, ayBaslangic, ayBitis);
             var gider = ozmal.Gider + kiralik.Gider + komisyon.Gider;
 
             trend.Add(new GrafikVeri
@@ -479,17 +485,17 @@ public class MaliAnalizService : IMaliAnalizService
 
     #region Private Methods
 
-    private async Task<SegmentAnaliz> GetOzmalSegmentAnalizAsync(DateTime baslangic, DateTime bitis)
+    private async Task<SegmentAnaliz> GetOzmalSegmentAnalizAsync(ApplicationDbContext context, DateTime baslangic, DateTime bitis)
     {
         var analiz = new SegmentAnaliz { SegmentAdi = "Özmal Araçlar" };
 
-        var ozmalAracIds = await _context.Araclar
+        var ozmalAracIds = await context.Araclar
             .Where(a => a.SahiplikTipi == AracSahiplikTipi.Ozmal && !a.IsDeleted)
             .Select(a => a.Id)
             .ToListAsync();
 
         // Gelirler
-        analiz.Gelir = await _context.ServisCalismalari
+        analiz.Gelir = await context.ServisCalismalari
             .Include(s => s.Guzergah)
             .Where(s => ozmalAracIds.Contains(s.AracId) &&
                        s.CalismaTarihi >= baslangic &&
@@ -499,14 +505,14 @@ public class MaliAnalizService : IMaliAnalizService
             .SumAsync(s => s.Fiyat ?? s.Guzergah.BirimFiyat);
 
         // Giderler
-        analiz.Gider = await _context.AracMasraflari
+        analiz.Gider = await context.AracMasraflari
             .Where(m => ozmalAracIds.Contains(m.AracId) &&
                        m.MasrafTarihi >= baslangic &&
                        m.MasrafTarihi <= bitis &&
                        !m.IsDeleted)
             .SumAsync(m => m.Tutar);
 
-        analiz.SeferSayisi = await _context.ServisCalismalari
+        analiz.SeferSayisi = await context.ServisCalismalari
             .Where(s => ozmalAracIds.Contains(s.AracId) &&
                        s.CalismaTarihi >= baslangic &&
                        s.CalismaTarihi <= bitis &&
@@ -519,11 +525,11 @@ public class MaliAnalizService : IMaliAnalizService
         return analiz;
     }
 
-    private async Task<SegmentAnaliz> GetKiralikSegmentAnalizAsync(DateTime baslangic, DateTime bitis)
+    private async Task<SegmentAnaliz> GetKiralikSegmentAnalizAsync(ApplicationDbContext context, DateTime baslangic, DateTime bitis)
     {
         var analiz = new SegmentAnaliz { SegmentAdi = "Kiralık Araçlar" };
 
-        var kiralikCalismalar = await _context.ServisCalismalari
+        var kiralikCalismalar = await context.ServisCalismalari
             .Include(s => s.Arac)
             .Include(s => s.Guzergah)
             .Where(s => s.Arac.SahiplikTipi == AracSahiplikTipi.Kiralik &&
@@ -535,7 +541,7 @@ public class MaliAnalizService : IMaliAnalizService
             .ToListAsync();
 
         analiz.Gelir = kiralikCalismalar.Sum(s => s.Fiyat ?? s.Guzergah.BirimFiyat);
-        var kiralikAracMasraflari = await _context.AracMasraflari
+        var kiralikAracMasraflari = await context.AracMasraflari
             .Where(m => !m.IsDeleted &&
                        m.MasrafTarihi >= baslangic &&
                        m.MasrafTarihi <= bitis &&
@@ -549,11 +555,11 @@ public class MaliAnalizService : IMaliAnalizService
         return analiz;
     }
 
-    private async Task<SegmentAnaliz> GetKomisyonSegmentAnalizAsync(DateTime baslangic, DateTime bitis)
+    private async Task<SegmentAnaliz> GetKomisyonSegmentAnalizAsync(ApplicationDbContext context, DateTime baslangic, DateTime bitis)
     {
         var analiz = new SegmentAnaliz { SegmentAdi = "Komisyon İşleri" };
 
-        var komisyonluCalismalar = await _context.ServisCalismalari
+        var komisyonluCalismalar = await context.ServisCalismalari
             .Include(s => s.Arac)
             .Include(s => s.Guzergah)
             .Where(s => s.Arac.SahiplikTipi == AracSahiplikTipi.Komisyon &&
@@ -584,9 +590,9 @@ public class MaliAnalizService : IMaliAnalizService
         return analiz;
     }
 
-    private async Task<List<GrafikVeri>> GetGiderDagilimiAsync(DateTime baslangic, DateTime bitis)
+    private async Task<List<GrafikVeri>> GetGiderDagilimiAsync(ApplicationDbContext context, DateTime baslangic, DateTime bitis)
     {
-        var masraflar = await _context.AracMasraflari
+        var masraflar = await context.AracMasraflari
             .Include(m => m.MasrafKalemi)
             .Include(m => m.Arac)
             .Where(m => !m.IsDeleted &&
@@ -606,7 +612,7 @@ public class MaliAnalizService : IMaliAnalizService
             .Take(5)
             .ToList();
 
-        var kiralikKiraGideri = await _context.ServisCalismalari
+        var kiralikKiraGideri = await context.ServisCalismalari
             .Include(s => s.Arac)
             .Where(s => !s.IsDeleted &&
                        !s.Arac.IsDeleted &&
@@ -616,7 +622,7 @@ public class MaliAnalizService : IMaliAnalizService
                        s.Durum == CalismaDurum.Tamamlandi)
             .SumAsync(s => s.Arac.SeferBasinaKiraBedeli ?? 0);
 
-        var komisyonGideri = await _context.ServisCalismalari
+        var komisyonGideri = await context.ServisCalismalari
             .Include(s => s.Arac)
             .Include(s => s.Guzergah)
             .Where(s => !s.IsDeleted &&
@@ -641,9 +647,9 @@ public class MaliAnalizService : IMaliAnalizService
         return gruplar.OrderByDescending(g => g.Deger).Take(5).ToList();
     }
 
-    private async Task<List<GrafikVeri>> GetEnKarliGuzergahlarAsync(DateTime baslangic, DateTime bitis, int adet)
+    private async Task<List<GrafikVeri>> GetEnKarliGuzergahlarAsync(ApplicationDbContext context, DateTime baslangic, DateTime bitis, int adet)
     {
-        var calismalar = await _context.ServisCalismalari
+        var calismalar = await context.ServisCalismalari
             .Include(s => s.Guzergah)
             .Where(s => s.CalismaTarihi >= baslangic &&
                        s.CalismaTarihi <= bitis &&
@@ -664,9 +670,9 @@ public class MaliAnalizService : IMaliAnalizService
         return gruplar;
     }
 
-    private async Task<List<GrafikVeri>> GetAracBazliKarlilikAsync(DateTime baslangic, DateTime bitis, int adet)
+    private async Task<List<GrafikVeri>> GetAracBazliKarlilikAsync(ApplicationDbContext context, DateTime baslangic, DateTime bitis, int adet)
     {
-        var calismalar = await _context.ServisCalismalari
+        var calismalar = await context.ServisCalismalari
             .Include(s => s.Arac)
             .Include(s => s.Guzergah)
             .Where(s => s.CalismaTarihi >= baslangic &&
@@ -676,7 +682,7 @@ public class MaliAnalizService : IMaliAnalizService
                        s.Durum == CalismaDurum.Tamamlandi)
             .ToListAsync();
 
-        var masraflar = await _context.AracMasraflari
+        var masraflar = await context.AracMasraflari
             .Include(m => m.Arac)
             .Where(m => !m.IsDeleted &&
                        m.MasrafTarihi >= baslangic &&

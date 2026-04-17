@@ -9,18 +9,19 @@ namespace KOAFiloServis.Web.Services;
 
 public class DashboardGrafikService : IDashboardGrafikService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ICacheService _cache;
     private static readonly CultureInfo TrCulture = new("tr-TR");
 
-    public DashboardGrafikService(ApplicationDbContext context, ICacheService cache)
+    public DashboardGrafikService(IDbContextFactory<ApplicationDbContext> contextFactory, ICacheService cache)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _cache = cache;
     }
 
     public async Task<AylikGrafikData> GetAylikGelirGiderAsync(int yil)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cacheKey = $"{CacheKeys.Prefix}Dashboard:GelirGider:{yil}";
 
         return await _cache.GetOrSetAsync(cacheKey, async () =>
@@ -35,7 +36,7 @@ public class DashboardGrafikService : IDashboardGrafikService
             data.Aylar = aylar.ToList();
 
             // Aylık gelirler (servis çalışmalarından)
-            var calismalar = await _context.ServisCalismalari
+            var calismalar = await context.ServisCalismalari
                 .AsNoTracking()
                 .Where(c => c.CalismaTarihi.Year == yil)
                 .GroupBy(c => c.CalismaTarihi.Month)
@@ -43,7 +44,7 @@ public class DashboardGrafikService : IDashboardGrafikService
                 .ToListAsync();
 
             // Aylık giderler (araç masraflarından)
-            var masraflar = await _context.AracMasraflari
+            var masraflar = await context.AracMasraflari
                 .AsNoTracking()
                 .Where(m => m.MasrafTarihi.Year == yil)
                 .GroupBy(m => m.MasrafTarihi.Month)
@@ -64,6 +65,7 @@ public class DashboardGrafikService : IDashboardGrafikService
 
     public async Task<AylikGrafikData> GetAylikSeferSayisiAsync(int yil)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cacheKey = $"{CacheKeys.Prefix}Dashboard:SeferSayisi:{yil}";
 
         return await _cache.GetOrSetAsync(cacheKey, async () =>
@@ -76,7 +78,7 @@ public class DashboardGrafikService : IDashboardGrafikService
             var aylar = new[] { "Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara" };
             data.Aylar = aylar.ToList();
 
-            var calismalar = await _context.ServisCalismalari
+            var calismalar = await context.ServisCalismalari
                 .AsNoTracking()
                 .Where(c => c.CalismaTarihi.Year == yil)
                 .GroupBy(c => c.CalismaTarihi.Month)
@@ -95,11 +97,12 @@ public class DashboardGrafikService : IDashboardGrafikService
 
     public async Task<List<AracPerformansData>> GetAracPerformansAsync(int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cacheKey = $"{CacheKeys.Prefix}Dashboard:AracPerformans:{yil}:{ay}";
 
         return await _cache.GetOrSetAsync(cacheKey, async () =>
         {
-            var calismalar = await _context.ServisCalismalari
+            var calismalar = await context.ServisCalismalari
                 .AsNoTracking()
                 .Include(c => c.Arac)
                 .Where(c => c.CalismaTarihi.Year == yil && c.CalismaTarihi.Month == ay)
@@ -113,7 +116,7 @@ public class DashboardGrafikService : IDashboardGrafikService
                 })
                 .ToListAsync();
 
-            var masraflar = await _context.AracMasraflari
+            var masraflar = await context.AracMasraflari
                 .AsNoTracking()
                 .Where(m => m.MasrafTarihi.Year == yil && m.MasrafTarihi.Month == ay)
                 .GroupBy(m => m.AracId)
@@ -135,11 +138,12 @@ public class DashboardGrafikService : IDashboardGrafikService
 
     public async Task<List<CariPerformansData>> GetCariPerformansAsync(int yil, int ay)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var cacheKey = $"{CacheKeys.Prefix}Dashboard:CariPerformans:{yil}:{ay}";
 
         return await _cache.GetOrSetAsync(cacheKey, async () =>
         {
-            var faturalar = await _context.Faturalar
+            var faturalar = await context.Faturalar
                 .AsNoTracking()
                 .Include(f => f.Cari)
                 .Where(f => f.FaturaTarihi.Year == yil && f.FaturaTarihi.Month == ay && f.FaturaTipi == FaturaTipi.SatisFaturasi)
@@ -162,12 +166,13 @@ public class DashboardGrafikService : IDashboardGrafikService
 
     public async Task<List<MasrafKategoriDagilimi>> GetMasrafKategoriDagilimiAsync(int aySayisi = 6)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
         var baslangic = new DateTime(bugun.Year, bugun.Month, 1).AddMonths(-aySayisi + 1);
         var bitis = new DateTime(bugun.Year, bugun.Month, 1).AddMonths(1).AddDays(-1);
 
         // Araç masraflarından kategori dağılımı
-        var masraflar = await _context.AracMasraflari
+        var masraflar = await context.AracMasraflari
             .AsNoTracking()
             .Include(m => m.MasrafKalemi)
             .Where(m => m.MasrafTarihi >= baslangic && m.MasrafTarihi <= bitis)
@@ -195,7 +200,8 @@ public class DashboardGrafikService : IDashboardGrafikService
 
     public async Task<List<CariTipDagilimi>> GetCariTipDagilimiAsync()
     {
-        var cariler = await _context.Cariler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cariler = await context.Cariler
             .AsNoTracking()
             .Where(c => !c.IsDeleted)
             .Select(c => new
@@ -222,12 +228,13 @@ public class DashboardGrafikService : IDashboardGrafikService
 
     public async Task<List<AylikButceVeri>> GetAylikButceAsync(int aySayisi = 6)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
         var baslangic = new DateTime(bugun.Year, bugun.Month, 1).AddMonths(-aySayisi + 1);
         var bitis = new DateTime(bugun.Year, bugun.Month, 1).AddMonths(1).AddDays(-1);
 
         // Bütçe ödemelerinden aylık veri
-        var odemeler = await _context.BudgetOdemeler
+        var odemeler = await context.BudgetOdemeler
             .AsNoTracking()
             .Where(o => o.OdemeTarihi >= baslangic && o.OdemeTarihi <= bitis)
             .Select(o => new

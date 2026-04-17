@@ -68,18 +68,19 @@ public class PlatformIstatistik
 
 public class IlanYayinService : IIlanYayinService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
 
-    public IlanYayinService(ApplicationDbContext context)
+    public IlanYayinService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     #region Platform İşlemleri
 
     public async Task<List<IlanPlatformu>> GetPlatformlarAsync()
     {
-        return await _context.IlanPlatformlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.IlanPlatformlari
             .OrderBy(p => p.SiraNo)
             .ThenBy(p => p.PlatformAdi)
             .ToListAsync();
@@ -87,35 +88,39 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task<IlanPlatformu?> GetPlatformByIdAsync(int id)
     {
-        return await _context.IlanPlatformlari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.IlanPlatformlari
             .Include(p => p.Yayinlar)
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
     public async Task<IlanPlatformu> CreatePlatformAsync(IlanPlatformu platform)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         platform.CreatedAt = DateTime.UtcNow;
-        _context.IlanPlatformlari.Add(platform);
-        await _context.SaveChangesAsync();
+        context.IlanPlatformlari.Add(platform);
+        await context.SaveChangesAsync();
         return platform;
     }
 
     public async Task<IlanPlatformu> UpdatePlatformAsync(IlanPlatformu platform)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         platform.UpdatedAt = DateTime.UtcNow;
-        _context.IlanPlatformlari.Update(platform);
-        await _context.SaveChangesAsync();
+        context.IlanPlatformlari.Update(platform);
+        await context.SaveChangesAsync();
         return platform;
     }
 
     public async Task DeletePlatformAsync(int id)
     {
-        var platform = await _context.IlanPlatformlari.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var platform = await context.IlanPlatformlari.FindAsync(id);
         if (platform != null)
         {
             platform.IsDeleted = true;
             platform.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
@@ -125,7 +130,8 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task<List<AracIlanYayin>> GetYayinlarAsync(int? aracId = null, int? platformId = null, IlanYayinDurum? durum = null)
     {
-        var query = _context.AracIlanYayinlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.AracIlanYayinlar
             .Include(y => y.Arac)
             .Include(y => y.Platform)
             .Include(y => y.YayinlayanKullanici)
@@ -147,7 +153,8 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task<AracIlanYayin?> GetYayinByIdAsync(int id)
     {
-        return await _context.AracIlanYayinlar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.AracIlanYayinlar
             .Include(y => y.Arac)
             .Include(y => y.Platform)
             .Include(y => y.YayinlayanKullanici)
@@ -156,69 +163,75 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task<AracIlanYayin> CreateYayinAsync(AracIlanYayin yayin)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         yayin.CreatedAt = DateTime.UtcNow;
-        _context.AracIlanYayinlar.Add(yayin);
-        await _context.SaveChangesAsync();
+        context.AracIlanYayinlar.Add(yayin);
+        await context.SaveChangesAsync();
         return yayin;
     }
 
     public async Task<AracIlanYayin> UpdateYayinAsync(AracIlanYayin yayin)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         yayin.UpdatedAt = DateTime.UtcNow;
         yayin.SonGuncelleme = DateTime.UtcNow;
-        _context.AracIlanYayinlar.Update(yayin);
-        await _context.SaveChangesAsync();
+        context.AracIlanYayinlar.Update(yayin);
+        await context.SaveChangesAsync();
         return yayin;
     }
 
     public async Task DeleteYayinAsync(int id)
     {
-        var yayin = await _context.AracIlanYayinlar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var yayin = await context.AracIlanYayinlar.FindAsync(id);
         if (yayin != null)
         {
             yayin.IsDeleted = true;
             yayin.Durum = IlanYayinDurum.Silindi;
             yayin.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<bool> YayinAktifEtAsync(int id)
     {
-        var yayin = await _context.AracIlanYayinlar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var yayin = await context.AracIlanYayinlar.FindAsync(id);
         if (yayin == null) return false;
 
         yayin.Durum = IlanYayinDurum.Aktif;
         yayin.YayinBaslangic = DateTime.UtcNow;
         yayin.SonGuncelleme = DateTime.UtcNow;
         yayin.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> YayinDurdurAsync(int id)
     {
-        var yayin = await _context.AracIlanYayinlar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var yayin = await context.AracIlanYayinlar.FindAsync(id);
         if (yayin == null) return false;
 
         yayin.Durum = IlanYayinDurum.Durduruldu;
         yayin.YayinBitis = DateTime.UtcNow;
         yayin.SonGuncelleme = DateTime.UtcNow;
         yayin.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> YayinSatildiIsaretle(int id)
     {
-        var yayin = await _context.AracIlanYayinlar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var yayin = await context.AracIlanYayinlar.FindAsync(id);
         if (yayin == null) return false;
 
         yayin.Durum = IlanYayinDurum.Satildi;
         yayin.YayinBitis = DateTime.UtcNow;
         yayin.SonGuncelleme = DateTime.UtcNow;
         yayin.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
@@ -228,7 +241,8 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task<AracIlanIcerik?> GetIcerikByAracAsync(int aracId, int? platformId = null)
     {
-        var query = _context.AracIlanIcerikleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.AracIlanIcerikleri
             .Include(i => i.Arac)
             .Where(i => i.AracId == aracId);
 
@@ -242,7 +256,8 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task<AracIlanIcerik> CreateOrUpdateIcerikAsync(AracIlanIcerik icerik)
     {
-        var existing = await _context.AracIlanIcerikleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.AracIlanIcerikleri
             .FirstOrDefaultAsync(i => i.AracId == icerik.AracId && i.PlatformId == icerik.PlatformId);
 
         if (existing != null)
@@ -256,14 +271,14 @@ public class IlanYayinService : IIlanYayinService
             existing.MetaAciklama = icerik.MetaAciklama;
             existing.AnahtarKelimeler = icerik.AnahtarKelimeler;
             existing.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return existing;
         }
         else
         {
             icerik.CreatedAt = DateTime.UtcNow;
-            _context.AracIlanIcerikleri.Add(icerik);
-            await _context.SaveChangesAsync();
+            context.AracIlanIcerikleri.Add(icerik);
+            await context.SaveChangesAsync();
             return icerik;
         }
     }
@@ -274,14 +289,16 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task<KullaniciTercihi?> GetKullaniciTercihiAsync(int kullaniciId)
     {
-        return await _context.KullaniciTercihleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.KullaniciTercihleri
             .Include(t => t.Kullanici)
             .FirstOrDefaultAsync(t => t.KullaniciId == kullaniciId);
     }
 
     public async Task<KullaniciTercihi> CreateOrUpdateTercihAsync(KullaniciTercihi tercih)
     {
-        var existing = await _context.KullaniciTercihleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.KullaniciTercihleri
             .FirstOrDefaultAsync(t => t.KullaniciId == tercih.KullaniciId);
 
         if (existing != null)
@@ -298,21 +315,22 @@ public class IlanYayinService : IIlanYayinService
             existing.VarsayilanSiralama = tercih.VarsayilanSiralama;
             existing.DigerTercihler = tercih.DigerTercihler;
             existing.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return existing;
         }
         else
         {
             tercih.CreatedAt = DateTime.UtcNow;
-            _context.KullaniciTercihleri.Add(tercih);
-            await _context.SaveChangesAsync();
+            context.KullaniciTercihleri.Add(tercih);
+            await context.SaveChangesAsync();
             return tercih;
         }
     }
 
     public async Task<string?> GetVarsayilanAnasayfaAsync(int kullaniciId)
     {
-        var tercih = await _context.KullaniciTercihleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var tercih = await context.KullaniciTercihleri
             .Where(t => t.KullaniciId == kullaniciId)
             .Select(t => t.VarsayilanAnasayfa)
             .FirstOrDefaultAsync();
@@ -322,7 +340,8 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task SetVarsayilanAnasayfaAsync(int kullaniciId, string sayfa)
     {
-        var tercih = await _context.KullaniciTercihleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var tercih = await context.KullaniciTercihleri
             .FirstOrDefaultAsync(t => t.KullaniciId == kullaniciId);
 
         if (tercih != null)
@@ -338,10 +357,10 @@ public class IlanYayinService : IIlanYayinService
                 VarsayilanAnasayfa = sayfa,
                 CreatedAt = DateTime.UtcNow
             };
-            _context.KullaniciTercihleri.Add(tercih);
+            context.KullaniciTercihleri.Add(tercih);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -350,7 +369,8 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task<List<KullaniciSonIslem>> GetSonIslemlerAsync(int kullaniciId, int adet = 10)
     {
-        return await _context.KullaniciSonIslemler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.KullaniciSonIslemler
             .Where(s => s.KullaniciId == kullaniciId)
             .OrderByDescending(s => s.ErisimZamani)
             .Take(adet)
@@ -359,7 +379,8 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task KaydedSonIslemAsync(int kullaniciId, string sayfaYolu, string? sayfaBasligi = null, string? icon = null)
     {
-        var existing = await _context.KullaniciSonIslemler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var existing = await context.KullaniciSonIslemler
             .FirstOrDefaultAsync(s => s.KullaniciId == kullaniciId && s.SayfaYolu == sayfaYolu);
 
         if (existing != null)
@@ -382,10 +403,10 @@ public class IlanYayinService : IIlanYayinService
                 ErisimSayisi = 1,
                 CreatedAt = DateTime.UtcNow
             };
-            _context.KullaniciSonIslemler.Add(yeniIslem);
+            context.KullaniciSonIslemler.Add(yeniIslem);
 
             // Eski kayıtları temizle (en fazla 50 kayıt tut)
-            var eskiler = await _context.KullaniciSonIslemler
+            var eskiler = await context.KullaniciSonIslemler
                 .Where(s => s.KullaniciId == kullaniciId)
                 .OrderByDescending(s => s.ErisimZamani)
                 .Skip(50)
@@ -397,7 +418,7 @@ public class IlanYayinService : IIlanYayinService
             }
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     #endregion
@@ -406,9 +427,10 @@ public class IlanYayinService : IIlanYayinService
 
     public async Task<YayinIstatistikleri> GetYayinIstatistikleriAsync(int? aracId = null)
     {
-        var platformlar = await _context.IlanPlatformlari.ToListAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var platformlar = await context.IlanPlatformlari.ToListAsync();
 
-        var yayinQuery = _context.AracIlanYayinlar.AsQueryable();
+        var yayinQuery = context.AracIlanYayinlar.AsQueryable();
         if (aracId.HasValue)
             yayinQuery = yayinQuery.Where(y => y.AracId == aracId.Value);
 

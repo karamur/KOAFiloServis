@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
@@ -7,18 +7,19 @@ namespace KOAFiloServis.Web.Services;
 
 public class SoforService : ISoforService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IMuhasebeService _muhasebeService;
 
-    public SoforService(ApplicationDbContext context, IMuhasebeService muhasebeService)
+    public SoforService(IDbContextFactory<ApplicationDbContext> contextFactory, IMuhasebeService muhasebeService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _muhasebeService = muhasebeService;
     }
 
     public async Task<List<Sofor>> GetAllAsync()
     {
-        var personeller = await QuerySoforler()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personeller = await QuerySoforler(context)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
             .ToListAsync();
@@ -29,7 +30,8 @@ public class SoforService : ISoforService
 
     public async Task<List<Sofor>> GetActiveAsync()
     {
-        var personeller = await QuerySoforler()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personeller = await QuerySoforler(context)
             .Where(s => s.Aktif)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -41,14 +43,16 @@ public class SoforService : ISoforService
 
     public async Task<int> GetActiveCountAsync()
     {
-        return await QuerySoforler()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await QuerySoforler(context)
             .Where(s => s.Aktif)
             .CountAsync();
     }
 
     public async Task<Sofor?> GetByIdAsync(int id)
     {
-        var sofor = await QuerySoforler()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var sofor = await QuerySoforler(context)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (sofor != null)
@@ -59,27 +63,29 @@ public class SoforService : ISoforService
 
     public async Task<Sofor> CreateAsync(Sofor sofor)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         NormalizeSofor(sofor);
         ApplyMaasHesaplama(sofor);
         SyncBordroFlags(sofor);
-        await ValidateSoforAsync(sofor);
+        await ValidateSoforAsync(context, sofor);
 
         // Muhasebe hesabı oluştur veya eşleştir
-        await OtomatikMuhasebeHesabiOlusturAsync(sofor);
+        await OtomatikMuhasebeHesabiOlusturAsync(context, sofor);
 
-        _context.Soforler.Add(sofor);
-        await _context.SaveChangesAsync();
+        context.Soforler.Add(sofor);
+        await context.SaveChangesAsync();
         return sofor;
     }
 
     public async Task<Sofor> UpdateAsync(Sofor sofor)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         NormalizeSofor(sofor);
         ApplyMaasHesaplama(sofor);
         SyncBordroFlags(sofor);
 
         // Önce mevcut tracking'i temizle
-        var trackedEntity = _context.ChangeTracker.Entries<Sofor>()
+        var trackedEntity = context.ChangeTracker.Entries<Sofor>()
             .FirstOrDefault(e => e.Entity.Id == sofor.Id);
         if (trackedEntity != null)
         {
@@ -87,7 +93,7 @@ public class SoforService : ISoforService
         }
 
         // Mevcut kaydı oku (tracking ile)
-        var existing = await QuerySoforler(asNoTracking: false)
+        var existing = await QuerySoforler(context, asNoTracking: false)
             .FirstOrDefaultAsync(s => s.Id == sofor.Id);
 
         if (existing == null)
@@ -106,44 +112,47 @@ public class SoforService : ISoforService
             sofor.SoforKodu = existingSoforKodu;
         }
 
-        await ValidateSoforAsync(sofor, existing);
+        await ValidateSoforAsync(context, sofor, existing);
 
         var createdAt = existing.CreatedAt;
         var currentSirketId = existing.SirketId;
 
-        _context.Entry(existing).CurrentValues.SetValues(sofor);
+        context.Entry(existing).CurrentValues.SetValues(sofor);
 
         existing.CreatedAt = createdAt;
         existing.SirketId = currentSirketId;
         existing.UpdatedAt = DateTime.UtcNow;
 
         // existing zaten tracked durumda, SaveChanges değişiklikleri otomatik kaydeder
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return existing;
     }
 
     public async Task DeleteAsync(int id)
     {
-        var sofor = await QuerySoforler(asNoTracking: false).FirstOrDefaultAsync(s => s.Id == id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var sofor = await QuerySoforler(context, asNoTracking: false).FirstOrDefaultAsync(s => s.Id == id);
         if (sofor != null)
         {
             sofor.Aktif = false;
             sofor.IsDeleted = true;
             sofor.UpdatedAt = DateTime.UtcNow;
-            _context.Soforler.Update(sofor);
-            await _context.SaveChangesAsync();
+            context.Soforler.Update(sofor);
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<string> GenerateNextKodAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await GenerateNextKodAsync(PersonelGorev.Sofor);
     }
 
     public async Task<string> GenerateNextKodAsync(PersonelGorev gorev)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var prefix = GetKodPrefix(gorev);
-        var lastKod = await _context.Soforler
+        var lastKod = await context.Soforler
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(s => s.SoforKodu.StartsWith(prefix + "-"))
@@ -175,7 +184,8 @@ public class SoforService : ISoforService
     // Görev bazlı filtreleme metodları
     public async Task<List<Sofor>> GetByGorevAsync(PersonelGorev gorev)
     {
-        var personeller = await QuerySoforler()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personeller = await QuerySoforler(context)
             .Where(s => s.Gorev == gorev)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -187,7 +197,8 @@ public class SoforService : ISoforService
 
     public async Task<List<Sofor>> GetActiveSoforlerAsync()
     {
-        var personeller = await QuerySoforler()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personeller = await QuerySoforler(context)
             .Where(s => s.Aktif && s.Gorev == PersonelGorev.Sofor)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -199,7 +210,8 @@ public class SoforService : ISoforService
 
     public async Task<List<Sofor>> GetActiveByGorevAsync(PersonelGorev gorev)
     {
-        var personeller = await QuerySoforler()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var personeller = await QuerySoforler(context)
             .Where(s => s.Aktif && s.Gorev == gorev)
             .OrderBy(s => s.Ad)
             .ThenBy(s => s.Soyad)
@@ -209,13 +221,13 @@ public class SoforService : ISoforService
         return personeller;
     }
 
-    private IQueryable<Sofor> QuerySoforler(bool asNoTracking = true)
+    private static IQueryable<Sofor> QuerySoforler(ApplicationDbContext context, bool asNoTracking = true)
     {
-        var query = _context.Soforler.Where(s => !s.IsDeleted);
+        var query = context.Soforler.Where(s => !s.IsDeleted);
         return asNoTracking ? query.AsNoTracking() : query;
     }
 
-    private async Task ValidateSoforAsync(Sofor sofor, Sofor? existing = null)
+    private async Task ValidateSoforAsync(ApplicationDbContext context, Sofor sofor, Sofor? existing = null)
     {
         var currentId = sofor.Id;
         var normalizedTcKimlikNo = NormalizeTcKimlikNo(sofor.TcKimlikNo);
@@ -243,7 +255,7 @@ public class SoforService : ISoforService
             var tcKimlikDegisti = existing == null || !string.Equals(existingTcKimlikNo, normalizedTcKimlikNo, StringComparison.Ordinal);
 
             var tcKimlikCakisanKayit = tcKimlikDegisti
-                ? await _context.Soforler
+                ? await context.Soforler
                     .IgnoreQueryFilters()
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Id != currentId && s.TcKimlikNo == normalizedTcKimlikNo)
@@ -259,7 +271,7 @@ public class SoforService : ISoforService
         var kodDegisti = existing == null || !string.Equals(existingSoforKodu, normalizedSoforKodu, StringComparison.Ordinal);
 
         var kodCakisanKayit = kodDegisti
-            ? await _context.Soforler
+            ? await context.Soforler
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id != currentId && s.SoforKodu == normalizedSoforKodu)
@@ -442,6 +454,7 @@ public class SoforService : ISoforService
     /// </summary>
     public async Task<PersonelImportSonuc> ImportFromExcelAsync(byte[] excelData, bool mevcutGuncelle = false)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new PersonelImportSonuc();
 
         using var stream = new MemoryStream(excelData);
@@ -452,7 +465,7 @@ public class SoforService : ISoforService
         sonuc.ToplamSatir = Math.Max(0, lastRow - 1); // Başlık hariç
 
         // Mevcut personelleri TC'ye göre indexle
-        var mevcutPersoneller = await _context.Soforler
+        var mevcutPersoneller = await context.Soforler
             .AsNoTracking()
             .ToDictionaryAsync(p => p.TcKimlikNo ?? $"ID_{p.Id}", p => p);
 
@@ -496,13 +509,13 @@ public class SoforService : ISoforService
                     }
 
                     // Mevcut personeli güncelle
-                    await GuncellePersonelFromRow(mevcut.Id, ws, row);
+                    await GuncellePersonelFromRow(context, mevcut.Id, ws, row);
                     sonuc.BasariliGuncellenen++;
                     continue;
                 }
 
                 // Yeni personel oluştur
-                var personel = await OlusturPersonelFromRow(ws, row);
+                var personel = await OlusturPersonelFromRow(context, ws, row);
                 sonuc.BasariliEklenen++;
             }
             catch (Exception ex)
@@ -521,7 +534,7 @@ public class SoforService : ISoforService
         return sonuc;
     }
 
-    private async Task<Sofor> OlusturPersonelFromRow(IXLWorksheet ws, int row)
+    private async Task<Sofor> OlusturPersonelFromRow(ApplicationDbContext context, IXLWorksheet ws, int row)
     {
         var gorevStr = ws.Cell(row, 7).GetString().Trim();
         var gorev = ParseGorev(gorevStr);
@@ -558,9 +571,9 @@ public class SoforService : ISoforService
         return await CreateAsync(personel);
     }
 
-    private async Task GuncellePersonelFromRow(int personelId, IXLWorksheet ws, int row)
+    private async Task GuncellePersonelFromRow(ApplicationDbContext context, int personelId, IXLWorksheet ws, int row)
     {
-        var existing = await _context.Soforler.FirstOrDefaultAsync(p => p.Id == personelId);
+        var existing = await context.Soforler.FirstOrDefaultAsync(p => p.Id == personelId);
         if (existing == null) return;
 
         existing.Ad = ws.Cell(row, 1).GetString().Trim();
@@ -585,8 +598,8 @@ public class SoforService : ISoforService
         existing.Notlar = ws.Cell(row, 17).GetString().Trim().NullIfEmpty() ?? existing.Notlar;
 
         existing.UpdatedAt = DateTime.UtcNow;
-        _context.Soforler.Update(existing);
-        await _context.SaveChangesAsync();
+        context.Soforler.Update(existing);
+        await context.SaveChangesAsync();
     }
 
     /// <summary>
@@ -594,6 +607,7 @@ public class SoforService : ISoforService
     /// </summary>
     public async Task<byte[]> ExportToExcelAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var personeller = await GetAllAsync();
 
         using var workbook = new XLWorkbook();
@@ -754,7 +768,7 @@ public class SoforService : ISoforService
     /// Personel için otomatik muhasebe hesabı oluşturur veya mevcut hesabı eşleştirir.
     /// Hesap kodu formatı: 335.XXX (Personele Borçlar alt hesabı)
     /// </summary>
-    private async Task OtomatikMuhasebeHesabiOlusturAsync(Sofor sofor)
+    private async Task OtomatikMuhasebeHesabiOlusturAsync(ApplicationDbContext context, Sofor sofor)
     {
         // Kullanıcı zaten bir hesap seçtiyse, oluşturma
         if (sofor.MuhasebeHesapId.HasValue)
@@ -805,23 +819,24 @@ public class SoforService : ISoforService
     /// </summary>
     public async Task<int> TopluMuhasebeHesabiOlusturAsync()
     {
-        var hesapsizPersoneller = await _context.Soforler
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var hesapsizPersoneller = await context.Soforler
             .Where(s => !s.IsDeleted && s.MuhasebeHesapId == null)
             .ToListAsync();
 
         var olusturulanSayisi = 0;
         foreach (var personel in hesapsizPersoneller)
         {
-            await OtomatikMuhasebeHesabiOlusturAsync(personel);
+            await OtomatikMuhasebeHesabiOlusturAsync(context, personel);
             if (personel.MuhasebeHesapId.HasValue)
             {
-                _context.Entry(personel).State = EntityState.Modified;
+                context.Entry(personel).State = EntityState.Modified;
                 olusturulanSayisi++;
             }
         }
 
         if (olusturulanSayisi > 0)
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
         return olusturulanSayisi;
     }
@@ -831,7 +846,8 @@ public class SoforService : ISoforService
     /// </summary>
     public async Task<List<MuhasebeHesap>> GetPersonelMuhasebeHesaplariAsync()
     {
-        return await _context.MuhasebeHesaplari
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.MuhasebeHesaplari
             .Where(h => h.HesapKodu.StartsWith("335.") && !h.IsDeleted && h.Aktif)
             .OrderBy(h => h.HesapKodu)
             .ToListAsync();

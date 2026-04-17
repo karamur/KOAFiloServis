@@ -14,18 +14,18 @@ namespace KOAFiloServis.Web.Services;
 /// </summary>
 public class SmsService : ISmsService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ILogger<SmsService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
 
     public SmsService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         ILogger<SmsService> logger,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
@@ -35,13 +35,15 @@ public class SmsService : ISmsService
 
     public async Task<SmsAyar?> GetAktifAyarAsync()
     {
-        return await _context.Set<SmsAyar>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<SmsAyar>()
             .FirstOrDefaultAsync(a => !a.IsDeleted && a.Aktif);
     }
 
     public async Task<List<SmsAyar>> GetTumAyarlarAsync()
     {
-        return await _context.Set<SmsAyar>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<SmsAyar>()
             .Where(a => !a.IsDeleted)
             .OrderByDescending(a => a.Aktif)
             .ThenByDescending(a => a.CreatedAt)
@@ -50,10 +52,11 @@ public class SmsService : ISmsService
 
     public async Task<SmsAyar> SaveAyarAsync(SmsAyar ayar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (ayar.Aktif)
         {
             // Diğer aktif ayarları pasif yap (tek aktif ayar olsun)
-            var digerAktifler = await _context.Set<SmsAyar>()
+            var digerAktifler = await context.Set<SmsAyar>()
                 .Where(a => !a.IsDeleted && a.Aktif && a.Id != ayar.Id)
                 .ToListAsync();
 
@@ -66,27 +69,28 @@ public class SmsService : ISmsService
         if (ayar.Id == 0)
         {
             ayar.CreatedAt = DateTime.Now;
-            _context.Set<SmsAyar>().Add(ayar);
+            context.Set<SmsAyar>().Add(ayar);
         }
         else
         {
             ayar.UpdatedAt = DateTime.Now;
-            _context.Set<SmsAyar>().Update(ayar);
+            context.Set<SmsAyar>().Update(ayar);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         _logger.LogInformation("SMS ayarı kaydedildi: Provider={Provider}, Aktif={Aktif}", ayar.Provider, ayar.Aktif);
         return ayar;
     }
 
     public async Task<bool> TestBaglantisiAsync(int ayarId)
     {
-        var ayar = await _context.Set<SmsAyar>().FindAsync(ayarId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var ayar = await context.Set<SmsAyar>().FindAsync(ayarId);
         if (ayar == null) return false;
 
         try
         {
-            var bakiye = await BakiyeSorgulaInternalAsync(ayar);
+            var bakiye = await BakiyeSorgulaInternalAsync(context, ayar);
             return bakiye.HasValue;
         }
         catch (Exception ex)
@@ -98,30 +102,31 @@ public class SmsService : ISmsService
 
     public async Task<decimal?> BakiyeSorgulaAsync(int ayarId)
     {
-        var ayar = await _context.Set<SmsAyar>().FindAsync(ayarId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var ayar = await context.Set<SmsAyar>().FindAsync(ayarId);
         if (ayar == null) return null;
 
-        var bakiye = await BakiyeSorgulaInternalAsync(ayar);
+        var bakiye = await BakiyeSorgulaInternalAsync(context, ayar);
         
         if (bakiye.HasValue)
         {
             ayar.Bakiye = bakiye;
             ayar.SonBakiyeSorguTarihi = DateTime.Now;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
 
         return bakiye;
     }
 
-    private async Task<decimal?> BakiyeSorgulaInternalAsync(SmsAyar ayar)
+    private async Task<decimal?> BakiyeSorgulaInternalAsync(ApplicationDbContext context, SmsAyar ayar)
     {
         try
         {
             return ayar.Provider switch
             {
-                SmsProvider.NetGsm => await NetGsmBakiyeSorgulaAsync(ayar),
-                SmsProvider.Iletimerkezi => await IletimerkeziBakiyeSorgulaAsync(ayar),
-                SmsProvider.Mutlucell => await MutlucellBakiyeSorgulaAsync(ayar),
+                SmsProvider.NetGsm => await NetGsmBakiyeSorgulaAsync(context, ayar),
+                SmsProvider.Iletimerkezi => await IletimerkeziBakiyeSorgulaAsync(context, ayar),
+                SmsProvider.Mutlucell => await MutlucellBakiyeSorgulaAsync(context, ayar),
                 _ => null
             };
         }
@@ -139,6 +144,7 @@ public class SmsService : ISmsService
     public async Task<SmsGonderimSonuc> GonderAsync(string telefon, string mesaj, SmsTipi tip = SmsTipi.Bildirim, 
         string? iliskiliTablo = null, int? iliskiliKayitId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var ayar = await GetAktifAyarAsync();
         if (ayar == null)
         {
@@ -173,17 +179,17 @@ public class SmsService : ISmsService
             Durum = SmsGonderimDurum.Bekliyor,
             CreatedAt = DateTime.Now
         };
-        _context.Set<SmsLog>().Add(log);
-        await _context.SaveChangesAsync();
+        context.Set<SmsLog>().Add(log);
+        await context.SaveChangesAsync();
 
         try
         {
             var sonuc = ayar.Provider switch
             {
-                SmsProvider.NetGsm => await NetGsmGonderAsync(ayar, telefon, mesaj),
-                SmsProvider.Iletimerkezi => await IletimerkeziGonderAsync(ayar, telefon, mesaj),
-                SmsProvider.Mutlucell => await MutlucellGonderAsync(ayar, telefon, mesaj),
-                SmsProvider.Twilio => await TwilioGonderAsync(ayar, telefon, mesaj),
+                SmsProvider.NetGsm => await NetGsmGonderAsync(context, ayar, telefon, mesaj),
+                SmsProvider.Iletimerkezi => await IletimerkeziGonderAsync(context, ayar, telefon, mesaj),
+                SmsProvider.Mutlucell => await MutlucellGonderAsync(context, ayar, telefon, mesaj),
+                SmsProvider.Twilio => await TwilioGonderAsync(context, ayar, telefon, mesaj),
                 _ => new SmsGonderimSonuc { Basarili = false, HataMesaji = "Desteklenmeyen SMS provider" }
             };
 
@@ -209,7 +215,7 @@ public class SmsService : ISmsService
                 ayar.Bakiye = sonuc.KalanBakiye;
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             sonuc.LogId = log.Id;
             _logger.LogInformation("SMS gönderildi: Telefon={Telefon}, Basarili={Basarili}", telefon, sonuc.Basarili);
@@ -220,7 +226,7 @@ public class SmsService : ISmsService
             _logger.LogError(ex, "SMS gönderim hatası: {Telefon}", telefon);
             log.Durum = SmsGonderimDurum.Basarisiz;
             log.HataMesaji = ex.Message;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             return new SmsGonderimSonuc
             {
@@ -233,6 +239,7 @@ public class SmsService : ISmsService
 
     public async Task<List<SmsGonderimSonuc>> TopluGonderAsync(List<SmsGonderimIstek> istekler)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuclar = new List<SmsGonderimSonuc>();
 
         foreach (var istek in istekler)
@@ -250,6 +257,7 @@ public class SmsService : ISmsService
     public async Task<SmsGonderimSonuc> SablonlaGonderAsync(string telefon, int sablonId, 
         Dictionary<string, string> degiskenler, string? iliskiliTablo = null, int? iliskiliKayitId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sablon = await GetSablonByIdAsync(sablonId);
         if (sablon == null)
         {
@@ -277,7 +285,8 @@ public class SmsService : ISmsService
     public async Task<List<SmsLog>> GetLoglarAsync(DateTime? baslangic = null, DateTime? bitis = null, 
         SmsGonderimDurum? durum = null, int? limit = 100)
     {
-        var query = _context.Set<SmsLog>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Set<SmsLog>()
             .Include(l => l.SmsAyar)
             .Include(l => l.GonderenKullanici)
             .Where(l => !l.IsDeleted);
@@ -299,17 +308,19 @@ public class SmsService : ISmsService
 
     public async Task<SmsLog?> GetLogByIdAsync(int id)
     {
-        return await _context.Set<SmsLog>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<SmsLog>()
             .Include(l => l.SmsAyar)
             .FirstOrDefaultAsync(l => l.Id == id && !l.IsDeleted);
     }
 
     public async Task<SmsIstatistik> GetIstatistikAsync(DateTime? baslangic = null, DateTime? bitis = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         baslangic ??= DateTime.Today.AddDays(-30);
         bitis ??= DateTime.Now;
 
-        var loglar = await _context.Set<SmsLog>()
+        var loglar = await context.Set<SmsLog>()
             .Where(l => !l.IsDeleted && l.CreatedAt >= baslangic && l.CreatedAt <= bitis)
             .ToListAsync();
 
@@ -340,7 +351,8 @@ public class SmsService : ISmsService
 
     public async Task<List<SmsSablon>> GetSablonlarAsync(SmsTipi? tip = null)
     {
-        var query = _context.Set<SmsSablon>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Set<SmsSablon>()
             .Where(s => !s.IsDeleted);
 
         if (tip.HasValue)
@@ -355,16 +367,18 @@ public class SmsService : ISmsService
 
     public async Task<SmsSablon?> GetSablonByIdAsync(int id)
     {
-        return await _context.Set<SmsSablon>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<SmsSablon>()
             .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
     }
 
     public async Task<SmsSablon> SaveSablonAsync(SmsSablon sablon)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (sablon.Varsayilan)
         {
             // Aynı tipteki diğer varsayılanları kaldır
-            var digerVarsayilanlar = await _context.Set<SmsSablon>()
+            var digerVarsayilanlar = await context.Set<SmsSablon>()
                 .Where(s => !s.IsDeleted && s.Tip == sablon.Tip && s.Varsayilan && s.Id != sablon.Id)
                 .ToListAsync();
 
@@ -377,31 +391,33 @@ public class SmsService : ISmsService
         if (sablon.Id == 0)
         {
             sablon.CreatedAt = DateTime.Now;
-            _context.Set<SmsSablon>().Add(sablon);
+            context.Set<SmsSablon>().Add(sablon);
         }
         else
         {
             sablon.UpdatedAt = DateTime.Now;
-            _context.Set<SmsSablon>().Update(sablon);
+            context.Set<SmsSablon>().Update(sablon);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return sablon;
     }
 
     public async Task DeleteSablonAsync(int id)
     {
-        var sablon = await _context.Set<SmsSablon>().FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var sablon = await context.Set<SmsSablon>().FindAsync(id);
         if (sablon != null)
         {
             sablon.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<SmsSablon?> GetVarsayilanSablonAsync(SmsTipi tip)
     {
-        return await _context.Set<SmsSablon>()
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Set<SmsSablon>()
             .FirstOrDefaultAsync(s => !s.IsDeleted && s.Tip == tip && s.Varsayilan && s.Aktif);
     }
 
@@ -411,6 +427,7 @@ public class SmsService : ISmsService
 
     public async Task<int> BildirimSmsGonderAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var gonderilen = 0;
 
         // SMS bildirimi alacak kullanıcıları bul (BildirimAyar'da SMS açık olanlar)
@@ -425,7 +442,7 @@ public class SmsService : ISmsService
     #region Provider Implementasyonları
 
     // === NETGSM ===
-    private async Task<SmsGonderimSonuc> NetGsmGonderAsync(SmsAyar ayar, string telefon, string mesaj)
+    private async Task<SmsGonderimSonuc> NetGsmGonderAsync(ApplicationDbContext context, SmsAyar ayar, string telefon, string mesaj)
     {
         var client = _httpClientFactory.CreateClient();
         
@@ -464,7 +481,7 @@ public class SmsService : ISmsService
         };
     }
 
-    private async Task<decimal?> NetGsmBakiyeSorgulaAsync(SmsAyar ayar)
+    private async Task<decimal?> NetGsmBakiyeSorgulaAsync(ApplicationDbContext context, SmsAyar ayar)
     {
         var client = _httpClientFactory.CreateClient();
         
@@ -498,7 +515,7 @@ public class SmsService : ISmsService
     }
 
     // === İLETİMERKEZİ ===
-    private async Task<SmsGonderimSonuc> IletimerkeziGonderAsync(SmsAyar ayar, string telefon, string mesaj)
+    private async Task<SmsGonderimSonuc> IletimerkeziGonderAsync(ApplicationDbContext context, SmsAyar ayar, string telefon, string mesaj)
     {
         var client = _httpClientFactory.CreateClient();
 
@@ -551,14 +568,14 @@ public class SmsService : ISmsService
         }
     }
 
-    private async Task<decimal?> IletimerkeziBakiyeSorgulaAsync(SmsAyar ayar)
+    private async Task<decimal?> IletimerkeziBakiyeSorgulaAsync(ApplicationDbContext context, SmsAyar ayar)
     {
         // İletimerkezi bakiye sorgulama API'si
         return null;
     }
 
     // === MUTLUCELL ===
-    private async Task<SmsGonderimSonuc> MutlucellGonderAsync(SmsAyar ayar, string telefon, string mesaj)
+    private async Task<SmsGonderimSonuc> MutlucellGonderAsync(ApplicationDbContext context, SmsAyar ayar, string telefon, string mesaj)
     {
         var client = _httpClientFactory.CreateClient();
 
@@ -583,7 +600,7 @@ public class SmsService : ISmsService
         return new SmsGonderimSonuc { Basarili = false, HataMesaji = MutlucellHataAciklama(responseContent) };
     }
 
-    private async Task<decimal?> MutlucellBakiyeSorgulaAsync(SmsAyar ayar)
+    private async Task<decimal?> MutlucellBakiyeSorgulaAsync(ApplicationDbContext context, SmsAyar ayar)
     {
         var client = _httpClientFactory.CreateClient();
         var url = $"https://smsgw.mutlucell.com/smsgw-ws/gtcrdtex?ka={ayar.KullaniciAdi}&pwd={ayar.ApiKey}";
@@ -611,7 +628,7 @@ public class SmsService : ISmsService
     }
 
     // === TWILIO ===
-    private async Task<SmsGonderimSonuc> TwilioGonderAsync(SmsAyar ayar, string telefon, string mesaj)
+    private async Task<SmsGonderimSonuc> TwilioGonderAsync(ApplicationDbContext context, SmsAyar ayar, string telefon, string mesaj)
     {
         var client = _httpClientFactory.CreateClient();
         

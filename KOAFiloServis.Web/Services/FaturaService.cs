@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Helpers;
 using KOAFiloServis.Web.Models;
@@ -9,14 +9,14 @@ namespace KOAFiloServis.Web.Services;
 
 public class FaturaService : IFaturaService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IMuhasebeService _muhasebeService;
     private readonly IWebHostEnvironment _env;
     private readonly ISecureFileService _secureFileService;
 
-    public FaturaService(ApplicationDbContext context, IMuhasebeService muhasebeService, IWebHostEnvironment env, ISecureFileService secureFileService)
+    public FaturaService(IDbContextFactory<ApplicationDbContext> contextFactory, IMuhasebeService muhasebeService, IWebHostEnvironment env, ISecureFileService secureFileService)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _muhasebeService = muhasebeService;
         _env = env;
         _secureFileService = secureFileService;
@@ -24,7 +24,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetAllAsync()
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
@@ -34,7 +35,8 @@ public class FaturaService : IFaturaService
 
     public async Task<PagedResult<Fatura>> GetPagedAsync(FaturaFilterParams filter)
     {
-        var query = _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.Firma)
@@ -104,7 +106,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetByCariIdAsync(int cariId)
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
@@ -115,7 +118,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetByTipAsync(FaturaTipi tip)
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
@@ -126,7 +130,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetByDurumAsync(FaturaDurum durum)
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
@@ -137,7 +142,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetOdenmemisFaturalarAsync()
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
@@ -148,7 +154,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetOdenmisFaturalarAsync()
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
@@ -159,7 +166,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
@@ -170,7 +178,8 @@ public class FaturaService : IFaturaService
 
     public async Task<Fatura?> GetByIdAsync(int id)
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .Include(f => f.Cari)
             .Include(f => f.Firma)
             .Include(f => f.KarsiFirma)
@@ -179,7 +188,8 @@ public class FaturaService : IFaturaService
 
     public async Task<Fatura?> GetByIdWithKalemlerAsync(int id)
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .Include(f => f.Cari)
             .Include(f => f.Firma)
             .Include(f => f.KarsiFirma)
@@ -192,24 +202,25 @@ public class FaturaService : IFaturaService
 
     public async Task<Fatura> CreateAsync(Fatura fatura)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            await PrepareFaturaForSaveAsync(fatura);
+            await PrepareFaturaForSaveAsync(context, fatura);
 
             // Tutarları hesapla
             CalculateTotals(fatura);
 
-            _context.Faturalar.Add(fatura);
-            await _context.SaveChangesAsync();
+            context.Faturalar.Add(fatura);
+            await context.SaveChangesAsync();
 
             // Firmalar arası fatura ise karşı firmada eşleşen fatura oluştur
             if (fatura.FirmalarArasiFatura && fatura.KarsiFirmaId.HasValue)
             {
-                await CreateKarsiFirmaFaturasiAsync(fatura);
+                await CreateKarsiFirmaFaturasiAsync(context, fatura);
             }
 
             // Otomatik muhasebe fişi oluştur (ayarlara göre)
-            await TryCreateMuhasebeFisiAsync(fatura);
+            await TryCreateMuhasebeFisiAsync(context, fatura);
 
             return fatura;
         }
@@ -221,16 +232,17 @@ public class FaturaService : IFaturaService
 
     public async Task<Fatura> UpdateAsync(Fatura fatura)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         try
         {
-            var existing = await _context.Faturalar
+            var existing = await context.Faturalar
                 .Include(f => f.FaturaKalemleri)
                 .FirstOrDefaultAsync(f => f.Id == fatura.Id);
 
             if (existing == null) throw new Exception("Fatura bulunamadi");
 
             // Mevcut entity'yi guncelle
-            await PrepareFaturaForSaveAsync(fatura);
+            await PrepareFaturaForSaveAsync(context, fatura);
 
             existing.FaturaNo = fatura.FaturaNo;
             existing.FaturaTarihi = fatura.FaturaTarihi;
@@ -270,8 +282,8 @@ public class FaturaService : IFaturaService
             CalculateTotals(existing);
 
             // Context tracking için attach değil, zaten track ediliyor
-            _context.Entry(existing).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
+            context.Entry(existing).State = EntityState.Modified;
+            await context.SaveChangesAsync();
             return existing;
         }
         catch (DbUpdateException ex)
@@ -299,16 +311,18 @@ public class FaturaService : IFaturaService
 
     public async Task DeleteAsync(int id)
     {
-        var fatura = await _context.Faturalar.FindAsync(id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fatura = await context.Faturalar.FindAsync(id);
         if (fatura != null)
         {
             fatura.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<string> GenerateNextFaturaNoAsync(FaturaTipi tip, FaturaYonu? yon = null, int? firmaId = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var prefix = tip switch
         {
             FaturaTipi.SatisFaturasi => "SF",
@@ -319,7 +333,7 @@ public class FaturaService : IFaturaService
         };
 
         var year = DateTime.Now.Year;
-        var query = _context.Faturalar
+        var query = context.Faturalar
             .IgnoreQueryFilters()
             .Where(f => !f.IsDeleted && f.FaturaNo.StartsWith($"{prefix}-{year}"));
 
@@ -348,7 +362,8 @@ public class FaturaService : IFaturaService
 
     public async Task UpdateOdenenTutarAsync(int faturaId)
     {
-        var fatura = await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fatura = await context.Faturalar
             .Include(f => f.OdemeEslestirmeleri)
             .FirstOrDefaultAsync(f => f.Id == faturaId);
 
@@ -370,18 +385,19 @@ public class FaturaService : IFaturaService
                 fatura.Durum = FaturaDurum.Beklemede;
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
     }
 
     public async Task<DashboardFaturaStats> GetDashboardStatsAsync()
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var stats = new DashboardFaturaStats();
         var today = DateTime.Today;
         var buAyBaslangic = new DateTime(today.Year, today.Month, 1);
 
         // Single optimized query for invoices needed for dashboard
-        var relevantFaturalar = await _context.Faturalar
+        var relevantFaturalar = await context.Faturalar
             .Include(f => f.Cari)
             .Where(f => f.Durum != FaturaDurum.IptalEdildi)
             .Select(f => new
@@ -425,7 +441,7 @@ public class FaturaService : IFaturaService
 
         if (vadeGecmisIds.Count > 0)
         {
-            stats.VadeGecmisFaturalar = await _context.Faturalar
+            stats.VadeGecmisFaturalar = await context.Faturalar
                 .Include(f => f.Cari)
                 .Where(f => vadeGecmisIds.Contains(f.Id))
                 .OrderBy(f => f.VadeTarihi)
@@ -443,7 +459,7 @@ public class FaturaService : IFaturaService
 
         if (vadeYaklasanIds.Count > 0)
         {
-            stats.VadeYaklasanFaturalar = await _context.Faturalar
+            stats.VadeYaklasanFaturalar = await context.Faturalar
                 .Include(f => f.Cari)
                 .Where(f => vadeYaklasanIds.Contains(f.Id))
                 .OrderBy(f => f.VadeTarihi)
@@ -457,7 +473,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetByYonAsync(FaturaYonu yon, int? firmaId = null)
     {
-        var query = _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Faturalar
             .Include(f => f.Cari)
             .Where(f => f.FaturaYonu == yon);
 
@@ -469,7 +486,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetByYonAndDateRangeAsync(FaturaYonu yon, DateTime? baslangic, DateTime? bitis, int? firmaId = null)
     {
-        var query = _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Faturalar
             .Include(f => f.Cari)
             .Where(f => f.FaturaYonu == yon);
 
@@ -487,7 +505,8 @@ public class FaturaService : IFaturaService
 
     public async Task<List<Fatura>> GetByEFaturaTipiAsync(EFaturaTipi tip)
     {
-        return await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Faturalar
             .Include(f => f.Cari)
             .Where(f => f.EFaturaTipi == tip)
             .OrderByDescending(f => f.FaturaTarihi)
@@ -502,6 +521,7 @@ public class FaturaService : IFaturaService
     /// </summary>
     public async Task<EFaturaImportResult> ImportFromExcelAsync(byte[] fileContent, FaturaYonu yon, int? firmaId = null, EFaturaTipi? eFaturaTipi = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var result = new EFaturaImportResult();
 
         // Varsayilan E-Fatura tipi
@@ -527,7 +547,7 @@ public class FaturaService : IFaturaService
                 return result;
             }
 
-            int nextCariNum = await GetNextCariNumAsync();
+            int nextCariNum = await GetNextCariNumAsync(context);
 
             // Bu importta olusturulan carileri takip et
             var importCarileri = new Dictionary<string, Cari>(StringComparer.OrdinalIgnoreCase);
@@ -560,7 +580,7 @@ public class FaturaService : IFaturaService
                         continue;
                     }
 
-                    var existingFatura = await FindExistingFaturaAsync(faturaNo, yon, firmaId);
+                    var existingFatura = await FindExistingFaturaAsync(context, faturaNo, yon, firmaId);
                     if (existingFatura != null)
                     {
                         result.SkippedCount++;
@@ -622,13 +642,13 @@ public class FaturaService : IFaturaService
                     // Veritabaninda VKN ile ara
                     if (cari == null && !string.IsNullOrWhiteSpace(cariVkn) && cariVkn.Length >= 10)
                     {
-                        cari = await _context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
+                        cari = await context.Cariler.FirstOrDefaultAsync(c => c.VergiNo == cariVkn && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                     }
 
                     // Veritabaninda Unvan ile ara
                     if (cari == null && !string.IsNullOrWhiteSpace(cariUnvan))
                     {
-                        cari = await _context.Cariler.FirstOrDefaultAsync(c =>
+                        cari = await context.Cariler.FirstOrDefaultAsync(c =>
                             c.Unvan.ToLower() == cariUnvan.ToLower() && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                     }
 
@@ -636,7 +656,7 @@ public class FaturaService : IFaturaService
                     if (cari == null)
                     {
                         // Benzersiz CariKodu - timestamp ile garantili
-                        var uniqueCode = await GetUniqueCariCodeAsync(nextCariNum);
+                        var uniqueCode = await GetUniqueCariCodeAsync(context, nextCariNum);
 
                         cari = new Cari
                         {
@@ -649,8 +669,8 @@ public class FaturaService : IFaturaService
                             CreatedAt = DateTime.UtcNow
                         };
 
-                        _context.Cariler.Add(cari);
-                        await _context.SaveChangesAsync();
+                        context.Cariler.Add(cari);
+                        await context.SaveChangesAsync();
 
                         if (!string.IsNullOrEmpty(cariKey))
                         {
@@ -690,16 +710,16 @@ public class FaturaService : IFaturaService
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    _context.Faturalar.Add(fatura);
+                    context.Faturalar.Add(fatura);
 
                     // Her faturayı tek tek kaydet - hata durumunda diger faturalar etkilenmesin
-                    await _context.SaveChangesAsync();
+                    await context.SaveChangesAsync();
 
                     // Otomatik muhasebe fişi oluştur
-                    await TryCreateMuhasebeFisiAsync(fatura);
+                    await TryCreateMuhasebeFisiAsync(context, fatura);
 
                     // Stok hareketi oluştur (Gelen: Giriş, Giden: Çıkış)
-                    await CreateStokHareketleriFromFaturaAsync(fatura, yon);
+                    await CreateStokHareketleriFromFaturaAsync(context, fatura, yon);
 
                     result.ImportedItems.Add(fatura);
                     result.ImportedCount++;
@@ -712,7 +732,7 @@ public class FaturaService : IFaturaService
                     result.ErrorCount++;
 
                     // Context'i temizle - hatali entity'leri kaldir
-                    foreach (var entry in _context.ChangeTracker.Entries().ToList())
+                    foreach (var entry in context.ChangeTracker.Entries().ToList())
                     {
                         if (entry.State == EntityState.Added)
                         {
@@ -734,18 +754,19 @@ public class FaturaService : IFaturaService
 
     public async Task<EFaturaImportResult> ImportFromXmlAsync(List<XmlFileContent> xmlFiles, FaturaYonu yon, int? firmaId = null, EFaturaTipi? eFaturaTipi = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var result = new EFaturaImportResult();
         var defaultEFaturaTipi = eFaturaTipi ?? EFaturaTipi.EFatura;
-        int nextCariNum = await GetNextCariNumAsync();
+        int nextCariNum = await GetNextCariNumAsync(context);
         var importCarileri = new Dictionary<string, Cari>(StringComparer.OrdinalIgnoreCase);
 
         // Ayarları al
-        var ayar = await _context.MuhasebeAyarlari.FirstOrDefaultAsync();
+        var ayar = await context.MuhasebeAyarlari.FirstOrDefaultAsync();
         var otomatikCariOlustur = ayar?.XmlImportOtomatikCariOlustur ?? true;
         var otomatikHesapKoduOlustur = ayar?.XmlImportOtomatikHesapKoduOlustur ?? true;
 
         // Kayıtlı firmaları al (firmalar arası fatura kontrolü için)
-        var kayitliFirmalar = await _context.Firmalar.Where(f => !f.IsDeleted && f.Aktif).ToListAsync();
+        var kayitliFirmalar = await context.Firmalar.Where(f => !f.IsDeleted && f.Aktif).ToListAsync();
 
         foreach (var file in xmlFiles)
         {
@@ -858,7 +879,7 @@ public class FaturaService : IFaturaService
                     firmaId = aliciFirma.Id;
                 }
 
-                var existingFatura = await FindExistingFaturaAsync(faturaNo, yon, firmaId);
+                var existingFatura = await FindExistingFaturaAsync(context, faturaNo, yon, firmaId);
                 if (existingFatura != null)
                 {
                     result.Errors.Add($"{file.FileName}: {faturaNo} no'lu {(yon == FaturaYonu.Giden ? "kesilen" : "gelen")} fatura seçilen firma için zaten var.");
@@ -1029,19 +1050,19 @@ public class FaturaService : IFaturaService
                 // TCKN ile ara
                 if (cari == null && !string.IsNullOrWhiteSpace(cariTcKimlikNo))
                 {
-                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.TcKimlikNo == cariTcKimlikNo && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
+                    cari = await context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.TcKimlikNo == cariTcKimlikNo && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                 }
 
                 // VKN ile ara
                 if (cari == null && !string.IsNullOrWhiteSpace(cariVkn) && cariVkn.Length >= 10)
                 {
-                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.VergiNo == cariVkn && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
+                    cari = await context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.VergiNo == cariVkn && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                 }
 
                 // Unvan ile ara
                 if (cari == null)
                 {
-                    cari = await _context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Unvan.ToLower() == cariUnvan.ToLower() && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
+                    cari = await context.Cariler.Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Unvan.ToLower() == cariUnvan.ToLower() && (firmaId == null || c.FirmaId == null || c.FirmaId == firmaId));
                 }
 
                 // Mevcut cari varsa eksik bilgileri güncelle
@@ -1125,13 +1146,13 @@ public class FaturaService : IFaturaService
                     if (guncellendi)
                     {
                         cari.UpdatedAt = DateTime.UtcNow;
-                        await _context.SaveChangesAsync();
+                        await context.SaveChangesAsync();
                     }
                 }
 
                 if (cari == null && otomatikCariOlustur)
                 {
-                    var uniqueCode = await GetUniqueCariCodeAsync(nextCariNum);
+                    var uniqueCode = await GetUniqueCariCodeAsync(context, nextCariNum);
                     var cariTipi = yon == FaturaYonu.Giden ? CariTipi.Musteri : CariTipi.Tedarikci;
 
                     cari = new Cari
@@ -1156,15 +1177,15 @@ public class FaturaService : IFaturaService
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    _context.Cariler.Add(cari);
-                    await _context.SaveChangesAsync();
+                    context.Cariler.Add(cari);
+                    await context.SaveChangesAsync();
                     nextCariNum++;
 
                     // Otomatik muhasebe hesap kodu oluştur
                     if (otomatikHesapKoduOlustur && ayar != null)
                     {
                         var prefix = cariTipi == CariTipi.Musteri ? ayar.MusteriPrefix : ayar.TedarikciPrefix;
-                        var yeniHesapKodu = await GetSonrakiHesapKoduAsync(prefix);
+                        var yeniHesapKodu = await GetSonrakiHesapKoduAsync(context, prefix);
 
                         var yeniHesap = new MuhasebeHesap
                         {
@@ -1176,11 +1197,11 @@ public class FaturaService : IFaturaService
                             CreatedAt = DateTime.UtcNow
                         };
 
-                        _context.MuhasebeHesaplari.Add(yeniHesap);
-                        await _context.SaveChangesAsync();
+                        context.MuhasebeHesaplari.Add(yeniHesap);
+                        await context.SaveChangesAsync();
 
                         cari.MuhasebeHesapId = yeniHesap.Id;
-                        await _context.SaveChangesAsync();
+                        await context.SaveChangesAsync();
                     }
                 }
 
@@ -1323,7 +1344,7 @@ public class FaturaService : IFaturaService
                     var aracBilgisi = ExtractAracBilgisi(aciklama);
                     if (aracBilgisi.HasValue && cari != null)
                     {
-                        var arac = await FindOrCreateAracAsync(aracBilgisi.Value, yon, cari.Id);
+                        var arac = await FindOrCreateAracAsync(context, aracBilgisi.Value, yon, cari.Id);
                         if (arac != null)
                         {
                             kalem.AracId = arac.Id;
@@ -1340,7 +1361,7 @@ public class FaturaService : IFaturaService
                     if (otomatikHesapKoduOlustur && ayar != null)
                     {
                         var hesapKodu = GetMuhasebeHesapKoduByKalemTipi(kalem.KalemTipi, yon, ayar);
-                        var hesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu);
+                        var hesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu);
                         if (hesap != null)
                         {
                             kalem.MuhasebeHesapId = hesap.Id;
@@ -1350,16 +1371,16 @@ public class FaturaService : IFaturaService
                     fatura.FaturaKalemleri.Add(kalem);
                 }
 
-                _context.Faturalar.Add(fatura);
-                await _context.SaveChangesAsync();
+                context.Faturalar.Add(fatura);
+                await context.SaveChangesAsync();
 
-                await SaveInvoiceXmlAsync(fatura, file.FileName, file.Content);
+                await SaveInvoiceXmlAsync(context, fatura, file.FileName, file.Content);
 
                 // Otomatik muhasebe fişi oluştur
-                await TryCreateMuhasebeFisiAsync(fatura);
+                await TryCreateMuhasebeFisiAsync(context, fatura);
 
                 // Stok hareketi oluştur (Gelen: Giriş, Giden: Çıkış)
-                await CreateStokHareketleriFromFaturaAsync(fatura, yon);
+                await CreateStokHareketleriFromFaturaAsync(context, fatura, yon);
 
                 result.ImportedItems.Add(fatura);
                 result.FaturaXmlMapping[fatura.Id] = file.FileName; // XML dosya adını kaydet
@@ -1370,7 +1391,7 @@ public class FaturaService : IFaturaService
                 result.Errors.Add($"{file.FileName} parse hatası: {ex.InnerException?.Message ?? ex.Message}");
                 result.ErrorCount++;
 
-                foreach (var entry in _context.ChangeTracker.Entries().ToList())
+                foreach (var entry in context.ChangeTracker.Entries().ToList())
                 {
                     if (entry.State == EntityState.Added)
                     {
@@ -1386,6 +1407,7 @@ public class FaturaService : IFaturaService
 
     public async Task<EFaturaImportResult> ImportFromXmlWithPdfAsync(List<XmlPdfFileContent> files, FaturaYonu yon, int? firmaId = null, EFaturaTipi? eFaturaTipi = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Önce XML'leri import et
         var xmlContents = files.Select(f => new XmlFileContent { FileName = f.XmlFileName, Content = f.XmlContent }).ToList();
         var result = await ImportFromXmlAsync(xmlContents, yon, firmaId, eFaturaTipi);
@@ -1419,7 +1441,8 @@ public class FaturaService : IFaturaService
 
     public async Task<bool> UploadFaturaPdfAsync(int faturaId, string fileName, byte[] pdfContent)
     {
-        var fatura = await _context.Faturalar.FindAsync(faturaId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fatura = await context.Faturalar.FindAsync(faturaId);
         if (fatura == null) return false;
 
         try
@@ -1434,7 +1457,7 @@ public class FaturaService : IFaturaService
                 fileName,
                 pdfContent);
             fatura.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             return true;
         }
@@ -1446,7 +1469,8 @@ public class FaturaService : IFaturaService
 
     public async Task<FaturaStoredFile?> GetFaturaDosyaAsync(int faturaId, FaturaDosyaTuru dosyaTuru)
     {
-        var fatura = await _context.Faturalar.FindAsync(faturaId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fatura = await context.Faturalar.FindAsync(faturaId);
         if (fatura == null)
             return null;
 
@@ -1457,7 +1481,7 @@ public class FaturaService : IFaturaService
         byte[]? content;
         if (IsLegacyUploadPath(storedPath))
         {
-            content = await ReadLegacyUploadAsync(storedPath);
+            content = await ReadLegacyUploadAsync(context, storedPath);
         }
         else
         {
@@ -1476,7 +1500,7 @@ public class FaturaService : IFaturaService
         };
     }
 
-    private async Task PrepareFaturaForSaveAsync(Fatura fatura)
+    private async Task PrepareFaturaForSaveAsync(ApplicationDbContext context, Fatura fatura)
     {
         fatura.FaturaNo = NormalizeFaturaNo(fatura.FaturaNo);
         fatura.FaturaTarihi = DateTime.SpecifyKind(fatura.FaturaTarihi, DateTimeKind.Utc);
@@ -1486,7 +1510,7 @@ public class FaturaService : IFaturaService
 
         if (!fatura.FirmaId.HasValue && fatura.CariId > 0)
         {
-            fatura.FirmaId = await _context.Cariler
+            fatura.FirmaId = await context.Cariler
                 .Where(c => c.Id == fatura.CariId)
                 .Select(c => c.FirmaId)
                 .FirstOrDefaultAsync();
@@ -1508,7 +1532,7 @@ public class FaturaService : IFaturaService
             fatura.KarsiFirmaId = null;
         }
 
-        var ayniNumara = await FindExistingFaturaAsync(fatura.FaturaNo, fatura.FaturaYonu, fatura.FirmaId, fatura.Id > 0 ? fatura.Id : null);
+        var ayniNumara = await FindExistingFaturaAsync(context, fatura.FaturaNo, fatura.FaturaYonu, fatura.FirmaId, fatura.Id > 0 ? fatura.Id : null);
         if (ayniNumara != null)
             throw new InvalidOperationException($"'{fatura.FaturaNo}' numaralı {(fatura.FaturaYonu == FaturaYonu.Giden ? "kesilen" : "gelen")} fatura seçilen firma için zaten kayıtlı.");
 
@@ -1518,7 +1542,7 @@ public class FaturaService : IFaturaService
         fatura.UpdatedAt = DateTime.UtcNow;
     }
 
-    private async Task SaveInvoiceXmlAsync(Fatura fatura, string fileName, byte[] xmlContent)
+    private async Task SaveInvoiceXmlAsync(ApplicationDbContext context, Fatura fatura, string fileName, byte[] xmlContent)
     {
         ValidateStoredXmlFileExtension(fileName);
 
@@ -1533,7 +1557,7 @@ public class FaturaService : IFaturaService
             xmlContent);
 
         fatura.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     private static void ValidateStoredFileExtension(string fileName, string expectedExtension)
@@ -1564,7 +1588,7 @@ public class FaturaService : IFaturaService
     private static bool IsLegacyUploadPath(string path)
         => path.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase) || path.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase);
 
-    private async Task<byte[]?> ReadLegacyUploadAsync(string legacyPath)
+    private async Task<byte[]?> ReadLegacyUploadAsync(ApplicationDbContext context, string legacyPath)
     {
         var relativePath = legacyPath
             .Replace("/uploads/", string.Empty, StringComparison.OrdinalIgnoreCase)
@@ -1581,12 +1605,12 @@ public class FaturaService : IFaturaService
         return await File.ReadAllBytesAsync(fullPath);
     }
 
-    private async Task<string> GetSonrakiHesapKoduAsync(string prefix)
+    private async Task<string> GetSonrakiHesapKoduAsync(ApplicationDbContext context, string prefix)
     {
         if (string.IsNullOrWhiteSpace(prefix))
             return string.Empty;
 
-        var sonKod = await _context.MuhasebeHesaplari
+        var sonKod = await context.MuhasebeHesaplari
             .Where(h => h.HesapKodu.StartsWith(prefix + "."))
             .OrderByDescending(h => h.HesapKodu)
             .Select(h => h.HesapKodu)
@@ -1619,13 +1643,13 @@ public class FaturaService : IFaturaService
         return countryNames.Contains(upper);
     }
 
-    private async Task<Fatura?> FindExistingFaturaAsync(string faturaNo, FaturaYonu? yon = null, int? firmaId = null, int? excludeId = null)
+    private async Task<Fatura?> FindExistingFaturaAsync(ApplicationDbContext context, string faturaNo, FaturaYonu? yon = null, int? firmaId = null, int? excludeId = null)
     {
         var normalizedFaturaNo = NormalizeFaturaNo(faturaNo);
         if (string.IsNullOrWhiteSpace(normalizedFaturaNo))
             return null;
 
-        var query = _context.Faturalar.Where(f => !f.IsDeleted);
+        var query = context.Faturalar.Where(f => !f.IsDeleted);
 
         if (yon.HasValue)
             query = query.Where(f => f.FaturaYonu == yon.Value);
@@ -1639,7 +1663,7 @@ public class FaturaService : IFaturaService
         return await query.FirstOrDefaultAsync(f => f.FaturaNo == normalizedFaturaNo || f.FaturaNo == faturaNo);
     }
 
-    private async Task<string> GetUniqueCariCodeAsync(int startNum)
+    private async Task<string> GetUniqueCariCodeAsync(ApplicationDbContext context, int startNum)
     {
         var year = DateTime.UtcNow.Year % 100;
         string code;
@@ -1649,7 +1673,7 @@ public class FaturaService : IFaturaService
         {
             code = $"C{year}{num:D4}";
             num++;
-        } while (await _context.Cariler.AnyAsync(c => c.CariKodu == code));
+        } while (await context.Cariler.AnyAsync(c => c.CariKodu == code));
 
         return code;
     }
@@ -1700,7 +1724,7 @@ public class FaturaService : IFaturaService
         return 0;
     }
 
-    private async Task TryCreateMuhasebeFisiAsync(Fatura fatura)
+    private async Task TryCreateMuhasebeFisiAsync(ApplicationDbContext context, Fatura fatura)
     {
         try
         {
@@ -1708,11 +1732,11 @@ public class FaturaService : IFaturaService
             if (fatura.FirmaId == null) return;
 
             // İlgili ayar var mı kontrol et
-            var ayar = await _context.MuhasebeAyarlari.FirstOrDefaultAsync();
+            var ayar = await context.MuhasebeAyarlari.FirstOrDefaultAsync();
             if (ayar == null || !ayar.FaturaOtomatikMuhasebeFisi) return;
 
             // Fatura kalemlerini yükle
-            await _context.Entry(fatura).Collection(f => f.FaturaKalemleri).LoadAsync();
+            await context.Entry(fatura).Collection(f => f.FaturaKalemleri).LoadAsync();
         }
         catch
         {
@@ -1731,12 +1755,12 @@ public class FaturaService : IFaturaService
         }
     }
 
-    private async Task<int> GetNextCariNumAsync()
+    private async Task<int> GetNextCariNumAsync(ApplicationDbContext context)
     {
         var year = DateTime.UtcNow.Year % 100;
         var prefix = $"C{year}";
 
-        var sonCari = await _context.Cariler
+        var sonCari = await context.Cariler
             .Where(c => c.CariKodu.StartsWith(prefix))
             .OrderByDescending(c => c.CariKodu)
             .FirstOrDefaultAsync();
@@ -1757,11 +1781,12 @@ public class FaturaService : IFaturaService
 
     public async Task<List<FaturaKalem>> GetFaturaKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null)
     {
-        var query = _context.FaturaKalemleri
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.FaturaKalemleri
             .Include(k => k.Fatura)
                 .ThenInclude(f => f.Cari)
             .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted)
-            .Where(k => !_context.Guzergahlar.Any(g => !g.IsDeleted && g.FaturaKalemId == k.Id));
+            .Where(k => !context.Guzergahlar.Any(g => !g.IsDeleted && g.FaturaKalemId == k.Id));
 
         if (baslangic.HasValue)
         {
@@ -1784,8 +1809,9 @@ public class FaturaService : IFaturaService
 
     public async Task<List<FaturaKalem>> GetEslesmemisKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Mevcut stok kartlarının adlarını ve kodlarını al
-        var stokKartlari = await _context.StokKartlari
+        var stokKartlari = await context.StokKartlari
             .Where(s => !s.IsDeleted)
             .Select(s => new { Adi = s.StokAdi.ToLower().Trim(), Kodu = s.StokKodu.ToUpper().Trim() })
             .ToListAsync();
@@ -1793,11 +1819,11 @@ public class FaturaService : IFaturaService
         var stokAdlariSet = stokKartlari.Select(s => s.Adi).ToHashSet();
         var stokKodlariSet = stokKartlari.Where(s => !string.IsNullOrWhiteSpace(s.Kodu)).Select(s => s.Kodu).ToHashSet();
 
-        var query = _context.FaturaKalemleri
+        var query = context.FaturaKalemleri
             .Include(k => k.Fatura)
                 .ThenInclude(f => f.Cari)
             .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted)
-            .Where(k => !_context.Guzergahlar.Any(g => !g.IsDeleted && g.FaturaKalemId == k.Id));
+            .Where(k => !context.Guzergahlar.Any(g => !g.IsDeleted && g.FaturaKalemId == k.Id));
 
         if (baslangic.HasValue)
         {
@@ -1849,8 +1875,9 @@ public class FaturaService : IFaturaService
 
     public async Task<List<FaturaKalem>> GetEslesmisKalemleriAsync(DateTime? baslangic = null, DateTime? bitis = null)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         // Mevcut stok kartlarının adlarını ve kodlarını al
-        var stokKartlari = await _context.StokKartlari
+        var stokKartlari = await context.StokKartlari
             .Where(s => !s.IsDeleted)
             .Select(s => new { Adi = s.StokAdi.ToLower().Trim(), Kodu = s.StokKodu.ToUpper().Trim() })
             .ToListAsync();
@@ -1858,7 +1885,7 @@ public class FaturaService : IFaturaService
         var stokAdlariSet = stokKartlari.Select(s => s.Adi).ToHashSet();
         var stokKodlariSet = stokKartlari.Where(s => !string.IsNullOrWhiteSpace(s.Kodu)).Select(s => s.Kodu).ToHashSet();
 
-        var query = _context.FaturaKalemleri
+        var query = context.FaturaKalemleri
             .Include(k => k.Fatura)
                 .ThenInclude(f => f.Cari)
             .Where(k => !k.IsDeleted && !k.Fatura.IsDeleted);
@@ -1907,11 +1934,12 @@ public class FaturaService : IFaturaService
 
     public async Task UpdateFaturaKalemleriAsync(List<FaturaKalem> kalemler)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         if (kalemler == null || !kalemler.Any())
             return;
 
         var kalemIds = kalemler.Select(k => k.Id).ToList();
-        var mevcutKalemler = await _context.FaturaKalemleri
+        var mevcutKalemler = await context.FaturaKalemleri
             .AsTracking()
             .Include(k => k.Fatura)
                 .ThenInclude(f => f.Cari)
@@ -1932,23 +1960,24 @@ public class FaturaService : IFaturaService
             }
         }
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         var faturaIds = mevcutKalemler.Select(k => k.FaturaId).Distinct().ToList();
-        await RebuildDerivedRecordsForInvoicesAsync(faturaIds);
+        await RebuildDerivedRecordsForInvoicesAsync(context, faturaIds);
     }
 
     public async Task<StokKartiOlusturSonuc> UpdateFaturaKalemleriVeStokKartiOlusturAsync(List<FaturaKalem> kalemler, bool stokKartiOlustur = true)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var sonuc = new StokKartiOlusturSonuc();
 
         if (kalemler == null || !kalemler.Any())
             return sonuc;
 
         // Muhasebe ayarlarını al
-        var ayar = await _context.MuhasebeAyarlari.AsNoTracking().FirstOrDefaultAsync();
+        var ayar = await context.MuhasebeAyarlari.AsNoTracking().FirstOrDefaultAsync();
         // Mevcut stok kartlarını al
-        var mevcutStoklar = await _context.StokKartlari
+        var mevcutStoklar = await context.StokKartlari
             .AsTracking()
             .Where(s => !s.IsDeleted)
             .ToListAsync();
@@ -1964,7 +1993,7 @@ public class FaturaService : IFaturaService
             .Where(s => !string.IsNullOrWhiteSpace(s.StokKodu))
             .ToDictionary(s => s.StokKodu.ToUpperInvariant().Trim(), s => s.Id);
 
-        var sonStokKodu = await _context.StokKartlari
+        var sonStokKodu = await context.StokKartlari
             .Where(s => s.StokKodu.StartsWith("STK"))
             .OrderByDescending(s => s.StokKodu)
             .Select(s => s.StokKodu)
@@ -1979,7 +2008,7 @@ public class FaturaService : IFaturaService
         }
 
         var kalemIds = kalemler.Select(k => k.Id).ToList();
-        var mevcutKalemler = await _context.FaturaKalemleri
+        var mevcutKalemler = await context.FaturaKalemleri
             .AsTracking()
             .Include(k => k.Fatura)
                 .ThenInclude(f => f.Cari)
@@ -2084,7 +2113,7 @@ public class FaturaService : IFaturaService
                             }
                             else if (stokKartiId > 0)
                             {
-                                var mevcutStok = await _context.StokKartlari.FindAsync(stokKartiId);
+                                var mevcutStok = await context.StokKartlari.FindAsync(stokKartiId);
                                 if (mevcutStok != null)
                                 {
                                     giderKayitlari.Add((existing, mevcutStok, existing.ToplamTutar));
@@ -2106,14 +2135,14 @@ public class FaturaService : IFaturaService
 
         if (olusturulacakStoklar.Any())
         {
-            _context.StokKartlari.AddRange(olusturulacakStoklar);
+            context.StokKartlari.AddRange(olusturulacakStoklar);
         }
 
         try
         {
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             var faturaIds = mevcutKalemler.Select(k => k.FaturaId).Distinct().ToList();
-            var rebuildSonuc = await RebuildDerivedRecordsForInvoicesAsync(faturaIds);
+            var rebuildSonuc = await RebuildDerivedRecordsForInvoicesAsync(context, faturaIds);
             sonuc.OlusturulanStokHareketSayisi = rebuildSonuc.StokHareketSayisi;
             sonuc.OlusturulanGiderKayitSayisi = rebuildSonuc.MuhasebeFisSayisi;
         }
@@ -2132,16 +2161,16 @@ public class FaturaService : IFaturaService
     /// Borç: 770.99.999 (Genel Yönetim Giderleri)
     /// Alacak: 153 (Ticari Mallar)
     /// </summary>
-    private async Task CreateGiderMuhasebeKaydiAsync(Fatura fatura, decimal tutar, string giderHesapKodu)
+    private async Task CreateGiderMuhasebeKaydiAsync(ApplicationDbContext context, Fatura fatura, decimal tutar, string giderHesapKodu)
     {
         try
         {
             // Gider hesabını bul veya oluştur
-            var giderHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == giderHesapKodu);
+            var giderHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == giderHesapKodu);
             if (giderHesap == null)
             {
                 var ustKod = "770.99";
-                var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
+                var ustHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
 
                 giderHesap = new MuhasebeHesap
                 {
@@ -2153,15 +2182,15 @@ public class FaturaService : IFaturaService
                     Aktif = true,
                     CreatedAt = DateTime.UtcNow
                 };
-                _context.MuhasebeHesaplari.Add(giderHesap);
-                await _context.SaveChangesAsync();
+                context.MuhasebeHesaplari.Add(giderHesap);
+                await context.SaveChangesAsync();
             }
 
             // Stok hesabı (153)
-            var stokHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "153");
+            var stokHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "153");
             if (stokHesap == null)
             {
-                var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "15");
+                var ustHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "15");
 
                 stokHesap = new MuhasebeHesap
                 {
@@ -2173,12 +2202,12 @@ public class FaturaService : IFaturaService
                     Aktif = true,
                     CreatedAt = DateTime.UtcNow
                 };
-                _context.MuhasebeHesaplari.Add(stokHesap);
-                await _context.SaveChangesAsync();
+                context.MuhasebeHesaplari.Add(stokHesap);
+                await context.SaveChangesAsync();
             }
 
             // Muhasebe fişi oluştur
-            var fisNo = await GenerateNextFisNoAsync();
+            var fisNo = await GenerateNextFisNoAsync(context);
             var fis = new MuhasebeFis
             {
                 FisNo = fisNo,
@@ -2216,8 +2245,8 @@ public class FaturaService : IFaturaService
                 CreatedAt = DateTime.UtcNow
             });
 
-            _context.MuhasebeFisleri.Add(fis);
-            await _context.SaveChangesAsync();
+            context.MuhasebeFisleri.Add(fis);
+            await context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -2262,27 +2291,27 @@ public class FaturaService : IFaturaService
         return temizAciklama;
     }
 
-    private async Task<(int StokHareketSayisi, int MuhasebeFisSayisi)> RebuildDerivedRecordsForInvoicesAsync(List<int> faturaIds)
+    private async Task<(int StokHareketSayisi, int MuhasebeFisSayisi)> RebuildDerivedRecordsForInvoicesAsync(ApplicationDbContext context, List<int> faturaIds)
     {
         if (faturaIds == null || !faturaIds.Any())
             return (0, 0);
 
         var invoiceIdSet = faturaIds.Distinct().ToList();
 
-        var etkilenmisStokIds = await _context.StokHareketler
+        var etkilenmisStokIds = await context.StokHareketler
             .Where(h => h.FaturaId.HasValue && invoiceIdSet.Contains(h.FaturaId.Value))
             .Select(h => h.StokKartiId)
             .Distinct()
             .ToListAsync();
 
-        var silinecekHareketler = await _context.StokHareketler
+        var silinecekHareketler = await context.StokHareketler
             .Where(h => h.FaturaId.HasValue && invoiceIdSet.Contains(h.FaturaId.Value))
             .ToListAsync();
 
         if (silinecekHareketler.Any())
-            _context.StokHareketler.RemoveRange(silinecekHareketler);
+            context.StokHareketler.RemoveRange(silinecekHareketler);
 
-        var silinecekFisler = await _context.MuhasebeFisleri
+        var silinecekFisler = await context.MuhasebeFisleri
             .Include(f => f.Kalemler)
             .Where(f => f.Kaynak == FisKaynak.Fatura &&
                         f.KaynakId.HasValue && invoiceIdSet.Contains(f.KaynakId.Value) &&
@@ -2290,28 +2319,28 @@ public class FaturaService : IFaturaService
             .ToListAsync();
 
         if (silinecekFisler.Any())
-            _context.MuhasebeFisleri.RemoveRange(silinecekFisler);
+            context.MuhasebeFisleri.RemoveRange(silinecekFisler);
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         if (etkilenmisStokIds.Any())
         {
             foreach (var stokId in etkilenmisStokIds)
             {
-                var stok = await _context.StokKartlari.AsTracking().FirstOrDefaultAsync(s => s.Id == stokId);
+                var stok = await context.StokKartlari.AsTracking().FirstOrDefaultAsync(s => s.Id == stokId);
                 if (stok == null)
                     continue;
 
-                stok.MevcutStok = await _context.StokHareketler
+                stok.MevcutStok = await context.StokHareketler
                     .Where(h => h.StokKartiId == stokId)
                     .SumAsync(h => h.Miktar);
                 stok.UpdatedAt = DateTime.UtcNow;
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
 
-        var faturalar = await _context.Faturalar
+        var faturalar = await context.Faturalar
             .AsTracking()
             .Include(f => f.Cari)
             .Include(f => f.FaturaKalemleri)
@@ -2320,14 +2349,14 @@ public class FaturaService : IFaturaService
 
         foreach (var fatura in faturalar)
         {
-            await CreateStokHareketleriFromFaturaAsync(fatura, fatura.FaturaYonu);
-            await TryCreateMuhasebeFisiAsync(fatura);
+            await CreateStokHareketleriFromFaturaAsync(context, fatura, fatura.FaturaYonu);
+            await TryCreateMuhasebeFisiAsync(context, fatura);
         }
 
-        var stokHareketSayisi = await _context.StokHareketler
+        var stokHareketSayisi = await context.StokHareketler
             .CountAsync(h => h.FaturaId.HasValue && invoiceIdSet.Contains(h.FaturaId.Value));
 
-        var muhasebeFisSayisi = await _context.MuhasebeFisleri
+        var muhasebeFisSayisi = await context.MuhasebeFisleri
             .CountAsync(f => f.Kaynak == FisKaynak.Fatura && f.KaynakId.HasValue && invoiceIdSet.Contains(f.KaynakId.Value));
 
         return (stokHareketSayisi, muhasebeFisSayisi);
@@ -2362,7 +2391,8 @@ public class FaturaService : IFaturaService
 
     public async Task<MuhasebeFis> CreateMuhasebeFisiAsync(int faturaId)
     {
-        var fatura = await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fatura = await context.Faturalar
             .Include(f => f.Cari)
             .Include(f => f.FaturaKalemleri)
             .FirstOrDefaultAsync(f => f.Id == faturaId);
@@ -2370,7 +2400,7 @@ public class FaturaService : IFaturaService
         if (fatura == null)
             throw new Exception("Fatura bulunamadi.");
 
-        var fisNo = await GenerateNextFisNoAsync();
+        var fisNo = await GenerateNextFisNoAsync(context);
 
         var fis = new MuhasebeFis
         {
@@ -2387,18 +2417,18 @@ public class FaturaService : IFaturaService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.MuhasebeFisleri.Add(fis);
-        await _context.SaveChangesAsync();
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
 
         return fis;
     }
 
-    private async Task<string> GenerateNextFisNoAsync()
+    private async Task<string> GenerateNextFisNoAsync(ApplicationDbContext context)
     {
         var yil = DateTime.UtcNow.Year;
         var prefix = $"MF{yil}";
 
-        var sonFisNo = await _context.MuhasebeFisleri
+        var sonFisNo = await context.MuhasebeFisleri
             .Where(f => f.FisNo.StartsWith(prefix))
             .OrderByDescending(f => f.FisNo)
             .Select(f => f.FisNo)
@@ -2416,6 +2446,7 @@ public class FaturaService : IFaturaService
 
     public async Task<byte[]> GetExcelSablonAsync(FaturaYonu yon)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var package = new ExcelPackage();
         var ws = package.Workbook.Worksheets.Add(yon == FaturaYonu.Giden ? "Satış Faturaları" : "Alış Faturaları");
 
@@ -2446,6 +2477,7 @@ public class FaturaService : IFaturaService
 
     public async Task<byte[]> ExportToExcelAsync(List<Fatura> faturalar)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         using var package = new ExcelPackage();
         var ws = package.Workbook.Worksheets.Add("Faturalar");
 
@@ -2593,20 +2625,20 @@ public class FaturaService : IFaturaService
         return null;
     }
 
-    private async Task<Arac?> FindOrCreateAracAsync((string? SaseNo, string? Plaka) aracBilgisi, FaturaYonu yon, int cariId)
+    private async Task<Arac?> FindOrCreateAracAsync(ApplicationDbContext context, (string? SaseNo, string? Plaka) aracBilgisi, FaturaYonu yon, int cariId)
     {
         Arac? arac = null;
 
         if (!string.IsNullOrWhiteSpace(aracBilgisi.SaseNo))
         {
-            arac = await _context.Araclar
+            arac = await context.Araclar
                 .Include(a => a.PlakaGecmisi)
                 .FirstOrDefaultAsync(a => a.SaseNo == aracBilgisi.SaseNo && !a.IsDeleted);
         }
 
         if (arac == null && !string.IsNullOrWhiteSpace(aracBilgisi.Plaka))
         {
-            var plakaKaydi = await _context.AracPlakalar
+            var plakaKaydi = await context.AracPlakalar
                 .Include(p => p.Arac)
                 .FirstOrDefaultAsync(p => p.Plaka == aracBilgisi.Plaka && !p.IsDeleted);
 
@@ -2652,7 +2684,7 @@ public class FaturaService : IFaturaService
     /// Gelen Fatura: Stok Girişi (Mal/Sarf Malzeme ise masrafa aktarım)
     /// Giden Fatura: Stok Çıkışı
     /// </summary>
-    private async Task CreateStokHareketleriFromFaturaAsync(Fatura fatura, FaturaYonu yon)
+    private async Task CreateStokHareketleriFromFaturaAsync(ApplicationDbContext context, Fatura fatura, FaturaYonu yon)
     {
         try
         {
@@ -2660,11 +2692,11 @@ public class FaturaService : IFaturaService
                 return;
 
             // Tüm verileri önce çek - tek sorguda
-            var ayar = await _context.MuhasebeAyarlari.AsNoTracking().FirstOrDefaultAsync();
+            var ayar = await context.MuhasebeAyarlari.AsNoTracking().FirstOrDefaultAsync();
             if (ayar == null || !ayar.StokMasrafAktarimiOtomatik)
                 return;
 
-            var stokKartlari = await _context.StokKartlari
+            var stokKartlari = await context.StokKartlari
                 .AsNoTracking()
                 .Where(s => !s.IsDeleted && s.Aktif)
                 .ToListAsync();
@@ -2783,14 +2815,14 @@ public class FaturaService : IFaturaService
             // Stok hareketlerini ekle
             if (stokHareketleri.Any())
             {
-                _context.StokHareketler.AddRange(stokHareketleri);
+                context.StokHareketler.AddRange(stokHareketleri);
             }
 
             // Stok miktarlarını güncelle - tek sorguda ID'leri al
             if (guncellenecekStoklar.Any())
             {
                 var stokIds = guncellenecekStoklar.Keys.ToList();
-                var stoklarToUpdate = await _context.StokKartlari
+                var stoklarToUpdate = await context.StokKartlari
                     .Where(s => stokIds.Contains(s.Id))
                     .ToListAsync();
 
@@ -2805,17 +2837,17 @@ public class FaturaService : IFaturaService
             }
 
             // İlk kaydet
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             // Muhasebe kayıtlarını ayrı ayrı oluştur (her biri kendi SaveChanges'ini yapacak)
             if (toplamMalMasrafTutar > 0)
             {
-                await CreateMasrafMuhasebeKaydiInternalAsync(fatura, toplamMalMasrafTutar, ayar.MalMasrafHesabi, ayar.StokCikisHesabi, "Ticari Mal");
+                await CreateMasrafMuhasebeKaydiInternalAsync(context, fatura, toplamMalMasrafTutar, ayar.MalMasrafHesabi, ayar.StokCikisHesabi, "Ticari Mal");
             }
 
             if (toplamSarfMasrafTutar > 0)
             {
-                await CreateMasrafMuhasebeKaydiInternalAsync(fatura, toplamSarfMasrafTutar, ayar.SarfMalzemeMasrafHesabi, ayar.StokCikisHesabi, "Sarf Malzeme");
+                await CreateMasrafMuhasebeKaydiInternalAsync(context, fatura, toplamSarfMasrafTutar, ayar.SarfMalzemeMasrafHesabi, ayar.StokCikisHesabi, "Sarf Malzeme");
             }
         }
         catch (Exception ex)
@@ -2828,13 +2860,13 @@ public class FaturaService : IFaturaService
     /// <summary>
     /// Masraf aktarımı için muhasebe fişi oluşturur (internal - SaveChanges yapar)
     /// </summary>
-    private async Task CreateMasrafMuhasebeKaydiInternalAsync(Fatura fatura, decimal tutar, string masrafHesapKodu, string stokCikisHesapKodu, string aciklamaTipi)
+    private async Task CreateMasrafMuhasebeKaydiInternalAsync(ApplicationDbContext context, Fatura fatura, decimal tutar, string masrafHesapKodu, string stokCikisHesapKodu, string aciklamaTipi)
     {
         try
         {
             // Hesapları bul
-            var masrafHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == masrafHesapKodu);
-            var stokHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == stokCikisHesapKodu);
+            var masrafHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == masrafHesapKodu);
+            var stokHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == stokCikisHesapKodu);
 
             // Masraf hesabı yoksa oluştur
             if (masrafHesap == null)
@@ -2842,7 +2874,7 @@ public class FaturaService : IFaturaService
                 var ustKod = masrafHesapKodu.Contains('.') 
                     ? string.Join(".", masrafHesapKodu.Split('.').Take(masrafHesapKodu.Split('.').Length - 1))
                     : masrafHesapKodu.Substring(0, Math.Min(3, masrafHesapKodu.Length));
-                var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
+                var ustHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
 
                 masrafHesap = new MuhasebeHesap
                 {
@@ -2854,15 +2886,15 @@ public class FaturaService : IFaturaService
                     Aktif = true,
                     CreatedAt = DateTime.UtcNow
                 };
-                _context.MuhasebeHesaplari.Add(masrafHesap);
-                await _context.SaveChangesAsync();
+                context.MuhasebeHesaplari.Add(masrafHesap);
+                await context.SaveChangesAsync();
             }
 
             // Stok hesabı yoksa oluştur
             if (stokHesap == null)
             {
                 var ustKod = stokCikisHesapKodu.Length >= 2 ? stokCikisHesapKodu.Substring(0, 2) : stokCikisHesapKodu;
-                var ustHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
+                var ustHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == ustKod);
 
                 stokHesap = new MuhasebeHesap
                 {
@@ -2874,12 +2906,12 @@ public class FaturaService : IFaturaService
                     Aktif = true,
                     CreatedAt = DateTime.UtcNow
                 };
-                _context.MuhasebeHesaplari.Add(stokHesap);
-                await _context.SaveChangesAsync();
+                context.MuhasebeHesaplari.Add(stokHesap);
+                await context.SaveChangesAsync();
             }
 
             // Fiş numarası al
-            var fisNo = await GenerateNextFisNoAsync();
+            var fisNo = await GenerateNextFisNoAsync(context);
 
             // Muhasebe fişi oluştur
             var fis = new MuhasebeFis
@@ -2919,8 +2951,8 @@ public class FaturaService : IFaturaService
                 CreatedAt = DateTime.UtcNow
             });
 
-            _context.MuhasebeFisleri.Add(fis);
-            await _context.SaveChangesAsync();
+            context.MuhasebeFisleri.Add(fis);
+            await context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -2936,18 +2968,18 @@ public class FaturaService : IFaturaService
     /// Giden fatura = Karşı firmanın gelen faturası
     /// Gelen fatura = Karşı firmanın giden faturası
     /// </summary>
-    private async Task CreateKarsiFirmaFaturasiAsync(Fatura anaFatura)
+    private async Task CreateKarsiFirmaFaturasiAsync(ApplicationDbContext context, Fatura anaFatura)
     {
         try
         {
             // Karşı firma için cari var mı kontrol et (ana firmanın karşı firmadaki carisi)
-            var anaFirma = await _context.Firmalar.FirstOrDefaultAsync(f => f.Id == anaFatura.FirmaId);
-            var karsiFirma = await _context.Firmalar.FirstOrDefaultAsync(f => f.Id == anaFatura.KarsiFirmaId);
+            var anaFirma = await context.Firmalar.FirstOrDefaultAsync(f => f.Id == anaFatura.FirmaId);
+            var karsiFirma = await context.Firmalar.FirstOrDefaultAsync(f => f.Id == anaFatura.KarsiFirmaId);
 
             if (anaFirma == null || karsiFirma == null) return;
 
             // Karşı firmada ana firmayı temsil eden cari bul veya oluştur
-            var mevcutKarsiFatura = await _context.Faturalar
+            var mevcutKarsiFatura = await context.Faturalar
                 .FirstOrDefaultAsync(f => !f.IsDeleted &&
                                           f.FirmaId == anaFatura.KarsiFirmaId &&
                                           f.FaturaYonu == (anaFatura.FaturaYonu == FaturaYonu.Giden ? FaturaYonu.Gelen : FaturaYonu.Giden) &&
@@ -2957,17 +2989,17 @@ public class FaturaService : IFaturaService
             {
                 anaFatura.EslesenFaturaId = mevcutKarsiFatura.Id;
                 mevcutKarsiFatura.EslesenFaturaId = anaFatura.Id;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
                 return;
             }
 
-            var karsiFirmadakiCari = await _context.Cariler
+            var karsiFirmadakiCari = await context.Cariler
                 .FirstOrDefaultAsync(c => c.FirmaId == anaFatura.KarsiFirmaId && c.VergiNo == anaFirma.VergiNo && !c.IsDeleted);
 
             if (karsiFirmadakiCari == null)
             {
                 // Cari yoksa oluştur
-                var cariKodu = await GetUniqueCariCodeAsync(await GetNextCariNumAsync());
+                var cariKodu = await GetUniqueCariCodeAsync(context, await GetNextCariNumAsync(context));
                 karsiFirmadakiCari = new Cari
                 {
                     CariKodu = cariKodu,
@@ -2984,8 +3016,8 @@ public class FaturaService : IFaturaService
                     Aktif = true,
                     CreatedAt = DateTime.UtcNow
                 };
-                _context.Cariler.Add(karsiFirmadakiCari);
-                await _context.SaveChangesAsync();
+                context.Cariler.Add(karsiFirmadakiCari);
+                await context.SaveChangesAsync();
             }
 
             // Karşı firmada eşleşen fatura oluştur
@@ -3045,12 +3077,12 @@ public class FaturaService : IFaturaService
                 }
             }
 
-            _context.Faturalar.Add(karsiFatura);
-            await _context.SaveChangesAsync();
+            context.Faturalar.Add(karsiFatura);
+            await context.SaveChangesAsync();
 
             // Ana faturayı karşı fatura ile eşleştir
             anaFatura.EslesenFaturaId = karsiFatura.Id;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -3063,7 +3095,8 @@ public class FaturaService : IFaturaService
     /// </summary>
     public async Task<bool> MahsupKapatAsync(int faturaId)
     {
-        var fatura = await _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fatura = await context.Faturalar
             .Include(f => f.EslesenFatura)
             .FirstOrDefaultAsync(f => f.Id == faturaId);
 
@@ -3088,10 +3121,10 @@ public class FaturaService : IFaturaService
         eslesenFatura.MahsupTarihi = mahsupTarihi;
         eslesenFatura.UpdatedAt = mahsupTarihi;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         // Mahsup muhasebe fişi oluştur
-        await CreateMahsupMuhasebeFisiAsync(fatura, eslesenFatura);
+        await CreateMahsupMuhasebeFisiAsync(context, fatura, eslesenFatura);
 
         return true;
     }
@@ -3099,11 +3132,11 @@ public class FaturaService : IFaturaService
     /// <summary>
     /// Mahsup için muhasebe fişi oluşturur
     /// </summary>
-    private async Task CreateMahsupMuhasebeFisiAsync(Fatura fatura1, Fatura fatura2)
+    private async Task CreateMahsupMuhasebeFisiAsync(ApplicationDbContext context, Fatura fatura1, Fatura fatura2)
     {
         try
         {
-            var fisNo = await GenerateNextFisNoAsync();
+            var fisNo = await GenerateNextFisNoAsync(context);
 
             var fis = new MuhasebeFis
             {
@@ -3122,8 +3155,8 @@ public class FaturaService : IFaturaService
 
             // Alıcılar hesabı (120) - Giden fatura için borç
             // Satıcılar hesabı (320) - Gelen fatura için alacak
-            var alicilarHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "120");
-            var saticilarHesap = await _context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "320");
+            var alicilarHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "120");
+            var saticilarHesap = await context.MuhasebeHesaplari.FirstOrDefaultAsync(h => h.HesapKodu == "320");
 
             if (alicilarHesap != null && saticilarHesap != null)
             {
@@ -3149,8 +3182,8 @@ public class FaturaService : IFaturaService
                     CreatedAt = DateTime.UtcNow
                 });
 
-                _context.MuhasebeFisleri.Add(fis);
-                await _context.SaveChangesAsync();
+                context.MuhasebeFisleri.Add(fis);
+                await context.SaveChangesAsync();
             }
         }
         catch (Exception ex)
@@ -3164,7 +3197,8 @@ public class FaturaService : IFaturaService
     /// </summary>
     public async Task<List<Fatura>> GetFirmalarArasiEslesmemisFaturalarAsync(int? firmaId = null)
     {
-        var query = _context.Faturalar
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var query = context.Faturalar
             .Include(f => f.Cari)
             .Include(f => f.KarsiFirma)
             .Where(f => f.FirmalarArasiFatura && !f.MahsupKapatildi && f.EslesenFaturaId == null);
@@ -3180,8 +3214,9 @@ public class FaturaService : IFaturaService
     /// </summary>
     public async Task<bool> FaturalariEslestirAsync(int fatura1Id, int fatura2Id)
     {
-        var fatura1 = await _context.Faturalar.FindAsync(fatura1Id);
-        var fatura2 = await _context.Faturalar.FindAsync(fatura2Id);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fatura1 = await context.Faturalar.FindAsync(fatura1Id);
+        var fatura2 = await context.Faturalar.FindAsync(fatura2Id);
 
         if (fatura1 == null || fatura2 == null) return false;
         if (!fatura1.FirmalarArasiFatura || !fatura2.FirmalarArasiFatura) return false;
@@ -3193,7 +3228,7 @@ public class FaturaService : IFaturaService
         fatura1.UpdatedAt = DateTime.UtcNow;
         fatura2.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
