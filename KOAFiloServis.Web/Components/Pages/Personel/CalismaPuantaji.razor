@@ -1,4 +1,4 @@
-﻿@page "/personel/puantaj"
+@page "/personel/puantaj"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Models
@@ -12,6 +12,7 @@
 @inject IToastService ToastService
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @rendermode InteractiveServer
 @implements IDisposable
@@ -35,6 +36,9 @@
             </button>
             <button class="btn btn-success btn-sm" @onclick="TopluPuantajOlustur" disabled="@isLoading">
                 <i class="bi bi-calendar-plus me-1"></i>Ay Puantajı Oluştur
+            </button>
+            <button class="btn btn-outline-dark btn-sm" @onclick="ResmiHesapPusulasiAc" disabled="@(isLoading || !filtrelenmisListe.Any())">
+                <i class="bi bi-file-earmark-text me-1"></i>Resmi Hesap Pusulası
             </button>
             <button class="btn btn-outline-primary btn-sm" @onclick="ExcelExport" disabled="@(isLoading || !puantajListesi.Any())">
                 <i class="bi bi-file-earmark-excel me-1"></i>Excel
@@ -760,6 +764,8 @@
     private HashSet<int> seciliPersonelIds = new();
 
     private bool isLoading = true;
+    private bool yenilemeCalisiyor = false;
+    private bool disposed = false;
     private bool degisiklikVar = false;
     private int filtreFirmaId = 1;
     private int filtreYil = DateTime.Today.Year;
@@ -838,6 +844,12 @@
 
     private async Task YenileAsync()
     {
+        if (yenilemeCalisiyor)
+        {
+            return;
+        }
+
+        yenilemeCalisiyor = true;
         isLoading = true;
         StateHasChanged();
 
@@ -863,7 +875,11 @@
         finally
         {
             isLoading = false;
-            StateHasChanged();
+            yenilemeCalisiyor = false;
+            if (!disposed)
+            {
+                StateHasChanged();
+            }
         }
     }
 
@@ -882,6 +898,29 @@
             ).ToList();
         }
         StateHasChanged();
+    }
+
+    private void ResmiHesapPusulasiAc()
+    {
+        if (filtreFirmaId <= 0)
+        {
+            ShowBildirim("Uyarı", "Lütfen önce bir firma seçin.", "warning");
+            return;
+        }
+
+        var hedefListe = filtrelenmisListe.Any() ? filtrelenmisListe : puantajListesi;
+        if (!hedefListe.Any())
+        {
+            ShowBildirim("Uyarı", "Hesap pusulası için personel bulunamadı.", "warning");
+            return;
+        }
+
+        var tip = hedefListe.All(p => p.Personel?.ArgePersoneli == true)
+            ? BordroTipi.Arge
+            : BordroTipi.Normal;
+
+        var personelIdQuery = Uri.EscapeDataString(string.Join(",", hedefListe.Select(p => p.PersonelId).Distinct()));
+        Nav.NavigateTo($"/personel/bordro/hesap-pusulasi?yil={filtreYil}&ay={filtreAy}&firmaId={filtreFirmaId}&tip={(int)tip}&personelIds={personelIdQuery}");
     }
 
     private async Task TopluPuantajOlustur()
@@ -954,7 +993,11 @@
         finally
         {
             isLoading = false;
-            StateHasChanged();
+            yenilemeCalisiyor = false;
+            if (!disposed)
+            {
+                StateHasChanged();
+            }
         }
     }
 
@@ -1429,11 +1472,25 @@
 
         toastTimer?.Dispose();
         toastTimer = new System.Timers.Timer(4000);
-        toastTimer.Elapsed += (s, e) =>
+        toastTimer.Elapsed += async (s, e) =>
         {
+            if (disposed)
+            {
+                return;
+            }
+
             showToast = false;
-            InvokeAsync(StateHasChanged);
-            toastTimer?.Dispose();
+            try
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            finally
+            {
+                toastTimer?.Dispose();
+            }
         };
         toastTimer.AutoReset = false;
         toastTimer.Start();
@@ -1653,6 +1710,19 @@ Her aksiyonu '[YÜKSEK]', '[ORTA]' veya '[DÜŞÜK]' öncelik etiketiyle başlat
 
     public void Dispose()
     {
+        disposed = true;
         toastTimer?.Dispose();
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

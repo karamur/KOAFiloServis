@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Data;
@@ -9,6 +9,7 @@ namespace KOAFiloServis.Web.Data;
 public static class DbInitializer
 {
     private const string AracSasePlakaMigrationId = "20260326224724_AracSasePlakaYapisi";
+    private const string PersonelBordroGuncellemeMigrationId = "20260416191435_PersonelBordroGuncelleme";
 
     public static async Task InitializeAsync(ApplicationDbContext context, IConfiguration configuration)
     {
@@ -18,6 +19,7 @@ public static class DbInitializer
                 ? "SQLite"
                 : configuration.GetValue<string>("DatabaseProvider") ?? "SQLite";
         var migrationRecovered = false;
+        List<string> pendingMigrations = new();
         
         try
         {
@@ -33,7 +35,7 @@ public static class DbInitializer
             }
 
             // Bekleyen migration'lari uygula (yeni tablolar icin)
-            var pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToList();
+            pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToList();
             if (context.Database.IsSqlite() && pendingMigrations.Any())
             {
                 await EnsureSqliteMigrationHistoryAsync(context, pendingMigrations);
@@ -53,7 +55,7 @@ public static class DbInitializer
             {
                 try
                 {
-                    var pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToList();
+                    pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToList();
                     if (pendingMigrations.Any())
                     {
                         await EnsureSqliteMigrationHistoryAsync(context, pendingMigrations);
@@ -68,6 +70,23 @@ public static class DbInitializer
                 catch (Exception sqliteFixEx)
                 {
                     Console.WriteLine($"SQLite migration duzeltme hatasi: {sqliteFixEx.Message}");
+                }
+            }
+
+            else if (context.Database.IsNpgsql()
+                && ex.GetBaseException() is PostgresException pgEx
+                && pgEx.SqlState == PostgresErrorCodes.DuplicateColumn
+                && pendingMigrations.Contains(PersonelBordroGuncellemeMigrationId))
+            {
+                try
+                {
+                    await EnsurePostgreSqlMigrationHistoryEntryAsync(context, configuration, PersonelBordroGuncellemeMigrationId);
+                    migrationRecovered = true;
+                    Console.WriteLine("PostgreSQL duplicate-column nedeniyle migration gecmisi duzeltildi: PersonelBordroGuncelleme");
+                }
+                catch (Exception npgsqlFixEx)
+                {
+                    Console.WriteLine($"PostgreSQL migration duzeltme hatasi: {npgsqlFixEx.Message}");
                 }
             }
 
@@ -132,6 +151,25 @@ public static class DbInitializer
         return context.Database.GetConnectionString()
             ?? configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("DefaultConnection bulunamadi.");
+    }
+
+    private static async Task EnsurePostgreSqlMigrationHistoryEntryAsync(ApplicationDbContext context, IConfiguration configuration, string migrationId)
+    {
+        var connectionString = GetDefaultConnectionString(context, configuration);
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+
+        const string sql = @"
+INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+SELECT @migrationId,
+       COALESCE((SELECT ""ProductVersion"" FROM ""__EFMigrationsHistory"" ORDER BY ""MigrationId"" DESC LIMIT 1), '10.0.0')
+WHERE NOT EXISTS (
+    SELECT 1 FROM ""__EFMigrationsHistory"" WHERE ""MigrationId"" = @migrationId
+);";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("migrationId", migrationId);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     private static async Task NormalizePostgreSqlAuditTimestampColumnsAsync(ApplicationDbContext context, IConfiguration configuration)
@@ -2315,6 +2353,13 @@ WHERE IsDeleted = 0;");
             ("BudgetOdemeler", "FaturaId", "INTEGER", null),
             ("BudgetOdemeler", "FaturaIleKapatildi", "BOOLEAN", "FALSE"),
 
+            // BudgetOdemeler tablosu - Kısmi ödeme alanları
+            ("BudgetOdemeler", "KalanSonrakiDonemeAktarilsin", "BOOLEAN", "FALSE"),
+            ("BudgetOdemeler", "KismiOdemeMi", "BOOLEAN", "FALSE"),
+            ("BudgetOdemeler", "OncekiDonemOdemeId", "INTEGER", null),
+            ("BudgetOdemeler", "SonrakiDonemOdemeId", "INTEGER", null),
+            ("BudgetOdemeler", "ToplamKismiOdenen", "NUMERIC(18,2)", "0"),
+
             // Personeller tablosu - Muhasebe entegrasyonu
             ("Personeller", "MuhasebeHesapId", "INTEGER", null),
 
@@ -2337,6 +2382,17 @@ WHERE IsDeleted = 0;");
             ("Personeller", "SgkMaasi", "NUMERIC(18,2)", "0"),
             ("Personeller", "BankaAdi", "VARCHAR(100)", null),
             ("Personeller", "IBAN", "VARCHAR(50)", null),
+
+            // Personeller tablosu - Bordro güncelleme alanları
+            ("Personeller", "AileYardimi", "NUMERIC", "0"),
+            ("Personeller", "BESKesintisi", "NUMERIC", "0"),
+            ("Personeller", "BireyselEmeklilik", "NUMERIC", "0"),
+            ("Personeller", "DigerOzelKesinti", "NUMERIC", "0"),
+            ("Personeller", "HayatSigortasi", "NUMERIC", "0"),
+            ("Personeller", "IcraKesintisi", "NUMERIC", "0"),
+            ("Personeller", "SendikaKesintisi", "NUMERIC", "0"),
+            ("Personeller", "YemekYardimi", "NUMERIC", "0"),
+            ("Personeller", "YolYardimi", "NUMERIC", "0"),
 
             // BankaKasaHareketleri tablosu - Mahsup alanları
             ("BankaKasaHareketleri", "MahsupHareketId", "INTEGER", null),
@@ -2384,6 +2440,11 @@ WHERE IsDeleted = 0;");
             ("PersonelPuantajlar", "OnayNotu", "TEXT", null),
             ("PersonelPuantajlar", "OnayTarihi", "TIMESTAMP WITHOUT TIME ZONE", null),
             ("PersonelPuantajlar", "OnaylayanKullanici", "TEXT", null),
+
+            // GunlukPuantajlar tablosu - Personel bordro alanları
+            ("GunlukPuantajlar", "CalismaSaati", "NUMERIC", "0"),
+            ("GunlukPuantajlar", "Durum", "INTEGER", "0"),
+            ("GunlukPuantajlar", "Gun", "INTEGER", "0"),
         };
 
         foreach (var (table, column, type, defaultValue) in missingColumns)
@@ -3659,3 +3720,7 @@ WHERE IsDeleted = 0;");
         Console.WriteLine("Kritik tablolar kontrol edildi.");
     }
 }
+
+
+
+

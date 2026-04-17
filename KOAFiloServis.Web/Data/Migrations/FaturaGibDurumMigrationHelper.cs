@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace KOAFiloServis.Web.Data.Migrations;
@@ -28,6 +28,42 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'GibDurumMesaji') THEN
         ALTER TABLE ""Faturalar"" ADD COLUMN ""GibDurumMesaji"" text NULL;
     END IF;
+    -- Tevkifat / Muhasebe Fisi alanlari (20260329235736)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'MuhasebeFisId') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""MuhasebeFisId"" integer NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'MuhasebeFisiOlusturuldu') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""MuhasebeFisiOlusturuldu"" boolean NOT NULL DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'TevkifatKodu') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""TevkifatKodu"" text NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'TevkifatOrani') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""TevkifatOrani"" numeric NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'TevkifatTutar') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""TevkifatTutar"" numeric NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'TevkifatliMi') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""TevkifatliMi"" boolean NOT NULL DEFAULT FALSE;
+    END IF;
+    -- Firmalar arasi fatura (20260407140609)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'FirmalarArasiFatura') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""FirmalarArasiFatura"" boolean NOT NULL DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'KarsiFirmaId') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""KarsiFirmaId"" integer NULL;
+    END IF;
+    -- Fatura eslestirme / mahsup (20260407141319)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'EslesenFaturaId') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""EslesenFaturaId"" integer NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'MahsupKapatildi') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""MahsupKapatildi"" boolean NOT NULL DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Faturalar' AND column_name = 'MahsupTarihi') THEN
+        ALTER TABLE ""Faturalar"" ADD COLUMN ""MahsupTarihi"" timestamp without time zone NULL;
+    END IF;
 END $$;";
 
                 await context.Database.ExecuteSqlRawAsync(sql);
@@ -36,10 +72,28 @@ END $$;";
 
             if (context.Database.IsSqlite())
             {
+                // GiB durum alanlari
                 await EnsureSqliteColumnAsync(context, tableName, "GibDurumu", "INTEGER NOT NULL DEFAULT 0");
                 await EnsureSqliteColumnAsync(context, tableName, "GibGonderimTarihi", "TEXT NULL");
                 await EnsureSqliteColumnAsync(context, tableName, "GibDurumGuncellemeTarihi", "TEXT NULL");
                 await EnsureSqliteColumnAsync(context, tableName, "GibDurumMesaji", "TEXT NULL");
+
+                // Tevkifat / Muhasebe Fisi alanlari (20260329235736)
+                await EnsureSqliteColumnAsync(context, tableName, "MuhasebeFisId", "INTEGER NULL");
+                await EnsureSqliteColumnAsync(context, tableName, "MuhasebeFisiOlusturuldu", "INTEGER NOT NULL DEFAULT 0");
+                await EnsureSqliteColumnAsync(context, tableName, "TevkifatKodu", "TEXT NULL");
+                await EnsureSqliteColumnAsync(context, tableName, "TevkifatOrani", "TEXT NOT NULL DEFAULT '0'");
+                await EnsureSqliteColumnAsync(context, tableName, "TevkifatTutar", "TEXT NOT NULL DEFAULT '0'");
+                await EnsureSqliteColumnAsync(context, tableName, "TevkifatliMi", "INTEGER NOT NULL DEFAULT 0");
+
+                // Firmalar arasi fatura (20260407140609)
+                await EnsureSqliteColumnAsync(context, tableName, "FirmalarArasiFatura", "INTEGER NOT NULL DEFAULT 0");
+                await EnsureSqliteColumnAsync(context, tableName, "KarsiFirmaId", "INTEGER NULL");
+
+                // Fatura eslestirme / mahsup (20260407141319)
+                await EnsureSqliteColumnAsync(context, tableName, "EslesenFaturaId", "INTEGER NULL");
+                await EnsureSqliteColumnAsync(context, tableName, "MahsupKapatildi", "INTEGER NOT NULL DEFAULT 0");
+                await EnsureSqliteColumnAsync(context, tableName, "MahsupTarihi", "TEXT NULL");
             }
         }
         catch (Exception ex)

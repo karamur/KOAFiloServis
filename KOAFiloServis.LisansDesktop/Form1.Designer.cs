@@ -1,4 +1,4 @@
-namespace KOAFiloServis.LisansDesktop;
+﻿namespace KOAFiloServis.LisansDesktop;
 
 partial class Form1
 {
@@ -48,6 +48,7 @@ partial class Form1
         dgvKayitlar = new DataGridView();
         btnSeciliKaydiYukle = new Button();
         btnYeniForm = new Button();
+        btnPaketOlustur = new Button();
         lblKayitlar = new Label();
         ((System.ComponentModel.ISupportInitialize)numMaxKullanici).BeginInit();
         ((System.ComponentModel.ISupportInitialize)dgvKayitlar).BeginInit();
@@ -342,6 +343,18 @@ partial class Form1
         btnYeniForm.UseVisualStyleBackColor = true;
         btnYeniForm.Click += btnYeniForm_Click;
         // 
+        // btnPaketOlustur
+        // 
+        btnPaketOlustur.Location = new Point(880, 18);
+        btnPaketOlustur.Name = "btnPaketOlustur";
+        btnPaketOlustur.Size = new Size(220, 38);
+        btnPaketOlustur.TabIndex = 16;
+        btnPaketOlustur.Text = "IIS Paketi Olustur...";
+        btnPaketOlustur.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
+        btnPaketOlustur.BackColor = Color.LightSteelBlue;
+        btnPaketOlustur.UseVisualStyleBackColor = false;
+        btnPaketOlustur.Click += btnPaketOlustur_Click;
+        // 
         // saveFileDialog1
         // 
         saveFileDialog1.DefaultExt = "txt";
@@ -354,6 +367,7 @@ partial class Form1
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1364, 720);
         Controls.Add(btnYeniForm);
+        Controls.Add(btnPaketOlustur);
         Controls.Add(btnSeciliKaydiYukle);
         Controls.Add(dgvKayitlar);
         Controls.Add(lblKayitlar);
@@ -428,5 +442,6 @@ partial class Form1
     private DataGridView dgvKayitlar;
     private Button btnSeciliKaydiYukle;
     private Button btnYeniForm;
+    private Button btnPaketOlustur;
     private Label lblKayitlar;
 }

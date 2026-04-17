@@ -9,17 +9,20 @@ namespace KOAFiloServis.Web.Services;
 public class AktiviteLogService : IAktiviteLogService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly AppAuthenticationStateProvider _authenticationStateProvider;
     private readonly ILogger<AktiviteLogService> _logger;
 
     public AktiviteLogService(
         ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> dbContextFactory,
         IHttpContextAccessor httpContextAccessor,
         AppAuthenticationStateProvider authenticationStateProvider,
         ILogger<AktiviteLogService> logger)
     {
         _context = context;
+        _dbContextFactory = dbContextFactory;
         _httpContextAccessor = httpContextAccessor;
         _authenticationStateProvider = authenticationStateProvider;
         _logger = logger;
@@ -57,8 +60,9 @@ public class AktiviteLogService : IAktiviteLogService
                 Tarayici = httpContext?.Request?.Headers["User-Agent"].ToString()
             };
 
-            _context.AktiviteLoglar.Add(log);
-            await _context.SaveChangesAsync();
+            await using var logContext = await _dbContextFactory.CreateDbContextAsync();
+            logContext.AktiviteLoglar.Add(log);
+            await logContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -680,3 +684,4 @@ public class AktiviteLogService : IAktiviteLogService
         return null;
     }
 }
+

@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using KOAFiloServis.Shared;
@@ -214,6 +214,12 @@ public partial class Form1 : Form
         {
             _seciliKayitId = satir.Id;
         }
+    }
+
+    private void btnPaketOlustur_Click(object? sender, EventArgs e)
+    {
+        using var form = new PaketFormu();
+        form.ShowDialog(this);
     }
 
     private void KayitlariYukle()

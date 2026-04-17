@@ -1,4 +1,4 @@
-﻿@page "/personel/bordro/hesap-pusulasi"
+@page "/personel/bordro/hesap-pusulasi"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
@@ -73,6 +73,9 @@
                     {
                         <button class="btn btn-outline-primary btn-sm me-1" @onclick="TopluYazdir">
                             <i class="bi bi-printer me-1"></i>Tümünü Yazdır (@detaylar.Count kişi)
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" @onclick="RaptinCsvAktar">
+                            <i class="bi bi-filetype-csv me-1"></i>Raptin CSV Aktar
                         </button>
                     }
                 </div>
@@ -571,6 +574,21 @@
     [SupplyParameterFromQuery(Name = "detayIds")]
     public string? DetayIdsQuery { get; set; }
 
+    [SupplyParameterFromQuery(Name = "personelIds")]
+    public string? PersonelIdsQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "yil")]
+    public int? YilQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "ay")]
+    public int? AyQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "firmaId")]
+    public int? FirmaIdQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tip")]
+    public int? TipQuery { get; set; }
+
     private List<Firma> firmalar = new();
     private List<Bordro> bordrolar = new();
     private List<BordroDetay> detaylar = new();
@@ -595,10 +613,21 @@
 
     private async Task QuerySecimiUygula()
     {
-        if (!BordroIdQuery.HasValue)
+        if (YilQuery.HasValue) secilenYil = YilQuery.Value;
+        if (FirmaIdQuery.HasValue) secilenFirmaId = FirmaIdQuery.Value;
+        if (TipQuery.HasValue && Enum.IsDefined(typeof(BordroTipi), TipQuery.Value)) secilenTip = (BordroTipi)TipQuery.Value;
+
+        await BordrolariYukle();
+
+        if (!BordroIdQuery.HasValue && !AyQuery.HasValue)
             return;
 
-        secilenBordroId = BordroIdQuery.Value;
+        secilenBordroId = BordroIdQuery ?? bordrolar.Where(b => AyQuery.HasValue && b.Ay == AyQuery.Value).OrderByDescending(b => b.Onaylandi).ThenByDescending(b => b.CreatedAt).Select(b => b.Id).FirstOrDefault();
+        if (secilenBordroId == 0)
+        {
+            ToastService.ShowWarning($"{AyQuery} / {secilenYil} dönemi için bordro bulunamadı.");
+            return;
+        }
         await DetaylariYukle();
 
         if (!detaylar.Any())
@@ -609,12 +638,27 @@
             .Select(x => int.TryParse(x, out var id) ? id : 0)
             .Where(id => id > 0)
             .ToHashSet();
+        var seciliPersonelIdleri = (PersonelIdsQuery ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => int.TryParse(x, out var id) ? id : 0)
+            .Where(id => id > 0)
+            .ToHashSet();
 
         if (seciliDetayIdleri.Any())
         {
             foreach (var detay in detaylar)
             {
                 detay.Secili = seciliDetayIdleri.Contains(detay.Id);
+            }
+
+            yazdirmaListesi = detaylar.Where(d => d.Secili).ToList();
+            tumSecili = detaylar.All(d => d.Secili);
+        }
+        else if (seciliPersonelIdleri.Any())
+        {
+            foreach (var detay in detaylar)
+            {
+                detay.Secili = seciliPersonelIdleri.Contains(detay.PersonelId);
             }
 
             yazdirmaListesi = detaylar.Where(d => d.Secili).ToList();
@@ -741,6 +785,74 @@
         await JS.InvokeVoidAsync("window.print");
     }
 
+    private async Task RaptinCsvAktar()
+    {
+        var hedefDetaylar = detaylar.Where(d => d.Secili).ToList();
+        if (!hedefDetaylar.Any())
+        {
+            hedefDetaylar = detaylar.ToList();
+        }
+
+        if (!hedefDetaylar.Any())
+        {
+            ToastService.ShowWarning("Aktarılacak bordro detayı bulunamadı.");
+            return;
+        }
+
+        var tr = new System.Globalization.CultureInfo("tr-TR");
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Firma;Yıl;Ay;BordroTipi;SicilNo;AdSoyad;TcKimlikNo;Görev;BrütMaaş;SGKMatrah;NetMaaş;EkÖdeme;ToplamEkÖdeme;ToplamKesinti;İşverenMaliyeti;İşverenDahilToplam;ÖdenecekToplam;IBAN;BankaAdı;ÇalışılanGün;FazlaMesaiSaat;İzinGünü;MazeretGünü");
+
+        foreach (var d in hedefDetaylar.OrderBy(x => x.Personel?.Ad).ThenBy(x => x.Personel?.Soyad))
+        {
+            var p = d.Personel;
+            var firmaAdi = d.Firma?.FirmaAdi ?? secilenBordro?.Firma?.FirmaAdi ?? string.Empty;
+            var bordroTip = secilenBordro?.BordroTipi.ToString() ?? secilenTip.ToString();
+
+            sb.Append(CsvEscape(firmaAdi)).Append(';')
+              .Append(CsvEscape(secilenBordro?.Yil.ToString() ?? secilenYil.ToString())).Append(';')
+              .Append(CsvEscape(secilenBordro?.Ay.ToString() ?? AyQuery?.ToString() ?? string.Empty)).Append(';')
+              .Append(CsvEscape(bordroTip)).Append(';')
+              .Append(CsvEscape(p?.SoforKodu ?? string.Empty)).Append(';')
+              .Append(CsvEscape(p?.TamAd ?? string.Empty)).Append(';')
+              .Append(CsvEscape(p?.TcKimlikNo ?? string.Empty)).Append(';')
+              .Append(CsvEscape(GorevAdi(p?.Gorev))).Append(';')
+              .Append(CsvEscape(d.BrutMaas.ToString("N2", tr))).Append(';')
+              .Append(CsvEscape(d.SgkMaasi.ToString("N2", tr))).Append(';')
+              .Append(CsvEscape(d.NetMaas.ToString("N2", tr))).Append(';')
+              .Append(CsvEscape(d.EkOdeme.ToString("N2", tr))).Append(';')
+              .Append(CsvEscape(d.ToplamEkOdeme.ToString("N2", tr))).Append(';')
+              .Append(CsvEscape(d.ToplamKesinti.ToString("N2", tr))).Append(';')
+              .Append(CsvEscape(d.ToplamIsverenMaliyet.ToString("N2", tr))).Append(';')
+              .Append(CsvEscape(d.ToplamIsverenMaliyetDahilMaas.ToString("N2", tr))).Append(';')
+              .Append(CsvEscape(d.ToplamOdenecek.ToString("N2", tr))).Append(';')
+              .Append(CsvEscape(p?.IBAN ?? string.Empty)).Append(';')
+              .Append(CsvEscape(p?.BankaAdi ?? string.Empty)).Append(';')
+               .Append(CsvEscape(string.Empty)).Append(';')
+               .Append(CsvEscape(string.Empty)).Append(';')
+               .Append(CsvEscape(string.Empty)).Append(';')
+               .Append(CsvEscape(string.Empty))
+              .AppendLine();
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"Raptin_Bordro_{(secilenBordro?.Yil ?? secilenYil)}_{(secilenBordro?.Ay ?? AyQuery ?? 0):00}.csv";
+
+        await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, base64);
+        ToastService.ShowSuccess($"Raptin aktarım dosyası indirildi. Dosyayı C:\\Raptin\\RaptinBordro altından içe aktarabilirsiniz. ({hedefDetaylar.Count} kayıt)");
+    }
+
+    private static string CsvEscape(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        var escaped = value.Replace("\"", "\"\"");
+        return $"\"{escaped}\"";
+    }
     private string GorevAdi(PersonelGorev? gorev) => gorev switch
     {
         PersonelGorev.Sofor => "Şoför",
@@ -1013,3 +1125,14 @@
         }
     }
 </style>
+
+
+
+
+
+
+
+
+
+
+

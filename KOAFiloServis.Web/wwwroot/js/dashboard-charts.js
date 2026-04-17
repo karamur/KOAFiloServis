@@ -483,3 +483,71 @@ window.renderTrendChart = function (canvasId, labels, hedefData, gerceklesenData
         }
     });
 };
+
+window.renderBarChart = function (canvasId, labels, data, label, color) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    if (charts[canvasId]) {
+        charts[canvasId].destroy();
+    }
+
+    charts[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: label || 'Veri',
+                data: data,
+                backgroundColor: color ? color + 'B3' : 'rgba(13, 110, 253, 0.7)',
+                borderColor: color || 'rgba(13, 110, 253, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+};
+
+window.renderLineChart = function (canvasId, labels, data, label, color) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    if (charts[canvasId]) {
+        charts[canvasId].destroy();
+    }
+
+    charts[canvasId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: label || 'Trend',
+                data: data,
+                borderColor: color || 'rgba(23, 162, 184, 1)',
+                backgroundColor: color ? color + '33' : 'rgba(23, 162, 184, 0.2)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+};

@@ -1,8 +1,12 @@
 ﻿param(
     [string]$TargetDir = 'C:\KOAFiloServis\IIS',
     [string]$BackupRoot = 'C:\KOAFiloServis_yedekleme\deploy',
-    [string]$SiteName = ''
+    [string]$SiteName = '',
+    [ValidateSet('Install','Update')]
+    [string]$Mode = 'Update'
 )
+
+Write-Host "[KOA] Calisma modu: $Mode" -ForegroundColor Yellow
 
 $ErrorActionPreference = 'Stop'
 
@@ -137,7 +141,33 @@ Set-Content -Path $AppOfflinePath -Value '<html><body><h2>KOA Filo Servis guncel
 
 try {
     Write-Step 'Paket dosyaları hedef klasöre kopyalanıyor.'
-    $excludeFiles = if (Test-Path $existingDbSettings) { @('/XF', 'dbsettings.json') } else { @() }
+    if ($Mode -eq 'Install') {
+        Write-Step 'KURULUM modu: dbsettings.json paket icindekiyle DEGISTIRILECEK, SQLite veritabani sifirlanacak (varsa).'
+        $excludeFiles = @()
+
+        if (Test-Path $existingDbSettings) {
+            try {
+                $oldSettings = Get-Content $existingDbSettings -Raw | ConvertFrom-Json
+                if (([int]$oldSettings.Provider) -eq 1 -and -not [string]::IsNullOrWhiteSpace([string]$oldSettings.DatabaseName)) {
+                    $oldDbPath = if ([System.IO.Path]::IsPathRooted([string]$oldSettings.DatabaseName)) {
+                        [string]$oldSettings.DatabaseName
+                    } else {
+                        Join-Path $TargetDir ([string]$oldSettings.DatabaseName)
+                    }
+                    if (Test-Path $oldDbPath) {
+                        Remove-Item $oldDbPath -Force -ErrorAction SilentlyContinue
+                        Write-Step "Eski SQLite veritabani silindi: $oldDbPath"
+                    }
+                }
+            } catch {
+                Write-Step "Eski dbsettings.json okunamadi: $($_.Exception.Message)"
+            }
+        }
+    }
+    else {
+        $excludeFiles = if (Test-Path $existingDbSettings) { @('/XF', 'dbsettings.json') } else { @() }
+    }
+
     Invoke-Robocopy -Source $PackageDir -Destination $TargetDir -ExtraArgs $excludeFiles
 
     if (-not (Test-Path $existingDbSettings) -and (Test-Path $packageDbSettings)) {

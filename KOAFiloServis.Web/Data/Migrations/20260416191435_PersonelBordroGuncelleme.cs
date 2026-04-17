@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -98,26 +98,35 @@ namespace KOAFiloServis.Web.Data.Migrations
                 oldType: "numeric",
                 oldNullable: true);
 
-            migrationBuilder.AddColumn<decimal>(
-                name: "CalismaSaati",
-                table: "GunlukPuantajlar",
-                type: "numeric",
-                nullable: false,
-                defaultValue: 0m);
+            if (ActiveProvider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+            {
+                migrationBuilder.Sql(@"ALTER TABLE ""GunlukPuantajlar"" ADD COLUMN IF NOT EXISTS ""CalismaSaati"" numeric NOT NULL DEFAULT 0.0;");
+                migrationBuilder.Sql(@"ALTER TABLE ""GunlukPuantajlar"" ADD COLUMN IF NOT EXISTS ""Durum"" integer NOT NULL DEFAULT 0;");
+                migrationBuilder.Sql(@"ALTER TABLE ""GunlukPuantajlar"" ADD COLUMN IF NOT EXISTS ""Gun"" integer NOT NULL DEFAULT 0;");
+            }
+            else
+            {
+                migrationBuilder.AddColumn<decimal>(
+                    name: "CalismaSaati",
+                    table: "GunlukPuantajlar",
+                    type: "numeric",
+                    nullable: false,
+                    defaultValue: 0m);
 
-            migrationBuilder.AddColumn<int>(
-                name: "Durum",
-                table: "GunlukPuantajlar",
-                type: "integer",
-                nullable: false,
-                defaultValue: 0);
+                migrationBuilder.AddColumn<int>(
+                    name: "Durum",
+                    table: "GunlukPuantajlar",
+                    type: "integer",
+                    nullable: false,
+                    defaultValue: 0);
 
-            migrationBuilder.AddColumn<int>(
-                name: "Gun",
-                table: "GunlukPuantajlar",
-                type: "integer",
-                nullable: false,
-                defaultValue: 0);
+                migrationBuilder.AddColumn<int>(
+                    name: "Gun",
+                    table: "GunlukPuantajlar",
+                    type: "integer",
+                    nullable: false,
+                    defaultValue: 0);
+            }
 
             migrationBuilder.AddColumn<bool>(
                 name: "KalanSonrakiDonemeAktarilsin",
@@ -798,3 +807,6 @@ namespace KOAFiloServis.Web.Data.Migrations
         }
     }
 }
+
+
+

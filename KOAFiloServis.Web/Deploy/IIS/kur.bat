@@ -9,11 +9,15 @@ if "%BACKUP_ROOT%"=="" set "BACKUP_ROOT=C:\KOAFiloServis_yedekleme\deploy"
 
 set "SITE_NAME=%~3"
 
+set "MODE=%~4"
+if "%MODE%"=="" set "MODE=Update"
+
 echo KOA Filo Servis IIS kurulum/guncelleme baslatiliyor...
-echo Hedef klasor: %TARGET_DIR%
+echo Mod          : %MODE%
+echo Hedef klasor : %TARGET_DIR%
 echo Yedek klasoru: %BACKUP_ROOT%
 
-pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0kur.ps1" -TargetDir "%TARGET_DIR%" -BackupRoot "%BACKUP_ROOT%" -SiteName "%SITE_NAME%"
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0kur.ps1" -TargetDir "%TARGET_DIR%" -BackupRoot "%BACKUP_ROOT%" -SiteName "%SITE_NAME%" -Mode "%MODE%"
 set "EXITCODE=%ERRORLEVEL%"
 
 if not "%EXITCODE%"=="0" (

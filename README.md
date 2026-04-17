@@ -94,8 +94,8 @@
                 ▼                           ▼
    ┌────────────────────┐       ┌────────────────────────┐
    │  KOAFiloServis.    │       │  KOAFiloServis.Shared  │
-   │  Installer /       │       │  (Entity, DTO, Common) │
-   │  LisansDesktop     │       └────────────────────────┘
+   │  LisansDesktop /   │       │  (Entity, DTO, Common) │
+   │  DataSync          │       └────────────────────────┘
    │  (WinForms Tools)  │
    └────────────────────┘
                 │
@@ -113,10 +113,9 @@
 | **`KOAFiloServis.Shared`** | Ortak entity, DTO ve yardımcı bileşenler | `net10.0` |
 | **`KOAFiloServis.Tests`** | xUnit birim/integrasyon testleri | `net10.0` |
 | **`KOAFiloServis.LisansDesktop`** | Lisans üretim/aktivasyon aracı (WinForms) | `net10.0-windows` |
-| **`KOAFiloServis.Installer`** | Kurulum ve yedek/geri yükleme aracı (WinForms) | `net10.0-windows` |
-| **`KOAFiloServis.BackupRestore`** | Yedek/geri yükleme yardımcı modülü | `net10.0` |
-| **`KOAFiloServis.PlaywrightSmoke`** | E2E Playwright smoke testleri | `net10.0` |
-| **`KOAFiloServis.SeleniumTests`** | Selenium UI testleri | `net10.0` |
+| **`KOAFiloServis.DataSync`** | PostgreSQL → SQLite veri aktarım aracı (WinForms + CLI) | `net10.0-windows` |
+| **`setup/`** | Inno Setup 6 paketleme script'leri ve IIS otomasyonu | — |
+| **`archive/`** | Eski kurulum artıfaktı (referans) | — |
 
 ---
 
@@ -183,6 +182,22 @@ Uygulama başlatıldığında **5190** portundan itibaren boş bir port seçip `
 ```bash
 dotnet run --project KOAFiloServis.Web --urls "http://0.0.0.0:8080"
 ```
+
+### 🖥️ Son Kullanıcı Kurulumu (Windows)
+
+1. [Releases](https://github.com/karamur/KOAFiloServis/releases) sayfasından son **`KOAFiloServisKurulum-<sürüm>.exe`** paketini indir.
+2. **Yönetici olarak çalıştır.**
+3. Bileşenleri seç (Web zorunlu, Lisans + DataSync opsiyonel) → IIS ve firewall görevlerini işaretli bırak.
+4. Kurulum biter → tarayıcı: `http://localhost:5190`
+
+**Gereksinimler (hedef PC):**
+- Windows 10/11 x64
+- IIS + ASP.NET Core 10 **Hosting Bundle** — [indir](https://dotnet.microsoft.com/download/dotnet/10.0)
+- .NET 10 Desktop Runtime (Lisans + DataSync UI için)
+
+**Güncelleme:** Yeni sürüm EXE'sini aynı PC'de çalıştırmanız yeter. `dbsettings.json`, `data\*.db`, `uploads\`, `logs\`, `Backups\` **korunur**.
+
+Detaylı kurulum adımları için → [`setup/README.md`](setup/README.md)
 
 ---
 
@@ -287,22 +302,84 @@ dotnet test --collect:"XPlat Code Coverage"
 
 ## 📦 Yayınlama
 
-### Web (IIS / Linux)
+### Tek Komutla Installer Üretme
+
+```powershell
+cd setup
+.\build.ps1 -Version 1.0.2 -CopyToPublish
+```
+
+Çıktı:
+- `setup\output\KOAFiloServisKurulum-1.0.2.exe`
+- (opsiyonel) `F:\publish\Installer\KOAFiloServisKurulum-1.0.2.exe`
+
+Pipeline: Web publish → LisansDesktop publish (SingleFile, self-contained) → DataSync publish → **Inno Setup 6** derleme.
+
+### Manuel Web Publish (IIS / Linux)
 ```bash
 dotnet publish KOAFiloServis.Web -c Release -o ./publish/web
 ```
 
-Yardımcı scriptler:
-- `publish.ps1` – Paketleme betiği
-- `publish-iis-package.bat` – IIS deployment paketi
-
-### Masaüstü Araçları
+### Masaüstü Araçları Manuel
 ```bash
 dotnet publish KOAFiloServis.LisansDesktop -c Release
-dotnet publish KOAFiloServis.Installer     -c Release
+dotnet publish KOAFiloServis.DataSync      -c Release
 ```
 
 Her iki araç da `PublishSingleFile + SelfContained (win-x64)` olarak paketlenir.
+
+---
+
+## 🔐 Lisans Yönetimi (KOAFiloServis.LisansDesktop)
+
+HWID (donanım parmak izi) bazlı offline lisans aktivasyonu:
+
+- Müşteri PC'sinde **HWID** üretilir → satıcı tarafına gönderilir.
+- Satıcı LisansDesktop ile imzalı `lisans.key` üretir → müşteriye gönderilir.
+- Web uygulaması `lisans.key`'i doğrular; HWID uyuşmazsa reddeder.
+
+Kurulum sonrası Başlat Menüsü: **KOAFiloServis → Lisans Yonetimi**
+
+---
+
+## 💾 Veritabanı Yedekleme & Geri Yükleme
+
+### Otomatik Yedek (Quartz Job)
+`appsettings.json` → `Backup` bloğu:
+
+```json
+{
+  "Backup": {
+    "Enabled": true,
+    "Path": "Backups",
+    "RetentionDays": 30,
+    "ScheduleHour": 3
+  }
+}
+```
+
+- Her gün 03:00'te PostgreSQL/SQLite tam yedek.
+- 30 günden eski yedekler otomatik temizlenir.
+- Varsayılan konum: `C:\KOAFiloServis\Backups\YYYY-MM-DD\`
+
+### PG → SQLite Veri Aktarımı (KOAFiloServis.DataSync)
+
+Offline/test PC'lere canlı PostgreSQL verisini taşımak için:
+
+**UI:** Başlat Menüsü → KOAFiloServis → *Veri Aktarim (PG - SQLite)* → Host/Port/DB/User/Pass gir → **Test** → **Başlat**.
+
+**CLI (otomasyon):**
+```powershell
+& "C:\KOAFiloServis\DataSync\KOAFiloServis.DataSync.exe" export `
+    --pg  "Host=10.0.0.5;Port=5432;Database=koa;Username=postgres;Password=***" `
+    --sqlite "C:\KOAFiloServis\data\koa.db"
+```
+
+Kaynak PostgreSQL'den tüm tabloları (146+ DbSet) ortak şema temelinde hedef SQLite'a kopyalar.
+
+### Manuel Geri Yükleme
+- **PostgreSQL:** `psql -U postgres -d KOAFiloServisDb -f backup.sql`
+- **SQLite:** `Backups\koa-YYYYMMDD.db` → `C:\KOAFiloServis\data\koa.db` (Web durdurulmuşken)
 
 ---
 

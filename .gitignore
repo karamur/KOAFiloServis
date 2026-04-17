@@ -79,3 +79,15 @@ publish/
 CRMFiloServis-Release.zip
 KOAFiloServis.Installer/Payload/koafiloservis-package.zip
 KOAFiloServisKurulum.exe
+
+# Inno Setup build artifacts
+setup/payload/
+setup/output/
+setup-build.log
+
+archive/**/*.zip
+archive/**/*.7z
+archive/**/*.exe
+
+archive/
+

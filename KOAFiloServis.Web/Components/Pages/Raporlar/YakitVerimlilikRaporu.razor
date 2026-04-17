@@ -1,4 +1,4 @@
-﻿@page "/raporlar/yakit-verimlilik"
+@page "/raporlar/yakit-verimlilik"
 @attribute [Authorize]
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -304,6 +304,11 @@
 
     private async Task LoadDataAsync()
     {
+        if (isLoading)
+        {
+            return;
+        }
+
         isLoading = true;
         try
         {
@@ -508,3 +513,5 @@
         public decimal Tutar { get; set; }
     }
 }
+
+
