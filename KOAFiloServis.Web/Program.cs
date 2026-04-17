@@ -4,6 +4,7 @@ using KOAFiloServis.Web.Helpers;
 using KOAFiloServis.Web.Jobs;
 using KOAFiloServis.Web.Services;
 using KOAFiloServis.Web.Services.Interfaces;
+using KOAFiloServis.Web.Services.Security;
 using KOAFiloServis.Web.Hubs;
 using KOAFiloServis.Shared.Entities;
 using Microsoft.AspNetCore.DataProtection;
@@ -223,6 +224,16 @@ builder.Services.AddScoped<IToastService, ToastService>();
 builder.Services.AddScoped<AppIssueStateService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
+// Guvenlik: Master key (DPAPI) + AES-GCM dosya koruyucu
+builder.Services.AddSingleton<IMasterKeyProvider>(sp =>
+{
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var storageRoot = KOAFiloServis.Web.Helpers.AppStoragePaths.GetDataProtectionKeysRoot(env.ContentRootPath);
+    var keyPath = Path.Combine(storageRoot, "master.key");
+    var logger = sp.GetRequiredService<ILogger<DpapiMasterKeyProvider>>();
+    return new DpapiMasterKeyProvider(keyPath, logger);
+});
+builder.Services.AddSingleton<IFileProtector, AesGcmFileProtector>();
 builder.Services.AddScoped<ITekrarlayanOdemeService, TekrarlayanOdemeService>(); // Kredi/Taksit Ynetimi
 builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IAktiviteLogService, AktiviteLogService>();
