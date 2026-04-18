@@ -1,13 +1,14 @@
 ﻿<#
 .SYNOPSIS
-    KOAFiloServis tam kurulum paketi uretir.
+    KOAFiloServis kurulum paketleri uretir.
 
 .DESCRIPTION
-    1) KOAFiloServis.Web        -> publish (framework-dependent, IIS)
+    1) KOAFiloServis.Web           -> publish (framework-dependent, IIS)
     2) KOAFiloServis.LisansDesktop -> publish (self-contained, win-x64, SingleFile)
     3) KOAFiloServis.DataSync      -> publish (self-contained, win-x64, SingleFile)
-    4) Inno Setup ile tek EXE paket uretir: setup\output\KOAFiloServisKurulum-<version>.exe
-    5) (opsiyonel) -CopyToPublish ile F:\publish\Installer\ altina kopyalar.
+    4) Inno Setup — Setup.iss      -> KOAFiloServisKurulum-<version>.exe (tam paket)
+    5) Inno Setup — LisansSetup.iss-> KOALisansArac-<version>.exe      (sadece lisans araci)
+    6) (opsiyonel) -CopyToPublish ile F:\publish\Installer\ altina kopyalar.
 
 .PARAMETER Version
     Paket versiyon numarasi. Varsayilan 1.0.0
@@ -15,17 +16,22 @@
 .PARAMETER SkipPublish
     Eger daha once publish yapildiysa ve sadece Inno Setup'i yeniden cagirmak istiyorsaniz.
 
+.PARAMETER LisansOnly
+    Sadece LisansDesktop'u publish + LisansSetup.iss ile EXE uretir (Web/DataSync atlanir).
+
 .PARAMETER CopyToPublish
     Ciktiyi F:\publish\Installer\ altina da kopyalar.
 
 .EXAMPLE
     .\build.ps1 -Version 1.0.3
+    .\build.ps1 -Version 1.0.3 -LisansOnly
     .\build.ps1 -Version 1.0.3 -CopyToPublish
 #>
 [CmdletBinding()]
 param(
     [string] $Version = '1.0.0',
     [switch] $SkipPublish,
+    [switch] $LisansOnly,
     [switch] $CopyToPublish
 )
 
@@ -61,54 +67,81 @@ Write-Host "ISCC    : $IsccExe"
 Write-Host ""
 
 if (-not $SkipPublish) {
-    if (Test-Path $Payload) { Remove-Item $Payload -Recurse -Force }
-    New-Item -ItemType Directory -Force $Payload, $Output | Out-Null
-
-    Write-Host "[1/4] Web publish..." -ForegroundColor Green
-    dotnet publish $Web -c Release -o "$Payload\Web" /p:Version=$Version /p:UseAppHost=true --nologo | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "Web publish basarisiz." }
-
-    # web.config: stdoutLogEnabled=true (IIS sorunlarini tanilayabilmek icin)
-    $webConfigPath = Join-Path $Payload 'Web\web.config'
-    if (Test-Path $webConfigPath) {
-        $wc = Get-Content $webConfigPath -Raw
-        $wc2 = $wc -replace 'stdoutLogEnabled="false"', 'stdoutLogEnabled="true"'
-        if ($wc -ne $wc2) {
-            Set-Content -Path $webConfigPath -Value $wc2 -Encoding UTF8 -NoNewline
-            Write-Host "       web.config: stdoutLogEnabled=true yapildi" -ForegroundColor DarkGray
-        }
+    if ($LisansOnly) {
+        # Sadece LisansDesktop payload klasorunu temizle
+        $lPayload = Join-Path $Payload 'LisansDesktop'
+        if (Test-Path $lPayload) { Remove-Item $lPayload -Recurse -Force }
+        New-Item -ItemType Directory -Force $lPayload, $Output | Out-Null
+    } else {
+        if (Test-Path $Payload) { Remove-Item $Payload -Recurse -Force }
+        New-Item -ItemType Directory -Force $Payload, $Output | Out-Null
     }
 
-    Write-Host "[2/4] LisansDesktop publish..." -ForegroundColor Green
+    if (-not $LisansOnly) {
+        Write-Host "[1/5] Web publish..." -ForegroundColor Green
+        dotnet publish $Web -c Release -o "$Payload\Web" /p:Version=$Version /p:UseAppHost=true --nologo | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "Web publish basarisiz." }
+
+        # web.config: stdoutLogEnabled=true (IIS sorunlarini tanilayabilmek icin)
+        $webConfigPath = Join-Path $Payload 'Web\web.config'
+        if (Test-Path $webConfigPath) {
+            $wc = Get-Content $webConfigPath -Raw
+            $wc2 = $wc -replace 'stdoutLogEnabled="false"', 'stdoutLogEnabled="true"'
+            if ($wc -ne $wc2) {
+                Set-Content -Path $webConfigPath -Value $wc2 -Encoding UTF8 -NoNewline
+                Write-Host "       web.config: stdoutLogEnabled=true yapildi" -ForegroundColor DarkGray
+            }
+        }
+    } # end -not LisansOnly
+
+    Write-Host "[2/5] LisansDesktop publish..." -ForegroundColor Green
     dotnet publish $Lisans -c Release -r win-x64 --self-contained `
         -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
         /p:Version=$Version -o "$Payload\LisansDesktop" --nologo | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "LisansDesktop publish basarisiz." }
 
-    Write-Host "[3/4] DataSync publish..." -ForegroundColor Green
-    dotnet publish $DataSync -c Release -r win-x64 --self-contained `
-        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-        /p:Version=$Version -o "$Payload\DataSync" --nologo | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "DataSync publish basarisiz." }
+    if (-not $LisansOnly) {
+        Write-Host "[3/5] DataSync publish..." -ForegroundColor Green
+        dotnet publish $DataSync -c Release -r win-x64 --self-contained `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+            /p:Version=$Version -o "$Payload\DataSync" --nologo | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "DataSync publish basarisiz." }
+    }
 } else {
     Write-Host "[PUBLISH ATLANDI] -SkipPublish" -ForegroundColor Yellow
 }
 
-Write-Host "[4/4] Inno Setup derleme..." -ForegroundColor Green
-& $IsccExe "/DMyAppVersion=$Version" (Join-Path $Root 'Setup.iss')
-if ($LASTEXITCODE -ne 0) { throw "Inno Setup derleme basarisiz." }
-
-$exeAdi = "KOAFiloServisKurulum-$Version.exe"
-$exePath = Join-Path $Output $exeAdi
-
-if (-not (Test-Path $exePath)) {
-    throw "Beklenen cikti bulunamadi: $exePath"
+# ---- Inno Setup derlemeleri ----
+if (-not $LisansOnly) {
+    Write-Host "[4/5] Inno Setup - Ana paket (Setup.iss)..." -ForegroundColor Green
+    & $IsccExe "/DMyAppVersion=$Version" (Join-Path $Root 'Setup.iss')
+    if ($LASTEXITCODE -ne 0) { throw "Inno Setup (Setup.iss) derleme basarisiz." }
 }
 
-$boyut = [math]::Round((Get-Item $exePath).Length / 1MB, 2)
+Write-Host "[5/5] Inno Setup - Lisans araci (LisansSetup.iss)..." -ForegroundColor Green
+& $IsccExe "/DLisansAppVersion=$Version" (Join-Path $Root 'LisansSetup.iss')
+if ($LASTEXITCODE -ne 0) { throw "Inno Setup (LisansSetup.iss) derleme basarisiz." }
+
+$sonuclar = @()
+
+if (-not $LisansOnly) {
+    $exeAdi = "KOAFiloServisKurulum-$Version.exe"
+    $exePath = Join-Path $Output $exeAdi
+    if (-not (Test-Path $exePath)) { throw "Beklenen cikti bulunamadi: $exePath" }
+    $boyut = [math]::Round((Get-Item $exePath).Length / 1MB, 2)
+    $sonuclar += "  Ana paket   : $exePath ($boyut MB)"
+}
+
+$lisansExeAdi = "KOALisansArac-$Version.exe"
+$lisansExePath = Join-Path $Output $lisansExeAdi
+if (-not (Test-Path $lisansExePath)) { throw "Beklenen cikti bulunamadi: $lisansExePath" }
+$lisansBoyut = [math]::Round((Get-Item $lisansExePath).Length / 1MB, 2)
+$sonuclar += "  Lisans araci: $lisansExePath ($lisansBoyut MB)"
+
 Write-Host ""
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "BASARILI: $exePath ($boyut MB)" -ForegroundColor Green
+Write-Host "BASARILI - Uretilen paketler:" -ForegroundColor Green
+$sonuclar | ForEach-Object { Write-Host $_ -ForegroundColor Green }
 Write-Host "==================================================" -ForegroundColor Cyan
 
 if ($CopyToPublish) {
@@ -117,7 +150,11 @@ if ($CopyToPublish) {
         Write-Host "UYARI: F:\publish yok, kopyalama atlandi." -ForegroundColor Yellow
     } else {
         New-Item -ItemType Directory -Force $hedef | Out-Null
-        Copy-Item $exePath $hedef -Force
-        Write-Host "Kopyalandi: $hedef\$exeAdi" -ForegroundColor Green
+        if (-not $LisansOnly -and (Test-Path (Join-Path $Output "KOAFiloServisKurulum-$Version.exe"))) {
+            Copy-Item (Join-Path $Output "KOAFiloServisKurulum-$Version.exe") $hedef -Force
+            Write-Host "Kopyalandi: $hedef\KOAFiloServisKurulum-$Version.exe" -ForegroundColor Green
+        }
+        Copy-Item $lisansExePath $hedef -Force
+        Write-Host "Kopyalandi: $hedef\$lisansExeAdi" -ForegroundColor Green
     }
 }

@@ -72,6 +72,7 @@ Source: "payload\DataSync\*"; DestDir: "{app}\DataSync"; Flags: ignoreversion re
 Source: "scripts\iis-configure.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "scripts\iis-remove.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "scripts\preinstall-check.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\backup-db.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 
 [Dirs]
 Name: "{app}\data"; Permissions: users-modify
@@ -126,15 +127,154 @@ Type: filesandordirs; Name: "{app}\wwwroot\_framework"
 Type: dirifempty; Name: "{app}\scripts"
 
 [Code]
-function IsUpgrade(): Boolean;
-var
-  sPrevPath: String;
+{ ============================================================
+  Yardimci fonksiyonlar
+  ============================================================ }
+
+function GetInstallPath(): String;
+var sPrevPath: String;
 begin
-  Result := RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#SetupSetting("AppId")}_is1', 'InstallLocation', sPrevPath) and (sPrevPath <> '');
+  if RegQueryStringValue(HKLM,
+        'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#SetupSetting("AppId")}_is1',
+        'InstallLocation', sPrevPath) then
+    Result := sPrevPath
+  else
+    Result := '';
 end;
 
+function IsUpgrade(): Boolean;
+begin
+  Result := (GetInstallPath() <> '');
+end;
+
+{ Zaman damgasi: YYYYMMDD-HHMMSS }
+function GetTimestamp(): String;
+var
+  Y, M, D, H, Mi, S, MS: Word;
+begin
+  DecodeDate(Now, Y, M, D);
+  DecodeTime(Now, H, Mi, S, MS);
+  Result := Format('%.4d%.2d%.2d-%.2d%.2d%.2d', [Y, M, D, H, Mi, S]);
+end;
+
+{ ============================================================
+  Upgrade oncesi SQLite veritabani yedekleme
+  ============================================================ }
+procedure BackupDatabase(InstallPath: String);
+var
+  DbFile, ShmFile, WalFile: String;
+  BackupDir: String;
+  ResultCode: Integer;
+begin
+  DbFile  := InstallPath + '\KOAFiloServis';
+  ShmFile := InstallPath + '\KOAFiloServis-shm';
+  WalFile := InstallPath + '\KOAFiloServis-wal';
+
+  { Veritabani dosyasi yoksa yedekleme gerekmez }
+  if not FileExists(DbFile) then Exit;
+
+  BackupDir := InstallPath + '\Backups\db-' + GetTimestamp();
+
+  { xcopy ile backup dizinini olustur ve kopyala (mkdir + copy) }
+  Exec('cmd.exe',
+       '/c mkdir "' + BackupDir + '"',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  Exec('cmd.exe',
+       '/c copy /Y "' + DbFile + '" "' + BackupDir + '\KOAFiloServis"',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  if FileExists(ShmFile) then
+    Exec('cmd.exe',
+         '/c copy /Y "' + ShmFile + '" "' + BackupDir + '\KOAFiloServis-shm"',
+         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  if FileExists(WalFile) then
+    Exec('cmd.exe',
+         '/c copy /Y "' + WalFile + '" "' + BackupDir + '\KOAFiloServis-wal"',
+         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  Log('DB yedegi alindi: ' + BackupDir);
+end;
+
+{ ============================================================
+  IIS site'i durdur / baslat (guncelleme sirasinda kilitlenme onleme)
+  ============================================================ }
+procedure StopIISSite();
+var ResultCode: Integer;
+begin
+  Exec('cmd.exe',
+       '/c "%windir%\system32\inetsrv\appcmd.exe" stop site /site.name:"KOAFiloServis"',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Log('IIS site durduruldu (ResultCode=' + IntToStr(ResultCode) + ')');
+end;
+
+procedure StartIISSite();
+var ResultCode: Integer;
+begin
+  Exec('cmd.exe',
+       '/c "%windir%\system32\inetsrv\appcmd.exe" start site /site.name:"KOAFiloServis"',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Log('IIS site baslatildi (ResultCode=' + IntToStr(ResultCode) + ')');
+end;
+
+{ ============================================================
+  Sihirbaz olay isleme
+  ============================================================ }
 procedure InitializeWizard();
 begin
   if IsUpgrade() then
-    WizardForm.Caption := '{#MyAppName} Guncelleme Sihirbazi';
+    WizardForm.Caption := '{#MyAppName} Guncelleme Sihirbazi'
+  else
+    WizardForm.Caption := '{#MyAppName} Kurulum Sihirbazi';
+end;
+
+function InitializeSetup(): Boolean;
+var
+  PrevPath: String;
+  Msg: String;
+begin
+  Result := True;
+
+  { --- Onceki kurulum tespiti --- }
+  PrevPath := GetInstallPath();
+  if PrevPath <> '' then
+  begin
+    Msg := '{#MyAppName} sistemde kurulu:' + #13#10 + PrevPath + #13#10#13#10 +
+           'Bu islem mevcut kurulumu GUNCELLER.' + #13#10 +
+           '* Veritabani otomatik olarak yedeklenecek (Backups\db-<tarih>).' + #13#10 +
+           '* Konfigurasyonunuz (dbsettings.json, appsettings.json) KORUNUR.' + #13#10#13#10 +
+           'Devam etmek istiyor musunuz?';
+    if MsgBox(Msg, mbConfirmation, MB_YESNO) = IDNO then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var PrevPath: String;
+begin
+  PrevPath := GetInstallPath();
+
+  if CurStep = ssInstall then
+  begin
+    if PrevPath <> '' then
+    begin
+      { Guncelleme: once yedek al, sonra IIS'i durdur }
+      WizardForm.StatusLabel.Caption := 'Veritabani yedekleniyor...';
+      BackupDatabase(PrevPath);
+      StopIISSite();
+    end;
+  end;
+
+  if CurStep = ssPostInstall then
+  begin
+    if PrevPath <> '' then
+    begin
+      { IIS site'ini yeniden baslat }
+      StartIISSite();
+    end;
+  end;
 end;
