@@ -498,8 +498,21 @@ public class MuhasebeService : IMuhasebeService
     public async Task<MuhasebeFis> CreateFaturaFisiAsync(Fatura fatura)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        // Ayarları al
-        var ayar = await context.MuhasebeAyarlari.FirstOrDefaultAsync();
+        // Ayarları al (KDV oran eşleştirmeleri dahil)
+        var ayar = await context.MuhasebeAyarlari
+            .Include(a => a.KdvHesapEslestirmeleri)
+            .FirstOrDefaultAsync();
+
+        // Fatura kalemlerini KDV oranına göre grupla
+        var faturaKalemleri = await context.FaturaKalemleri
+            .AsNoTracking()
+            .Where(k => k.FaturaId == fatura.Id)
+            .ToListAsync();
+        var kdvGruplari = faturaKalemleri
+            .Where(k => k.KdvTutar > 0)
+            .GroupBy(k => k.KdvOrani)
+            .Select(g => new { KdvOrani = (int)g.Key, KdvTutar = g.Sum(k => k.KdvTutar) })
+            .ToList();
 
         var fisNo = await GenerateNextFisNoAsync(FisTipi.Mahsup);
         var fis = new MuhasebeFis
@@ -571,21 +584,30 @@ public class MuhasebeService : IMuhasebeService
                 });
             }
 
-            // 391 Hesaplanan KDV ALACAK
+            // 391 Hesaplanan KDV ALACAK — Oran bazında ayrı kalemler
             if (fatura.KdvTutar > 0)
             {
-                var kdvHesapKodu = ayar?.HesaplananKdvHesabi ?? "391.01";
-                var kdvHesap = await GetHesapByKodAsync(kdvHesapKodu) ?? await GetHesapByKodAsync("391");
-                if (kdvHesap != null)
+                // KDV kalemlerine göre grupla; grup yoksa faturanın toplam KDV tutarını kullan
+                var gruplar = kdvGruplari.Any()
+                    ? kdvGruplari
+                    : new[] { new { KdvOrani = (int)fatura.KdvOrani, KdvTutar = fatura.KdvTutar } }.ToList();
+
+                foreach (var grup in gruplar.OrderBy(g => g.KdvOrani))
                 {
-                    kalemler.Add(new MuhasebeFisKalem
+                    var eslestirme = ayar?.KdvHesapEslestirmeleri.FirstOrDefault(e => e.KdvOrani == grup.KdvOrani);
+                    var kdvHesapKodu = eslestirme?.HesaplananKdvHesabi ?? ayar?.HesaplananKdvHesabi ?? "391.01";
+                    var kdvHesap = await GetHesapByKodAsync(kdvHesapKodu) ?? await GetHesapByKodAsync("391");
+                    if (kdvHesap != null)
                     {
-                        HesapId = kdvHesap.Id,
-                        Borc = 0,
-                        Alacak = fatura.KdvTutar,
-                        Aciklama = "Hesaplanan KDV",
-                        SiraNo = siraNo++
-                    });
+                        kalemler.Add(new MuhasebeFisKalem
+                        {
+                            HesapId = kdvHesap.Id,
+                            Borc = 0,
+                            Alacak = grup.KdvTutar,
+                            Aciklama = $"Hesaplanan KDV %{grup.KdvOrani}",
+                            SiraNo = siraNo++
+                        });
+                    }
                 }
             }
         }
@@ -642,25 +664,40 @@ public class MuhasebeService : IMuhasebeService
                 });
             }
 
-            // 191 İndirilecek KDV BORÇ (Tevkifatsız kısım)
-            var indirilecekKdv = fatura.TevkifatliMi 
+            // 191 İndirilecek KDV BORÇ (Tevkifatsız kısım) — Oran bazında ayrı kalemler
+            var indirilecekKdvToplam = fatura.TevkifatliMi 
                 ? fatura.KdvTutar - fatura.TevkifatTutar 
                 : fatura.KdvTutar;
 
-            if (indirilecekKdv > 0)
+            if (indirilecekKdvToplam > 0)
             {
-                var kdvHesapKodu = ayar?.IndirilecekKdvHesabi ?? "191.01";
-                var kdvHesap = await GetHesapByKodAsync(kdvHesapKodu) ?? await GetHesapByKodAsync("191");
-                if (kdvHesap != null)
-                {
-                    kalemler.Add(new MuhasebeFisKalem
+                // KDV kalemlerine göre grupla; grup yoksa toplam tutarı kullan
+                var gruplar = kdvGruplari.Any()
+                    ? kdvGruplari.Select(g => new
                     {
-                        HesapId = kdvHesap.Id,
-                        Borc = indirilecekKdv,
-                        Alacak = 0,
-                        Aciklama = "İndirilecek KDV",
-                        SiraNo = siraNo++
-                    });
+                        g.KdvOrani,
+                        KdvTutar = fatura.TevkifatliMi
+                            ? g.KdvTutar * indirilecekKdvToplam / fatura.KdvTutar
+                            : g.KdvTutar
+                    }).ToList()
+                    : new[] { new { KdvOrani = (int)fatura.KdvOrani, KdvTutar = indirilecekKdvToplam } }.ToList();
+
+                foreach (var grup in gruplar.OrderBy(g => g.KdvOrani))
+                {
+                    var eslestirme = ayar?.KdvHesapEslestirmeleri.FirstOrDefault(e => e.KdvOrani == grup.KdvOrani);
+                    var kdvHesapKodu = eslestirme?.IndirilecekKdvHesabi ?? ayar?.IndirilecekKdvHesabi ?? "191.01";
+                    var kdvHesap = await GetHesapByKodAsync(kdvHesapKodu) ?? await GetHesapByKodAsync("191");
+                    if (kdvHesap != null)
+                    {
+                        kalemler.Add(new MuhasebeFisKalem
+                        {
+                            HesapId = kdvHesap.Id,
+                            Borc = grup.KdvTutar,
+                            Alacak = 0,
+                            Aciklama = $"İndirilecek KDV %{grup.KdvOrani}",
+                            SiraNo = siraNo++
+                        });
+                    }
                 }
             }
 

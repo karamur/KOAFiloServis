@@ -169,6 +169,30 @@ public enum DonemDurum
 }
 
 /// <summary>
+/// KDV Oranına Göre Hesap Kodu Eşleştirmesi
+/// Örn: %20 → 391.20 / 191.20, %10 → 391.10 / 191.10, %1 → 391.01 / 191.01
+/// </summary>
+public class KdvHesapEslestirme : BaseEntity
+{
+    public int MuhasebeAyarId { get; set; }
+    public MuhasebeAyar? MuhasebeAyar { get; set; }
+
+    /// <summary>KDV Oranı (0, 1, 10, 20 vb.)</summary>
+    public int KdvOrani { get; set; }
+
+    /// <summary>Hesaplanan KDV Hesabı (Satış Faturası) — Ör: 391.20</summary>
+    [StringLength(50)]
+    public string HesaplananKdvHesabi { get; set; } = "391.01";
+
+    /// <summary>İndirilecek KDV Hesabı (Alış Faturası) — Ör: 191.20</summary>
+    [StringLength(50)]
+    public string IndirilecekKdvHesabi { get; set; } = "191.01";
+
+    [StringLength(100)]
+    public string? Aciklama { get; set; }
+}
+
+/// <summary>
 /// Cari Modülü / Muhasebe Otomatik Hesap Açma Ayarları
 /// </summary>
 public class MuhasebeAyar : BaseEntity
@@ -224,6 +248,9 @@ public class MuhasebeAyar : BaseEntity
     // XML Import ayarları
     public bool XmlImportOtomatikCariOlustur { get; set; } = true;
     public bool XmlImportOtomatikHesapKoduOlustur { get; set; } = true;
+
+    // KDV Oran → Hesap Kodu Eşleştirmeleri
+    public List<KdvHesapEslestirme> KdvHesapEslestirmeleri { get; set; } = new();
 }
 
 /// <summary>

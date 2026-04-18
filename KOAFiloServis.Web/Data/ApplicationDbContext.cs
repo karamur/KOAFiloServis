@@ -95,6 +95,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<MuhasebeFisKalem> MuhasebeFisKalemleri { get; set; }
     public DbSet<MuhasebeDonem> MuhasebeDonemleri { get; set; }
     public DbSet<MuhasebeAyar> MuhasebeAyarlari { get; set; }
+    public DbSet<KdvHesapEslestirme> KdvHesapEslestirmeleri { get; set; }
     public DbSet<KostMerkezi> KostMerkezleri { get; set; }
     public DbSet<MuhasebeProje> MuhasebeProjeler { get; set; }
 

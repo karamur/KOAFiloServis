@@ -117,6 +117,58 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label mb-0 fw-semibold">
+                                            <i class="bi bi-percent me-1 text-primary"></i>KDV Oranına Göre Hesap Kodu Eşleştirmesi
+                                        </label>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="KdvEslestirmeEkle">
+                                            <i class="bi bi-plus-lg me-1"></i>Oran Ekle
+                                        </button>
+                                    </div>
+                                    <div class="form-text mb-2 text-muted">
+                                        Farklı KDV oranları için ayrı hesap kodu tanımlayın (Zirve tarzı: %20 → 391.20 / 191.20, %10 → 391.10 / 191.10). Tanımlı oran bulunamazsa yukarıdaki varsayılan hesaplar kullanılır.
+                                    </div>
+                                    @if (kdvEslestirmeleri.Any())
+                                    {
+                                        <table class="table table-sm table-bordered mb-2">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width:90px;">KDV %</th>
+                                                    <th>Hesaplanan KDV Hesabı</th>
+                                                    <th>İndirilecek KDV Hesabı</th>
+                                                    <th style="width:60px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var e in kdvEslestirmeleri)
+                                                {
+                                                    <tr>
+                                                        <td>
+                                                            <input type="number" class="form-control form-control-sm" @bind="e.KdvOrani" min="0" max="100" />
+                                                        </td>
+                                                        <td>
+                                                            <input type="text" class="form-control form-control-sm" @bind="e.HesaplananKdvHesabi" placeholder="391.20" />
+                                                        </td>
+                                                        <td>
+                                                            <input type="text" class="form-control form-control-sm" @bind="e.IndirilecekKdvHesabi" placeholder="191.20" />
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => KdvEslestirmeSil(e)" title="Sil">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-muted small fst-italic">Henüz oran eşleştirmesi eklenmedi. "Oran Ekle" butonuyla ekleyebilirsiniz.</div>
+                                    }
+                                </div>
                             }
 
                             <hr />
@@ -298,6 +350,7 @@
     private bool isMapping = false;
     private bool eslesenleriGoster = false;
     private MuhasebeAyar ayar = new();
+    private List<KdvHesapEslestirme> kdvEslestirmeleri = new();
     private List<CariEslestirmeModel> tumCariler = new();
     private List<MuhasebeHesap> muhasebeHesaplar = new();
 
@@ -325,8 +378,11 @@
         isLoading = true;
         using var context = await DbFactory.CreateDbContextAsync();
 
-        var dbAyar = await context.MuhasebeAyarlari.FirstOrDefaultAsync();
+        var dbAyar = await context.MuhasebeAyarlari
+            .Include(a => a.KdvHesapEslestirmeleri)
+            .FirstOrDefaultAsync();
         ayar = dbAyar ?? new MuhasebeAyar();
+        kdvEslestirmeleri = ayar.KdvHesapEslestirmeleri.OrderBy(e => e.KdvOrani).ToList();
         isLoading = false;
     }
 
@@ -542,10 +598,34 @@
                 dbAyar.XmlImportOtomatikCariOlustur = ayar.XmlImportOtomatikCariOlustur;
                 dbAyar.XmlImportOtomatikHesapKoduOlustur = ayar.XmlImportOtomatikHesapKoduOlustur;
                 context.Update(dbAyar);
+
+                // KDV oran eşleştirmelerini güncelle: eskileri sil, yenileri ekle
+                var mevcutlar = await context.KdvHesapEslestirmeleri
+                    .Where(e => e.MuhasebeAyarId == dbAyar.Id)
+                    .ToListAsync();
+                context.KdvHesapEslestirmeleri.RemoveRange(mevcutlar);
+                foreach (var e in kdvEslestirmeleri)
+                {
+                    context.KdvHesapEslestirmeleri.Add(new KdvHesapEslestirme
+                    {
+                        MuhasebeAyarId = dbAyar.Id,
+                        KdvOrani = e.KdvOrani,
+                        HesaplananKdvHesabi = e.HesaplananKdvHesabi,
+                        IndirilecekKdvHesabi = e.IndirilecekKdvHesabi,
+                        Aciklama = e.Aciklama,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
             }
             else
             {
                 context.Add(ayar);
+                foreach (var e in kdvEslestirmeleri)
+                {
+                    e.MuhasebeAyar = ayar;
+                    e.CreatedAt = DateTime.UtcNow;
+                    context.KdvHesapEslestirmeleri.Add(e);
+                }
             }
 
             await context.SaveChangesAsync();
@@ -559,5 +639,20 @@
         {
             isSaving = false;
         }
+    }
+
+    private void KdvEslestirmeEkle()
+    {
+        kdvEslestirmeleri.Add(new KdvHesapEslestirme
+        {
+            KdvOrani = 20,
+            HesaplananKdvHesabi = "391.20",
+            IndirilecekKdvHesabi = "191.20"
+        });
+    }
+
+    private void KdvEslestirmeSil(KdvHesapEslestirme e)
+    {
+        kdvEslestirmeleri.Remove(e);
     }
 }

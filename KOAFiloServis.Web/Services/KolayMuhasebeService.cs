@@ -121,12 +121,14 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         // 391 Hesaplanan KDV ALACAK
         if (giris.KdvTutar > 0)
         {
+            var eslestirme = ayar.KdvHesapEslestirmeleri.FirstOrDefault(e => e.KdvOrani == (int)giris.KdvOrani);
+            var kdvHesapKodu = eslestirme?.HesaplananKdvHesabi ?? ayar.HesaplananKdvHesabi;
             kalemler.Add(new MuhasebeKalemOnizleme
             {
                 SiraNo = siraNo++,
-                HesapKodu = ayar.HesaplananKdvHesabi,
+                HesapKodu = kdvHesapKodu,
                 HesapAdi = "Hesaplanan KDV",
-                HesapId = await GetHesapIdAsync(context, ayar.HesaplananKdvHesabi),
+                HesapId = await GetHesapIdAsync(context, kdvHesapKodu),
                 Borc = 0,
                 Alacak = giris.KdvTutar,
                 Aciklama = $"KDV %{giris.KdvOrani}"
@@ -174,12 +176,14 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         // 191 İndirilecek KDV BORÇ
         if (giris.KdvTutar > 0)
         {
+            var eslestirme = ayar.KdvHesapEslestirmeleri.FirstOrDefault(e => e.KdvOrani == (int)giris.KdvOrani);
+            var kdvHesapKodu = eslestirme?.IndirilecekKdvHesabi ?? ayar.IndirilecekKdvHesabi;
             kalemler.Add(new MuhasebeKalemOnizleme
             {
                 SiraNo = siraNo++,
-                HesapKodu = ayar.IndirilecekKdvHesabi,
+                HesapKodu = kdvHesapKodu,
                 HesapAdi = "İndirilecek KDV",
-                HesapId = await GetHesapIdAsync(context, ayar.IndirilecekKdvHesabi),
+                HesapId = await GetHesapIdAsync(context, kdvHesapKodu),
                 Borc = giris.KdvTutar,
                 Alacak = 0,
                 Aciklama = $"KDV %{giris.KdvOrani}"
@@ -1308,7 +1312,9 @@ public class KolayMuhasebeService : IKolayMuhasebeService
     public async Task<MuhasebeAyar> GetMuhasebeAyarAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await context.MuhasebeAyarlari.FirstOrDefaultAsync() ?? new MuhasebeAyar();
+        return await context.MuhasebeAyarlari
+            .Include(a => a.KdvHesapEslestirmeleri)
+            .FirstOrDefaultAsync() ?? new MuhasebeAyar();
     }
 
     private async Task<int?> GetHesapIdAsync(ApplicationDbContext context, string hesapKodu)
