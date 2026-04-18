@@ -1,10 +1,8 @@
-﻿#define MyAppName "KOAFiloServis"
+#define MyAppName "KOAFiloServis"
 #define MyAppPublisher "KOA Yazilim"
 #define MyAppURL "https://karamur.github.io/KOAFiloServis"
 #define MyAppExeName "KOAFiloServis.Web.exe"
 #define MyInstallDir "C:\KOAFiloServis"
-#define MyDataDir "C:\KOAFiloServis\data"
-#define MyLisansExe "KOAFiloServis.LisansDesktop.exe"
 #define MyDataSyncExe "KOAFiloServis.DataSync.exe"
 
 #ifndef MyAppVersion
@@ -22,7 +20,7 @@ AppSupportURL={#MyAppURL}
 DefaultDirName={#MyInstallDir}
 DisableDirPage=yes
 DefaultGroupName={#MyAppName}
-OutputBaseFilename=KOAFiloServisKurulum-{#MyAppVersion}
+OutputBaseFilename=KOAFiloServisKurulumMusteri-{#MyAppVersion}
 OutputDir=output
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -47,7 +45,6 @@ Name: "full"; Description: "Tam Kurulum"
 
 [Components]
 Name: "web"; Description: "KOAFiloServis Web (IIS)"; Types: full; Flags: fixed
-Name: "lisans"; Description: "Lisans Yonetim Aracı"; Types: full
 Name: "datasync"; Description: "Veri Aktarim Araci (PostgreSQL - SQLite)"; Types: full
 
 [Tasks]
@@ -59,11 +56,8 @@ Name: "browser"; Description: "Kurulum sonrası tarayicida aç"; GroupDescriptio
 ; Web uygulaması
 Source: "payload\Web\*"; DestDir: "{app}"; Excludes: "dbsettings.json,appsettings.Production.json,*.db,logs\*,uploads\*"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: web
 
-; İlk kurulumda dbsettings.json örneği (güncellemede UZANTISI dokunulmaz)
+; İlk kurulumda dbsettings.json örneği (güncellemede dokunulmaz)
 Source: "payload\Web\dbsettings.json"; DestDir: "{app}"; DestName: "dbsettings.json"; Flags: onlyifdoesntexist; Components: web
-
-; Lisans aracı
-Source: "payload\LisansDesktop\*"; DestDir: "{app}\Lisans"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: lisans
 
 ; DataSync
 Source: "payload\DataSync\*"; DestDir: "{app}\DataSync"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: datasync
@@ -82,11 +76,10 @@ Name: "{app}\Backups"; Permissions: users-modify
 
 [Icons]
 Name: "{group}\{#MyAppName} Web'i Ac"; Filename: "http://localhost:5190"; IconFilename: "{app}\{#MyAppExeName}"
-Name: "{group}\Lisans Yonetimi"; Filename: "{app}\Lisans\{#MyLisansExe}"; WorkingDir: "{app}\Lisans"; Components: lisans
 Name: "{group}\Veri Aktarim (PG - SQLite)"; Filename: "{app}\DataSync\{#MyDataSyncExe}"; WorkingDir: "{app}\DataSync"; Components: datasync
 Name: "{group}\Kurulum Klasorunu Ac"; Filename: "{app}"
 Name: "{group}\Kaldır"; Filename: "{uninstallexe}"
-Name: "{commondesktop}\{#MyAppName} Web"; Filename: "http://localhost:5190"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: ; Flags: createonlyiffileexists
+Name: "{commondesktop}\{#MyAppName} Web"; Filename: "http://localhost:5190"; IconFilename: "{app}\{#MyAppExeName}"; Flags: createonlyiffileexists
 
 [Run]
 ; IIS yapılandırma (seçildiyse)
@@ -110,7 +103,6 @@ Filename: "http://localhost:5190"; \
     Description: "Uygulamayi tarayicida ac"
 
 [UninstallRun]
-; IIS site + app pool kaldırma
 Filename: "powershell.exe"; \
     Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\iis-remove.ps1"" -SiteName ""KOAFiloServis"""; \
     Flags: runhidden waituntilterminated; \
@@ -122,15 +114,10 @@ Filename: "netsh.exe"; \
     RunOnceId: "RemoveFirewall"
 
 [UninstallDelete]
-; Bu dosyalar kaldırma sonrası otomatik silinir (ama kullanıcı verisi SİLİNMEZ)
 Type: filesandordirs; Name: "{app}\wwwroot\_framework"
 Type: dirifempty; Name: "{app}\scripts"
 
 [Code]
-{ ============================================================
-  Yardimci fonksiyonlar
-  ============================================================ }
-
 function GetInstallPath(): String;
 var sPrevPath: String;
 begin
@@ -147,15 +134,11 @@ begin
   Result := (GetInstallPath() <> '');
 end;
 
-{ Zaman damgasi: YYYYMMDD-HHMMSS }
 function GetTimestamp(): String;
 begin
   Result := GetDateTimeString('yyyymmdd-hhnnss', #0, #0);
 end;
 
-{ ============================================================
-  Upgrade oncesi SQLite veritabani yedekleme
-  ============================================================ }
 procedure BackupDatabase(InstallPath: String);
 var
   DbFile, ShmFile, WalFile: String;
@@ -166,12 +149,10 @@ begin
   ShmFile := InstallPath + '\KOAFiloServis-shm';
   WalFile := InstallPath + '\KOAFiloServis-wal';
 
-  { Veritabani dosyasi yoksa yedekleme gerekmez }
   if not FileExists(DbFile) then Exit;
 
   BackupDir := InstallPath + '\Backups\db-' + GetTimestamp();
 
-  { xcopy ile backup dizinini olustur ve kopyala (mkdir + copy) }
   Exec('cmd.exe',
        '/c mkdir "' + BackupDir + '"',
        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
@@ -193,9 +174,6 @@ begin
   Log('DB yedegi alindi: ' + BackupDir);
 end;
 
-{ ============================================================
-  IIS site'i durdur / baslat (guncelleme sirasinda kilitlenme onleme)
-  ============================================================ }
 procedure StopIISSite();
 var ResultCode: Integer;
 begin
@@ -214,9 +192,6 @@ begin
   Log('IIS site baslatildi (ResultCode=' + IntToStr(ResultCode) + ')');
 end;
 
-{ ============================================================
-  Sihirbaz olay isleme
-  ============================================================ }
 procedure InitializeWizard();
 begin
   if IsUpgrade() then
@@ -232,7 +207,6 @@ var
 begin
   Result := True;
 
-  { --- Onceki kurulum tespiti --- }
   PrevPath := GetInstallPath();
   if PrevPath <> '' then
   begin
@@ -258,7 +232,6 @@ begin
   begin
     if PrevPath <> '' then
     begin
-      { Guncelleme: once yedek al, sonra IIS'i durdur }
       WizardForm.StatusLabel.Caption := 'Veritabani yedekleniyor...';
       BackupDatabase(PrevPath);
       StopIISSite();
@@ -269,7 +242,6 @@ begin
   begin
     if PrevPath <> '' then
     begin
-      { IIS site'ini yeniden baslat }
       StartIISSite();
     end;
   end;

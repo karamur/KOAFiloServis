@@ -120,9 +120,13 @@ if (-not $LisansOnly) {
     Write-Host "[5/6] Inno Setup - Guncelleme paketi (GuncelleSetup.iss)..." -ForegroundColor Green
     & $IsccExe "/DMyAppVersion=$Version" (Join-Path $Root 'GuncelleSetup.iss')
     if ($LASTEXITCODE -ne 0) { throw "Inno Setup (GuncelleSetup.iss) derleme basarisiz." }
+
+    Write-Host "[6/7] Inno Setup - Musteri paketi (MusteriSetup.iss)..." -ForegroundColor Green
+    & $IsccExe "/DMyAppVersion=$Version" (Join-Path $Root 'MusteriSetup.iss')
+    if ($LASTEXITCODE -ne 0) { throw "Inno Setup (MusteriSetup.iss) derleme basarisiz." }
 }
 
-Write-Host "[6/6] Inno Setup - Lisans araci (LisansSetup.iss)..." -ForegroundColor Green
+Write-Host "[7/7] Inno Setup - Lisans araci (LisansSetup.iss)..." -ForegroundColor Green
 & $IsccExe "/DLisansAppVersion=$Version" (Join-Path $Root 'LisansSetup.iss')
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup (LisansSetup.iss) derleme basarisiz." }
 
@@ -140,6 +144,13 @@ if (-not $LisansOnly) {
     if (Test-Path $guncellePath) {
         $guncelleBoyut = [math]::Round((Get-Item $guncellePath).Length / 1MB, 2)
         $sonuclar += "  Guncelleme paketi: $guncellePath ($guncelleBoyut MB)"
+    }
+
+    $musteriAdi = "KOAFiloServisKurulumMusteri-$Version.exe"
+    $musteriPath = Join-Path $Output $musteriAdi
+    if (Test-Path $musteriPath) {
+        $musteriBoyut = [math]::Round((Get-Item $musteriPath).Length / 1MB, 2)
+        $sonuclar += "  Musteri paketi  : $musteriPath ($musteriBoyut MB)"
     }
 }
 
@@ -162,7 +173,7 @@ if ($CopyToPublish) {
     } else {
         New-Item -ItemType Directory -Force $hedef | Out-Null
         if (-not $LisansOnly) {
-            foreach ($dosyaAdi in @("KOAFiloServisKurulum-$Version.exe", "KOAFiloServisGuncelle-$Version.exe")) {
+            foreach ($dosyaAdi in @("KOAFiloServisKurulum-$Version.exe", "KOAFiloServisGuncelle-$Version.exe", "KOAFiloServisKurulumMusteri-$Version.exe")) {
                 $src = Join-Path $Output $dosyaAdi
                 if (Test-Path $src) {
                     Copy-Item $src $hedef -Force

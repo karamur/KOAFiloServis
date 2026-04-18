@@ -107,11 +107,8 @@ begin
 end;
 
 function GetTimestamp(): String;
-var Y, M, D, H, Mi, S, MS: Word;
 begin
-  DecodeDate(Now, Y, M, D);
-  DecodeTime(Now, H, Mi, S, MS);
-  Result := Format('%.4d%.2d%.2d-%.2d%.2d%.2d', [Y, M, D, H, Mi, S]);
+  Result := GetDateTimeString('yyyymmdd-hhnnss', #0, #0);
 end;
 
 { ============================================================
