@@ -153,3 +153,21 @@ window.dashboardWidgets = {
         localStorage.removeItem(this._orderKey);
     }
 };
+
+// Entegrasyon rehberi — canlı endpoint test fonksiyonu
+window.analitikTest = async function (url, token) {
+    try {
+        var headers = { 'Content-Type': 'application/json' };
+        if (token && token.trim()) headers['Authorization'] = 'Bearer ' + token.trim();
+        var res = await fetch(url, { method: 'GET', headers: headers });
+        var text = await res.text();
+        try {
+            var obj = JSON.parse(text);
+            return JSON.stringify(obj, null, 2);
+        } catch {
+            return text;
+        }
+    } catch (e) {
+        throw new Error(e.message || 'Bağlantı hatası');
+    }
+};

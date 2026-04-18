@@ -1,0 +1,534 @@
+@page "/ayarlar/entegrasyon-rehberi"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Text.Json
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthState
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Entegrasyon Rehberi - Koa Filo Servis</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-diagram-3-fill text-primary me-2"></i>Entegrasyon Rehberi
+                    </h2>
+                    <small class="text-muted">Power BI, Grafana, n8n ve Zapier bağlantı kılavuzu</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sekme Navigasyonu -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <button class="nav-link @(aktifSekme == "genel" ? "active" : "")" @onclick='() => aktifSekme = "genel"'>
+                <i class="bi bi-key me-1"></i>API Erişimi
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(aktifSekme == "powerbi" ? "active" : "")" @onclick='() => aktifSekme = "powerbi"'>
+                <i class="bi bi-bar-chart-fill me-1 text-warning"></i>Power BI
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(aktifSekme == "grafana" ? "active" : "")" @onclick='() => aktifSekme = "grafana"'>
+                <i class="bi bi-graph-up me-1 text-danger"></i>Grafana
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(aktifSekme == "n8n" ? "active" : "")" @onclick='() => aktifSekme = "n8n"'>
+                <i class="bi bi-lightning-charge me-1 text-success"></i>n8n / Zapier
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(aktifSekme == "test" ? "active" : "")" @onclick='() => { aktifSekme = "test"; }'>
+                <i class="bi bi-terminal me-1 text-info"></i>Canlı Test
+            </button>
+        </li>
+    </ul>
+
+    <!-- API Erişimi -->
+    @if (aktifSekme == "genel")
+    {
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-key-fill me-2 text-warning"></i>JWT Token Alma</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">Tüm API endpoint'lerine erişmek için önce token alın:</p>
+                        <div class="bg-dark text-light rounded p-3 small font-monospace" style="overflow-x:auto;">
+                            <div class="text-success">POST @BaseUrl/api/auth/login</div>
+                            <div class="text-muted mt-1">Content-Type: application/json</div>
+                            <pre class="text-info mb-0 mt-2">{
+  "kullaniciAdi": "admin",
+  "sifre": "SifrenizBuraya"
+}</pre>
+                        </div>
+                        <p class="text-muted small mt-3">Yanıtta gelen <code>token</code> değerini sonraki isteklerde kullanın:</p>
+                        <div class="bg-dark text-light rounded p-3 small font-monospace">
+                            <div class="text-muted">Authorization: Bearer &lt;token&gt;</div>
+                        </div>
+                        <div class="alert alert-info small mt-3 mb-0">
+                            <i class="bi bi-info-circle me-1"></i>Token süresi: <strong>24 saat</strong>. Süresi dolduğunda <code>POST /api/auth/refresh</code> ile yenileyebilirsiniz.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-list-ul me-2 text-primary"></i>Mevcut Endpoint'ler</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Endpoint</th>
+                                        <th>Kullanım</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody class="small">
+                                    @foreach (var ep in endpointler)
+                                    {
+                                        <tr>
+                                            <td class="font-monospace text-primary small">@ep.Path</td>
+                                            <td>@ep.Aciklama</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-secondary py-0" @onclick="() => Kopyala(BaseUrl + ep.Path)" title="URL kopyala">
+                                                    <i class="bi bi-clipboard"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="/swagger" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Swagger API Dokümantasyonu
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Power BI -->
+    @if (aktifSekme == "powerbi")
+    {
+        <div class="row g-4">
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    Power BI Desktop'ta <strong>Web</strong> veya <strong>OData Feed</strong> veri kaynağı olarak bu URL'leri kullanabilirsiniz.
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header bg-warning bg-opacity-10">
+                        <h5 class="mb-0"><i class="bi bi-1-circle me-2"></i>Adım 1 — Token Al</h5>
+                    </div>
+                    <div class="card-body small">
+                        <ol class="mb-0">
+                            <li>Power BI Desktop'ı açın</li>
+                            <li><strong>Veri Al</strong> → <strong>Web</strong> seçin</li>
+                            <li>URL: <code class="text-primary">@BaseUrl/api/auth/login</code></li>
+                            <li>Yöntem: <strong>POST</strong>, Body: JSON (kullanıcı adı/şifre)</li>
+                            <li>Dönen <code>token</code> değerini kopyalayın</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header bg-warning bg-opacity-10">
+                        <h5 class="mb-0"><i class="bi bi-2-circle me-2"></i>Adım 2 — Veri Kaynağı Ekle</h5>
+                    </div>
+                    <div class="card-body small">
+                        <p>Her veri seti için ayrı sorgu oluşturun:</p>
+                        <div class="list-group list-group-flush">
+                            @foreach (var ep in odataEndpointler)
+                            {
+                                <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>@ep.Ad</strong><br />
+                                        <code class="text-primary small">@(BaseUrl + ep.Path)</code>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => Kopyala(BaseUrl + ep.Path)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-warning bg-opacity-10">
+                        <h5 class="mb-0"><i class="bi bi-3-circle me-2"></i>Adım 3 — Power Query (M) Örneği</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted">Power BI'da <strong>Gelişmiş Düzenleyici</strong> ile aşağıdaki M sorgusunu kullanın:</p>
+                        <div class="bg-dark text-light rounded p-3 small font-monospace" style="overflow-x:auto;">
+                            <pre class="mb-0 text-info">let
+    token = "BURAYA_JWT_TOKEN_YAPIŞTIRIN",
+    url = "@BaseUrl/api/analitik/odata/faturalar",
+    yanit = Web.Contents(url, [
+        Headers = [Authorization = "Bearer " & token]
+    ]),
+    json = Json.Document(yanit),
+    kayitlar = json[value],
+    tablo = Table.FromList(kayitlar, Splitter.SplitByNothing()),
+    genis = Table.ExpandRecordColumn(tablo, "Column1",
+        {"id", "faturaNo", "faturaTarihi", "vadeTarihi",
+         "tutar", "durum", "tip", "cariAdi"})
+in
+    genis</pre>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary mt-2" @onclick='() => Kopyala("let\n    token = \"BURAYA_JWT_TOKEN_YAPIŞTIRIN\",\n    url = \"" + BaseUrl + "/api/analitik/odata/faturalar\",\n    yanit = Web.Contents(url, [\n        Headers = [Authorization = \"Bearer \" & token]\n    ]),\n    json = Json.Document(yanit),\n    kayitlar = json[value],\n    tablo = Table.FromList(kayitlar, Splitter.SplitByNothing()),\n    genis = Table.ExpandRecordColumn(tablo, \"Column1\",\n        {\"id\", \"faturaNo\", \"faturaTarihi\", \"vadeTarihi\",\n         \"tutar\", \"durum\", \"tip\", \"cariAdi\"})\nin\n    genis")'>
+                            <i class="bi bi-clipboard me-1"></i>Kopyala
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Grafana -->
+    @if (aktifSekme == "grafana")
+    {
+        <div class="row g-4">
+            <div class="col-12">
+                <div class="alert alert-danger bg-opacity-10 border-danger">
+                    <i class="bi bi-info-circle-fill me-2 text-danger"></i>
+                    Grafana ile iki farklı yöntem desteklenmektedir: <strong>Prometheus</strong> (metrik scrape) ve <strong>JSON Datasource</strong> (SimpleJSON protokolü).
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card border-danger border-opacity-25">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-graph-up-arrow me-2 text-danger"></i>Yöntem 1: Prometheus</h5>
+                    </div>
+                    <div class="card-body small">
+                        <p>Grafana'da <strong>Prometheus</strong> datasource ekleyin:</p>
+                        <ol>
+                            <li>Grafana → <strong>Configuration</strong> → <strong>Data Sources</strong></li>
+                            <li><strong>Add data source</strong> → <strong>Prometheus</strong></li>
+                            <li>URL:
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <code class="text-danger flex-grow-1">@BaseUrl/api/analitik/metrics</code>
+                                    <button class="btn btn-sm btn-outline-secondary py-0" @onclick='() => Kopyala(BaseUrl + "/api/analitik/metrics")'>
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </li>
+                            <li><strong>Save & Test</strong> tıklayın</li>
+                        </ol>
+                        <hr />
+                        <p class="text-muted mb-1">Kullanılabilir metrikler:</p>
+                        <div class="font-monospace small">
+                            <div><span class="text-danger">koa_fatura_toplam</span> — toplam fatura</div>
+                            <div><span class="text-danger">koa_cari_toplam</span> — toplam cari</div>
+                            <div><span class="text-danger">koa_arac_toplam</span> — toplam araç</div>
+                            <div><span class="text-danger">koa_sofor_toplam</span> — toplam şoför</div>
+                            <div><span class="text-danger">koa_fatura_vadesi_gecmis</span> — vadesi geçmiş</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card border-danger border-opacity-25">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-braces me-2 text-danger"></i>Yöntem 2: JSON Datasource</h5>
+                    </div>
+                    <div class="card-body small">
+                        <ol>
+                            <li>Grafana eklentisi: <strong>simpod-json-datasource</strong> yükleyin</li>
+                            <li>URL:
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <code class="text-danger flex-grow-1">@BaseUrl/api/analitik/grafana</code>
+                                    <button class="btn btn-sm btn-outline-secondary py-0" @onclick='() => Kopyala(BaseUrl + "/api/analitik/grafana")'>
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </li>
+                            <li>Custom HTTP Headers:
+                                <div class="font-monospace bg-dark text-light rounded p-2 mt-1">
+                                    Authorization: Bearer &lt;token&gt;
+                                </div>
+                            </li>
+                            <li>Panel eklerken <strong>Query</strong> olarak metrik adını seçin</li>
+                        </ol>
+                        <hr />
+                        <p class="text-muted mb-1">Kullanılabilir metrikler:</p>
+                        <div class="font-monospace small text-danger">
+                            fatura_sayisi, cari_sayisi, arac_sayisi,<br />
+                            sofor_sayisi, bu_ay_gelir, bu_ay_gider,<br />
+                            vadesi_gecmis_sayisi
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- n8n / Zapier -->
+    @if (aktifSekme == "n8n")
+    {
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card border-success border-opacity-25">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-lightning-charge-fill me-2 text-success"></i>n8n Entegrasyonu</h5>
+                    </div>
+                    <div class="card-body small">
+                        <p>n8n workflow'larında <strong>HTTP Request</strong> node kullanın:</p>
+                        <div class="mb-3">
+                            <strong>Sistem Özeti (Polling Trigger):</strong>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <code class="text-success flex-grow-1">GET @BaseUrl/api/analitik/n8n/ozet</code>
+                                <button class="btn btn-sm btn-outline-secondary py-0" @onclick='() => Kopyala(BaseUrl + "/api/analitik/n8n/ozet")'>
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Yeni Faturalar:</strong>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <code class="text-success flex-grow-1">GET @BaseUrl/api/analitik/n8n/faturalar/yeni?sonTarihten=2026-01-01</code>
+                                <button class="btn btn-sm btn-outline-secondary py-0" @onclick='() => Kopyala(BaseUrl + "/api/analitik/n8n/faturalar/yeni")'>
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <hr />
+                        <p class="text-muted mb-1">Authentication Header:</p>
+                        <div class="font-monospace bg-dark text-light rounded p-2">Authorization: Bearer &lt;token&gt;</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card border-success border-opacity-25">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-zap me-2 text-success"></i>Zapier Entegrasyonu</h5>
+                    </div>
+                    <div class="card-body small">
+                        <ol>
+                            <li>Zapier'de <strong>Webhooks by Zapier</strong> → <strong>Polling</strong> trigger seçin</li>
+                            <li>URL:
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <code class="text-success flex-grow-1">@BaseUrl/api/analitik/n8n/ozet</code>
+                                    <button class="btn btn-sm btn-outline-secondary py-0" @onclick='() => Kopyala(BaseUrl + "/api/analitik/n8n/ozet")'>
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </li>
+                            <li>Headers:
+                                <div class="font-monospace bg-dark text-light rounded p-2 mt-1">Authorization: Bearer &lt;token&gt;</div>
+                            </li>
+                            <li>Deduplication Key: <code>id</code> (Unix timestamp)</li>
+                            <li>Tetikleyici veriye göre action ekleyin (e-posta, Slack vb.)</li>
+                        </ol>
+                        <div class="alert alert-success small mb-0">
+                            <i class="bi bi-lightbulb me-1"></i>
+                            <strong>İpucu:</strong> Vadesi geçmiş fatura sayısı değiştiğinde Slack/Teams bildirimi göndermek için <code>ozet.vadesi_gecmis_fatura_sayisi</code> alanını filtreleyin.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-code-slash me-2"></i>Örnek n8n Workflow Yapısı</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="bg-dark text-light rounded p-3 small font-monospace" style="overflow-x:auto;">
+                            <pre class="mb-0 text-info">[Schedule Trigger: her 30 dk]
+        ↓
+[HTTP GET: /api/analitik/n8n/faturalar/yeni
+  Header: Authorization: Bearer {{&lt;token&gt;}}]
+        ↓
+[IF: items.count > 0]
+        ↓               ↓
+[Slack bildirimi]  [E-posta gönder]</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Canlı Test -->
+    @if (aktifSekme == "test")
+    {
+        <div class="row g-4">
+            <div class="col-lg-5">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-terminal me-2"></i>Endpoint Test</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Endpoint</label>
+                            <select class="form-select form-select-sm" @bind="testEndpoint">
+                                <option value="/api/analitik/odata/faturalar?top=5">OData Faturalar (top=5)</option>
+                                <option value="/api/analitik/odata/cariler?top=5">OData Cariler (top=5)</option>
+                                <option value="/api/analitik/odata/araclar?top=5">OData Araçlar (top=5)</option>
+                                <option value="/api/analitik/grafana/search">Grafana Search</option>
+                                <option value="/api/analitik/n8n/ozet">n8n Özet</option>
+                                <option value="/api/analitik/metrics">Prometheus Metrics</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">JWT Token</label>
+                            <div class="input-group input-group-sm">
+                                <input type="@(tokenGizli ? "password" : "text")" class="form-control font-monospace"
+                                       @bind="testToken" placeholder="Bearer token buraya..." />
+                                <button class="btn btn-outline-secondary" @onclick="() => tokenGizli = !tokenGizli">
+                                    <i class="bi @(tokenGizli ? "bi-eye" : "bi-eye-slash")"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Token için önce <code>POST /api/auth/login</code> isteği atın.
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" @onclick="TestCalistir" disabled="@testYukleniyor">
+                            @if (testYukleniyor)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-play-fill me-1"></i>
+                            }
+                            Testi Çalıştır
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-braces me-2"></i>Yanıt</h5>
+                        @if (!string.IsNullOrEmpty(testSonucu))
+                        {
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge @(testBasarili ? "bg-success" : "bg-danger")">
+                                    @(testBasarili ? "200 OK" : "Hata")
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary py-0" @onclick="() => Kopyala(testSonucu)">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                    <div class="card-body p-0">
+                        @if (string.IsNullOrEmpty(testSonucu))
+                        {
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-terminal fs-1 mb-3 d-block opacity-25"></i>
+                                Endpoint seçip "Testi Çalıştır" butonuna tıklayın
+                            </div>
+                        }
+                        else
+                        {
+                            <pre class="bg-dark text-light p-3 rounded mb-0 small" style="max-height:400px;overflow:auto;">@testSonucu</pre>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (kopyalaUyarisi)
+{
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100;">
+        <div class="toast show align-items-center text-bg-success border-0">
+            <div class="d-flex">
+                <div class="toast-body"><i class="bi bi-clipboard-check me-2"></i>Kopyalandı!</div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string aktifSekme = "genel";
+    private string testEndpoint = "/api/analitik/odata/faturalar?top=5";
+    private string testToken = "";
+    private string testSonucu = "";
+    private bool testBasarili = false;
+    private bool testYukleniyor = false;
+    private bool tokenGizli = true;
+    private bool kopyalaUyarisi = false;
+
+    private string BaseUrl => Navigation.BaseUri.TrimEnd('/');
+
+    private record EndpointBilgi(string Path, string Aciklama);
+
+    private readonly List<EndpointBilgi> endpointler = new()
+    {
+        new("/api/analitik/odata/faturalar", "Fatura listesi (Power BI)"),
+        new("/api/analitik/odata/cariler", "Cari listesi (Power BI)"),
+        new("/api/analitik/odata/araclar", "Araç listesi (Power BI)"),
+        new("/api/analitik/grafana/search", "Grafana metrik listesi"),
+        new("/api/analitik/grafana/query", "Grafana metrik değerleri"),
+        new("/api/analitik/metrics", "Prometheus scrape"),
+        new("/api/analitik/n8n/ozet", "n8n/Zapier sistem özeti"),
+        new("/api/analitik/n8n/faturalar/yeni", "n8n yeni faturalar"),
+    };
+
+    private readonly List<(string Ad, string Path)> odataEndpointler = new()
+    {
+        ("Faturalar", "/api/analitik/odata/faturalar"),
+        ("Cariler", "/api/analitik/odata/cariler"),
+        ("Araçlar", "/api/analitik/odata/araclar"),
+    };
+
+    private async Task Kopyala(string metin)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", metin);
+        kopyalaUyarisi = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        kopyalaUyarisi = false;
+        StateHasChanged();
+    }
+
+    private async Task TestCalistir()
+    {
+        testYukleniyor = true;
+        testSonucu = "";
+        StateHasChanged();
+
+        try
+        {
+            var fullUrl = BaseUrl + testEndpoint;
+            var result = await JS.InvokeAsync<string>("analitikTest", fullUrl, testToken);
+            testSonucu = result ?? "(boş yanıt)";
+            testBasarili = true;
+        }
+        catch (Exception ex)
+        {
+            testSonucu = "Hata: " + ex.Message;
+            testBasarili = false;
+        }
+        finally
+        {
+            testYukleniyor = false;
+            StateHasChanged();
+        }
+    }
+}

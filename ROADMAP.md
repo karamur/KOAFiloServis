@@ -733,7 +733,7 @@ FAZ 8.5 (2-3 Hafta) - 🆕 ÖNERİLEN DEVAM FAZI
 ### 9.1 Gelişmiş Analitik & BI
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Power BI / Grafana entegrasyonu | 🟡 Orta | 3 gün | ❌ Bekliyor |
+| Power BI / Grafana entegrasyonu | 🟡 Orta | 3 gün | ✅ Tamamlandı — /ayarlar/entegrasyon-rehberi, OData/Prometheus/SimpleJSON/n8n endpoint'leri |
 | Özel dashboard widget oluşturma | 🟡 Orta | 2 gün | ✅ Tamamlandı — Sıralama (↑↓), görünürlük toggle, LocalStorage kalıcılığı, flex-order CSS |
 | Veri export (CSV/JSON/Parquet) | 🟢 Düşük | 1 gün | ✅ Tamamlandı |
 | Scheduled report e-posta | 🟢 Düşük | 2 gün | ✅ Tamamlandı — ZamanliRaporJob (Quartz) + ZamanliRaporService, günlük e-posta özet |
