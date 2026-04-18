@@ -257,7 +257,7 @@ Onayladıktan sonra "şu maddeyi uygula" demen yeterli.
 **Etki:** ⭐⭐⭐
 **Maliyet:** Düşük.
 
-### 9.3 Yetkisiz Menüleri Tamamen Gizle (Disable Değil) `[ ]`
+### 9.3 Yetkisiz Menüleri Tamamen Gizle (Disable Değil) `[x]`
 **Öneri:** Kullanıcının yetkisi olmadığı menüler hiç görünmesin (clutter azaltma).
 **Etki:** ⭐⭐⭐
 **Maliyet:** Düşük (zaten yetki sistemi var).

@@ -1,6 +1,7 @@
 ﻿@rendermode InteractiveServer
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Shared.Entities
+@implements IDisposable
 @inject IKullaniciService KullaniciService
 @inject AppAuthenticationStateProvider AuthProvider
 
@@ -21,6 +22,17 @@
 
 <div class="nav-scrollable">
     <nav class="nav flex-column">
+        @if (!yetkilerYuklendi)
+        {
+            <div class="px-3 py-2 mt-2">
+                <div class="placeholder-glow">
+                    <span class="placeholder col-10 mb-2 d-block rounded" style="height:14px"></span>
+                    <span class="placeholder col-8 mb-2 d-block rounded" style="height:14px"></span>
+                    <span class="placeholder col-9 mb-2 d-block rounded" style="height:14px"></span>
+                    <span class="placeholder col-7 mb-2 d-block rounded" style="height:14px"></span>
+                </div>
+            </div>
+        }
         <!-- Ana Sayfa -->
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.Prefix">
@@ -835,21 +847,24 @@
                 @if (expandedSections.Length > 13 && expandedSections[13])
                 {
                     <div class="nav-section-content">
-                        <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="stok">
-                                <i class="bi bi-speedometer2 me-2 text-primary"></i> Stok Dashboard
-                            </NavLink>
-                        </div>
-                        <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="stok/kartlar">
-                                <i class="bi bi-box-seam me-2 text-info"></i> Stok Kartları
-                            </NavLink>
-                        </div>
-                        <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="stok/arac-islem">
-                                <i class="bi bi-truck me-2 text-success"></i> Araç Alış/Satış
-                            </NavLink>
-                        </div>
+                        @if (HasYetki("stok.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="stok">
+                                    <i class="bi bi-speedometer2 me-2 text-primary"></i> Stok Dashboard
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="stok/kartlar">
+                                    <i class="bi bi-box-seam me-2 text-info"></i> Stok Kartları
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="stok/arac-islem">
+                                    <i class="bi bi-truck me-2 text-success"></i> Araç Alış/Satış
+                                </NavLink>
+                            </div>
+                        }
                     </div>
                 }
             </div>
@@ -1289,6 +1304,18 @@
     protected override async Task OnInitializedAsync()
     {
         await YetkileriYukle();
+        AuthProvider.AuthenticationStateChanged += OnAuthStateChanged;
+    }
+
+    private async void OnAuthStateChanged(Task<AuthenticationState> task)
+    {
+        await YetkileriYukle();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AuthProvider.AuthenticationStateChanged -= OnAuthStateChanged;
     }
 
     private async Task YetkileriYukle()
@@ -1387,6 +1414,8 @@
                 return new[] { "firma", "ayarlar", "kullanici", "rol", "veritabani", "sistemdurumu", "aktivitelog", "yedekleme", "guncelleme", "destektalebi", "piyasakaynak" };
             case "menu.ebys":
                 return new[] { "ebys", "evrak", "belgeuyari" };
+            case "menu.stok":
+                return new[] { "stok" };
             default:
                 return Array.Empty<string>();
         }
