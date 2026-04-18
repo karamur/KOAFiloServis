@@ -69,16 +69,33 @@ else
                         <button class="btn-close" @onclick="() => widgetAyarGoster = false"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="text-muted small mb-3">Görmek istediğiniz bölümleri seçin. Ayarlar tarayıcınıza kaydedilir.</p>
-                        @foreach (var w in widgetler)
+                        <p class="text-muted small mb-3">Görmek istediğiniz bölümleri seçin ve sırayı düzenleyin. Ayarlar tarayıcınıza kaydedilir.</p>
+                        @foreach (var key in widgetSira)
                         {
-                            <div class="form-check form-switch mb-2">
-                                <input class="form-check-input" type="checkbox" id="w_@w.Key"
-                                       checked="@w.Value.Gorünür"
-                                       @onchange="@(e => WidgetToggle(w.Key, (bool)(e.Value ?? true)))" />
-                                <label class="form-check-label" for="w_@w.Key">
-                                    <i class="bi @w.Value.Ikon me-2 text-muted"></i>@w.Value.Ad
-                                </label>
+                            if (!widgetler.TryGetValue(key, out var w)) continue;
+                            var idx = widgetSira.IndexOf(key);
+                            <div class="d-flex align-items-center border rounded px-2 py-1 mb-2 bg-body-tertiary">
+                                <div class="d-flex flex-column me-2">
+                                    <button class="btn btn-sm p-0 lh-1 text-muted" style="font-size:0.7rem;"
+                                            @onclick="() => WidgetYukariTasi(key)"
+                                            disabled="@(idx == 0)" title="Yukarı taşı">
+                                        <i class="bi bi-chevron-up"></i>
+                                    </button>
+                                    <button class="btn btn-sm p-0 lh-1 text-muted" style="font-size:0.7rem;"
+                                            @onclick="() => WidgetAsagiTasi(key)"
+                                            disabled="@(idx == widgetSira.Count - 1)" title="Aşağı taşı">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
+                                </div>
+                                <div class="form-check form-switch flex-grow-1 mb-0">
+                                    <input class="form-check-input" type="checkbox" id="w_@key"
+                                           checked="@w.Gorünür"
+                                           @onchange="@(e => WidgetToggle(key, (bool)(e.Value ?? true)))" />
+                                    <label class="form-check-label" for="w_@key">
+                                        <i class="bi @w.Ikon me-2 text-muted"></i>@w.Ad
+                                    </label>
+                                </div>
+                                <span class="badge bg-secondary ms-2" style="font-size:0.65rem;">@(idx + 1)</span>
                             </div>
                         }
                     </div>
@@ -221,7 +238,7 @@ else
     <!-- Özet Kartlar -->
     @if (WidgetGorünür("ozet-kartlar"))
     {
-    <div class="row mb-4">
+    <div class="row mb-4" style='order: @GetWidgetOrder("ozet-kartlar")'>
         @if (CanViewCariler)
         {
         <div class="col-md-3">
@@ -315,7 +332,7 @@ else
     <!-- Finansal Özet -->
     @if (WidgetGorünür("finansal-ozet") && CanViewFinans)
     {
-    <div class="row mb-4">
+    <div class="row mb-4" style='order: @GetWidgetOrder("finansal-ozet")'>
         <div class="col-md-4">
             <div class="card h-100">
                 <div class="card-header bg-light">
@@ -423,7 +440,7 @@ else
     <!-- Grafikler Bölümü -->
     @if (WidgetGorünür("grafikler"))
     {
-    <div class="row mb-4">
+    <div class="row mb-4" style='order: @GetWidgetOrder("grafikler")'>
         <div class="col-md-8">
             <div class="card h-100">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
@@ -466,7 +483,7 @@ else
         </div>
     </div>
 
-    <div class="row mb-4">
+    <div class="row mb-4" style='order: @GetWidgetOrder("grafikler")'>
         <div class="col-md-6">
             <div class="card h-100">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
@@ -526,7 +543,7 @@ else
     <!-- Detay Kartları -->
     @if (WidgetGorünür("vade-faturalar"))
     {
-    <div class="row mb-4">
+    <div class="row mb-4" style='order: @GetWidgetOrder("vade-faturalar")'>
         <!-- Vade Geçmiş Faturalar -->
         @if (CanViewFaturalar)
         {
@@ -798,7 +815,7 @@ else
     <!-- Son İşlemler -->
     @if (WidgetGorünür("son-islemler"))
     {
-    <div class="row">
+    <div class="row" style='order: @GetWidgetOrder("son-islemler")'>
         @if (CanViewServisler)
         {
         <div class="col-md-6">
@@ -896,6 +913,7 @@ else
         }
     </div>
     }
+    </div>
 </div>
 
 @if (showGecmisBorcModal && seciliGecmisBorc != null)
