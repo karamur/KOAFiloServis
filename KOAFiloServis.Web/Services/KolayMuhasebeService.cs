@@ -258,12 +258,14 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         // 191 İndirilecek KDV BORÇ (varsa)
         if (giris.KdvTutar > 0)
         {
+            var eslestirme = ayar.KdvHesapEslestirmeleri.FirstOrDefault(e => e.KdvOrani == (int)giris.KdvOrani);
+            var kdvHesapKodu = eslestirme?.IndirilecekKdvHesabi ?? ayar.IndirilecekKdvHesabi;
             kalemler.Add(new MuhasebeKalemOnizleme
             {
                 SiraNo = siraNo++,
-                HesapKodu = ayar.IndirilecekKdvHesabi,
+                HesapKodu = kdvHesapKodu,
                 HesapAdi = "İndirilecek KDV",
-                HesapId = await GetHesapIdAsync(context, ayar.IndirilecekKdvHesabi),
+                HesapId = await GetHesapIdAsync(context, kdvHesapKodu),
                 Borc = giris.KdvTutar,
                 Alacak = 0,
                 Aciklama = $"KDV %{giris.KdvOrani}"

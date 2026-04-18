@@ -704,7 +704,8 @@ public class MuhasebeService : IMuhasebeService
             // Tevkifat KDV'si de indirilecek KDV olarak kaydedilir
             if (fatura.TevkifatliMi && fatura.TevkifatTutar > 0)
             {
-                var kdvHesapKodu = ayar?.IndirilecekKdvHesabi ?? "191.01";
+                var tevEslestirme = ayar?.KdvHesapEslestirmeleri.FirstOrDefault(e => e.KdvOrani == (int)fatura.KdvOrani);
+                var kdvHesapKodu = tevEslestirme?.IndirilecekKdvHesabi ?? ayar?.IndirilecekKdvHesabi ?? "191.01";
                 var kdvHesap = await GetHesapByKodAsync(kdvHesapKodu) ?? await GetHesapByKodAsync("191");
                 if (kdvHesap != null)
                 {
@@ -713,7 +714,7 @@ public class MuhasebeService : IMuhasebeService
                         HesapId = kdvHesap.Id,
                         Borc = fatura.TevkifatTutar,
                         Alacak = 0,
-                        Aciklama = "Tevkifat KDV (İndirilecek)",
+                        Aciklama = $"Tevkifat KDV (İndirilecek) %{(int)fatura.KdvOrani}",
                         SiraNo = siraNo++
                     });
                 }
