@@ -1,11 +1,13 @@
-﻿@page "/setup"
+@page "/setup"
 @layout EmptyLayout
 @attribute [AllowAnonymous]
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Data
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+@inject IPasswordHasher<Kullanici> PasswordHasher
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
@@ -420,7 +422,7 @@
                 KullaniciAdi = adminKullaniciAdi.Trim().ToLowerInvariant(),
                 AdSoyad      = adminAdSoyad.Trim(),
                 Email        = string.IsNullOrWhiteSpace(adminEmail) ? null : adminEmail.Trim(),
-                SifreHash    = adminSifre,
+                SifreHash    = PasswordHasher.HashPassword(new Kullanici(), adminSifre),
                 RolId        = adminRol.Id,
                 Aktif        = true,
                 CreatedAt    = DateTime.UtcNow
@@ -442,3 +444,5 @@
     private void LisansSetupGit() => Navigation.NavigateTo("/setup/lisans");
     private void GirisYap()       => Navigation.NavigateTo("/login");
 }
+
+
