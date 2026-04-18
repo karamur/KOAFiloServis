@@ -66,6 +66,9 @@
                         <i class="bi bi-receipt me-1"></i>Faturayı Görüntüle
                     </a>
                 }
+                <button class="btn btn-outline-dark" @onclick="YazdirAc">
+                    <i class="bi bi-printer me-1"></i>Yazdır / PDF
+                </button>
                 <a href="/proforma-faturalar" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Geri
                 </a>
@@ -336,6 +339,11 @@
         {
             await JS.InvokeVoidAsync("alert", $"Hata: {ex.Message}");
         }
+    }
+
+    private async Task YazdirAc()
+    {
+        await JS.InvokeVoidAsync("eval", $"window.open('/proforma-fatura/{Id}/yazdir', '_blank', 'width=900,height=750')");
     }
 
     private string DurumAdiGetir(ProformaDurum durum) => durum switch
