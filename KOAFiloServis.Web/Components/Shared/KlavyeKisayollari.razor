@@ -1,0 +1,101 @@
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+@if (goster)
+{
+    <div class="modal show d-block" style="background:rgba(0,0,0,.5);z-index:9999;" @onclick="Kapat">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-keyboard me-2"></i>Klavye Kısayolları</h5>
+                    <button class="btn-close" @onclick="Kapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        @foreach (var grup in kisayollar)
+                        {
+                            <div class="col-12">
+                                <div class="text-muted small fw-bold mb-1">@grup.Key</div>
+                                @foreach (var k in grup.Value)
+                                {
+                                    <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                                        <span class="small">@k.Aciklama</span>
+                                        <div class="d-flex gap-1">
+                                            @foreach (var key in k.Tuslar)
+                                            {
+                                                <kbd class="badge bg-secondary" style="font-family:monospace;">@key</kbd>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <small class="text-muted">Yardım için <kbd>Ctrl+/</kbd> veya <kbd>F1</kbd> tuşlarına basın</small>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool goster = false;
+    private DotNetObjectReference<KlavyeKisayollari>? _ref;
+
+    private readonly Dictionary<string, List<(string Aciklama, string[] Tuslar)>> kisayollar = new()
+    {
+        ["Gezinme"] = new()
+        {
+            ("Dashboard'a git", new[] { "Ctrl", "D" }),
+            ("Arama", new[] { "Ctrl", "K" }),
+            ("Yeni kayıt oluştur", new[] { "Ctrl", "N" }),
+            ("Menüyü gizle/göster", new[] { "Ctrl", "B" }),
+        },
+        ["Genel"] = new()
+        {
+            ("Kısayol yardımı", new[] { "Ctrl", "/" }),
+            ("Modal / Paneli kapat", new[] { "Esc" }),
+        }
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _ref = DotNetObjectReference.Create(this);
+            try { await JS.InvokeVoidAsync("keyboardShortcuts.init", _ref); } catch { }
+        }
+    }
+
+    [JSInvokable]
+    public void OnShortcut(string shortcut)
+    {
+        switch (shortcut)
+        {
+            case "Help":
+                goster = !goster;
+                break;
+            case "Escape":
+                goster = false;
+                break;
+            case "Dashboard":
+                Navigation.NavigateTo("/");
+                break;
+            case "Search":
+                // future: global search panel
+                break;
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Kapat() => goster = false;
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("keyboardShortcuts.dispose"); } catch { }
+        _ref?.Dispose();
+    }
+}

@@ -51,8 +51,47 @@ else
         <h3 class="mb-0">
             <i class="bi bi-speedometer2 me-2"></i>Dashboard
         </h3>
-        <small class="text-muted">Son güncelleme: @DateTime.Now.ToString("dd.MM.yyyy HH:mm")</small>
+        <div class="d-flex align-items-center gap-2">
+            <small class="text-muted d-none d-md-inline">Son güncelleme: @DateTime.Now.ToString("dd.MM.yyyy HH:mm")</small>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="() => widgetAyarGoster = true" title="Widget ayarları">
+                <i class="bi bi-layout-wtf me-1"></i><span class="d-none d-md-inline">Düzenle</span>
+            </button>
+        </div>
     </div>
+
+    @if (widgetAyarGoster)
+    {
+        <div class="modal show d-block" style="background:rgba(0,0,0,.5);" @onclick="() => widgetAyarGoster = false">
+            <div class="modal-dialog" @onclick:stopPropagation>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-layout-wtf me-2"></i>Dashboard Widget Ayarları</h5>
+                        <button class="btn-close" @onclick="() => widgetAyarGoster = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">Görmek istediğiniz bölümleri seçin. Ayarlar tarayıcınıza kaydedilir.</p>
+                        @foreach (var w in widgetler)
+                        {
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="w_@w.Key"
+                                       checked="@w.Value.Gorünür"
+                                       @onchange="@(e => WidgetToggle(w.Key, (bool)(e.Value ?? true)))" />
+                                <label class="form-check-label" for="w_@w.Key">
+                                    <i class="bi @w.Value.Ikon me-2 text-muted"></i>@w.Value.Ad
+                                </label>
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="WidgetSifirla">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Varsayılanları Geri Yükle
+                        </button>
+                        <button class="btn btn-primary" @onclick="() => widgetAyarGoster = false">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 
     @if (dashboardHatalari.Any())
     {
@@ -112,6 +151,8 @@ else
     }
 
     <!-- Hızlı İşlemler Paneli -->
+    @if (WidgetGorünür("hizli-islemler"))
+    {
     <div class="card mb-4 border-0 shadow-sm">
         <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
             <h6 class="mb-0 text-white"><i class="bi bi-lightning-charge-fill me-2"></i>Hızlı İşlemler</h6>
@@ -175,8 +216,11 @@ else
             </div>
         </div>
     </div>
+    }
 
     <!-- Özet Kartlar -->
+    @if (WidgetGorünür("ozet-kartlar"))
+    {
     <div class="row mb-4">
         @if (CanViewCariler)
         {
@@ -266,9 +310,10 @@ else
         </div>
         }
     </div>
+    }
 
     <!-- Finansal Özet -->
-    @if (CanViewFinans)
+    @if (WidgetGorünür("finansal-ozet") && CanViewFinans)
     {
     <div class="row mb-4">
         <div class="col-md-4">
@@ -373,8 +418,11 @@ else
             </div>
         </div>
     </div>
+    }
 
     <!-- Grafikler Bölümü -->
+    @if (WidgetGorünür("grafikler"))
+    {
     <div class="row mb-4">
         <div class="col-md-8">
             <div class="card h-100">
@@ -476,6 +524,8 @@ else
     }
 
     <!-- Detay Kartları -->
+    @if (WidgetGorünür("vade-faturalar"))
+    {
     <div class="row mb-4">
         <!-- Vade Geçmiş Faturalar -->
         @if (CanViewFaturalar)
@@ -743,8 +793,11 @@ else
         </div>
     </div>
     }
+    }
 
     <!-- Son İşlemler -->
+    @if (WidgetGorünür("son-islemler"))
+    {
     <div class="row">
         @if (CanViewServisler)
         {
@@ -842,6 +895,7 @@ else
         </div>
         }
     </div>
+    }
 </div>
 
 @if (showGecmisBorcModal && seciliGecmisBorc != null)
@@ -1086,6 +1140,38 @@ else
     private bool showAtananEvraklarModal = false;
     private bool showGecmisBorcModal = false;
     private bool isLoading = true;
+
+    // Widget ayarları
+    private bool widgetAyarGoster = false;
+    private Dictionary<string, (string Ad, string Ikon, bool Gorünür)> widgetler = new()
+    {
+        ["hizli-islemler"] = ("Hızlı İşlemler", "bi-lightning-charge", true),
+        ["ozet-kartlar"] = ("Özet Kartlar", "bi-grid-3x3-gap", true),
+        ["finansal-ozet"] = ("Finansal Özet", "bi-cash-stack", true),
+        ["grafikler"] = ("Grafikler", "bi-bar-chart", true),
+        ["vade-faturalar"] = ("Vade / Fatura Uyarıları", "bi-exclamation-triangle", true),
+        ["son-islemler"] = ("Son İşlemler", "bi-clock-history", true),
+    };
+
+    private bool WidgetGorünür(string key) => widgetler.TryGetValue(key, out var w) && w.Gorünür;
+
+    private async Task WidgetToggle(string key, bool visible)
+    {
+        if (widgetler.TryGetValue(key, out var w))
+            widgetler[key] = (w.Ad, w.Ikon, visible);
+        await JSRuntime.InvokeVoidAsync("dashboardWidgets.set", key, visible);
+    }
+
+    private async Task WidgetSifirla()
+    {
+        var keys = widgetler.Keys.ToList();
+        foreach (var k in keys)
+        {
+            var w = widgetler[k];
+            widgetler[k] = (w.Ad, w.Ikon, true);
+        }
+        await JSRuntime.InvokeVoidAsync("dashboardWidgets.reset");
+    }
     private bool dashboardLoadInProgress;
     private readonly List<string> dashboardHatalari = new();
 
@@ -1371,6 +1457,28 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            try
+            {
+                var savedWidgets = await JSRuntime.InvokeAsync<Dictionary<string, bool>>("dashboardWidgets.getAll");
+                if (savedWidgets != null)
+                {
+                    var keys = widgetler.Keys.ToList();
+                    foreach (var k in keys)
+                    {
+                        if (savedWidgets.TryGetValue(k, out var vis))
+                        {
+                            var w = widgetler[k];
+                            widgetler[k] = (w.Ad, w.Ikon, vis);
+                        }
+                    }
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+
         if (!firstRender && !isLoading && !chartsRendered && HasDashboardPermission && CanViewFinans)
         {
             chartsRendered = true;

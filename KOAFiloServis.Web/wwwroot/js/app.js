@@ -47,6 +47,48 @@ window.darkMode = {
  * @param {string} fileName - İndirilecek dosya adı
  * @param {string} mimeType - MIME türü (örn: application/pdf)
  */
+// Keyboard Shortcuts
+window.keyboardShortcuts = {
+    _handlers: {},
+    _dotnet: null,
+    init: function (dotnetRef) {
+        this._dotnet = dotnetRef;
+        var self = this;
+        document.addEventListener('keydown', function (e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                if (e.key === 'Escape') {
+                    self._dotnet && self._dotnet.invokeMethodAsync('OnShortcut', 'Escape');
+                }
+                return;
+            }
+            var key = '';
+            if (e.ctrlKey || e.metaKey) key += 'Ctrl+';
+            if (e.altKey) key += 'Alt+';
+            if (e.shiftKey) key += 'Shift+';
+            key += (e.key.length === 1 ? e.key.toUpperCase() : e.key);
+            if (key === 'Ctrl+/' || key === 'F1') {
+                e.preventDefault();
+                self._dotnet && self._dotnet.invokeMethodAsync('OnShortcut', 'Help');
+            } else if (key === 'Escape') {
+                self._dotnet && self._dotnet.invokeMethodAsync('OnShortcut', 'Escape');
+            } else if (key === 'Ctrl+K') {
+                e.preventDefault();
+                self._dotnet && self._dotnet.invokeMethodAsync('OnShortcut', 'Search');
+            } else if (key === 'Ctrl+D') {
+                e.preventDefault();
+                self._dotnet && self._dotnet.invokeMethodAsync('OnShortcut', 'Dashboard');
+            } else if (key === 'Ctrl+N') {
+                e.preventDefault();
+                self._dotnet && self._dotnet.invokeMethodAsync('OnShortcut', 'New');
+            } else if (key === 'Ctrl+B') {
+                e.preventDefault();
+                self._dotnet && self._dotnet.invokeMethodAsync('OnShortcut', 'ToggleSidebar');
+            }
+        });
+    },
+    dispose: function () { this._dotnet = null; }
+};
+
 window.downloadBase64File = function (base64, fileName, mimeType) {
     const byteChars = atob(base64);
     const byteArrays = [];
@@ -67,4 +109,34 @@ window.downloadBase64File = function (base64, fileName, mimeType) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+};
+
+// Dashboard Widget Ayarları
+window.dashboardWidgets = {
+    _key: 'dashboard-widgets',
+    _defaults: {
+        'hizli-islemler': true,
+        'ozet-kartlar': true,
+        'finansal-ozet': true,
+        'grafikler': true,
+        'vade-faturalar': true,
+        'son-islemler': true
+    },
+    getAll: function () {
+        try {
+            var saved = JSON.parse(localStorage.getItem(this._key) || '{}');
+            return Object.assign({}, this._defaults, saved);
+        } catch { return Object.assign({}, this._defaults); }
+    },
+    set: function (key, value) {
+        var all = this.getAll();
+        all[key] = value;
+        localStorage.setItem(this._key, JSON.stringify(all));
+    },
+    isVisible: function (key) {
+        return this.getAll()[key] !== false;
+    },
+    reset: function () {
+        localStorage.removeItem(this._key);
+    }
 };

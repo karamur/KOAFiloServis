@@ -320,6 +320,7 @@ else
 }
 builder.Services.AddScoped<ITeamsBildirimService, TeamsBildirimService>(); // Microsoft Teams Webhook Bildirimleri
 builder.Services.AddScoped<ISlackBildirimService, SlackBildirimService>(); // Slack Webhook Bildirimleri
+builder.Services.AddScoped<ILokalizasyonService, LokalizasyonService>(); // i18n Lokalizasyon
 builder.Services.AddHttpClient("Teams"); // Teams webhook için
 builder.Services.AddHttpClient("Slack");  // Slack webhook için
 builder.Services.AddHttpContextAccessor();
