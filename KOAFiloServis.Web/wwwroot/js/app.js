@@ -114,6 +114,7 @@ window.downloadBase64File = function (base64, fileName, mimeType) {
 // Dashboard Widget Ayarları
 window.dashboardWidgets = {
     _key: 'dashboard-widgets',
+    _orderKey: 'dashboard-widgets-order',
     _defaults: {
         'hizli-islemler': true,
         'ozet-kartlar': true,
@@ -122,6 +123,7 @@ window.dashboardWidgets = {
         'vade-faturalar': true,
         'son-islemler': true
     },
+    _defaultOrder: ['hizli-islemler', 'ozet-kartlar', 'finansal-ozet', 'grafikler', 'vade-faturalar', 'son-islemler'],
     getAll: function () {
         try {
             var saved = JSON.parse(localStorage.getItem(this._key) || '{}');
@@ -136,7 +138,18 @@ window.dashboardWidgets = {
     isVisible: function (key) {
         return this.getAll()[key] !== false;
     },
+    getOrder: function () {
+        try {
+            var saved = JSON.parse(localStorage.getItem(this._orderKey) || 'null');
+            if (Array.isArray(saved) && saved.length === this._defaultOrder.length) return saved;
+        } catch { }
+        return null;
+    },
+    setOrder: function (order) {
+        localStorage.setItem(this._orderKey, JSON.stringify(order));
+    },
     reset: function () {
         localStorage.removeItem(this._key);
+        localStorage.removeItem(this._orderKey);
     }
 };

@@ -167,10 +167,11 @@ else
         </div>
     }
 
+    <div class="dashboard-flex-widgets" style="display:flex;flex-direction:column;">
     <!-- Hızlı İşlemler Paneli -->
     @if (WidgetGorünür("hizli-islemler"))
     {
-    <div class="card mb-4 border-0 shadow-sm">
+    <div class="card mb-4 border-0 shadow-sm" style='order: @GetWidgetOrder("hizli-islemler")'>
         <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
             <h6 class="mb-0 text-white"><i class="bi bi-lightning-charge-fill me-2"></i>Hızlı İşlemler</h6>
         </div>
@@ -1171,13 +1172,41 @@ else
         ["son-islemler"] = ("Son İşlemler", "bi-clock-history", true),
     };
 
+    private List<string> widgetSira = new()
+    {
+        "hizli-islemler", "ozet-kartlar", "finansal-ozet", "grafikler", "vade-faturalar", "son-islemler"
+    };
+
     private bool WidgetGorünür(string key) => widgetler.TryGetValue(key, out var w) && w.Gorünür;
+    private int GetWidgetOrder(string key) => widgetSira.IndexOf(key);
 
     private async Task WidgetToggle(string key, bool visible)
     {
         if (widgetler.TryGetValue(key, out var w))
             widgetler[key] = (w.Ad, w.Ikon, visible);
         await JSRuntime.InvokeVoidAsync("dashboardWidgets.set", key, visible);
+    }
+
+    private async Task WidgetYukariTasi(string key)
+    {
+        var idx = widgetSira.IndexOf(key);
+        if (idx > 0)
+        {
+            widgetSira.RemoveAt(idx);
+            widgetSira.Insert(idx - 1, key);
+            await JSRuntime.InvokeVoidAsync("dashboardWidgets.setOrder", widgetSira.ToArray());
+        }
+    }
+
+    private async Task WidgetAsagiTasi(string key)
+    {
+        var idx = widgetSira.IndexOf(key);
+        if (idx >= 0 && idx < widgetSira.Count - 1)
+        {
+            widgetSira.RemoveAt(idx);
+            widgetSira.Insert(idx + 1, key);
+            await JSRuntime.InvokeVoidAsync("dashboardWidgets.setOrder", widgetSira.ToArray());
+        }
     }
 
     private async Task WidgetSifirla()
@@ -1188,6 +1217,7 @@ else
             var w = widgetler[k];
             widgetler[k] = (w.Ad, w.Ikon, true);
         }
+        widgetSira = new List<string> { "hizli-islemler", "ozet-kartlar", "finansal-ozet", "grafikler", "vade-faturalar", "son-islemler" };
         await JSRuntime.InvokeVoidAsync("dashboardWidgets.reset");
     }
     private bool dashboardLoadInProgress;
@@ -1491,8 +1521,13 @@ else
                             widgetler[k] = (w.Ad, w.Ikon, vis);
                         }
                     }
-                    StateHasChanged();
                 }
+                var savedOrder = await JSRuntime.InvokeAsync<string[]?>("dashboardWidgets.getOrder");
+                if (savedOrder != null && savedOrder.Length == widgetSira.Count && savedOrder.All(widgetSira.Contains))
+                {
+                    widgetSira = savedOrder.ToList();
+                }
+                StateHasChanged();
             }
             catch { }
         }
