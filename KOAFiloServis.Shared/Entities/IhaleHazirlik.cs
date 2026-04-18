@@ -57,6 +57,44 @@ public class IhaleProje : BaseEntity
     public virtual ICollection<IhaleGuzergahKalem> Kalemler { get; set; } = new List<IhaleGuzergahKalem>();
     public virtual ICollection<IhaleTeklifVersiyon> TeklifVersiyonlari { get; set; } = new List<IhaleTeklifVersiyon>();
     public virtual ICollection<IhaleSozlesmeRevizyon> SozlesmeRevizyonlari { get; set; } = new List<IhaleSozlesmeRevizyon>();
+    public virtual ICollection<IhaleRakipBenchmark> RakipBenchmarklar { get; set; } = new List<IhaleRakipBenchmark>();
+}
+
+/// <summary>
+/// Rakip/piyasa teklif benchmark kaydı
+/// </summary>
+public class IhaleRakipBenchmark : BaseEntity
+{
+    public int IhaleProjeId { get; set; }
+    public virtual IhaleProje IhaleProje { get; set; } = null!;
+
+    [Required]
+    [StringLength(200)]
+    public string RakipFirmaAdi { get; set; } = string.Empty;
+
+    [StringLength(500)]
+    public string? Aciklama { get; set; }
+
+    // Teklif tutarları
+    public decimal? AylikTeklifTutari { get; set; }
+    public decimal? ToplamTeklifTutari { get; set; }
+
+    // Piyasa verileri
+    public decimal? PiyasaOrtalamaFiyati { get; set; }
+    public decimal? MinPiyasaFiyati { get; set; }
+    public decimal? MaxPiyasaFiyati { get; set; }
+
+    // Kaynak bilgisi
+    [StringLength(200)]
+    public string? VeriKaynagi { get; set; } // "Geçmiş ihale", "Piyasa araştırması" vb.
+
+    public DateTime? VeritarihiTarihi { get; set; }
+
+    public string? Notlar { get; set; }
+
+    // Bizim teklifimizle karşılaştırma (NotMapped)
+    [NotMapped]
+    public decimal? FarkYuzdesi { get; set; }
 }
 
 public class IhaleSozlesmeRevizyon : BaseEntity

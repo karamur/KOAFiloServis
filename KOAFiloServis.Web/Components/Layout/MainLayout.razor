@@ -5,6 +5,7 @@
 @inject KOAFiloServis.Web.Services.IFirmaService FirmaService
 @inject KOAFiloServis.Web.Services.AppAuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <AuthorizeView>
     <Authorized>
@@ -75,6 +76,12 @@
                         </div>
 
                         <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm @(isDarkMode ? "btn-warning" : "btn-outline-secondary") border"
+                                    title="@(isDarkMode ? "Açık Tema" : "Koyu Tema")"
+                                    @onclick="ToggleDarkMode">
+                                <i class="bi @(isDarkMode ? "bi-sun-fill" : "bi-moon-stars-fill")"></i>
+                            </button>
+                            <KOAFiloServis.Web.Components.Shared.FavorilerDropdown />
                             <KOAFiloServis.Web.Components.Shared.OpenInNewTab />
                             <KOAFiloServis.Web.Components.Shared.BildirimDropdown />
 
@@ -171,6 +178,28 @@
     private List<KOAFiloServis.Shared.Entities.Firma> firmalar = new();
     private int aktifFirmaId;
     private string aktifFirmaAdi = "Firma";
+    private bool isDarkMode = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var theme = await JS.InvokeAsync<string>("darkMode.init");
+                isDarkMode = theme == "dark";
+                StateHasChanged();
+            }
+            catch { }
+        }
+    }
+
+    private async Task ToggleDarkMode()
+    {
+        isDarkMode = !isDarkMode;
+        var theme = isDarkMode ? "dark" : "light";
+        await JS.InvokeVoidAsync("darkMode.set", theme);
+    }
 
     protected override async Task OnInitializedAsync()
     {

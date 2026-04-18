@@ -305,6 +305,23 @@ builder.Services.AddHttpClient("Webhook"); // Webhook gönderimi için HttpClien
 builder.Services.AddScoped<AutoBackupService>(); // Quartz job tarafından tetiklenen otomatik yedek servisi
 builder.Services.AddScoped<GunlukOzetService>(); // Quartz job tarafından tetiklenen günlük WhatsApp özet servisi
 builder.Services.AddScoped<IBakimPeriyotService, BakimPeriyotService>();
+builder.Services.AddScoped<ZamanliRaporService>(); // Zamanlanmış e-posta rapor servisi
+
+// Object Storage (Local veya S3-uyumlu)
+var storageProvider = builder.Configuration.GetValue<string>("Storage:Provider") ?? "Local";
+if (storageProvider.Equals("S3", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<IObjectStorageService, S3ObjectStorageService>();
+    builder.Services.AddHttpClient("S3");
+}
+else
+{
+    builder.Services.AddScoped<IObjectStorageService, LocalObjectStorageService>();
+}
+builder.Services.AddScoped<ITeamsBildirimService, TeamsBildirimService>(); // Microsoft Teams Webhook Bildirimleri
+builder.Services.AddScoped<ISlackBildirimService, SlackBildirimService>(); // Slack Webhook Bildirimleri
+builder.Services.AddHttpClient("Teams"); // Teams webhook için
+builder.Services.AddHttpClient("Slack");  // Slack webhook için
 builder.Services.AddHttpContextAccessor();
 
 var belgeUyariCheckIntervalHours = Math.Max(1, builder.Configuration.GetValue("BelgeUyari:CheckIntervalHours", 24));
@@ -351,6 +368,19 @@ builder.Services.AddQuartz(q =>
             .WithIdentity("gunluk-ozet-trigger")
             .WithSchedule(CronScheduleBuilder.DailyAtHourAndMinute(gunlukOzetSaat, 0)));
     }
+    var zamanliRaporEnabled = builder.Configuration.GetValue("ZamanlıRapor:Enabled",
+        builder.Configuration.GetValue("ZamanliRapor:Enabled", false));
+    if (zamanliRaporEnabled)
+    {
+        q.AddJob<ZamanliRaporJob>(opts => opts.WithIdentity("zamanli-rapor-job"));
+        var raporSaat = builder.Configuration.GetValue("ZamanlıRapor:GonderimSaati",
+            builder.Configuration.GetValue("ZamanliRapor:GonderimSaati", 7));
+        q.AddTrigger(opts => opts
+            .ForJob("zamanli-rapor-job")
+            .WithIdentity("zamanli-rapor-trigger")
+            .WithSchedule(CronScheduleBuilder.DailyAtHourAndMinute(raporSaat, 0)));
+    }
+
     var bakimEnabled = builder.Configuration.GetValue("BakimPeriyot:Enabled", true);
     if (bakimEnabled)
     {
@@ -622,6 +652,9 @@ if (httpsPort.HasValue)
 }
 
 app.UseAntiforgery();
+
+// IP Güvenlik Middleware (beyaz/kara liste)
+app.UseMiddleware<KOAFiloServis.Web.Middleware.IpGuvenlikMiddleware>();
 
 // Authentication & Authorization - API için
 app.UseAuthentication();

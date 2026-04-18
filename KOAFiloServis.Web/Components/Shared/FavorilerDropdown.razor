@@ -1,0 +1,101 @@
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<div class="dropdown">
+    <button class="btn btn-sm btn-outline-secondary border" type="button"
+            data-bs-toggle="dropdown" aria-expanded="false"
+            title="Favoriler">
+        <i class="bi bi-star-fill text-warning"></i>
+        @if (favoriler.Count > 0)
+        {
+            <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">@favoriler.Count</span>
+        }
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end" style="min-width:260px;max-height:400px;overflow-y:auto;">
+        <li class="px-3 py-2 d-flex justify-content-between align-items-center">
+            <span class="fw-bold small text-muted">FAVORİLER</span>
+            <button class="btn btn-link btn-sm p-0 text-primary"
+                    @onclick="FavoriyiEkle" title="Bu sayfayı favoriye ekle">
+                <i class="bi bi-plus-circle me-1"></i>Ekle
+            </button>
+        </li>
+        <li><hr class="dropdown-divider m-0"></li>
+        @if (favoriler.Count == 0)
+        {
+            <li class="px-3 py-3 text-center text-muted">
+                <i class="bi bi-star d-block fs-4 mb-1"></i>
+                <small>Henüz favori yok.<br/>+ Ekle ile bu sayfayı kaydedin.</small>
+            </li>
+        }
+        else
+        {
+            @foreach (var fav in favoriler)
+            {
+                <li class="d-flex align-items-center px-2 py-1">
+                    <a class="dropdown-item flex-grow-1 py-1" href="@fav.Url">
+                        <i class="bi @fav.Icon me-2 text-primary"></i>
+                        <span class="small">@fav.Title</span>
+                    </a>
+                    <button class="btn btn-link btn-sm p-1 text-danger ms-1"
+                            @onclick="() => FavoriyiKaldir(fav.Url)" title="Kaldır">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </li>
+            }
+        }
+    </ul>
+</div>
+
+@code {
+    private List<FavoriItem> favoriler = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await YukleAsync();
+        }
+    }
+
+    private async Task YukleAsync()
+    {
+        try
+        {
+            var result = await JS.InvokeAsync<List<FavoriItem>>("favorites.getAll");
+            favoriler = result ?? new();
+            StateHasChanged();
+        }
+        catch { favoriler = new(); }
+    }
+
+    private async Task FavoriyiEkle()
+    {
+        try
+        {
+            var uri = Navigation.ToBaseRelativePath(Navigation.Uri);
+            if (!uri.StartsWith("/")) uri = "/" + uri;
+            var title = uri == "/" ? "Ana Sayfa" : uri.Trim('/').Replace('/', ' ').Replace('-', ' ');
+            title = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(title);
+            var result = await JS.InvokeAsync<List<FavoriItem>>("favorites.add", uri, title, "bi-star-fill");
+            favoriler = result ?? new();
+        }
+        catch { }
+    }
+
+    private async Task FavoriyiKaldir(string url)
+    {
+        try
+        {
+            var result = await JS.InvokeAsync<List<FavoriItem>>("favorites.remove", url);
+            favoriler = result ?? new();
+        }
+        catch { }
+    }
+
+    private class FavoriItem
+    {
+        public string Url { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Icon { get; set; } = "bi-star";
+    }
+}

@@ -223,6 +223,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<IhaleSozlesmeRevizyon> IhaleSozlesmeRevizyonlari { get; set; }
     public DbSet<IhaleTeklifVersiyon> IhaleTeklifVersiyonlari { get; set; }
     public DbSet<IhaleTeklifKararLog> IhaleTeklifKararLoglari { get; set; }
+    public DbSet<IhaleRakipBenchmark> IhaleRakipBenchmarklar { get; set; }
 
     // Destek Talebi (Ticket) Modülü - osTicket benzeri
     public DbSet<DestekTalebi> DestekTalepleri { get; set; }
@@ -1973,6 +1974,19 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.IslemYapanKullaniciId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<IhaleRakipBenchmark>(entity =>
+        {
+            entity.HasIndex(e => e.IhaleProjeId);
+            entity.Property(e => e.RakipFirmaAdi).HasMaxLength(200);
+
+            entity.HasOne(e => e.IhaleProje)
+                .WithMany(p => p.RakipBenchmarklar)
+                .HasForeignKey(e => e.IhaleProjeId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasQueryFilter(e => !e.IsDeleted);
         });

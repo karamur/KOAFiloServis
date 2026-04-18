@@ -3,6 +3,14 @@
 ## ?? Mevcut Durum Analizi
 
 ### Son Güncellemeler
+- ✅ `Dark Mode (FAZ 9.4)` tamamlandı — CSS `[data-theme=dark]` değişkenleri, localStorage kalıcılığı, FOUC önleme script, MainLayout toggle butonu.
+- ✅ `Favoriler/Hızlı Erişim (FAZ 9.4)` tamamlandı — `FavorilerDropdown` bileşeni, localStorage tabanlı, üst menü çubuğunda.
+- ✅ `Teams/Slack Bildirimleri (FAZ 9.5)` tamamlandı — `TeamsBildirimService` (Adaptive Card), `SlackBildirimService` (Incoming Webhook), appsettings.json konfigürasyon.
+- ✅ `IP Beyaz/Kara Liste (FAZ 9.2)` tamamlandı — `IpGuvenlikMiddleware`, CIDR subnet desteği, X-Forwarded-For, appsettings.json.
+- ✅ `Scheduled Report E-posta (FAZ 9.1)` tamamlandı — `ZamanliRaporJob` (Quartz, sabah saati), `ZamanliRaporService`, HTML e-posta şablonu.
+- ✅ `KVKK Uyumluluk Araçları (FAZ 9.2)` tamamlandı — `/ayarlar/kvkk` sayfası, veri dışa aktarım (JSON), anonimleştirme, audit log özeti.
+- ✅ `Rakip/Piyasa Benchmark (FAZ 8.5)` tamamlandı — `IhaleRakipBenchmark` entity, `RakipBenchmarkPaneli.razor`, ihale detay ekranında piyasa karşılaştırma.
+- ✅ `S3 Object Storage (FAZ 9.3)` tamamlandı — `IObjectStorageService` soyutlama, `LocalObjectStorageService` (mevcut), `S3ObjectStorageService` (HMAC-SHA256 imzalı REST, MinIO uyumlu).
 - ✅ `İhale Teklif Operasyonları (FAZ 8.5)` tamamlandı - Teklif versiyonlama, revizyon geçmişi, onay/red akışı, karar günlüğü, versiyon karşılaştırma, PDF/Excel export akışları tamamlandı.
 - ✅ `Kazanılan Proje Gerçekleşen Takibi (FAZ 8.6)` tamamlandı - Gerçekleşen maliyet takibi, tekliflenen vs gerçekleşen sapma analizi, sözleşme revizyon/ek protokol takibi, hat bazlı kârlılık, AI doğruluk skoru ve operasyon dashboard kartları tamamlandı.
 - ✅ `İhale Operasyon Dashboard Excel Export` tamamlandı - Yönetim özeti ve riskli projeler listesi Excel olarak indirilebilir hale getirildi.
@@ -367,7 +375,7 @@
 | Teklif onay akışı (Hazırlayan → Yönetici → Onaylandı) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | Teklif PDF / Excel export | 🔴 Yüksek | 1 gün | ✅ Tamamlandı |
 | Senaryo karşılaştırma (A/B teklif modeli) | 🟡 Orta | 2 gün | ✅ Tamamlandı |
-| Rakip / piyasa teklif benchmark alanları | 🟡 Orta | 2 gün | ❌ Bekliyor |
+| Rakip / piyasa teklif benchmark alanları | 🟡 Orta | 2 gün | ✅ Tamamlandı — IhaleRakipBenchmark entity, RakipBenchmarkPaneli.razor, ihale detay ekranında |
 | Teklif notları ve karar günlüğü | 🟢 Düşük | 1 gün | ✅ Tamamlandı |
 
 ### 8.6 Kazanılan Proje Gerçekleşen Takibi (YENİ)
@@ -728,38 +736,38 @@ FAZ 8.5 (2-3 Hafta) - 🆕 ÖNERİLEN DEVAM FAZI
 | Power BI / Grafana entegrasyonu | 🟡 Orta | 3 gün | ❌ Bekliyor |
 | Özel dashboard widget oluşturma | 🟡 Orta | 2 gün | ❌ Bekliyor |
 | Veri export (CSV/JSON/Parquet) | 🟢 Düşük | 1 gün | ✅ Tamamlandı |
-| Scheduled report e-posta | 🟢 Düşük | 2 gün | ❌ Bekliyor |
+| Scheduled report e-posta | 🟢 Düşük | 2 gün | ✅ Tamamlandı — ZamanliRaporJob (Quartz) + ZamanliRaporService, günlük e-posta özet |
 
 ### 9.2 Güvenlik & Uyumluluk
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
 | İki faktörlü doğrulama (2FA/MFA) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | Audit log (tüm işlemler) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
-| GDPR/KVKK uyumluluk araçları | 🟡 Orta | 3 gün | ❌ Bekliyor |
-| IP beyaz liste / kara liste | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+| GDPR/KVKK uyumluluk araçları | 🟡 Orta | 3 gün | ✅ Tamamlandı — /ayarlar/kvkk sayfası, veri dışa aktarım, anonimleştirme |
+| IP beyaz liste / kara liste | 🟢 Düşük | 1 gün | ✅ Tamamlandı — IpGuvenlikMiddleware, CIDR desteği, appsettings.json konfigürasyon |
 
 ### 9.3 Performans & Altyapı
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
 | Background job sistemi (Hangfire/Quartz) | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 | Database index optimizasyonu | 🟡 Orta | 1 gün | ✅ Tamamlandı |
-| Harici object storage entegrasyonu (S3 vb.) | 🟡 Orta | 2 gün | ❌ Bekliyor |
+| Harici object storage entegrasyonu (S3 vb.) | 🟡 Orta | 2 gün | ✅ Tamamlandı — IObjectStorageService, LocalObjectStorageService, S3ObjectStorageService (HMAC-SHA256) |
 | Health check & monitoring | 🟢 Düşük | 1 gün | ✅ Tamamlandı |
 
 ### 9.4 Kullanıcı Deneyimi
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
-| Dark mode / tema özelleştirme | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+| Dark mode / tema özelleştirme | 🟢 Düşük | 1 gün | ✅ Tamamlandı — CSS değişkenleri, localStorage kalıcılığı, FOUC önleme, toggle butonu |
 | Keyboard shortcuts | 🟢 Düşük | 1 gün | ❌ Bekliyor |
-| Favoriler / hızlı erişim | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+| Favoriler / hızlı erişim | 🟢 Düşük | 1 gün | ✅ Tamamlandı — FavorilerDropdown bileşeni, localStorage tabanlı |
 | Çoklu dil desteği (i18n) | 🟡 Orta | 3 gün | ❌ Bekliyor |
 
 ### 9.5 Entegrasyon & Otomasyon
 | Özellik | Öncelik | Süre | Durum |
 |---------|---------|------|-------|
 | Zapier / n8n entegrasyonu | 🟢 Düşük | 2 gün | ❌ Bekliyor |
-| Microsoft Teams bildirimleri | 🟢 Düşük | 1 gün | ❌ Bekliyor |
-| Slack entegrasyonu | 🟢 Düşük | 1 gün | ❌ Bekliyor |
+| Microsoft Teams bildirimleri | 🟢 Düşük | 1 gün | ✅ Tamamlandı — TeamsBildirimService, Adaptive Card webhook |
+| Slack entegrasyonu | 🟢 Düşük | 1 gün | ✅ Tamamlandı — SlackBildirimService, incoming webhook |
 | Otomatik yedekleme sistemi | 🔴 Yüksek | 2 gün | ✅ Tamamlandı |
 
 ---
