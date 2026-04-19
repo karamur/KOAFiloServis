@@ -879,11 +879,31 @@ public class SoforService : ISoforService
         var cari = await context.Cariler
             .Include(c => c.PersonelAvansHesap)
             .FirstOrDefaultAsync(c => c.SoforId == soforId && !c.IsDeleted);
-        return cari?.PersonelAvansHesap;
+
+        if (cari == null) return null;
+
+        if (cari.PersonelAvansHesap != null) return cari.PersonelAvansHesap;
+
+        // PersonelAvansHesapId null ise, personel adıyla 195.01.xxx hesabını bul
+        var ayar = await context.MuhasebeAyarlari.AsNoTracking().FirstOrDefaultAsync();
+        var avansPrefix = string.IsNullOrWhiteSpace(ayar?.PersonelAvansPrefix) ? "195.01" : ayar.PersonelAvansPrefix;
+
+        var avansHesap = await context.MuhasebeHesaplari
+            .FirstOrDefaultAsync(h => h.HesapKodu.StartsWith(avansPrefix + ".") && h.HesapAdi == cari.Unvan && !h.IsDeleted);
+
+        if (avansHesap != null)
+        {
+            cari.PersonelAvansHesapId = avansHesap.Id;
+            context.Cariler.Update(cari);
+            await context.SaveChangesAsync();
+        }
+
+        return avansHesap;
     }
 
     /// <summary>
     /// Belirli bir personelin borç hesabını getirir (Cari.MuhasebeHesap - 335.xx.xxx)
+    /// MuhasebeHesapId null ise hesap adıyla arayıp bulursa Cari kaydını günceller.
     /// </summary>
     public async Task<MuhasebeHesap?> GetPersonelBorcHesabiAsync(int soforId)
     {
@@ -891,7 +911,28 @@ public class SoforService : ISoforService
         var cari = await context.Cariler
             .Include(c => c.MuhasebeHesap)
             .FirstOrDefaultAsync(c => c.SoforId == soforId && !c.IsDeleted);
-        return cari?.MuhasebeHesap;
+
+        if (cari == null) return null;
+
+        // Hesap zaten atanmışsa direkt dön
+        if (cari.MuhasebeHesap != null) return cari.MuhasebeHesap;
+
+        // MuhasebeHesapId null ise, personel adıyla 335.xx.xxx hesabını bul
+        var ayar = await context.MuhasebeAyarlari.AsNoTracking().FirstOrDefaultAsync();
+        var personelPrefix = ayar?.PersonelPrefix ?? "335.01";
+
+        var borcHesap = await context.MuhasebeHesaplari
+            .FirstOrDefaultAsync(h => h.HesapKodu.StartsWith(personelPrefix + ".") && h.HesapAdi == cari.Unvan && !h.IsDeleted);
+
+        if (borcHesap != null)
+        {
+            // Bulunan hesabı cari'ye bağla
+            cari.MuhasebeHesapId = borcHesap.Id;
+            context.Cariler.Update(cari);
+            await context.SaveChangesAsync();
+        }
+
+        return borcHesap;
     }
 
     #endregion
