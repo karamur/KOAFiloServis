@@ -631,6 +631,9 @@ public class KolayMuhasebeService : IKolayMuhasebeService
                 case KolayIslemTuru.AvansGirisi:
                     sonuc = await KaydetAvans(context, giris, onizleme);
                     break;
+                case KolayIslemTuru.MahsupKaydi:
+                    sonuc = await KaydetMahsup(context, giris, onizleme);
+                    break;
                 default:
                     // Sadece muhasebe fişi oluştur
                     sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme);
@@ -690,6 +693,29 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         context.Faturalar.Update(fatura);
         await context.SaveChangesAsync();
 
+        // Stok kalemleri varsa stok çıkış hareketi oluştur
+        foreach (var kalem in giris.Kalemler.Where(k => k.StokId.HasValue && k.Miktar > 0))
+        {
+            try
+            {
+                context.StokHareketler.Add(new StokHareket
+                {
+                    StokKartiId = kalem.StokId!.Value,
+                    IslemTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
+                    HareketTipi = StokHareketTipi.Cikis,
+                    Miktar = kalem.Miktar,
+                    BirimFiyat = kalem.BirimFiyat,
+                    BelgeNo = fatura.FaturaNo,
+                    Aciklama = kalem.Aciklama ?? giris.Aciklama,
+                    CariId = giris.CariId,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            catch { }
+        }
+        if (giris.Kalemler.Any(k => k.StokId.HasValue))
+            await context.SaveChangesAsync();
+
         sonuc.Basarili = true;
         sonuc.Mesaj = $"Gelir faturası ve muhasebe kaydı oluşturuldu. Fatura No: {fatura.FaturaNo}";
         return sonuc;
@@ -736,6 +762,29 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         fatura.MuhasebeFisId = sonuc.MuhasebeFisId;
         context.Faturalar.Update(fatura);
         await context.SaveChangesAsync();
+
+        // Stok kalemleri varsa stok giriş hareketi oluştur
+        foreach (var kalem in giris.Kalemler.Where(k => k.StokId.HasValue && k.Miktar > 0))
+        {
+            try
+            {
+                context.StokHareketler.Add(new StokHareket
+                {
+                    StokKartiId = kalem.StokId!.Value,
+                    IslemTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
+                    HareketTipi = StokHareketTipi.Giris,
+                    Miktar = kalem.Miktar,
+                    BirimFiyat = kalem.BirimFiyat,
+                    BelgeNo = fatura.FaturaNo,
+                    Aciklama = kalem.Aciklama ?? giris.Aciklama,
+                    CariId = giris.CariId,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            catch { }
+        }
+        if (giris.Kalemler.Any(k => k.StokId.HasValue))
+            await context.SaveChangesAsync();
 
         sonuc.Basarili = true;
         sonuc.Mesaj = $"Gider faturası ve muhasebe kaydı oluşturuldu. Fatura No: {fatura.FaturaNo}";
@@ -977,7 +1026,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             var personelAvans = new PersonelAvans
             {
                 PersonelId = giris.PersonelId.Value,
-                AvansTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc).Date,
+                AvansTarihi = DateTime.SpecifyKind(giris.IslemTarihi.Date, DateTimeKind.Utc),
                 Tutar = giris.GenelToplam,
                 Aciklama = giris.Aciklama ?? "Kolay giriş - Avans ödemesi",
                 OdemeSekli = odemeSekli,
@@ -997,6 +1046,54 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         }
 
         sonuc.Basarili = true;
+        return sonuc;
+    }
+
+    private async Task<KolayMuhasebeSonuc> KaydetMahsup(ApplicationDbContext context, KolayMuhasebeGiris giris, MuhasebeOnizleme onizleme)
+    {
+        var sonuc = new KolayMuhasebeSonuc();
+
+        if (!giris.BankaHesapId.HasValue)
+        {
+            // Banka/kasa yoksa sadece muhasebe fişi
+            sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.Manuel, null, "Mahsup");
+            sonuc.Basarili = true;
+            sonuc.Mesaj = $"Mahsup kaydedildi. Tutar: {giris.GenelToplam:N2} TL";
+            return sonuc;
+        }
+
+        // Cari tipine göre banka hareketi yönünü belirle
+        HareketTipi hareketTipi = HareketTipi.Cikis;
+        if (giris.CariId.HasValue)
+        {
+            var cari = await context.Cariler.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == giris.CariId.Value);
+            hareketTipi = (cari?.CariTipi == CariTipi.Musteri || cari?.CariTipi == CariTipi.MusteriTedarikci)
+                ? HareketTipi.Giris   // Müşteriden mahsup tahsilat
+                : HareketTipi.Cikis;  // Tedarikçi/Personele mahsup ödeme
+        }
+
+        var hareket = new BankaKasaHareket
+        {
+            BankaHesapId = giris.BankaHesapId.Value,
+            IslemNo = await GenerateIslemNo(context),
+            IslemTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
+            Tutar = giris.GenelToplam,
+            HareketTipi = hareketTipi,
+            Aciklama = $"Mahsup: {giris.CariUnvan} - {giris.BelgeNo}",
+            CariId = giris.CariId,
+            IslemKaynak = IslemKaynak.Manuel,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.BankaKasaHareketleri.Add(hareket);
+        await context.SaveChangesAsync();
+        sonuc.BankaHareketId = hareket.Id;
+
+        sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.BankaHareket, hareket.Id);
+
+        sonuc.Basarili = true;
+        sonuc.Mesaj = $"Mahsup kaydedildi. Tutar: {giris.GenelToplam:N2} TL";
         return sonuc;
     }
 
@@ -1026,7 +1123,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             var fisKalem = new MuhasebeFisKalem
             {
                 FisId = fis.Id,
-                HesapId = kalem.HesapId ?? 1, // Varsayılan hesap
+                HesapId = kalem.HesapId ?? 0,
                 SiraNo = kalem.SiraNo,
                 Borc = kalem.Borc,
                 Alacak = kalem.Alacak,
@@ -1402,9 +1499,23 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     private async Task<int?> GetHesapIdAsync(ApplicationDbContext context, string hesapKodu)
     {
+        if (string.IsNullOrWhiteSpace(hesapKodu))
+            return null;
+
+        // Önce tam eşleşme dene
         var hesap = await context.MuhasebeHesaplari
             .AsNoTracking()
-            .FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu || h.HesapKodu.StartsWith(hesapKodu.Split('.')[0]));
+            .FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu);
+
+        if (hesap != null)
+            return hesap.Id;
+
+        // Tam eşleşme yoksa ana hesap koduyla (nokta öncesi) ara
+        var anaKod = hesapKodu.Split('.')[0];
+        hesap = await context.MuhasebeHesaplari
+            .AsNoTracking()
+            .FirstOrDefaultAsync(h => h.HesapKodu == anaKod || h.HesapKodu.StartsWith(anaKod + "."));
+
         return hesap?.Id;
     }
 
