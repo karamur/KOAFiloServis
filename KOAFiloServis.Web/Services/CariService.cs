@@ -406,6 +406,19 @@ public class CariService : ICariService
                 mHesap.UpdatedAt = DateTime.UtcNow;
                 context.MuhasebeHesaplari.Update(mHesap);
             }
+
+            // Avans hesabının adını da güncelle
+            var avansHesapId = cari.PersonelAvansHesapId ?? existing.PersonelAvansHesapId;
+            if (avansHesapId.HasValue)
+            {
+                var avansHesap = await context.MuhasebeHesaplari.FindAsync(avansHesapId.Value);
+                if (avansHesap != null)
+                {
+                    avansHesap.HesapAdi = cari.Unvan;
+                    avansHesap.UpdatedAt = DateTime.UtcNow;
+                    context.MuhasebeHesaplari.Update(avansHesap);
+                }
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(girilenCariKodu))
@@ -426,6 +439,7 @@ public class CariService : ICariService
         existing.Notlar = cari.Notlar;
         existing.Aktif = cari.Aktif;
         existing.MuhasebeHesapId = cari.MuhasebeHesapId;
+        existing.PersonelAvansHesapId = cari.PersonelAvansHesapId ?? existing.PersonelAvansHesapId;
         existing.FirmaId = cari.FirmaId;
         existing.UpdatedAt = DateTime.UtcNow;
 
@@ -734,6 +748,92 @@ public class CariService : ICariService
             };
             context.MuhasebeHesaplari.Add(cariHesap);
             await context.SaveChangesAsync();
+
+            // Personel ise 195.01.XXX (İş Avansları) hesabını da otomatik aç
+            if (cari.CariTipi == CariTipi.Personel && !cari.PersonelAvansHesapId.HasValue)
+            {
+                var avansPrefix = ayar.PersonelAvansPrefix;
+                if (string.IsNullOrWhiteSpace(avansPrefix)) avansPrefix = "195.01";
+
+                // 195 ana hesabını kontrol et
+                var avansAnaKodBasKisim = avansPrefix.Split('.')[0];
+                var avansAnaHesap195 = await context.MuhasebeHesaplari
+                    .FirstOrDefaultAsync(h => h.HesapKodu == avansAnaKodBasKisim);
+                if (avansAnaHesap195 == null)
+                {
+                    avansAnaHesap195 = new MuhasebeHesap
+                    {
+                        HesapKodu = avansAnaKodBasKisim,
+                        HesapAdi = "IS AVANSLARI",
+                        HesapTuru = HesapTuru.Aktif,
+                        HesapGrubu = HesapGrubu.DonenVarliklar,
+                        AltHesapVar = true,
+                        SistemHesabi = true,
+                        Aktif = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    context.MuhasebeHesaplari.Add(avansAnaHesap195);
+                    await context.SaveChangesAsync();
+                }
+
+                // 195.01 alt hesabını kontrol et
+                var avansUstHesap = await context.MuhasebeHesaplari
+                    .FirstOrDefaultAsync(h => h.HesapKodu == avansPrefix);
+                if (avansUstHesap == null)
+                {
+                    avansUstHesap = new MuhasebeHesap
+                    {
+                        HesapKodu = avansPrefix,
+                        HesapAdi = "Personel Avanslari",
+                        HesapTuru = HesapTuru.Aktif,
+                        HesapGrubu = HesapGrubu.DonenVarliklar,
+                        UstHesapId = avansAnaHesap195.Id,
+                        AltHesapVar = true,
+                        SistemHesabi = true,
+                        Aktif = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    context.MuhasebeHesaplari.Add(avansUstHesap);
+                    await context.SaveChangesAsync();
+                }
+
+                // Aynı ünvanlı avans hesabı var mı?
+                var mevcutAvansHesap = await context.MuhasebeHesaplari
+                    .FirstOrDefaultAsync(h => h.HesapKodu.StartsWith(avansPrefix + ".") && h.HesapAdi == cari.Unvan);
+
+                if (mevcutAvansHesap == null)
+                {
+                    // Sıradaki numarayı bul
+                    var sonAvansAltHesap = await context.MuhasebeHesaplari
+                        .Where(h => h.HesapKodu.StartsWith(avansPrefix + "."))
+                        .OrderByDescending(h => h.HesapKodu)
+                        .FirstOrDefaultAsync();
+                    int avansNextNum = 1;
+                    if (sonAvansAltHesap != null)
+                    {
+                        var parts = sonAvansAltHesap.HesapKodu.Split('.');
+                        var sadeceSayi = new string(parts[parts.Length - 1].Where(char.IsDigit).ToArray());
+                        if (int.TryParse(sadeceSayi, out var lastNum)) avansNextNum = lastNum + 1;
+                    }
+                    var avansHesapKodu = $"{avansPrefix}.{avansNextNum:D3}";
+
+                    mevcutAvansHesap = new MuhasebeHesap
+                    {
+                        HesapKodu = avansHesapKodu,
+                        HesapAdi = cari.Unvan,
+                        HesapTuru = HesapTuru.Aktif,
+                        HesapGrubu = HesapGrubu.DonenVarliklar,
+                        UstHesapId = avansUstHesap.Id,
+                        AltHesapVar = false,
+                        Aktif = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    context.MuhasebeHesaplari.Add(mevcutAvansHesap);
+                    await context.SaveChangesAsync();
+                }
+
+                cari.PersonelAvansHesapId = mevcutAvansHesap.Id;
+            }
 
             return cariHesap;
         }

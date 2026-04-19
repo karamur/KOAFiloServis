@@ -38,6 +38,10 @@ public class Cari : BaseEntity
     public int? MuhasebeHesapId { get; set; } // 120.xxx veya 320.xxx veya 335.xx.xxx (personel)
     public virtual MuhasebeHesap? MuhasebeHesap { get; set; }
 
+    // Personel iş avans alacak hesabı (195.01.xxx) - sadece personel cariler icin
+    public int? PersonelAvansHesapId { get; set; }
+    public virtual MuhasebeHesap? PersonelAvansHesap { get; set; }
+
     // Firma iliskisi (coklu firma destegi)
     public int? FirmaId { get; set; }
     public virtual Firma? Firma { get; set; }

@@ -106,6 +106,8 @@ public class MuhasebeService : IMuhasebeService
             new() { HesapKodu = "180", HesapAdi = "GELECEK AYLARA AIT GIDERLER", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar },
             new() { HesapKodu = "190", HesapAdi = "DEVREDEN KDV", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar },
             new() { HesapKodu = "191", HesapAdi = "INDIRILECEK KDV", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar },
+            new() { HesapKodu = "195", HesapAdi = "IS AVANSLARI", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, SistemHesabi = true, AltHesapVar = true },
+            new() { HesapKodu = "195.01", HesapAdi = "Personel Avanslari", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DonenVarliklar, SistemHesabi = true, AltHesapVar = true },
 
             // 2 - DURAN VARLIKLAR
             new() { HesapKodu = "253", HesapAdi = "TESISLER, MAKINE VE CIHAZLAR", HesapTuru = HesapTuru.Aktif, HesapGrubu = HesapGrubu.DuranVarliklar },

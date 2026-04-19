@@ -327,6 +327,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Telefon).HasMaxLength(20);
             entity.Property(e => e.Email).HasMaxLength(100);
             
+            // Muhasebe Hesap ilişkisi
+            entity.HasOne(e => e.MuhasebeHesap)
+                .WithMany()
+                .HasForeignKey(e => e.MuhasebeHesapId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Personel İş Avans Hesabı (195.01.xxx)
+            entity.HasOne(e => e.PersonelAvansHesap)
+                .WithMany()
+                .HasForeignKey(e => e.PersonelAvansHesapId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // Personel (Sofor) iliskisi
             entity.HasOne(e => e.Sofor)
                 .WithMany()

@@ -206,6 +206,9 @@ public class MuhasebeAyar : BaseEntity
 
     [StringLength(50)]
     public string PersonelPrefix { get; set; } = "335.01";
+
+    [StringLength(50)]
+    public string PersonelAvansPrefix { get; set; } = "195.01";
     
     public bool OtomatikHesapDuzenlensin { get; set; } = true;
 
