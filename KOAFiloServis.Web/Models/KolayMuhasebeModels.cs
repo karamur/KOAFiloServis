@@ -48,6 +48,10 @@ public class KolayMuhasebeGiris
     public int? BankaHesapId { get; set; }
     public OdemeYontemi OdemeYontemi { get; set; } = OdemeYontemi.Nakit;
 
+    // Avans için (personel doğrudan seçimi)
+    public int? PersonelId { get; set; }
+    public string? PersonelAdSoyad { get; set; }
+
     // Masraf için
     public int? MasrafKalemiId { get; set; }
     public int? AracId { get; set; }  // Araç masrafı ise

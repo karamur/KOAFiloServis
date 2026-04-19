@@ -4,6 +4,7 @@
 @using KOAFiloServis.Web.Models
 @inject IKolayMuhasebeService KolayMuhasebeService
 @inject IStokService StokService
+@inject ISoforService SoforService
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
@@ -61,6 +62,25 @@
                             <input type="text" class="form-control" @bind="giris.BelgeNo" placeholder="Ör: FTR-2024-001" />
                         </div>
                     </div>
+
+                    <!-- Avans - Personel Seçimi (direkt Sofor listesi) -->
+                    @if (giris.IslemTuru == KolayIslemTuru.AvansGirisi)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold"><i class="bi bi-person-badge me-1"></i>Personel *</label>
+                            <select class="form-select" @bind="avansPersonelId" @bind:after="OnizlemeGuncelle">
+                                <option value="0">-- Personel Seçin --</option>
+                                @foreach (var p in avansPersonelListesi.OrderBy(x => x.SiralamaNo == 0 ? int.MaxValue : x.SiralamaNo).ThenBy(x => x.Ad))
+                                {
+                                    <option value="@p.Id">@p.TamAd (@p.SoforKodu)</option>
+                                }
+                            </select>
+                            @if (avansPersonelListesi.Count == 0)
+                            {
+                                <small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Kayıtlı aktif personel bulunamadı.</small>
+                            }
+                        </div>
+                    }
 
                     <!-- Cari Seçimi -->
                     @if (CariGerekliMi)
@@ -958,6 +978,10 @@
     private List<Arac> araclar = new();
     private List<MuhasebeHesap> muhasebeHesaplar = new();
 
+    // Avans - Personel
+    private List<Sofor> avansPersonelListesi = new();
+    private int avansPersonelId = 0;
+
     // Son kayıtlar
     private List<SonKayitItem> sonKayitlar = new();
 
@@ -973,8 +997,9 @@
     };
 
     // Computed properties
-    private bool CariGerekliMi => giris.IslemTuru != KolayIslemTuru.MasrafGirisi
-                                  || giris.MasrafOdemeKaynagi != MasrafOdemeKaynagi.KasaBanka;
+    private bool CariGerekliMi => (giris.IslemTuru != KolayIslemTuru.MasrafGirisi
+                                   || giris.MasrafOdemeKaynagi != MasrafOdemeKaynagi.KasaBanka)
+                                  && giris.IslemTuru != KolayIslemTuru.AvansGirisi;
 
     private string CariBaslik => giris.IslemTuru switch
     {
@@ -1013,7 +1038,8 @@
 
     private bool KaydetAktifMi => onizleme != null && onizleme.Dengeli && giris.GenelToplam > 0 
                                   && (!CariGerekliMi || giris.CariId.HasValue || !string.IsNullOrWhiteSpace(cariArama))
-                                  && (!BankaGerekliMi || giris.BankaHesapId.HasValue);
+                                  && (!BankaGerekliMi || giris.BankaHesapId.HasValue)
+                                  && (giris.IslemTuru != KolayIslemTuru.AvansGirisi || avansPersonelId > 0);
 
     protected override async Task OnInitializedAsync()
     {
@@ -1028,6 +1054,7 @@
         araclar = await KolayMuhasebeService.GetAraclarAsync();
         muhasebeHesaplar = await KolayMuhasebeService.GetMuhasebeHesaplariAsync();
         personelSecimListesi = await KolayMuhasebeService.GetCarilerAsync(CariTipi.Personel, null);
+        avansPersonelListesi = await SoforService.GetActiveAsync();
     }
 
     private async Task IslemTuruDegisti(KolayIslemTuru yeniTur)
@@ -1049,6 +1076,9 @@
         secilenCari = null;
         giris.CariId = null;
         giris.CariUnvan = null;
+        giris.PersonelId = null;
+        giris.PersonelAdSoyad = null;
+        avansPersonelId = 0;
         cariArama = "";
         personelArama = "";
         arananCariler = new();
@@ -1289,6 +1319,15 @@
     {
         if (!KaydetAktifMi) return;
 
+        // Avans ise PersonelId'yi girise set et
+        if (giris.IslemTuru == KolayIslemTuru.AvansGirisi)
+        {
+            giris.PersonelId = avansPersonelId > 0 ? avansPersonelId : null;
+            var secilenP = avansPersonelListesi.FirstOrDefault(p => p.Id == avansPersonelId);
+            giris.PersonelAdSoyad = secilenP?.TamAd;
+            giris.CariUnvan = secilenP?.TamAd;
+        }
+
         isKaydediliyor = true;
 
         try
@@ -1338,6 +1377,7 @@
         giris = new KolayMuhasebeGiris { IslemTuru = eskiTur };
         girilenTutar = 0;
         secilenCari = null;
+        avansPersonelId = 0;
         cariArama = "";
         personelArama = "";
         arananCariler = new();

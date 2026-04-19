@@ -965,8 +965,38 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         // Muhasebe fişi
         sonuc.MuhasebeFisId = await KaydetMuhasebeFisi(context, onizleme, FisKaynak.BankaHareket, hareket.Id);
 
+        // Personel seçilmişse PersonelAvans kaydı oluştur
+        if (giris.PersonelId.HasValue && giris.PersonelId.Value > 0)
+        {
+            var bankaHesap = await context.BankaHesaplari.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
+            var odemeSekli = bankaHesap?.HesapTipi == HesapTipi.Kasa
+                ? AvansOdemeSekli.Nakit
+                : AvansOdemeSekli.BankaTransfer;
+
+            var personelAvans = new PersonelAvans
+            {
+                PersonelId = giris.PersonelId.Value,
+                AvansTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc).Date,
+                Tutar = giris.GenelToplam,
+                Aciklama = giris.Aciklama ?? "Kolay giriş - Avans ödemesi",
+                OdemeSekli = odemeSekli,
+                BankaHesapId = giris.BankaHesapId,
+                MuhasebeFisId = sonuc.MuhasebeFisId,
+                Durum = AvansDurum.Verildi,
+                MahsupEdilen = 0,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.Set<PersonelAvans>().Add(personelAvans);
+            await context.SaveChangesAsync();
+            sonuc.Mesaj = $"Avans kaydedildi ve personel hesabına eklendi. Tutar: {giris.GenelToplam:N2} TL";
+        }
+        else
+        {
+            sonuc.Mesaj = $"Avans kaydedildi. Tutar: {giris.GenelToplam:N2} TL";
+        }
+
         sonuc.Basarili = true;
-        sonuc.Mesaj = $"Avans kaydedildi. Tutar: {giris.GenelToplam:N2} TL";
         return sonuc;
     }
 
