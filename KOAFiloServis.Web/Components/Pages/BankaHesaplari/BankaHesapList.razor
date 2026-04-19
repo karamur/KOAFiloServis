@@ -245,11 +245,14 @@
                                     <tr class="table-secondary">
                                         <td>@ekstreBaslangic.ToString("dd.MM.yyyy")</td>
                                         <td>-</td>
-                                        <td><em>Açılış Bakiyesi</em></td>
+                                        <td><em>Önceki Dönem Bakiyesi</em></td>
                                         <td>-</td>
-                                        <td></td>
-                                        <td></td>
-                                        <td class="text-end fw-bold">@ekstreAcilisBakiye.ToString("N2")</td>
+                                        <td class="text-end text-success">@(ekstreAcilisBakiye > 0 ? ekstreAcilisBakiye.ToString("N2") : "")</td>
+                                        <td class="text-end text-danger">@(ekstreAcilisBakiye < 0 ? Math.Abs(ekstreAcilisBakiye).ToString("N2") : "")</td>
+                                        <td class="text-end fw-bold @(ekstreAcilisBakiye >= 0 ? "text-success" : "text-danger")">
+                                            @ekstreAcilisBakiye.ToString("N2")
+                                            <small class="ms-1">@(ekstreAcilisBakiye >= 0 ? "Alacak" : "Borç")</small>
+                                        </td>
                                     </tr>
                                     @foreach (var hareket in ekstreHareketler.OrderBy(h => h.IslemTarihi).ThenBy(h => h.Id))
                                     {
@@ -466,7 +469,7 @@
                 .Where(h => h.IslemTarihi.Date < ekstreBaslangic.Date)
                 .ToList();
 
-            ekstreAcilisBakiye = oncekiHareketler
+            ekstreAcilisBakiye = ekstreHesap.AcilisBakiye + oncekiHareketler
                 .Sum(h => h.HareketTipi == HareketTipi.Giris ? h.Tutar : -h.Tutar);
 
             // Seçilen tarih aralığındaki hareketler

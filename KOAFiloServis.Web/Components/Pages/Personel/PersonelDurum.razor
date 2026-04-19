@@ -279,6 +279,15 @@
                                     </button>
                                 </li>
                                 <li class="nav-item">
+                                    <button class="nav-link small py-1 @(aktifSekme == "harcama" ? "active" : "")" @onclick='() => SekmeDegistir("harcama")'>
+                                        <i class="bi bi-bag me-1"></i>Harcamalar
+                                        @if (personelHarcamalar.Any())
+                                        {
+                                            <span class="badge bg-success ms-1">@personelHarcamalar.Count</span>
+                                        }
+                                    </button>
+                                </li>
+                                <li class="nav-item">
                                     <button class="nav-link small py-1 @(aktifSekme == "pusula" ? "active" : "")" @onclick='() => SekmeDegistir("pusula")'>
                                         <i class="bi bi-file-text me-1"></i>H.Pusulası
                                     </button>
@@ -309,6 +318,18 @@
                                                         <td>Kalan Borç</td>
                                                         <td class="text-end text-danger fw-bold">@FormatPara(personelFinansOzet.KalanBorc)</td>
                                                     </tr>
+                                                    @if (personelFinansOzet.ToplamHarcama > 0)
+                                                    {
+                                                        <tr>
+                                                            <td>
+                                                                Cebinden Harcama
+                                                                <button class="btn btn-link btn-sm p-0 ms-1" style="font-size:0.7rem;" @onclick='() => SekmeDegistir("harcama")' title="Harcama Detayı">
+                                                                    <i class="bi bi-list-ul"></i> detay
+                                                                </button>
+                                                            </td>
+                                                            <td class="text-end text-success fw-bold">+@FormatPara(personelFinansOzet.ToplamHarcama)</td>
+                                                        </tr>
+                                                    }
                                                     <tr class="table-light">
                                                         <td><strong>Net Durum</strong></td>
                                                         <td class="text-end fw-bold @(personelFinansOzet.NetDurum >= 0 ? "text-danger" : "text-success")">
@@ -505,6 +526,62 @@
                                         }
                                     }
 
+                                    <!-- CEBİNDEN HARCAMALAR -->
+                                    @if (aktifSekme == "harcama")
+                                    {
+                                        @if (personelHarcamalar.Any())
+                                        {
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-hover mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Tarih</th>
+                                                            <th>Açıklama</th>
+                                                            <th>Kaynak</th>
+                                                            <th class="text-end">Tutar</th>
+                                                            <th>Durum</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var h in personelHarcamalar.OrderByDescending(x => x.Tarih))
+                                                        {
+                                                            <tr>
+                                                                <td><small>@h.Tarih.ToString("dd.MM.yy")</small></td>
+                                                                <td><small>@h.Aciklama</small></td>
+                                                                <td><small class="text-muted">@(h.Kaynak == "AracMasraf" ? "Araç Masraf" : "Banka/Kasa")</small></td>
+                                                                <td class="text-end"><small class="fw-bold text-success">+@FormatPara(h.Tutar)</small></td>
+                                                                <td>
+                                                                    @if (h.PersoneleOdendi)
+                                                                    {
+                                                                        <span class="badge bg-success" style="font-size:0.6rem;">Ödendi</span>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span class="badge bg-warning text-dark" style="font-size:0.6rem;">Bekliyor</span>
+                                                                    }
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                    <tfoot class="table-light">
+                                                        <tr>
+                                                            <td colspan="3"><strong>Toplam</strong></td>
+                                                            <td class="text-end"><strong class="text-success">+@FormatPara(personelHarcamalar.Sum(h => h.Tutar))</strong></td>
+                                                            <td><small class="text-muted">@personelHarcamalar.Count(h => !h.PersoneleOdendi) bekliyor</small></td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="text-center text-muted py-3">
+                                                <i class="bi bi-bag-check fs-3 text-success"></i>
+                                                <p class="small mt-1">Cebinden harcama kaydı yok</p>
+                                            </div>
+                                        }
+                                    }
+
                                     <!-- HESAP PUSULASI -->
                                     @if (aktifSekme == "pusula")
                                     {
@@ -594,6 +671,7 @@
     private List<PersonelMaas> personelMaasGecmisi = new();
     private List<EkstreHareket> personelEkstreHareketler = new();
     private BordroDetay? personelBordroDetay;
+    private List<PersonelCebindenHarcamaItem> personelHarcamalar = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -626,8 +704,8 @@
                     GercekMaas = p.NetMaas,
                     BankayaYatan = p.ResmiNetMaas,
                     Avans = finansOzet?.KalanAvans ?? 0,
-                    Kesinti = finansOzet?.KalanBorc > 0 ? finansOzet.KalanBorc : 0,
-                    Harcamasi = finansOzet?.KalanBorc < 0 ? Math.Abs(finansOzet.KalanBorc) : 0
+                    Kesinti = 0,
+                    Harcamasi = (finansOzet?.ToplamHarcama ?? 0) + (finansOzet?.KalanBorc > 0 ? finansOzet!.KalanBorc : 0)
                 };
                 satir.Odenecek = satir.GercekMaas - satir.BankayaYatan - satir.Avans - satir.Kesinti + satir.Harcamasi;
 
@@ -694,11 +772,16 @@
                 // Ekstre: avans + borç hareketlerini birleştir
                 personelAvanslar = await FinansService.GetAvanslarAsync(personelId: secilenPersonelId);
                 personelBorclar = await FinansService.GetBorclarAsync(personelId: secilenPersonelId);
-                personelEkstreHareketler = OlusturEkstre(personelAvanslar, personelBorclar);
+                personelHarcamalar = await FinansService.GetPersonelCebindenHarcamalarAsync(secilenPersonelId);
+                personelEkstreHareketler = OlusturEkstre(personelAvanslar, personelBorclar, personelHarcamalar);
             }
             else if (aktifSekme == "avans")
             {
                 personelAvanslar = await FinansService.GetAvanslarAsync(personelId: secilenPersonelId);
+            }
+            else if (aktifSekme == "harcama")
+            {
+                personelHarcamalar = await FinansService.GetPersonelCebindenHarcamalarAsync(secilenPersonelId);
             }
             else if (aktifSekme == "borc")
             {
@@ -736,7 +819,7 @@
         }
     }
 
-    private List<EkstreHareket> OlusturEkstre(List<PersonelAvans> avanslar, List<PersonelBorc> borclar)
+    private List<EkstreHareket> OlusturEkstre(List<PersonelAvans> avanslar, List<PersonelBorc> borclar, List<PersonelCebindenHarcamaItem>? harcamalar = null)
     {
         var hareketler = new List<EkstreHareket>();
 
@@ -757,6 +840,16 @@
                 Tarih = b.BorcTarihi,
                 Aciklama = $"Borç - {b.Aciklama ?? b.BorcTipi.ToString()}",
                 Tutar = -b.Tutar
+            });
+        }
+
+        foreach (var h in (harcamalar ?? new()))
+        {
+            hareketler.Add(new EkstreHareket
+            {
+                Tarih = h.Tarih,
+                Aciklama = $"Harcama - {h.Aciklama}",
+                Tutar = h.Tutar
             });
         }
 

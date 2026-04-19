@@ -480,6 +480,27 @@ public class PersonelFinansService : IPersonelFinansService
             .AsNoTracking()
             .ToListAsync();
 
+        // Personelin cebinden yaptığı ödenmemiş masraflar
+        var aracMasrafToplam = await context.AracMasraflari
+            .Where(m => m.PersonelCebindenId == personelId && !m.PersoneleOdendi)
+            .AsNoTracking()
+            .SumAsync(m => (decimal?)m.Tutar) ?? 0;
+
+        var aracMasrafAdet = await context.AracMasraflari
+            .Where(m => m.PersonelCebindenId == personelId && !m.PersoneleOdendi)
+            .AsNoTracking()
+            .CountAsync();
+
+        var bankaHareketToplam = await context.BankaKasaHareketleri
+            .Where(h => h.PersonelCebindenId == personelId && !h.PersoneleOdendi)
+            .AsNoTracking()
+            .SumAsync(h => (decimal?)h.Tutar) ?? 0;
+
+        var bankaHareketAdet = await context.BankaKasaHareketleri
+            .Where(h => h.PersonelCebindenId == personelId && !h.PersoneleOdendi)
+            .AsNoTracking()
+            .CountAsync();
+
         return new PersonelFinansOzet
         {
             PersonelId = personel.Id,
@@ -496,8 +517,58 @@ public class PersonelFinansService : IPersonelFinansService
             ToplamBorcSayisi = borclar.Count,
             ToplamBorc = borclar.Sum(b => b.Tutar),
             OdenenBorc = borclar.Sum(b => b.OdenenTutar),
-            OdenmemişBorcSayisi = borclar.Count(b => b.KalanBorc > 0)
+            OdenmemişBorcSayisi = borclar.Count(b => b.KalanBorc > 0),
+
+            ToplamHarcama = aracMasrafToplam + bankaHareketToplam,
+            HarcamaAdet = aracMasrafAdet + bankaHareketAdet
         };
+    }
+
+    public async Task<List<PersonelCebindenHarcamaItem>> GetPersonelCebindenHarcamalarAsync(int personelId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var aracMasraflar = await context.AracMasraflari
+            .Include(m => m.Arac)
+            .Where(m => m.PersonelCebindenId == personelId)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var bankaHareketler = await context.BankaKasaHareketleri
+            .Where(h => h.PersonelCebindenId == personelId)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var liste = new List<PersonelCebindenHarcamaItem>();
+
+        foreach (var m in aracMasraflar)
+        {
+            var plakaAciklama = m.Arac?.AktifPlaka != null ? $" [{m.Arac.AktifPlaka}]" : "";
+            liste.Add(new PersonelCebindenHarcamaItem
+            {
+                Tarih = m.MasrafTarihi,
+                Aciklama = (m.Aciklama ?? "Araç Masrafı") + plakaAciklama,
+                Tutar = m.Tutar,
+                Kaynak = "AracMasraf",
+                KaynakId = m.Id,
+                PersoneleOdendi = m.PersoneleOdendi
+            });
+        }
+
+        foreach (var h in bankaHareketler)
+        {
+            liste.Add(new PersonelCebindenHarcamaItem
+            {
+                Tarih = h.IslemTarihi,
+                Aciklama = h.Aciklama ?? "Banka/Kasa Hareketi",
+                Tutar = h.Tutar,
+                Kaynak = "BankaHareket",
+                KaynakId = h.Id,
+                PersoneleOdendi = h.PersoneleOdendi
+            });
+        }
+
+        return liste.OrderByDescending(x => x.Tarih).ToList();
     }
 
     public async Task<List<PersonelFinansOzet>> GetTumPersonelFinansOzetAsync(int? firmaId = null)

@@ -81,6 +81,10 @@ public class BelgeUyariBackgroundService : BackgroundService
         var emailService = scope.ServiceProvider.GetService<IEmailService>();
         var bildirimService = scope.ServiceProvider.GetService<IBildirimService>();
         var whatsappService = scope.ServiceProvider.GetService<IWhatsAppService>();
+        var ayarlariService = scope.ServiceProvider.GetService<BelgeUyariAyarlariService>();
+
+        // JSON ayar dosyasını oku (appsettings'e göre öncelikli)
+        var jsonAyarlar = ayarlariService != null ? await ayarlariService.GetAyarlarAsync() : null;
 
         // Önce bildirim servisini kullanarak kullanıcı bazlı e-posta gönder
         if (bildirimService != null)
@@ -107,7 +111,10 @@ public class BelgeUyariBackgroundService : BackgroundService
         }
 
         var bugun = DateTime.Today;
-        var uyariGunleri = _configuration.GetSection("BelgeUyari:UyariGunleri").Get<int[]>() ?? [30, 15, 7, 3, 1];
+        // JSON ayar dosyası varsa oradan, yoksa appsettings'den oku
+        var uyariGunleri = (jsonAyarlar?.UyariGunleri?.Length > 0)
+            ? jsonAyarlar.UyariGunleri
+            : (_configuration.GetSection("BelgeUyari:UyariGunleri").Get<int[]>() ?? [30, 15, 7, 3, 1]);
 
         // Admin kullanıcılarını al
         var adminler = await context.Kullanicilar
@@ -153,6 +160,95 @@ public class BelgeUyariBackgroundService : BackgroundService
                 _logger.LogError(ex, "Email gönderim hatası: {Email}", admin.Email);
             }
         }
+
+        // WhatsApp bildirim gönder
+        var whatsappAktif = jsonAyarlar?.WhatsAppEnabled
+            ?? _configuration.GetValue("BelgeUyari:WhatsAppEnabled", false);
+        if (whatsappAktif && whatsappService != null)
+        {
+            try
+            {
+                var whatsappMesaj = OlusturWhatsAppMesaji(aracBelgeleri, personelBelgeleri, firmaBelgeleri);
+                var grupId = jsonAyarlar?.WhatsAppGrupId > 0
+                    ? jsonAyarlar.WhatsAppGrupId
+                    : _configuration.GetValue("BelgeUyari:WhatsAppGrupId", 0);
+                var kisiId = jsonAyarlar?.WhatsAppKisiId > 0
+                    ? jsonAyarlar.WhatsAppKisiId
+                    : _configuration.GetValue("BelgeUyari:WhatsAppKisiId", 0);
+
+                if (grupId > 0)
+                {
+                    await whatsappService.SendMesajToGrupAsync(grupId, whatsappMesaj);
+                    _logger.LogInformation("Belge uyarı WhatsApp gruba gönderildi (GrupId: {Id})", grupId);
+                }
+                else if (kisiId > 0)
+                {
+                    await whatsappService.SendMesajToKisiAsync(kisiId, whatsappMesaj);
+                    _logger.LogInformation("Belge uyarı WhatsApp kişiye gönderildi (KisiId: {Id})", kisiId);
+                }
+                else
+                {
+                    _logger.LogWarning("WhatsApp belge uyarı: KisiId ve GrupId sıfır, gönderim atlandı");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "WhatsApp belge uyarı gönderim hatası");
+            }
+        }
+
+        // Son çalışma bilgisini güncelle
+        if (ayarlariService != null)
+        {
+            try { await ayarlariService.GuncelleSonCalismaAsync(DateTime.Now, toplamUyari); }
+            catch { /* kritik değil */ }
+        }
+    }
+
+    private string OlusturWhatsAppMesaji(
+        List<BelgeUyariItem> aracBelgeleri,
+        List<BelgeUyariItem> personelBelgeleri,
+        List<BelgeUyariItem> firmaBelgeleri)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"📋 *Belge Süresi Uyarısı*");
+        sb.AppendLine($"📅 {DateTime.Today:dd.MM.yyyy}");
+        sb.AppendLine();
+
+        if (aracBelgeleri.Any())
+        {
+            sb.AppendLine($"🚗 *Araç Belgeleri ({aracBelgeleri.Count} adet)*");
+            foreach (var b in aracBelgeleri.OrderBy(x => x.KalanGun).Take(10))
+            {
+                var gun = b.KalanGun <= 0 ? "SÜRESİ GEÇTİ!" : $"{b.KalanGun} gün kaldı";
+                sb.AppendLine($"• {b.EntityAdi} — {b.BelgeTipi}: {gun}");
+            }
+            sb.AppendLine();
+        }
+
+        if (personelBelgeleri.Any())
+        {
+            sb.AppendLine($"👤 *Personel Belgeleri ({personelBelgeleri.Count} adet)*");
+            foreach (var b in personelBelgeleri.OrderBy(x => x.KalanGun).Take(10))
+            {
+                var gun = b.KalanGun <= 0 ? "SÜRESİ GEÇTİ!" : $"{b.KalanGun} gün kaldı";
+                sb.AppendLine($"• {b.EntityAdi} — {b.BelgeTipi}: {gun}");
+            }
+            sb.AppendLine();
+        }
+
+        if (firmaBelgeleri.Any())
+        {
+            sb.AppendLine($"🏢 *Firma Belgeleri ({firmaBelgeleri.Count} adet)*");
+            foreach (var b in firmaBelgeleri.OrderBy(x => x.KalanGun).Take(5))
+            {
+                var gun = b.KalanGun <= 0 ? "SÜRESİ GEÇTİ!" : $"{b.KalanGun} gün kaldı";
+                sb.AppendLine($"• {b.EntityAdi} — {b.BelgeTipi}: {gun}");
+            }
+        }
+
+        sb.AppendLine("_Koa Filo Servis otomatik bildirimi_");
+        return sb.ToString().Trim();
     }
 
     private async Task<List<BelgeUyariItem>> GetAracBelgeUyarilariAsync(ApplicationDbContext context, DateTime bugun, int[] uyariGunleri)

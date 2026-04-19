@@ -148,7 +148,13 @@
                                     <td class="text-end text-warning">@maas.SGKIsciPayi.ToString("N0") ₺</td>
                                     <td class="text-end text-danger">@maas.GelirVergisi.ToString("N0") ₺</td>
                                     <td class="text-end">@maas.NetMaas.ToString("N0") ₺</td>
-                                    <td class="text-end text-success">+@maas.ToplamEklemeler.ToString("N0") ₺</td>
+                                    <td class="text-end text-success">
+                                        +@maas.ToplamEklemeler.ToString("N0") ₺
+                                        @if (maas.DigerEklemeler > 0)
+                                        {
+                                            <br /><small class="text-success" title="Personel Harcaması">+@maas.DigerEklemeler.ToString("N0") ₺ harcama</small>
+                                        }
+                                    </td>
                                     <td class="text-end text-danger">-@maas.ToplamKesintiler.ToString("N0") ₺</td>
                                     <td class="text-end"><strong>@maas.OdenecekTutar.ToString("N0") ₺</strong></td>
                                     <td class="text-center">
@@ -245,7 +251,7 @@
                                     <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.Yol" />
                                 </div>
                                 <div class="col-6 mb-2">
-                                    <label class="form-label small">Diğer Eklemeler</label>
+                                    <label class="form-label small">Personel Harcaması</label>
                                     <input type="number" class="form-control form-control-sm" @bind="duzenlenenMaas.DigerEklemeler" />
                                 </div>
                             </div>

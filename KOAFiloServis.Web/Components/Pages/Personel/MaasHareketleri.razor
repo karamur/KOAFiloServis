@@ -185,6 +185,10 @@
                                         @if (h.ToplamEklemeler > 0)
                                         {
                                             <span>+@h.ToplamEklemeler.ToString("N0") ₺</span>
+                                            @if (h.DigerEklemeler > 0)
+                                            {
+                                                <br /><small class="text-success" title="Personel Harcaması">+@h.DigerEklemeler.ToString("N0") ₺ harcama</small>
+                                            }
                                         }
                                         else
                                         {
@@ -434,7 +438,7 @@
                                         @if (detayMaas.Yemek > 0) { <tr><td>Yemek:</td><td class="text-end">@detayMaas.Yemek.ToString("N2") ₺</td></tr> }
                                         @if (detayMaas.Yol > 0) { <tr><td>Yol:</td><td class="text-end">@detayMaas.Yol.ToString("N2") ₺</td></tr> }
                                         @if (detayMaas.Mesai > 0) { <tr><td>Mesai:</td><td class="text-end">@detayMaas.Mesai.ToString("N2") ₺</td></tr> }
-                                        @if (detayMaas.DigerEklemeler > 0) { <tr><td>Diğer:</td><td class="text-end">@detayMaas.DigerEklemeler.ToString("N2") ₺</td></tr> }
+                                        @if (detayMaas.DigerEklemeler > 0) { <tr><td>Personel Harcaması:</td><td class="text-end text-success">+@detayMaas.DigerEklemeler.ToString("N2") ₺</td></tr> }
                                         @if (detayMaas.ToplamEklemeler == 0) { <tr><td colspan="2" class="text-center text-muted">-</td></tr> }
                                     </table>
                                 </div>

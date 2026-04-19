@@ -798,10 +798,61 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             sonuc.BankaHareketId = hareket.Id;
         }
 
+        // Personel cebinden ise PersonelBorc kaydı oluştur
+        if (giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel && giris.CariId.HasValue)
+        {
+            try
+            {
+                // Cari → Sofor bağlantısını bul
+                var cari = await context.Cariler.FirstOrDefaultAsync(c => c.Id == giris.CariId.Value);
+                if (cari?.SoforId.HasValue == true)
+                {
+                    var borc = new PersonelBorc
+                    {
+                        PersonelId = cari.SoforId.Value,
+                        BorcTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
+                        Tutar = giris.GenelToplam,
+                        BorcNedeni = giris.Aciklama ?? giris.BelgeNo ?? "Masraf - Personel Cebinden",
+                        Aciklama = $"Kolay giriş masraf kaydından otomatik oluşturuldu. Cari: {cari.Unvan}",
+                        BorcTipi = BorcTipi.Diger,
+                        OdemeDurum = BorcOdemeDurum.Bekliyor,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    context.PersonelBorclar.Add(borc);
+                    await context.SaveChangesAsync();
+                }
+            }
+            catch { /* PersonelBorc hatası ana işlemi engellemez */ }
+        }
+
+        // Stok kalemleri varsa stok hareketleri oluştur
+        foreach (var kalem in giris.Kalemler.Where(k => k.StokId.HasValue && k.Miktar > 0))
+        {
+            try
+            {
+                context.StokHareketler.Add(new StokHareket
+                {
+                    StokKartiId = kalem.StokId!.Value,
+                    IslemTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
+                    HareketTipi = StokHareketTipi.Cikis,
+                    Miktar = kalem.Miktar,
+                    BirimFiyat = kalem.BirimFiyat,
+                    BelgeNo = giris.BelgeNo,
+                    Aciklama = kalem.Aciklama ?? giris.Aciklama,
+                    CariId = giris.CariId,
+                    AracMasrafId = sonuc.MasrafId,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            catch { }
+        }
+        if (giris.Kalemler.Any(k => k.StokId.HasValue))
+            await context.SaveChangesAsync();
+
         sonuc.Basarili = true;
         sonuc.Mesaj = giris.MasrafOdemeKaynagi switch
         {
-            MasrafOdemeKaynagi.Personel => "Masraf personel alacağı olarak muhasebeleştirildi.",
+            MasrafOdemeKaynagi.Personel => "Masraf personel alacağı olarak muhasebeleştirildi ve personel borçlarına eklendi.",
             MasrafOdemeKaynagi.Cari => "Masraf cari alacağı olarak muhasebeleştirildi.",
             _ => "Masraf ve muhasebe kaydı oluşturuldu."
         };

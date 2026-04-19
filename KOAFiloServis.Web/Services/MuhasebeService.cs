@@ -485,6 +485,17 @@ public class MuhasebeService : IMuhasebeService
         await context.SaveChangesAsync();
     }
 
+    public async Task OnayGeriAlFisAsync(int fisId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var fis = await context.MuhasebeFisleri.FindAsync(fisId);
+        if (fis == null) throw new Exception("Fis bulunamadi");
+
+        fis.Durum = FisDurum.Taslak;
+        fis.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+    }
+
     #endregion
 
     #region Otomatik Fis Olusturma

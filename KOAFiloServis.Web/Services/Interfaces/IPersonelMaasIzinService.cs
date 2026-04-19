@@ -61,6 +61,7 @@ public class MaasDetay
     public decimal GelirVergisi { get; set; }
     public decimal DamgaVergisi { get; set; }
     public decimal ToplamEklemeler { get; set; }
+    public decimal DigerEklemeler { get; set; }
     public decimal ToplamKesintiler { get; set; }
     public decimal OdenecekTutar { get; set; }
     public string OdemeDurum { get; set; } = string.Empty;

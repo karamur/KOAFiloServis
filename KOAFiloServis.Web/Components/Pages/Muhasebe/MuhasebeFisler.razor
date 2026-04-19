@@ -120,6 +120,12 @@
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-warning btn-sm" @onclick="() => FisOnayGeriAl(fis.Id)" @onclick:stopPropagation="true" title="Onayı Geri Al">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </button>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -457,6 +463,24 @@
         catch (Exception ex)
         {
             ToastService.ShowError("Onay hatası: " + ex.Message);
+        }
+    }
+
+    private async Task FisOnayGeriAl(int fisId)
+    {
+        var onay = await JS.InvokeAsync<bool>("confirm", "Fişin onayı geri alınarak taslak durumuna çekilsin mi?");
+        if (!onay)
+            return;
+
+        try
+        {
+            await MuhasebeService.OnayGeriAlFisAsync(fisId);
+            ToastService.ShowSuccess("Fiş onayı geri alındı.");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Onay geri alma hatası: " + ex.Message);
         }
     }
 

@@ -233,8 +233,8 @@
                     GercekMaas = personel.NetMaas,
                     BankayaYatan = personel.ResmiNetMaas,
                     Avans = finansOzet.KalanAvans,
-                    Kesinti = finansOzet.KalanBorc > 0 ? finansOzet.KalanBorc : 0,
-                    PersonelHarcamasi = finansOzet.KalanBorc < 0 ? Math.Abs(finansOzet.KalanBorc) : 0
+                    Kesinti = 0,
+                    PersonelHarcamasi = finansOzet.ToplamHarcama + (finansOzet.KalanBorc > 0 ? finansOzet.KalanBorc : 0)
                 };
 
                 satir.EldenOdenecek = satir.GercekMaas - satir.BankayaYatan - satir.Kesinti + satir.PersonelHarcamasi - satir.Avans;

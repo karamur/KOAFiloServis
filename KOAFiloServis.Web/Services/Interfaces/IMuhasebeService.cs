@@ -27,6 +27,7 @@ public interface IMuhasebeService
     Task DeleteFisAsync(int id);
     Task<string> GenerateNextFisNoAsync(FisTipi tip);
     Task OnayliFisAsync(int fisId);
+    Task OnayGeriAlFisAsync(int fisId);
 
     // Otomatik Fis Olusturma
     Task<MuhasebeFis> CreateFaturaFisiAsync(Fatura fatura);

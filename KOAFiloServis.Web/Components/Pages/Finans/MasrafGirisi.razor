@@ -2,12 +2,15 @@
 @page "/kasa-banka/masraf"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
+@using KOAFiloServis.Web.Services.Interfaces
 @inject IBankaKasaHareketService HareketService
 @inject IBankaHesapService BankaHesapService
 @inject ICariService CariService
 @inject ISoforService SoforService
 @inject IMuhasebeService MuhasebeService
 @inject IBudgetService BudgetService
+@inject IPersonelFinansService PersonelFinansService
+@inject IStokService StokService
 @inject IToastService ToastService
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
@@ -155,6 +158,77 @@
                         <label class="form-label small text-muted mb-1">Açıklama</label>
                         <input type="text" class="form-control" @bind="hareket.Aciklama" placeholder="Masraf açıklaması..." />
                     </div>
+
+                    <!-- Stok Kart Detay -->
+                    <div class="mb-2">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" @onclick="() => stokDetayGoster = !stokDetayGoster">
+                            <i class="bi @(stokDetayGoster ? "bi-chevron-up" : "bi-boxes") me-1"></i>
+                            @(stokDetayGoster ? "Stok Kalemlerini Gizle" : "Stok Kalemleri Ekle")
+                            @if (masrafKalemleri.Any())
+                            {
+                                <span class="badge bg-primary ms-1">@masrafKalemleri.Count kalem</span>
+                            }
+                        </button>
+                    </div>
+
+                    @if (stokDetayGoster)
+                    {
+                        <div class="border rounded p-2 mb-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="fw-bold text-muted"><i class="bi bi-boxes me-1"></i>Stok Kalemleri</small>
+                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="KalemEkle">
+                                    <i class="bi bi-plus"></i> Kalem Ekle
+                                </button>
+                            </div>
+                            @if (!masrafKalemleri.Any())
+                            {
+                                <div class="text-center text-muted py-2">
+                                    <small>Kalem eklemek için "Kalem Ekle" butonuna tıklayın</small>
+                                </div>
+                            }
+                            @foreach (var kalem in masrafKalemleri)
+                            {
+                                <div class="row g-1 mb-1 align-items-center">
+                                    <div class="col-5">
+                                        <select class="form-select form-select-sm" @bind="kalem.StokKartiId">
+                                            <option value="0">Stok seçin...</option>
+                                            @foreach (var stok in stokKartlari)
+                                            {
+                                                <option value="@stok.Id">@stok.StokAdi</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-2">
+                                        <input type="number" class="form-control form-control-sm" @bind="kalem.Miktar"
+                                               step="0.01" min="0.01" placeholder="Miktar"
+                                               @oninput="() => ToplamHesapla()" />
+                                    </div>
+                                    <div class="col-2">
+                                        <input type="number" class="form-control form-control-sm" @bind="kalem.BirimFiyat"
+                                               step="0.01" min="0" placeholder="B.Fiyat"
+                                               @oninput="() => ToplamHesapla()" />
+                                    </div>
+                                    <div class="col-2">
+                                        <input type="text" class="form-control form-control-sm" @bind="kalem.Aciklama" placeholder="Not" />
+                                    </div>
+                                    <div class="col-1">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => KalemSil(kalem)">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                            @if (masrafKalemleri.Any())
+                            {
+                                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                    <small class="text-muted">Kalem Toplamı: <strong>@FormatPara(masrafKalemleri.Sum(k => k.Miktar * k.BirimFiyat))</strong></small>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ToplamTutaraAktar">
+                                        <i class="bi bi-arrow-up-circle me-1"></i>Tutara Aktar
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
 
                     <!-- Opsiyonel Alanlar -->
                     <div class="mb-3">
@@ -350,21 +424,33 @@
     private List<Sofor> personeller = new();
     private List<BankaKasaHareket> sonHareketler = new();
     private List<BankaKasaHareket> personeleOdenecekler = new();
+    private List<StokKarti> stokKartlari = new();
+    private List<MasrafKalem> masrafKalemleri = new();
 
     private int filtreHesapId = 0;
     private bool muhasebeFisiOlustur = false;
     private bool isKaydediliyor = false;
     private bool detayGoster = false;
+    private bool stokDetayGoster = false;
     private OdemeKaynakTipi odemeKaynagi = OdemeKaynakTipi.Kasa;
     private int personeleOdenecekSayisi = 0;
 
     private enum OdemeKaynakTipi { Kasa, Banka, PersonelCebinden }
+
+    private class MasrafKalem
+    {
+        public int StokKartiId { get; set; }
+        public decimal Miktar { get; set; } = 1;
+        public decimal BirimFiyat { get; set; }
+        public string? Aciklama { get; set; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         tumHesaplar = (await BankaHesapService.GetAllAsync()).Where(h => h.Aktif).ToList();
         cariler = await CariService.GetAllAsync();
         personeller = await SoforService.GetAllAsync();
+        stokKartlari = await StokService.GetStokKartlariAsync(aktif: true);
 
         await FiltreleHesaplariAsync();
         await FiltreleAsync();
@@ -481,6 +567,45 @@
 
             await HareketService.CreateAsync(hareket);
 
+            // Stok hareketleri oluştur
+            foreach (var kalem in masrafKalemleri.Where(k => k.StokKartiId > 0 && k.Miktar > 0))
+            {
+                try
+                {
+                    await StokService.CreateStokHareketAsync(new StokHareket
+                    {
+                        StokKartiId = kalem.StokKartiId,
+                        IslemTarihi = hareket.IslemTarihi,
+                        HareketTipi = StokHareketTipi.Cikis,
+                        Miktar = kalem.Miktar,
+                        BirimFiyat = kalem.BirimFiyat,
+                        BelgeNo = hareket.BelgeNo,
+                        Aciklama = kalem.Aciklama ?? hareket.Aciklama
+                    });
+                }
+                catch { /* Stok hatası ana işlemi engellemez */ }
+            }
+
+            // PersonelBorc otomatik kayıt
+            if (odemeKaynagi == OdemeKaynakTipi.PersonelCebinden && hareket.PersonelCebindenId.HasValue)
+            {
+                try
+                {
+                    var borc = new PersonelBorc
+                    {
+                        PersonelId = hareket.PersonelCebindenId.Value,
+                        BorcTarihi = hareket.IslemTarihi,
+                        Tutar = hareket.Tutar,
+                        BorcNedeni = hareket.Aciklama ?? "Masraf - Personel Cebinden",
+                        Aciklama = $"Masraf girişinden otomatik oluşturuldu. İşlem No: {hareket.IslemNo}",
+                        BorcTipi = BorcTipi.Diger,
+                        OdemeDurum = BorcOdemeDurum.Bekliyor
+                    };
+                    await PersonelFinansService.CreateBorcAsync(borc, muhasebeKaydiOlustur: false);
+                }
+                catch { /* Borç kaydı hatası ana işlemi engellemez */ }
+            }
+
             if (muhasebeFisiOlustur)
             {
                 await OlusturMuhasebeFisiAsync();
@@ -488,7 +613,7 @@
 
             var islemTipi = hareket.HareketTipi == HareketTipi.Cikis ? "Masraf" : "Gelir";
             var kaynakMetni = odemeKaynagi == OdemeKaynakTipi.PersonelCebinden 
-                ? " (Personel cebinden - ödenmesi gerekiyor)" 
+                ? " (Personel cebinden - personel borclarına eklendi)" 
                 : "";
             ToastService.ShowSuccess($"{islemTipi} kaydedildi: {FormatPara(hareket.Tutar)}{kaynakMetni}");
 
@@ -501,6 +626,7 @@
                 HareketTipi = HareketTipi.Cikis,
                 BankaHesapId = eskiKaynak != OdemeKaynakTipi.PersonelCebinden ? eskiHesapId : 0
             };
+            masrafKalemleri.Clear();
 
             await FiltreleAsync();
             await LoadPersoneleOdeneceklerAsync();
@@ -630,4 +756,13 @@
         IslemKaynak.PersonelCebinden => "Personel cebinden harcama",
         _ => "Diğer"
     };
+
+    private void KalemEkle() => masrafKalemleri.Add(new MasrafKalem());
+    private void KalemSil(MasrafKalem kalem) => masrafKalemleri.Remove(kalem);
+    private void ToplamHesapla() { } // StateHasChanged tetiklenir
+    private void ToplamTutaraAktar()
+    {
+        if (masrafKalemleri.Any())
+            hareket.Tutar = masrafKalemleri.Sum(k => k.Miktar * k.BirimFiyat);
+    }
 }

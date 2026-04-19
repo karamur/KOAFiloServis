@@ -34,6 +34,7 @@ public interface IPersonelFinansService
     // Personel Özet Bilgileri
     Task<PersonelFinansOzet> GetPersonelFinansOzetAsync(int personelId);
     Task<List<PersonelFinansOzet>> GetTumPersonelFinansOzetAsync(int? firmaId = null);
+    Task<List<PersonelCebindenHarcamaItem>> GetPersonelCebindenHarcamalarAsync(int personelId);
     
     // Ayarlar
     Task<PersonelFinansAyar?> GetAyarlarAsync(int? firmaId = null);
@@ -74,9 +75,26 @@ public class PersonelFinansOzet
     public decimal KalanBorc => ToplamBorc - OdenenBorc;
     public int OdenmemişBorcSayisi { get; set; }
     
+    // Cebinden Harcama (AracMasraf + BankaKasaHareket, PersoneleOdendi=false)
+    public decimal ToplamHarcama { get; set; }
+    public int HarcamaAdet { get; set; }
+
     // Net Durum
     public decimal NetDurum => KalanBorc - KalanAvans; // Pozitif ise personele borç, negatif ise personelden alacak
     public string NetDurumAciklama => NetDurum > 0 ? "Personele Borç" : NetDurum < 0 ? "Personelden Alacak" : "Bakiye Yok";
+}
+
+/// <summary>
+/// Personelin cebinden yaptığı harcama kalemi
+/// </summary>
+public class PersonelCebindenHarcamaItem
+{
+    public DateTime Tarih { get; set; }
+    public string Aciklama { get; set; } = "";
+    public decimal Tutar { get; set; }
+    public string Kaynak { get; set; } = ""; // "AracMasraf" | "BankaHareket"
+    public int KaynakId { get; set; }
+    public bool PersoneleOdendi { get; set; }
 }
 
 /// <summary>
