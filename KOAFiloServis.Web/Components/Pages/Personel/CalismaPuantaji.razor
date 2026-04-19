@@ -37,6 +37,11 @@
             <button class="btn btn-success btn-sm" @onclick="TopluPuantajOlustur" disabled="@isLoading">
                 <i class="bi bi-calendar-plus me-1"></i>Ay Puantajı Oluştur
             </button>
+            <button class="btn btn-outline-warning btn-sm" @onclick="TopluBirimUcretModalAc"
+                    disabled="@(isLoading || !puantajListesi.Any(p => p.Personel?.BrutMaasHesaplamaTipi == BrutMaasHesaplamaTipi.Saatlik))"
+                    title="Saatlik personellerin birim ücretini toplu güncelle">
+                <i class="bi bi-currency-exchange me-1"></i>Toplu Birim Ücret
+            </button>
             <button class="btn btn-outline-dark btn-sm" @onclick="ResmiHesapPusulasiAc" disabled="@(isLoading || !filtrelenmisListe.Any())">
                 <i class="bi bi-file-earmark-text me-1"></i>Resmi Hesap Pusulası
             </button>
@@ -260,7 +265,8 @@
                                     var haftaSonu = tarih.DayOfWeek == DayOfWeek.Saturday || tarih.DayOfWeek == DayOfWeek.Sunday;
                                     var pazar = tarih.DayOfWeek == DayOfWeek.Sunday;
                                     <th class="text-center @(pazar ? "table-danger" : haftaSonu ? "table-warning" : "")"
-                                        style="min-width: 32px; font-size: 0.65rem;">
+                                        style="min-width: 32px; font-size: 0.65rem; cursor: pointer;"
+                                        title="Tüm personele toplu uygula" @onclick="() => SutunTikla(gun)">
                                         @gun
                                         <br /><span class="fw-normal">@GetGunKisa(tarih)</span>
                                     </th>
@@ -297,19 +303,33 @@
                                     <td class="sticky-start" style="position: sticky; left: 0; background: white; z-index: 3;">
                                         @{
                                             var capturedPersonel = puantaj.Personel;
+                                            var capturedPuantajIdQuick = puantaj.Id;
+                                            var isSaatlikQuick = puantaj.Personel?.BrutMaasHesaplamaTipi == BrutMaasHesaplamaTipi.Saatlik;
                                         }
-                                        <a href="javascript:void(0)" class="text-decoration-none text-dark"
-                                           @onclick="() => PersonelKartAc(capturedPersonel)" title="Personel kartını düzenle">
-                                            <strong>@puantaj.Personel?.Ad @puantaj.Personel?.Soyad</strong>
-                                        </a>
-                                        @if (puantaj.Personel?.SoforKodu != null)
-                                        {
-                                            <br /><small class="text-muted">@puantaj.Personel.SoforKodu</small>
-                                        }
-                                        @if (puantaj.Personel?.BrutMaasHesaplamaTipi == BrutMaasHesaplamaTipi.Saatlik)
-                                        {
-                                            <br /><span class="badge bg-info" style="font-size: 0.6rem;">⏱ Saatlik @puantaj.Personel.BirimUcret.ToString("N2")₺</span>
-                                        }
+                                        <div class="d-flex align-items-start gap-1">
+                                            <div class="flex-grow-1">
+                                                <a href="javascript:void(0)" class="text-decoration-none text-dark"
+                                                   @onclick="() => PersonelKartAc(capturedPersonel)" title="Personel kartını düzenle">
+                                                    <strong>@puantaj.Personel?.Ad @puantaj.Personel?.Soyad</strong>
+                                                </a>
+                                                @if (puantaj.Personel?.SoforKodu != null)
+                                                {
+                                                    <br /><small class="text-muted">@puantaj.Personel.SoforKodu</small>
+                                                }
+                                                @if (isSaatlikQuick)
+                                                {
+                                                    <br /><span class="badge bg-info" style="font-size: 0.6rem;">⏱ Saatlik @puantaj.Personel!.BirimUcret.ToString("N2")₺</span>
+                                                }
+                                            </div>
+                                            @if (puantaj.OnayDurumu != PersonelPuantajOnayDurumu.Onaylandi)
+                                            {
+                                                <button class="btn btn-link btn-sm p-0 ms-1" title="Hızlı Toplu Doldur"
+                                                        @onclick:stopPropagation="true"
+                                                        @onclick="() => TopluSatirModalAc(capturedPuantajIdQuick, isSaatlikQuick)">
+                                                    <i class="bi bi-lightning-charge-fill text-warning" style="font-size:0.85rem;"></i>
+                                                </button>
+                                            }
+                                        </div>
                                     </td>
                                     @for (int gun = 1; gun <= AyGunSayisi; gun++)
                                     {
@@ -740,6 +760,279 @@
     </div>
 }
 
+<!-- Toplu Satır Doldurma Modalı -->
+@if (showTopluSatirModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning py-2">
+                    <h6 class="modal-title"><i class="bi bi-lightning-charge me-2"></i>Hızlı Doldur — @topluSatirPersonelAdi</h6>
+                    <button type="button" class="btn-close" @onclick="() => showTopluSatirModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">@GetAyAdi(filtreAy) @filtreYil için tüm günleri toplu ata:</p>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success" @onclick='() => TopluSatirUygula("haftaici_calisir")'>
+                            <i class="bi bi-calendar-check me-2"></i>Hafta içi günler → Çalıştı
+                        </button>
+                        <button class="btn btn-outline-success" @onclick='() => TopluSatirUygula("tum_calisir")'>
+                            <i class="bi bi-check-all me-2"></i>Tüm ay → Çalıştı
+                        </button>
+                        <button class="btn btn-warning" @onclick='() => TopluSatirUygula("haftaici_izin")'>
+                            <i class="bi bi-calendar-x me-2"></i>Hafta içi günler → İzin
+                        </button>
+                        <button class="btn btn-outline-warning" @onclick='() => TopluSatirUygula("tum_izin")'>
+                            <i class="bi bi-calendar-x me-2"></i>Tüm ay → İzin
+                        </button>
+                        <button class="btn btn-outline-danger" @onclick='() => TopluSatirUygula("tum_mazeret")'>
+                            <i class="bi bi-exclamation-triangle me-2"></i>Tüm ay → Mazeret/Rapor
+                        </button>
+                        @if (topluSatirIsSaatlik)
+                        {
+                            <hr class="my-1" />
+                            <button class="btn btn-info text-white" @onclick="() => { showTopluSatirModal = false; TopluSaatModalAc(topluSatirPuantajId); }">
+                                <i class="bi bi-clock me-2"></i>Toplu Saat Girişi Yap...
+                            </button>
+                        }
+                        <hr class="my-1" />
+                        <button class="btn btn-outline-secondary" @onclick='() => TopluSatirUygula("temizle")'>
+                            <i class="bi bi-eraser me-2"></i>Tümünü Temizle
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button class="btn btn-secondary btn-sm" @onclick="() => showTopluSatirModal = false">İptal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Toplu Saat Girişi Modalı (Saatlik Personel) -->
+@if (showTopluSaatModal)
+{
+    var puantajForSaat2 = puantajListesi.FirstOrDefault(p => p.Id == topluSaatPuantajId);
+    var birimUcretSaat2 = puantajForSaat2?.Personel?.BirimUcret ?? 0;
+    var toplamSaatHesap2 = topluSaatGunMap.Values.Sum();
+
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white py-2">
+                    <h6 class="modal-title"><i class="bi bi-clock me-2"></i>Saat Girişi — @topluSaatPersonelAdi</h6>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showTopluSaatModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Hızlı Doldur -->
+                    <div class="card border-info mb-3">
+                        <div class="card-body py-2">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-auto">
+                                    <span class="small fw-bold text-info">Hızlı Doldur:</span>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" style="width:80px" @bind="topluSaatGunlukSaat" step="0.5" min="0" max="24" />
+                                        <span class="input-group-text">saat</span>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="form-check form-switch mb-0">
+                                        <input type="checkbox" class="form-check-input" id="haftaiciSadece" @bind="topluSaatHaftaiciSadece" />
+                                        <label class="form-check-label small" for="haftaiciSadece">Hafta içi</label>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-outline-info btn-sm" @onclick="TopluSaatHizliDoldur">
+                                        <i class="bi bi-arrow-down me-1"></i>Tümüne Uygula
+                                    </button>
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-outline-danger btn-sm" @onclick="TopluSaatHepsiniTemizle">
+                                        <i class="bi bi-eraser me-1"></i>Temizle
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Gün Bazlı Liste -->
+                    <div style="max-height: 380px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light" style="position:sticky;top:0;z-index:1">
+                                <tr>
+                                    <th class="small">Tarih</th>
+                                    <th class="small">Gün</th>
+                                    <th class="small" style="width:110px">Çalışma Saati</th>
+                                    <th style="width:40px"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int gd = 1; gd <= AyGunSayisi; gd++)
+                                {
+                                    var gn = gd;
+                                    var td2 = new DateTime(filtreYil, filtreAy, gn);
+                                    var isHaftaSonu2 = td2.DayOfWeek == DayOfWeek.Saturday || td2.DayOfWeek == DayOfWeek.Sunday;
+                                    var saatVal = topluSaatGunMap.TryGetValue(gn, out var sv) ? sv : 0;
+                                    <tr class="@(isHaftaSonu2 ? "table-secondary" : "")">
+                                        <td class="small @(isHaftaSonu2 ? "text-muted" : "")">@td2.ToString("dd MMMM", turkce)</td>
+                                        <td class="small @(isHaftaSonu2 ? "text-muted" : "")">@td2.ToString("dddd", turkce)</td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm"
+                                                   style="width:95px"
+                                                   value="@(saatVal > 0 ? saatVal.ToString("0.##") : "")"
+                                                   step="0.5" min="0" max="24"
+                                                   placeholder="—"
+                                                   @oninput="e => TopluSaatGunGuncelle(gn, e.Value?.ToString())" />
+                                        </td>
+                                        <td class="text-center">
+                                            @if (saatVal > 0)
+                                            {
+                                                <button class="btn btn-outline-danger btn-sm py-0 px-1"
+                                                        @onclick="() => { topluSaatGunMap[gn] = 0; StateHasChanged(); }"
+                                                        title="Sil">✕</button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Özet -->
+                    <div class="alert alert-info py-2 mb-0 mt-2">
+                        <i class="bi bi-calculator me-1"></i>
+                        Toplam: <strong>@toplamSaatHesap2.ToString("0.#") saat</strong>
+                        @if (birimUcretSaat2 > 0)
+                        {
+                            <span class="ms-3">× @birimUcretSaat2.ToString("N2") ₺ = <strong>@((toplamSaatHesap2 * birimUcretSaat2).ToString("N2")) ₺</strong></span>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="() => showTopluSaatModal = false">İptal</button>
+                    <button class="btn btn-info btn-sm text-white" @onclick="TopluSaatUygula">
+                        <i class="bi bi-check me-1"></i>Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Toplu Birim Ücret Değiştirme Modalı -->
+@if (showTopluBirimUcretModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning py-2">
+                    <h6 class="modal-title"><i class="bi bi-currency-exchange me-2"></i>Toplu Birim Ücret Güncelleme</h6>
+                    <button type="button" class="btn-close" @onclick="() => showTopluBirimUcretModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Hepsine Uygula -->
+                    <div class="card border-warning mb-3">
+                        <div class="card-body py-2">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-auto">
+                                    <span class="small fw-bold">Hepsine Aynı Ücret:</span>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" style="width:110px" @bind="topluBirimUcretHepsine" step="0.01" min="0" />
+                                        <span class="input-group-text">₺/saat</span>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-warning btn-sm" @onclick="TopluBirimUcretHepsineUygula"
+                                            disabled="@(topluBirimUcretHepsine <= 0)">
+                                        <i class="bi bi-arrow-down me-1"></i>Tümüne Uygula
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Personel Listesi -->
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light" style="position:sticky;top:0;z-index:1">
+                                <tr>
+                                    <th class="small">Personel</th>
+                                    <th class="small text-end" style="width:130px">Mevcut Ücret</th>
+                                    <th class="small" style="width:150px">Yeni Ücret (₺/saat)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var satir in topluBirimUcretListesi)
+                                {
+                                    var degisti = satir.Yeni != satir.Mevcut;
+                                    <tr class="@(degisti ? "table-warning" : "")">
+                                        <td class="small fw-bold">@satir.Ad</td>
+                                        <td class="small text-end text-muted">@satir.Mevcut.ToString("N2") ₺</td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm @(degisti ? "border-warning" : "")"
+                                                   @bind="satir.Yeni" step="0.01" min="0" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (topluBirimUcretListesi.Any(s => s.Yeni != s.Mevcut))
+                    {
+                        <div class="alert alert-warning py-2 mb-0 mt-2 small">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>@topluBirimUcretListesi.Count(s => s.Yeni != s.Mevcut) personelin</strong> birim ücreti değişecek.
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="() => showTopluBirimUcretModal = false">İptal</button>
+                    <button class="btn btn-warning btn-sm" @onclick="TopluBirimUcretKaydet"
+                            disabled="@(!topluBirimUcretListesi.Any(s => s.Yeni != s.Mevcut))">
+                        <i class="bi bi-check me-1"></i>Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Toplu Sütun (Gün) Doldurma Modalı -->
+@if (showTopluSutunModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white py-2">
+                    <h6 class="modal-title"><i class="bi bi-calendar-day me-2"></i>@topluSutunTarih.ToString("dd MMMM dddd", turkce)</h6>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showTopluSutunModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-2">Tüm personel için bu günü ayarla:</p>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success btn-sm" @onclick='() => TopluSutunUygula("calisir")'>
+                            <i class="bi bi-check-circle me-1"></i>Tümü → Çalıştı
+                        </button>
+                        <button class="btn btn-warning btn-sm" @onclick='() => TopluSutunUygula("izin")'>
+                            <i class="bi bi-calendar-x me-1"></i>Tümü → İzin
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick='() => TopluSutunUygula("mazeret")'>
+                            <i class="bi bi-exclamation-triangle me-1"></i>Tümü → Mazeret
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick='() => TopluSutunUygula("temizle")'>
+                            <i class="bi bi-eraser me-1"></i>Tümünü Temizle
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button class="btn btn-secondary btn-sm" @onclick="() => showTopluSutunModal = false">İptal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Bildirim Toast -->
 @if (showToast)
 {
@@ -807,6 +1100,31 @@
     private bool showPersonelKartModal = false;
     private Sofor? editKartPersonel;
     private decimal editKartBirimUcret = 0;
+
+    // Toplu Satır Doldurma
+    private bool showTopluSatirModal = false;
+    private int topluSatirPuantajId = 0;
+    private string topluSatirPersonelAdi = "";
+    private bool topluSatirIsSaatlik = false;
+
+    // Toplu Sütun (Gün) Doldurma
+    private bool showTopluSutunModal = false;
+    private int topluSutunGun = 0;
+    private DateTime topluSutunTarih = DateTime.MinValue;
+
+    // Saatlik Toplu Saat Girişi
+    private bool showTopluSaatModal = false;
+    private int topluSaatPuantajId = 0;
+    private string topluSaatPersonelAdi = "";
+    private decimal topluSaatGunlukSaat = 8;
+    private bool topluSaatHaftaiciSadece = true;
+    private Dictionary<int, decimal> topluSaatGunMap = new(); // gun(1-31) -> saat
+
+    // Toplu Birim Ücret Değiştirme
+    private bool showTopluBirimUcretModal = false;
+    private List<BirimUcretSatir> topluBirimUcretListesi = new();
+    private decimal topluBirimUcretHepsine = 0;
+    private class BirimUcretSatir { public int SoforId { get; set; } public string Ad { get; set; } = ""; public decimal Mevcut { get; set; } public decimal Yeni { get; set; } }
 
     private System.Globalization.CultureInfo turkce = new("tr-TR");
 
@@ -1411,9 +1729,287 @@
         }
     }
 
-    // Durum Helper Metodları
-    private string GetGunlukDurum(GunlukPuantaj? gunluk)
+    // Toplu İşlem Metodları
+    private void TopluSatirModalAc(int puantajId, bool isSaatlik)
     {
+        topluSatirPuantajId = puantajId;
+        var puantaj = puantajListesi.FirstOrDefault(p => p.Id == puantajId);
+        topluSatirPersonelAdi = puantaj?.Personel?.TamAd ?? "";
+        topluSatirIsSaatlik = isSaatlik;
+        showTopluSatirModal = true;
+    }
+
+    private async Task TopluSatirUygula(string mod)
+    {
+        showTopluSatirModal = false;
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            if (!gunlukPuantajMap.ContainsKey(topluSatirPuantajId)) return;
+            var gunlukler = gunlukPuantajMap[topluSatirPuantajId];
+
+            foreach (var g in gunlukler)
+            {
+                var haftaIci = g.Tarih.DayOfWeek != DayOfWeek.Saturday && g.Tarih.DayOfWeek != DayOfWeek.Sunday;
+
+                switch (mod)
+                {
+                    case "haftaici_calisir":
+                        g.Calisti = haftaIci;
+                        g.Izinli = false;
+                        g.Mazeret = false;
+                        break;
+                    case "tum_calisir":
+                        g.Calisti = true;
+                        g.Izinli = false;
+                        g.Mazeret = false;
+                        break;
+                    case "haftaici_izin":
+                        if (haftaIci) { g.Calisti = false; g.Izinli = true; g.Mazeret = false; }
+                        break;
+                    case "tum_izin":
+                        g.Calisti = false;
+                        g.Izinli = true;
+                        g.Mazeret = false;
+                        break;
+                    case "tum_mazeret":
+                        g.Calisti = false;
+                        g.Izinli = false;
+                        g.Mazeret = true;
+                        break;
+                    case "temizle":
+                        g.Calisti = false;
+                        g.Izinli = false;
+                        g.Mazeret = false;
+                        g.FazlaMesaiSaat = 0;
+                        g.CalismaSaati = 0;
+                        break;
+                }
+                await PuantajService.SaveGunlukPuantajAsync(g);
+            }
+
+            await GunluktenPuantajOzetGuncelle(topluSatirPuantajId);
+            degisiklikVar = true;
+            ShowBildirim("Başarılı", $"{topluSatirPersonelAdi} için toplu atama tamamlandı.", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowBildirim("Hata", $"Toplu atama hatası: {ex.Message}", "danger");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void TopluSaatModalAc(int puantajId)
+    {
+        topluSaatPuantajId = puantajId;
+        var puantaj = puantajListesi.FirstOrDefault(p => p.Id == puantajId);
+        topluSaatPersonelAdi = puantaj?.Personel?.TamAd ?? "";
+        topluSaatGunlukSaat = puantaj?.Personel?.CalismaMiktari > 0 ? puantaj!.Personel.CalismaMiktari : 8;
+        topluSaatHaftaiciSadece = true;
+
+        // Mevcut verileri gün haritasına yükle
+        topluSaatGunMap = new Dictionary<int, decimal>();
+        if (gunlukPuantajMap.ContainsKey(puantajId))
+        {
+            foreach (var g in gunlukPuantajMap[puantajId])
+                topluSaatGunMap[g.Tarih.Day] = g.CalismaSaati;
+        }
+        showTopluSaatModal = true;
+    }
+
+    private async Task TopluSaatUygula()
+    {
+        showTopluSaatModal = false;
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            if (!gunlukPuantajMap.ContainsKey(topluSaatPuantajId)) return;
+            var gunlukler = gunlukPuantajMap[topluSaatPuantajId];
+
+            foreach (var g in gunlukler)
+            {
+                var saat = topluSaatGunMap.TryGetValue(g.Tarih.Day, out var sv) ? sv : 0;
+                g.CalismaSaati = saat;
+                g.Calisti = saat > 0;
+                if (saat > 0) { g.Izinli = false; g.Mazeret = false; }
+                await PuantajService.SaveGunlukPuantajAsync(g);
+            }
+
+            await GunluktenPuantajOzetGuncelle(topluSaatPuantajId);
+            degisiklikVar = true;
+            ShowBildirim("Başarılı", $"{topluSaatPersonelAdi} saatleri güncellendi.", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowBildirim("Hata", $"Toplu saat hatası: {ex.Message}", "danger");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void TopluSaatHizliDoldur()
+    {
+        for (int g = 1; g <= AyGunSayisi; g++)
+        {
+            var td = new DateTime(filtreYil, filtreAy, g);
+            var isHaftaIci = td.DayOfWeek != DayOfWeek.Saturday && td.DayOfWeek != DayOfWeek.Sunday;
+            if (topluSaatHaftaiciSadece && !isHaftaIci) continue;
+            topluSaatGunMap[g] = topluSaatGunlukSaat;
+        }
+        StateHasChanged();
+    }
+
+    private void TopluSaatHepsiniTemizle()
+    {
+        topluSaatGunMap = new Dictionary<int, decimal>();
+        StateHasChanged();
+    }
+
+    private void TopluSaatGunGuncelle(int gun, string? value)
+    {
+        if (decimal.TryParse(value?.Replace(",", "."), System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var saat))
+            topluSaatGunMap[gun] = saat < 0 ? 0 : saat;
+        else
+            topluSaatGunMap[gun] = 0;
+    }
+
+    private void TopluBirimUcretModalAc()
+    {
+        topluBirimUcretListesi = puantajListesi
+            .Where(p => p.Personel?.BrutMaasHesaplamaTipi == BrutMaasHesaplamaTipi.Saatlik && p.Personel != null)
+            .GroupBy(p => p.PersonelId)
+            .Select(g => new BirimUcretSatir
+            {
+                SoforId = g.Key,
+                Ad = g.First().Personel!.TamAd,
+                Mevcut = g.First().Personel!.BirimUcret,
+                Yeni = g.First().Personel!.BirimUcret
+            })
+            .OrderBy(x => x.Ad)
+            .ToList();
+        topluBirimUcretHepsine = 0;
+        showTopluBirimUcretModal = true;
+    }
+
+    private void TopluBirimUcretHepsineUygula()
+    {
+        if (topluBirimUcretHepsine <= 0) return;
+        foreach (var satir in topluBirimUcretListesi)
+            satir.Yeni = topluBirimUcretHepsine;
+        StateHasChanged();
+    }
+
+    private async Task TopluBirimUcretKaydet()
+    {
+        isLoading = true;
+        StateHasChanged();
+        try
+        {
+            using var context = await DbFactory.CreateDbContextAsync();
+            foreach (var satir in topluBirimUcretListesi.Where(s => s.Yeni != s.Mevcut))
+            {
+                var sofor = await context.Soforler.FindAsync(satir.SoforId);
+                if (sofor != null)
+                {
+                    sofor.BirimUcret = satir.Yeni;
+                    sofor.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+            await context.SaveChangesAsync();
+
+            // Bellekteki listeyi güncelle
+            foreach (var satir in topluBirimUcretListesi)
+            {
+                var personel = puantajListesi.FirstOrDefault(p => p.PersonelId == satir.SoforId)?.Personel;
+                if (personel != null) personel.BirimUcret = satir.Yeni;
+            }
+
+            showTopluBirimUcretModal = false;
+            ShowBildirim("Kaydedildi", "Birim ücretler güncellendi.", "success");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ShowBildirim("Hata", $"Kaydetme hatası: {ex.Message}", "danger");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SutunTikla(int gun)
+    {
+        topluSutunGun = gun;
+        topluSutunTarih = new DateTime(filtreYil, filtreAy, gun);
+        showTopluSutunModal = true;
+    }
+
+    private async Task TopluSutunUygula(string mod)
+    {
+        showTopluSutunModal = false;
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            foreach (var puantaj in filtrelenmisListe)
+            {
+                if (puantaj.OnayDurumu == PersonelPuantajOnayDurumu.Onaylandi) continue;
+                if (!gunlukPuantajMap.ContainsKey(puantaj.Id)) continue;
+
+                var g = gunlukPuantajMap[puantaj.Id].FirstOrDefault(x => x.Tarih.Date == topluSutunTarih.Date);
+                if (g == null) continue;
+
+                switch (mod)
+                {
+                    case "calisir":
+                        g.Calisti = true; g.Izinli = false; g.Mazeret = false;
+                        break;
+                    case "izin":
+                        g.Calisti = false; g.Izinli = true; g.Mazeret = false;
+                        break;
+                    case "mazeret":
+                        g.Calisti = false; g.Izinli = false; g.Mazeret = true;
+                        break;
+                    case "temizle":
+                        g.Calisti = false; g.Izinli = false; g.Mazeret = false;
+                        g.FazlaMesaiSaat = 0; g.CalismaSaati = 0;
+                        break;
+                }
+                await PuantajService.SaveGunlukPuantajAsync(g);
+                await GunluktenPuantajOzetGuncelle(puantaj.Id);
+            }
+
+            degisiklikVar = true;
+            ShowBildirim("Başarılı", $"{topluSutunTarih:dd.MM.yyyy} için toplu atama tamamlandı.", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowBildirim("Hata", $"Toplu sütun hatası: {ex.Message}", "danger");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // Durum Helper Metodları
+    private string GetGunlukDurum(GunlukPuantaj? gunluk)    {
         if (gunluk == null) return "bos";
         if (gunluk.Izinli) return "izinli";
         if (gunluk.Mazeret) return "mazeret";

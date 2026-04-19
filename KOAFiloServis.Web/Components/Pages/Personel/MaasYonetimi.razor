@@ -468,11 +468,18 @@
     {
         if (duzenlenenMaas != null)
         {
-            await PersonelService.UpdateMaasAsync(duzenlenenMaas);
-            await AcikAvanslariYukleAsync();
-            ModalKapat();
-            await YenileData();
-            BildirimGoster("Maaş bilgileri güncellendi.", true);
+            try
+            {
+                await PersonelService.UpdateMaasAsync(duzenlenenMaas);
+                await AcikAvanslariYukleAsync();
+                ModalKapat();
+                await YenileData();
+                BildirimGoster("Maaş bilgileri güncellendi.", true);
+            }
+            catch (Exception ex)
+            {
+                BildirimGoster($"Kaydetme hatası: {ex.Message}", false);
+            }
         }
     }
 

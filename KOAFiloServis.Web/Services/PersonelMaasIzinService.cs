@@ -52,7 +52,10 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
     public async Task<PersonelMaas> UpdateMaasAsync(PersonelMaas maas)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        context.PersonelMaaslari.Update(maas);
+        context.Attach(maas);
+        context.Entry(maas).State = EntityState.Modified;
+        if (maas.Sofor != null)
+            context.Entry(maas.Sofor).State = EntityState.Unchanged;
         await context.SaveChangesAsync();
         return maas;
     }
