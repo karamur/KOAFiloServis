@@ -2415,25 +2415,11 @@ public class FaturaService : IFaturaService
         return await _muhasebeService.CreateFaturaFisiAsync(fatura);
     }
 
-    private async Task<string> GenerateNextFisNoAsync(ApplicationDbContext context)
+    private static async Task<string> GenerateNextFisNoAsync(ApplicationDbContext context)
     {
-        var yil = DateTime.UtcNow.Year;
-        var prefix = $"MF{yil}";
-
-        var sonFisNo = await context.MuhasebeFisleri
-            .Where(f => f.FisNo.StartsWith(prefix))
-            .OrderByDescending(f => f.FisNo)
-            .Select(f => f.FisNo)
-            .FirstOrDefaultAsync();
-
-        if (sonFisNo == null)
-            return $"{prefix}000001";
-
-        var sonNo = sonFisNo.Replace(prefix, "");
-        if (int.TryParse(sonNo, out var no))
-            return $"{prefix}{no + 1:D6}";
-
-        return $"{prefix}000001";
+        var yilAy = $"{DateTime.UtcNow.Year}{DateTime.UtcNow.Month:D2}";
+        var sonNo = await MuhasebeService.NextFisNoCounterAsync(context, "MF", yilAy);
+        return $"MF{yilAy}{sonNo:D4}";
     }
 
     public async Task<byte[]> GetExcelSablonAsync(FaturaYonu yon)

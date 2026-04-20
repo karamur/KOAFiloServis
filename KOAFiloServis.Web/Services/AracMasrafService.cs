@@ -243,7 +243,7 @@ public class AracMasrafService : IAracMasrafService
         var fis = new MuhasebeFis
         {
             Id = mevcutFis?.Id ?? 0,
-            FisNo = mevcutFis?.FisNo ?? await _muhasebeService.GenerateNextFisNoAsync(FisTipi.Mahsup),
+            FisNo = mevcutFis?.FisNo ?? string.Empty,
             FisTarihi = aracMasraf.MasrafTarihi,
             FisTipi = FisTipi.Mahsup,
             Aciklama = BuildFisAciklamasi(aracMasraf),
@@ -276,8 +276,8 @@ public class AracMasrafService : IAracMasrafService
 
         if (mevcutFis == null)
         {
-            var createdFis = await _muhasebeService.CreateFisAsync(fis);
-            aracMasraf.MuhasebeFisId = createdFis.Id;
+            await _muhasebeService.CreateFisAtomicAsync(fis);
+            aracMasraf.MuhasebeFisId = fis.Id;
             await context.SaveChangesAsync();
             return;
         }

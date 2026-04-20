@@ -142,10 +142,10 @@ public static class PersonelFinansMigrationHelper
                     END $$;
 
                     DO $$ BEGIN
-                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'BankaHesaplar') 
-                           AND NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_PersonelAvanslar_BankaHesaplar') THEN
-                            ALTER TABLE ""PersonelAvanslar"" ADD CONSTRAINT ""FK_PersonelAvanslar_BankaHesaplar"" 
-                                FOREIGN KEY (""BankaHesapId"") REFERENCES ""BankaHesaplar"" (""Id"") ON DELETE SET NULL;
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'BankaHesaplari') 
+                           AND NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_PersonelAvanslar_BankaHesaplari') THEN
+                            ALTER TABLE ""PersonelAvanslar"" ADD CONSTRAINT ""FK_PersonelAvanslar_BankaHesaplari"" 
+                                FOREIGN KEY (""BankaHesapId"") REFERENCES ""BankaHesaplari"" (""Id"") ON DELETE SET NULL;
                         END IF;
                     END $$;
 
@@ -175,10 +175,10 @@ public static class PersonelFinansMigrationHelper
                     END $$;
 
                     DO $$ BEGIN
-                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'BankaHesaplar') 
-                           AND NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_PersonelBorclar_BankaHesaplar') THEN
-                            ALTER TABLE ""PersonelBorclar"" ADD CONSTRAINT ""FK_PersonelBorclar_BankaHesaplar"" 
-                                FOREIGN KEY (""BankaHesapId"") REFERENCES ""BankaHesaplar"" (""Id"") ON DELETE SET NULL;
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'BankaHesaplari') 
+                           AND NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_PersonelBorclar_BankaHesaplari') THEN
+                            ALTER TABLE ""PersonelBorclar"" ADD CONSTRAINT ""FK_PersonelBorclar_BankaHesaplari"" 
+                                FOREIGN KEY (""BankaHesapId"") REFERENCES ""BankaHesaplari"" (""Id"") ON DELETE SET NULL;
                         END IF;
                     END $$;
 
@@ -199,10 +199,10 @@ public static class PersonelFinansMigrationHelper
                     END $$;
 
                     DO $$ BEGIN
-                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'BankaHesaplar') 
-                           AND NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_PersonelAvansMahsuplar_BankaHesaplar') THEN
-                            ALTER TABLE ""PersonelAvansMahsuplar"" ADD CONSTRAINT ""FK_PersonelAvansMahsuplar_BankaHesaplar"" 
-                                FOREIGN KEY (""BankaHesapId"") REFERENCES ""BankaHesaplar"" (""Id"") ON DELETE SET NULL;
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'BankaHesaplari') 
+                           AND NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_PersonelAvansMahsuplar_BankaHesaplari') THEN
+                            ALTER TABLE ""PersonelAvansMahsuplar"" ADD CONSTRAINT ""FK_PersonelAvansMahsuplar_BankaHesaplari"" 
+                                FOREIGN KEY (""BankaHesapId"") REFERENCES ""BankaHesaplari"" (""Id"") ON DELETE SET NULL;
                         END IF;
                     END $$;
 
@@ -215,10 +215,10 @@ public static class PersonelFinansMigrationHelper
                     END $$;
 
                     DO $$ BEGIN
-                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'BankaHesaplar') 
-                           AND NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_PersonelBorcOdemeler_BankaHesaplar') THEN
-                            ALTER TABLE ""PersonelBorcOdemeler"" ADD CONSTRAINT ""FK_PersonelBorcOdemeler_BankaHesaplar"" 
-                                FOREIGN KEY (""BankaHesapId"") REFERENCES ""BankaHesaplar"" (""Id"") ON DELETE SET NULL;
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'BankaHesaplari') 
+                           AND NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_PersonelBorcOdemeler_BankaHesaplari') THEN
+                            ALTER TABLE ""PersonelBorcOdemeler"" ADD CONSTRAINT ""FK_PersonelBorcOdemeler_BankaHesaplari"" 
+                                FOREIGN KEY (""BankaHesapId"") REFERENCES ""BankaHesaplari"" (""Id"") ON DELETE SET NULL;
                         END IF;
                     END $$;
 

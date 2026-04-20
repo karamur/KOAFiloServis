@@ -53,13 +53,19 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Cari <span class="text-danger">*</span></label>
-                            <select class="form-select" @bind="proforma.CariId">
-                                <option value="0">-- Seçiniz --</option>
-                                @foreach (var cari in cariler)
-                                {
-                                    <option value="@cari.Id">@cari.Unvan</option>
-                                }
-                            </select>
+                            <div class="input-group">
+                                <select class="form-select" @bind="proforma.CariId">
+                                    <option value="0">-- Seçiniz --</option>
+                                    @foreach (var cari in cariler)
+                                    {
+                                        <option value="@cari.Id">@cari.Unvan</option>
+                                    }
+                                </select>
+                                <button class="btn btn-outline-success" type="button" title="Yeni Cari Ekle"
+                                        @onclick="YeniCariModalAc">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">KDV Oranı (%)</label>
@@ -277,6 +283,12 @@
     private bool isLoading = true;
     private bool isSaving = false;
 
+    // Hızlı Cari Modal
+    private bool cariModalAcik = false;
+    private bool cariKaydediliyor = false;
+    private string cariModalHata = string.Empty;
+    private Cari yeniCari = new() { CariTipi = CariTipi.Musteri, Aktif = true };
+
     protected override async Task OnInitializedAsync()
     {
         cariler = await CariService.GetAllAsync();
@@ -382,4 +394,117 @@
             isSaving = false;
         }
     }
+
+    private void YeniCariModalAc()
+    {
+        yeniCari = new Cari { CariTipi = CariTipi.Musteri, Aktif = true };
+        cariModalHata = string.Empty;
+        cariModalAcik = true;
+    }
+
+    private void CariModalKapat()
+    {
+        cariModalAcik = false;
+        cariModalHata = string.Empty;
+    }
+
+    private async Task YeniCariKaydetAsync()
+    {
+        if (string.IsNullOrWhiteSpace(yeniCari.Unvan))
+        {
+            cariModalHata = "Ünvan alanı zorunludur.";
+            return;
+        }
+
+        cariKaydediliyor = true;
+        cariModalHata = string.Empty;
+        try
+        {
+            yeniCari.CariKodu = await CariService.GenerateNextKodAsync();
+            var kaydedilenCari = await CariService.CreateAsync(yeniCari);
+            cariler = await CariService.GetAllAsync();
+            proforma.CariId = kaydedilenCari.Id;
+            cariModalAcik = false;
+        }
+        catch (Exception ex)
+        {
+            cariModalHata = $"Kayıt sırasında hata oluştu: {ex.Message}";
+        }
+        finally
+        {
+            cariKaydediliyor = false;
+        }
+    }
+}
+
+@* Hızlı Cari Kayıt Modalı *@
+@if (cariModalAcik)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-person-plus me-2"></i>Yeni Cari Ekle
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CariModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(cariModalHata))
+                    {
+                        <div class="alert alert-danger py-2">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@cariModalHata
+                        </div>
+                    }
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Ünvan / Ad Soyad <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" @bind="yeniCari.Unvan"
+                                   placeholder="Firma unvanı veya kişi adı" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Cari Tipi <span class="text-danger">*</span></label>
+                            <select class="form-select" @bind="yeniCari.CariTipi">
+                                <option value="@CariTipi.Musteri">Müşteri</option>
+                                <option value="@CariTipi.Tedarikci">Tedarikçi</option>
+                                <option value="@CariTipi.MusteriTedarikci">Müşteri/Tedarikçi</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Telefon</label>
+                            <input type="tel" class="form-control" @bind="yeniCari.Telefon" placeholder="0xxx xxx xx xx" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">E-posta</label>
+                            <input type="email" class="form-control" @bind="yeniCari.Email" placeholder="ornek@firma.com" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Vergi No / TC Kimlik</label>
+                            <input type="text" class="form-control" @bind="yeniCari.VergiNo" placeholder="Opsiyonel" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Vergi Dairesi</label>
+                            <input type="text" class="form-control" @bind="yeniCari.VergiDairesi" placeholder="Opsiyonel" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CariModalKapat">
+                        <i class="bi bi-x-lg me-1"></i>İptal
+                    </button>
+                    <button type="button" class="btn btn-success" @onclick="YeniCariKaydetAsync" disabled="@cariKaydediliyor">
+                        @if (cariKaydediliyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-check-lg me-1"></i>
+                        }
+                        Cari Kaydet &amp; Seç
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 }

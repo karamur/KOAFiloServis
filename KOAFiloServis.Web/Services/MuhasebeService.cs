@@ -3,6 +3,7 @@ using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace KOAFiloServis.Web.Services;
 
@@ -11,6 +12,7 @@ public class MuhasebeService : IMuhasebeService
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private static readonly string[] AyAdlari = { "", "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", 
                                                    "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik" };
+
 
     public MuhasebeService(IDbContextFactory<ApplicationDbContext> contextFactory)
     {
@@ -446,6 +448,11 @@ public class MuhasebeService : IMuhasebeService
     public async Task<string> GenerateNextFisNoAsync(FisTipi tip)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
+        return await GenerateNextFisNoInContextAsync(context, tip);
+    }
+
+    private static async Task<string> GenerateNextFisNoInContextAsync(ApplicationDbContext context, FisTipi tip)
+    {
         var prefix = tip switch
         {
             FisTipi.Mahsup => "MH",
@@ -456,24 +463,50 @@ public class MuhasebeService : IMuhasebeService
             FisTipi.Devir => "DV",
             _ => "MH"
         };
+        var yilAy = $"{DateTime.Now.Year}{DateTime.Now.Month:D2}";
+        var sonNo = await NextFisNoCounterAsync(context, prefix, yilAy);
+        return $"{prefix}-{yilAy}-{sonNo:D4}";
+    }
 
-        var yil = DateTime.Now.Year;
-        var ay = DateTime.Now.Month;
+    /// <summary>
+    /// INSERT ... ON CONFLICT DO UPDATE ... RETURNING ile atomik sayac artirimi.
+    /// Kilit gerektirmez; PostgreSQL duzeyinde %100 benzersiz deger garantisi.
+    /// </summary>
+    internal static async Task<int> NextFisNoCounterAsync(ApplicationDbContext context, string prefix, string yilAy)
+    {
+        var connectionString = context.Database.GetConnectionString()!;
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+        await using var cmd = new NpgsqlCommand(
+            @"INSERT INTO ""FisNoCounters"" (""Prefix"", ""YilAy"", ""SonNo"")
+              VALUES (@p, @y, 1)
+              ON CONFLICT (""Prefix"", ""YilAy"")
+              DO UPDATE SET ""SonNo"" = ""FisNoCounters"".""SonNo"" + 1
+              RETURNING ""SonNo""",
+            conn);
+        cmd.Parameters.AddWithValue("p", prefix);
+        cmd.Parameters.AddWithValue("y", yilAy);
+        var result = await cmd.ExecuteScalarAsync();
+        return Convert.ToInt32(result);
+    }
 
-        var lastFis = await context.MuhasebeFisleri
-            .Where(f => f.FisNo.StartsWith($"{prefix}-{yil}{ay:D2}"))
-            .OrderByDescending(f => f.FisNo)
-            .FirstOrDefaultAsync();
+    /// <inheritdoc/>
+    public async Task<MuhasebeFis> CreateFisAtomicAsync(MuhasebeFis fis)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        fis.FisNo = await GenerateNextFisNoInContextAsync(context, fis.FisTipi);
+        fis.FisTarihi = DateTime.SpecifyKind(fis.FisTarihi, DateTimeKind.Utc);
+        fis.CreatedAt = DateTime.UtcNow;
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
+        return fis;
+    }
 
-        var siraNo = 1;
-        if (lastFis != null)
-        {
-            var parts = lastFis.FisNo.Split('-');
-            if (parts.Length >= 2 && int.TryParse(parts.Last(), out var lastNo))
-                siraNo = lastNo + 1;
-        }
-
-        return $"{prefix}-{yil}{ay:D2}-{siraNo:D4}";
+    private static async Task FisKaydetKilitliAsync(ApplicationDbContext context, MuhasebeFis fis)
+    {
+        fis.FisNo = await GenerateNextFisNoInContextAsync(context, fis.FisTipi);
+        context.MuhasebeFisleri.Add(fis);
+        await context.SaveChangesAsync();
     }
 
     public async Task OnayliFisAsync(int fisId)
@@ -527,10 +560,9 @@ public class MuhasebeService : IMuhasebeService
             .Select(g => new { KdvOrani = (int)g.Key, KdvTutar = g.Sum(k => k.KdvTutar) })
             .ToList();
 
-        var fisNo = await GenerateNextFisNoAsync(FisTipi.Mahsup);
         var fis = new MuhasebeFis
         {
-            FisNo = fisNo,
+            FisNo = string.Empty,
             FisTarihi = DateTime.SpecifyKind(fatura.FaturaTarihi, DateTimeKind.Utc),
             FisTipi = FisTipi.Mahsup,
             Aciklama = $"Fatura: {fatura.FaturaNo}" + (fatura.TevkifatliMi ? " (Tevkifatlı)" : ""),
@@ -738,8 +770,7 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = kalemler.Sum(k => k.Borc);
         fis.ToplamAlacak = kalemler.Sum(k => k.Alacak);
 
-        context.MuhasebeFisleri.Add(fis);
-        await context.SaveChangesAsync();
+        await FisKaydetKilitliAsync(context, fis);
 
         // Faturaya fiş ID'sini kaydet
         var faturaEntity = await context.Faturalar.FindAsync(fatura.Id);
@@ -763,8 +794,6 @@ public class MuhasebeService : IMuhasebeService
         if (fatura == null)
             throw new Exception("Fatura bulunamadi");
 
-        var fisNo = await GenerateNextFisNoAsync(FisTipi.Tahsilat);
-
         var bankaHesap = await context.BankaHesaplari.FindAsync(hareket.BankaHesapId);
         if (bankaHesap == null)
             throw new Exception("Banka/Kasa hesabi bulunamadi");
@@ -780,7 +809,7 @@ public class MuhasebeService : IMuhasebeService
 
         var fis = new MuhasebeFis
         {
-            FisNo = fisNo,
+            FisNo = string.Empty,
             FisTarihi = DateTime.SpecifyKind(hareket.IslemTarihi, DateTimeKind.Utc),
             FisTipi = FisTipi.Tahsilat,
             Aciklama = $"Tahsilat: {hareket.Aciklama}",
@@ -799,8 +828,7 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = hareket.Tutar;
         fis.ToplamAlacak = hareket.Tutar;
 
-        context.MuhasebeFisleri.Add(fis);
-        await context.SaveChangesAsync();
+        await FisKaydetKilitliAsync(context, fis);
         return fis;
     }
 
@@ -811,7 +839,6 @@ public class MuhasebeService : IMuhasebeService
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var fatura = faturaId.HasValue ? await context.Faturalar.FindAsync(faturaId.Value) : null;
-        var fisNo = await GenerateNextFisNoAsync(FisTipi.Tediye);
 
         var bankaHesap = await context.BankaHesaplari.FindAsync(hareket.BankaHesapId);
         if (bankaHesap == null)
@@ -826,7 +853,7 @@ public class MuhasebeService : IMuhasebeService
 
         var fis = new MuhasebeFis
         {
-            FisNo = fisNo,
+            FisNo = string.Empty,
             FisTarihi = DateTime.SpecifyKind(hareket.IslemTarihi, DateTimeKind.Utc),
             FisTipi = FisTipi.Tediye,
             Aciklama = $"Odeme: {hareket.Aciklama}",
@@ -860,8 +887,7 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = hareket.Tutar;
         fis.ToplamAlacak = hareket.Tutar;
 
-        context.MuhasebeFisleri.Add(fis);
-        await context.SaveChangesAsync();
+        await FisKaydetKilitliAsync(context, fis);
         return fis;
     }
 
@@ -1531,11 +1557,9 @@ public class MuhasebeService : IMuhasebeService
         if (kaynakMuhasebeHesap == null || hedefMuhasebeHesap == null)
             return null;
 
-        var fisNo = await GenerateNextFisNoAsync(FisTipi.Mahsup);
-
         var fis = new MuhasebeFis
         {
-            FisNo = fisNo,
+            FisNo = string.Empty,
             FisTarihi = DateTime.SpecifyKind(cikisHareket.IslemTarihi, DateTimeKind.Utc),
             FisTipi = FisTipi.Mahsup,
             Aciklama = $"Hesaplar Arası Transfer: {kaynakHesap.HesapAdi} → {hedefHesap.HesapAdi}",
@@ -1570,8 +1594,7 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
         fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
 
-        context.MuhasebeFisleri.Add(fis);
-        await context.SaveChangesAsync();
+        await FisKaydetKilitliAsync(context, fis);
 
         return fis;
     }
@@ -1598,11 +1621,9 @@ public class MuhasebeService : IMuhasebeService
         var cariUstKod = tahsilatMi ? "120" : "320";
         var cariHesap = await GetOrCreateCariHesapAsync(context, cariUstKod, cari.Id);
 
-        var fisNo = await GenerateNextFisNoAsync(tahsilatMi ? FisTipi.Tahsilat : FisTipi.Tediye);
-
         var fis = new MuhasebeFis
         {
-            FisNo = fisNo,
+            FisNo = string.Empty,
             FisTarihi = DateTime.SpecifyKind(hareket.IslemTarihi, DateTimeKind.Utc),
             FisTipi = tahsilatMi ? FisTipi.Tahsilat : FisTipi.Tediye,
             Aciklama = $"Cari Mahsup: {cari.Unvan} - {(tahsilatMi ? "Tahsilat" : "Ödeme")}",
@@ -1660,8 +1681,7 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
         fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
 
-        context.MuhasebeFisleri.Add(fis);
-        await context.SaveChangesAsync();
+        await FisKaydetKilitliAsync(context, fis);
 
         return fis;
     }
@@ -1699,42 +1719,40 @@ public class MuhasebeService : IMuhasebeService
             eskiFis.UpdatedAt = DateTime.UtcNow;
 
             // Ters kayıt fişi oluştur
-            var fisNo = await GenerateNextFisNoAsync(eskiFis.FisTipi);
             var tersFis = new MuhasebeFis
             {
-                FisNo = fisNo,
-                FisTarihi = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc),
-                FisTipi = eskiFis.FisTipi,
-                Aciklama = $"[İPTAL] {eskiFis.Aciklama} - Orijinal Fiş: {eskiFis.FisNo}",
-                Kaynak = FisKaynak.Otomatik,
-                KaynakId = eskiFis.Id,
-                KaynakTip = "IptalKaydi",
-                Durum = FisDurum.Onaylandi,
-                CreatedAt = DateTime.UtcNow,
-                Kalemler = new List<MuhasebeFisKalem>()
-            };
+                FisNo = await GenerateNextFisNoInContextAsync(context, eskiFis.FisTipi),
+                        FisTarihi = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc),
+                        FisTipi = eskiFis.FisTipi,
+                        Aciklama = $"[İPTAL] {eskiFis.Aciklama} - Orijinal Fiş: {eskiFis.FisNo}",
+                        Kaynak = FisKaynak.Otomatik,
+                        KaynakId = eskiFis.Id,
+                        KaynakTip = "IptalKaydi",
+                        Durum = FisDurum.Onaylandi,
+                        CreatedAt = DateTime.UtcNow,
+                        Kalemler = new List<MuhasebeFisKalem>()
+                    };
 
-            // Borç ve alacakları ters çevir
-            int siraNo = 1;
-            foreach (var kalem in eskiFis.Kalemler)
-            {
-                tersFis.Kalemler.Add(new MuhasebeFisKalem
-                {
-                    HesapId = kalem.HesapId,
-                    Borc = kalem.Alacak,  // Alacağı borç yap
-                    Alacak = kalem.Borc,  // Borcu alacak yap
-                    CariId = kalem.CariId,
-                    Aciklama = $"[İPTAL] {kalem.Aciklama}",
-                    SiraNo = siraNo++
-                });
-            }
+                    // Borç ve alacakları ters çevir
+                    int siraNo = 1;
+                    foreach (var kalem in eskiFis.Kalemler)
+                    {
+                        tersFis.Kalemler.Add(new MuhasebeFisKalem
+                        {
+                            HesapId = kalem.HesapId,
+                            Borc = kalem.Alacak,  // Alacağı borç yap
+                            Alacak = kalem.Borc,  // Borcu alacak yap
+                            CariId = kalem.CariId,
+                            Aciklama = $"[İPTAL] {kalem.Aciklama}",
+                            SiraNo = siraNo++
+                        });
+                    }
 
-            tersFis.ToplamBorc = tersFis.Kalemler.Sum(k => k.Borc);
-            tersFis.ToplamAlacak = tersFis.Kalemler.Sum(k => k.Alacak);
+                    tersFis.ToplamBorc = tersFis.Kalemler.Sum(k => k.Borc);
+                    tersFis.ToplamAlacak = tersFis.Kalemler.Sum(k => k.Alacak);
 
-            context.MuhasebeFisleri.Add(tersFis);
+                    context.MuhasebeFisleri.Add(tersFis);
         }
-
         await context.SaveChangesAsync();
     }
 
@@ -2445,14 +2463,13 @@ public class MuhasebeService : IMuhasebeService
             karsiAciklama = "Kasa karşılığı";
         }
 
-        var fisNo = await GenerateNextFisNoAsync(FisTipi.Mahsup);
         var aciklama = $"Araç Masrafı: {masraf.Arac?.AktifPlaka} - {masraf.MasrafKalemi?.MasrafAdi}";
         if (!string.IsNullOrWhiteSpace(masraf.BelgeNo))
             aciklama += $" / Belge: {masraf.BelgeNo}";
 
         var fis = new MuhasebeFis
         {
-            FisNo = fisNo,
+            FisNo = string.Empty,
             FisTarihi = DateTime.SpecifyKind(masraf.MasrafTarihi, DateTimeKind.Utc),
             FisTipi = FisTipi.Mahsup,
             Aciklama = aciklama,
@@ -2487,8 +2504,7 @@ public class MuhasebeService : IMuhasebeService
         fis.ToplamBorc = fis.Kalemler.Sum(k => k.Borc);
         fis.ToplamAlacak = fis.Kalemler.Sum(k => k.Alacak);
 
-        context.MuhasebeFisleri.Add(fis);
-        await context.SaveChangesAsync();
+        await FisKaydetKilitliAsync(context, fis);
 
         // Masrafa fiş ID kaydet
         masraf.MuhasebeFisId = fis.Id;

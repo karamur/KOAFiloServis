@@ -1168,7 +1168,7 @@ public class BudgetService : IBudgetService
 
         var fis = new MuhasebeFis
         {
-            FisNo = await _muhasebeService.GenerateNextFisNoAsync(FisTipi.Mahsup),
+            FisNo = string.Empty,
             FisTarihi = kullanimTarihi,
             FisTipi = FisTipi.Mahsup,
             Aciklama = $"Kredi kullanımı: {request.Aciklama ?? request.MasrafKalemi}",
@@ -1179,7 +1179,7 @@ public class BudgetService : IBudgetService
             Kalemler = kalemler
         };
 
-        await _muhasebeService.CreateFisAsync(fis);
+        await _muhasebeService.CreateFisAtomicAsync(fis);
         await context.SaveChangesAsync();
     }
 
@@ -1255,7 +1255,7 @@ public class BudgetService : IBudgetService
 
         var fis = new MuhasebeFis
         {
-            FisNo = await _muhasebeService.GenerateNextFisNoAsync(FisTipi.Tediye),
+            FisNo = string.Empty,
             FisTarihi = hareket.IslemTarihi,
             FisTipi = FisTipi.Tediye,
             Aciklama = $"Bütçe ödeme muhasebeleştirme: {odeme.MasrafKalemi}",
@@ -1266,7 +1266,7 @@ public class BudgetService : IBudgetService
             Kalemler = kalemler
         };
 
-        await _muhasebeService.CreateFisAsync(fis);
+        await _muhasebeService.CreateFisAtomicAsync(fis);
     }
 
     public async Task<List<BudgetGunlukOzet>> GetTakvimDataAsync(int yil, int ay, int? firmaId = null)

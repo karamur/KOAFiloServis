@@ -449,7 +449,7 @@ public class StokService : IStokService
 
         var fis = new MuhasebeFis
         {
-            FisNo = await GenerateNextStokFisNoAsync(context),
+            FisNo = string.Empty,
             FisTarihi = hareket.IslemTarihi,
             FisTipi = FisTipi.Mahsup,
             Aciklama = $"Stok Operasyonu - {stok.StokAdi} - {hareket.HareketTipi}",
@@ -486,6 +486,7 @@ public class StokService : IStokService
             CreatedAt = DateTime.UtcNow
         });
 
+        fis.FisNo = await GenerateNextStokFisNoAsync(context);
         context.MuhasebeFisleri.Add(fis);
         await context.SaveChangesAsync();
     }
@@ -504,7 +505,7 @@ public class StokService : IStokService
 
         var fis = new MuhasebeFis
         {
-            FisNo = await GenerateNextStokFisNoAsync(context),
+            FisNo = string.Empty,
             FisTarihi = DateTime.SpecifyKind(recete.IslemTarihi, DateTimeKind.Utc),
             FisTipi = FisTipi.Mahsup,
             Aciklama = $"Üretim Reçetesi - {mamul.StokAdi}",
@@ -538,6 +539,7 @@ public class StokService : IStokService
             CreatedAt = DateTime.UtcNow
         });
 
+        fis.FisNo = await GenerateNextStokFisNoAsync(context);
         context.MuhasebeFisleri.Add(fis);
         await context.SaveChangesAsync();
     }
@@ -564,23 +566,11 @@ public class StokService : IStokService
         return hesap;
     }
 
-    private async Task<string> GenerateNextStokFisNoAsync(ApplicationDbContext context)
+    private static async Task<string> GenerateNextStokFisNoAsync(ApplicationDbContext context)
     {
-        var prefix = $"STK-{DateTime.UtcNow:yyyyMM}";
-        var sonFis = await context.MuhasebeFisleri
-            .Where(f => f.FisNo.StartsWith(prefix))
-            .OrderByDescending(f => f.FisNo)
-            .FirstOrDefaultAsync();
-
-        var sira = 1;
-        if (sonFis != null)
-        {
-            var sonParca = sonFis.FisNo.Split('-').LastOrDefault();
-            if (int.TryParse(sonParca, out var no))
-                sira = no + 1;
-        }
-
-        return $"{prefix}-{sira:D4}";
+        var yilAy = $"{DateTime.UtcNow.Year}{DateTime.UtcNow.Month:D2}";
+        var sonNo = await MuhasebeService.NextFisNoCounterAsync(context, "STK", yilAy);
+        return $"STK-{yilAy}-{sonNo:D4}";
     }
 
     private static string GetKarsiHesapAdi(StokHareketTipi hareketTipi) => hareketTipi switch

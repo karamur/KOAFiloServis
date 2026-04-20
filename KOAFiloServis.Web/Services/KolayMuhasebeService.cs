@@ -1151,9 +1151,10 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
     private async Task<int> KaydetMuhasebeFisi(ApplicationDbContext context, MuhasebeOnizleme onizleme, FisKaynak kaynak = FisKaynak.Manuel, int? kaynakId = null, string? kaynakTip = null)
     {
+        // FisNo preview anında değil, kayıt anında üretilir (stale FisNo → duplicate key sorununu önler).
         var fis = new MuhasebeFis
         {
-            FisNo = onizleme.FisNo,
+            FisNo = string.Empty,
             FisTarihi = DateTime.SpecifyKind(onizleme.FisTarihi, DateTimeKind.Utc),
             FisTipi = onizleme.FisTipi,
             Aciklama = onizleme.Aciklama,
@@ -1166,10 +1167,10 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             CreatedAt = DateTime.UtcNow
         };
 
-        context.MuhasebeFisleri.Add(fis);
-        await context.SaveChangesAsync();
+        // Atomik olarak FisNo üret + fişi kaydet (SemaphoreSlim koruması altında)
+        var savedFis = await _muhasebeService.CreateFisAtomicAsync(fis);
 
-        // Kalemleri ekle
+        // Kalemleri mevcut context üzerinden ekle (FK ile bağlı)
         foreach (var kalem in onizleme.Kalemler)
         {
             if (!kalem.HesapId.HasValue || kalem.HesapId == 0)
@@ -1177,7 +1178,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
             var fisKalem = new MuhasebeFisKalem
             {
-                FisId = fis.Id,
+                FisId = savedFis.Id,
                 HesapId = kalem.HesapId.Value,
                 SiraNo = kalem.SiraNo,
                 Borc = kalem.Borc,
@@ -1192,7 +1193,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         }
 
         await context.SaveChangesAsync();
-        return fis.Id;
+        return savedFis.Id;
     }
 
     #endregion
