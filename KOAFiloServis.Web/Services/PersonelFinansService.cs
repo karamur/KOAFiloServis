@@ -107,24 +107,28 @@ public class PersonelFinansService : IPersonelFinansService
         if (avans.Mahsuplasmalar.Any())
             throw new InvalidOperationException("Mahsuplaşması olan avans silinemez!");
 
-        await using var transaction = await context.Database.BeginTransactionAsync();
-
-        if (avans.MuhasebeFisId.HasValue)
+        var strategy = context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            var fis = await context.Set<MuhasebeFis>()
-                .IgnoreQueryFilters()
-                .Include(f => f.Kalemler)
-                .FirstOrDefaultAsync(f => f.Id == avans.MuhasebeFisId.Value);
-            if (fis != null)
-            {
-                context.Set<MuhasebeFisKalem>().RemoveRange(fis.Kalemler);
-                context.Set<MuhasebeFis>().Remove(fis);
-            }
-        }
+            await using var transaction = await context.Database.BeginTransactionAsync();
 
-        avans.IsDeleted = true;
-        await context.SaveChangesAsync();
-        await transaction.CommitAsync();
+            if (avans.MuhasebeFisId.HasValue)
+            {
+                var fis = await context.Set<MuhasebeFis>()
+                    .IgnoreQueryFilters()
+                    .Include(f => f.Kalemler)
+                    .FirstOrDefaultAsync(f => f.Id == avans.MuhasebeFisId.Value);
+                if (fis != null)
+                {
+                    context.Set<MuhasebeFisKalem>().RemoveRange(fis.Kalemler);
+                    context.Set<MuhasebeFis>().Remove(fis);
+                }
+            }
+
+            avans.IsDeleted = true;
+            await context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        });
     }
 
     public async Task<PersonelAvans> IptalEtAvansAsync(int id, string iptalNedeni)
@@ -371,44 +375,48 @@ public class PersonelFinansService : IPersonelFinansService
     public async Task DeleteBorcAsync(int id)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var borc = await context.Set<PersonelBorc>()
-            .IgnoreQueryFilters()
-            .Include(b => b.Odemeler)
-            .FirstOrDefaultAsync(b => b.Id == id);
-
-        if (borc == null)
-            throw new InvalidOperationException($"Borç bulunamadı. Id: {id}");
-
-        var fisIdleri = new HashSet<int>();
-        if (borc.MuhasebeFisId.HasValue)
-            fisIdleri.Add(borc.MuhasebeFisId.Value);
-
-        foreach (var odeme in borc.Odemeler)
+        var strategy = context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            if (odeme.MuhasebeFisId.HasValue)
-                fisIdleri.Add(odeme.MuhasebeFisId.Value);
-        }
-
-        await using var transaction = await context.Database.BeginTransactionAsync();
-        context.Set<PersonelBorcOdeme>().RemoveRange(borc.Odemeler);
-        context.Set<PersonelBorc>().Remove(borc);
-
-        if (fisIdleri.Count > 0)
-        {
-            var fisler = await context.Set<MuhasebeFis>()
+            var borc = await context.Set<PersonelBorc>()
                 .IgnoreQueryFilters()
-                .Include(f => f.Kalemler)
-                .Where(f => fisIdleri.Contains(f.Id))
-                .ToListAsync();
+                .Include(b => b.Odemeler)
+                .FirstOrDefaultAsync(b => b.Id == id);
 
-            foreach (var fis in fisler)
-                context.Set<MuhasebeFisKalem>().RemoveRange(fis.Kalemler);
+            if (borc == null)
+                throw new InvalidOperationException($"Borç bulunamadı. Id: {id}");
 
-            context.Set<MuhasebeFis>().RemoveRange(fisler);
-        }
+            var fisIdleri = new HashSet<int>();
+            if (borc.MuhasebeFisId.HasValue)
+                fisIdleri.Add(borc.MuhasebeFisId.Value);
 
-        await context.SaveChangesAsync();
-        await transaction.CommitAsync();
+            foreach (var odeme in borc.Odemeler)
+            {
+                if (odeme.MuhasebeFisId.HasValue)
+                    fisIdleri.Add(odeme.MuhasebeFisId.Value);
+            }
+
+            await using var transaction = await context.Database.BeginTransactionAsync();
+            context.Set<PersonelBorcOdeme>().RemoveRange(borc.Odemeler);
+            context.Set<PersonelBorc>().Remove(borc);
+
+            if (fisIdleri.Count > 0)
+            {
+                var fisler = await context.Set<MuhasebeFis>()
+                    .IgnoreQueryFilters()
+                    .Include(f => f.Kalemler)
+                    .Where(f => fisIdleri.Contains(f.Id))
+                    .ToListAsync();
+
+                foreach (var fis in fisler)
+                    context.Set<MuhasebeFisKalem>().RemoveRange(fis.Kalemler);
+
+                context.Set<MuhasebeFis>().RemoveRange(fisler);
+            }
+
+            await context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        });
     }
 
     public async Task<PersonelBorc> IptalEtBorcAsync(int id, string iptalNedeni)
