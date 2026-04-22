@@ -135,9 +135,10 @@
                                             <th class="text-end text-danger" title="Borç / kesinti">Kesinti (-)</th>
                                             <th class="text-end text-success" title="Personelin şirket adına cebinden yaptığı harcama">Harcaması (+)</th>
                                             <th class="text-end fw-bold" title="Gerçek Maaş - Bankaya Yatan - Avans - Kesinti + Harcaması">Ödenecek</th>
-                                            <th>Durum</th>
-                                        </tr>
-                                    </thead>
+                                                    <th>Durum</th>
+                                                    <th style="width:50px;"></th>
+                                                </tr>
+                                            </thead>
                                     <tbody>
                                         @{ int durSira = 0; }
                                         @foreach (var s in DurFiltreliSatirlar)
@@ -172,22 +173,28 @@
                                                 <td class="text-end fw-bold @(s.Odenecek >= 0 ? "text-success" : "text-danger")">
                                                     @FormatPara(s.Odenecek)
                                                 </td>
-                                                <td>
-                                                    @if (s.Odenecek > 0)
-                                                    {
-                                                        <span class="badge bg-warning text-dark" style="font-size:0.65rem;">Elden Ödenecek</span>
-                                                    }
-                                                    else if (s.BankayaYatan > 0)
-                                                    {
-                                                        <span class="badge bg-success" style="font-size:0.65rem;">Banka Ödemesi</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="badge bg-secondary" style="font-size:0.65rem;">Ödeme Yok</span>
-                                                    }
-                                                </td>
-                                            </tr>
-                                        }
+                                                        <td>
+                                                            @if (s.Odenecek > 0)
+                                                            {
+                                                                <span class="badge bg-warning text-dark" style="font-size:0.65rem;">Elden Ödenecek</span>
+                                                            }
+                                                            else if (s.BankayaYatan > 0)
+                                                            {
+                                                                <span class="badge bg-success" style="font-size:0.65rem;">Banka Ödemesi</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-secondary" style="font-size:0.65rem;">Ödeme Yok</span>
+                                                            }
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-outline-primary py-0 px-2" title="Detay" @onclick:stopPropagation="true"
+                                                                    @onclick="() => DurumPersonelSec(s.PersonelId)">
+                                                                <i class="bi bi-person-lines-fill"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                }
                                     </tbody>
                                     <tfoot class="table-dark">
                                         <tr>
@@ -197,10 +204,11 @@
                                             <td class="text-end text-warning"><strong>-@FormatPara(DurFiltreliSatirlar.Sum(s => s.Avans))</strong></td>
                                             <td class="text-end text-danger"><strong>-@FormatPara(DurFiltreliSatirlar.Sum(s => s.Kesinti))</strong></td>
                                             <td class="text-end text-success"><strong>+@FormatPara(DurFiltreliSatirlar.Sum(s => s.Harcamasi))</strong></td>
-                                            <td class="text-end"><strong>@FormatPara(DurFiltreliSatirlar.Sum(s => s.Odenecek))</strong></td>
-                                            <td></td>
-                                        </tr>
-                                    </tfoot>
+                                                    <td class="text-end"><strong>@FormatPara(DurFiltreliSatirlar.Sum(s => s.Odenecek))</strong></td>
+                                                    <td></td>
+                                                    <td></td>
+                                                </tr>
+                                            </tfoot>
                                 </table>
                             </div>
                         </div>

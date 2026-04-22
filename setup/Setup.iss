@@ -8,7 +8,7 @@
 #define MyDataSyncExe "KOAFiloServis.DataSync.exe"
 
 #ifndef MyAppVersion
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.5"
 #endif
 
 [Setup]

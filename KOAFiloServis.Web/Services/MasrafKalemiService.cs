@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -97,6 +97,35 @@ public class MasrafKalemiService : IMasrafKalemiService
             await context.SaveChangesAsync();
             await _cache.RemoveByPrefixAsync(CacheKeys.MasrafKalemiPrefix);
         }
+    }
+
+    public async Task<int> DeleteDuplicatesAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kalemler = await context.MasrafKalemleri
+            .IgnoreQueryFilters()
+            .OrderBy(m => m.Id)
+            .ToListAsync();
+
+        var silinecekler = kalemler
+            .GroupBy(m => m.MasrafAdi.Trim().ToLower())
+            .Where(g => g.Count() > 1)
+            .SelectMany(g => g.Skip(1))
+            .ToList();
+
+        foreach (var k in silinecekler)
+        {
+            k.IsDeleted = true;
+            k.UpdatedAt = DateTime.UtcNow;
+        }
+
+        if (silinecekler.Any())
+        {
+            await context.SaveChangesAsync();
+            await _cache.RemoveByPrefixAsync(CacheKeys.MasrafKalemiPrefix);
+        }
+
+        return silinecekler.Count;
     }
 
     public async Task<string> GenerateNextKodAsync()

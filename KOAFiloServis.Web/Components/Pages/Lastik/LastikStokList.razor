@@ -1,8 +1,9 @@
-@page "/lastik/stok"
+﻿@page "/lastik/stok"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
 @inject ILastikService LastikService
+@inject IAracService AracService
 @inject IToastService ToastService
 @rendermode InteractiveServer
 
@@ -44,6 +45,33 @@
                             <option value="@d.Id">@d.DepoAdi</option>
                         }
                     </select>
+                </div>
+                <div class="col-md-3">
+                    <div class="position-relative">
+                        <input type="text" class="form-control form-control-sm" placeholder="Plaka ile filtrele..."
+                               value="@filtreAracArama"
+                               @oninput="AracAramaGuncelle"
+                               @onfocus="() => aracDropAcik = true"
+                               @onblur="AracDropKapat" />
+                        @if (aracDropAcik && filtreliAraclar.Any())
+                        {
+                            <div class="dropdown-menu show w-100" style="max-height:200px;overflow-y:auto;z-index:1060;">
+                                <button type="button" class="dropdown-item" @onmousedown="() => AracSec(null)">
+                                    <span class="text-muted">-- Tüm Araçlar --</span>
+                                </button>
+                                @foreach (var a in filtreliAraclar)
+                                {
+                                    <button type="button" class="dropdown-item" @onmousedown="() => AracSec(a)">
+                                        <strong>@a.AktifPlaka</strong> — @a.Marka @a.Model
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                    @if (filtreAracId.HasValue)
+                    {
+                        <small class="text-success"><i class="bi bi-check-circle me-1"></i>@filtreAracArama</small>
+                    }
                 </div>
             </div>
         </div>
@@ -266,6 +294,8 @@
 @code {
     private List<LastikStok>? stoklar;
     private List<LastikDepo> depolar = new();
+    private List<Arac> tumAraclar = new();
+    private List<Arac> filtreliAraclar = new();
     private LastikStok editStok = new();
     private LastikStok? silinecek;
     private LastikStok? pasifYapilacak;
@@ -275,16 +305,51 @@
     private bool kaydediliyor;
     private int? filtreDepoId;
     private bool? filtreAktif = true;
+    private int? filtreAracId;
+    private string filtreAracArama = string.Empty;
+    private bool aracDropAcik = false;
 
     protected override async Task OnInitializedAsync()
     {
         depolar = await LastikService.GetDepoListAsync();
+        tumAraclar = await AracService.GetAllAsync();
+        filtreliAraclar = tumAraclar;
         await YukleStoklar();
     }
 
     private async Task YukleStoklar()
     {
-        stoklar = await LastikService.GetStokListAsync(filtreDepoId, filtreAktif);
+        var tumStoklar = await LastikService.GetStokListAsync(filtreDepoId, filtreAktif);
+        if (filtreAracId.HasValue)
+            stoklar = tumStoklar.Where(s => s.AracId == filtreAracId).ToList();
+        else
+            stoklar = tumStoklar;
+    }
+
+    private void AracAramaGuncelle(ChangeEventArgs e)
+    {
+        filtreAracArama = e.Value?.ToString() ?? string.Empty;
+        filtreliAraclar = string.IsNullOrWhiteSpace(filtreAracArama)
+            ? tumAraclar
+            : tumAraclar.Where(a =>
+                (a.AktifPlaka?.Contains(filtreAracArama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.Marka?.Contains(filtreAracArama, StringComparison.OrdinalIgnoreCase) ?? false))
+              .ToList();
+        aracDropAcik = true;
+    }
+
+    private async Task AracSec(Arac? arac)
+    {
+        filtreAracId = arac?.Id;
+        filtreAracArama = arac != null ? $"{arac.AktifPlaka} {arac.Marka} {arac.Model}".Trim() : string.Empty;
+        aracDropAcik = false;
+        await YukleStoklar();
+    }
+
+    private async Task AracDropKapat()
+    {
+        await Task.Delay(200);
+        aracDropAcik = false;
     }
 
     private async Task AktifFiltreDegistir(bool? aktif)

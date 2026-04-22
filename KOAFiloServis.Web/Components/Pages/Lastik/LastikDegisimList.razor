@@ -1,4 +1,4 @@
-@page "/lastik/degisimler"
+﻿@page "/lastik/degisimler"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
@@ -25,13 +25,31 @@
             <div class="row g-2 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label mb-1">Araç</label>
-                    <select class="form-select form-select-sm" @onchange="AracFilter">
-                        <option value="">-- Tüm Araçlar --</option>
-                        @foreach (var a in araclar)
+                    <div class="position-relative">
+                        <input type="text" class="form-control form-control-sm" placeholder="Plaka veya araç ara..."
+                               value="@filtreAracArama"
+                               @oninput="FiltreAracAramaGuncelle"
+                               @onfocus="() => filtreAracDropAcik = true"
+                               @onblur="FiltreAracDropKapat" />
+                        @if (filtreAracDropAcik && filtreliAraclar.Any())
                         {
-                            <option value="@a.Id">@a.AktifPlaka @a.Marka @a.Model</option>
+                            <div class="dropdown-menu show w-100" style="max-height:200px;overflow-y:auto;z-index:1060;">
+                                <button type="button" class="dropdown-item" @onmousedown="() => FiltreAracSec(null)">
+                                    <span class="text-muted">-- Tüm Araçlar --</span>
+                                </button>
+                                @foreach (var a in filtreliAraclar)
+                                {
+                                    <button type="button" class="dropdown-item" @onmousedown="() => FiltreAracSec(a)">
+                                        <strong>@a.AktifPlaka</strong> — @a.Marka @a.Model
+                                    </button>
+                                }
+                            </div>
                         }
-                    </select>
+                    </div>
+                    @if (filtreAracId.HasValue)
+                    {
+                        <small class="text-success"><i class="bi bi-check-circle me-1"></i>Seçili: @filtreAracArama</small>
+                    }
                 </div>
                 <div class="col-md-2">
                     <label class="form-label mb-1">Başlangıç</label>
@@ -211,13 +229,28 @@
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Araç *</label>
-                                <InputSelect @bind-Value="editDegisim.AracId" class="form-select">
-                                    <option value="0">-- Araç Seçin --</option>
-                                    @foreach (var a in araclar)
+                                <div class="position-relative">
+                                    <input type="text" class="form-control" placeholder="Plaka veya araç ara..."
+                                           value="@formAracArama"
+                                           @oninput="FormAracAramaGuncelle"
+                                           @onfocus="() => formAracDropAcik = true"
+                                           @onblur="FormAracDropKapat" />
+                                    @if (formAracDropAcik && formFiltreliAraclar.Any())
                                     {
-                                        <option value="@a.Id">@a.AktifPlaka - @a.Marka @a.Model</option>
+                                        <div class="dropdown-menu show w-100" style="max-height:220px;overflow-y:auto;z-index:1060;">
+                                            @foreach (var a in formFiltreliAraclar)
+                                            {
+                                                <button type="button" class="dropdown-item" @onmousedown="() => FormAracSec(a)">
+                                                    <strong>@a.AktifPlaka</strong> — @a.Marka @a.Model
+                                                </button>
+                                            }
+                                        </div>
                                     }
-                                </InputSelect>
+                                </div>
+                                @if (editDegisim.AracId > 0)
+                                {
+                                    <small class="text-success"><i class="bi bi-check-circle me-1"></i>Seçili: @formAracArama</small>
+                                }
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label">Değişim Tarihi *</label>
@@ -552,11 +585,44 @@
     protected override async Task OnInitializedAsync()
     {
         araclar = await AracService.GetAllAsync();
+        filtreliAraclar = araclar;
+        formFiltreliAraclar = araclar;
         depolar = await LastikService.GetDepoListAsync();
         stoklar = await LastikService.GetStokListAsync();
         degisimler = await LastikService.GetDegisimListAsync();
         HazirlaDegisimSatirlari(degisimAdet);
         await YukleAracDonemOzeti();
+    }
+
+    private string filtreAracArama = string.Empty;
+    private bool filtreAracDropAcik = false;
+    private List<Arac> filtreliAraclar = new();
+
+    private void FiltreAracAramaGuncelle(ChangeEventArgs e)
+    {
+        filtreAracArama = e.Value?.ToString() ?? string.Empty;
+        filtreliAraclar = string.IsNullOrWhiteSpace(filtreAracArama)
+            ? araclar
+            : araclar.Where(a =>
+                (a.AktifPlaka?.Contains(filtreAracArama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.Marka?.Contains(filtreAracArama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.Model?.Contains(filtreAracArama, StringComparison.OrdinalIgnoreCase) ?? false))
+              .ToList();
+        filtreAracDropAcik = true;
+    }
+
+    private async Task FiltreAracSec(Arac? arac)
+    {
+        filtreAracId = arac?.Id;
+        filtreAracArama = arac != null ? $"{arac.AktifPlaka} {arac.Marka} {arac.Model}".Trim() : string.Empty;
+        filtreAracDropAcik = false;
+        await Filtrele();
+    }
+
+    private async Task FiltreAracDropKapat()
+    {
+        await Task.Delay(200);
+        filtreAracDropAcik = false;
     }
 
     private async Task AracFilter(ChangeEventArgs e)
@@ -627,6 +693,36 @@
         silinecek = kayit;
         showDeleteModal = true;
     }
+    private string formAracArama = string.Empty;
+    private bool formAracDropAcik = false;
+    private List<Arac> formFiltreliAraclar = new();
+
+    private void FormAracAramaGuncelle(ChangeEventArgs e)
+    {
+        formAracArama = e.Value?.ToString() ?? string.Empty;
+        formFiltreliAraclar = string.IsNullOrWhiteSpace(formAracArama)
+            ? araclar
+            : araclar.Where(a =>
+                (a.AktifPlaka?.Contains(formAracArama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.Marka?.Contains(formAracArama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.Model?.Contains(formAracArama, StringComparison.OrdinalIgnoreCase) ?? false))
+              .ToList();
+        formAracDropAcik = true;
+    }
+
+    private void FormAracSec(Arac arac)
+    {
+        editDegisim.AracId = arac.Id;
+        formAracArama = $"{arac.AktifPlaka} {arac.Marka} {arac.Model}".Trim();
+        formAracDropAcik = false;
+    }
+
+    private async Task FormAracDropKapat()
+    {
+        await Task.Delay(200);
+        formAracDropAcik = false;
+    }
+
     private void YeniDegisim()
     {
         editDegisim = new LastikDegisim

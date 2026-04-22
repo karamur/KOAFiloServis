@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 
 namespace KOAFiloServis.Web.Services;
 
@@ -12,4 +12,5 @@ public interface IMasrafKalemiService
     Task<MasrafKalemi> UpdateAsync(MasrafKalemi masrafKalemi);
     Task DeleteAsync(int id);
     Task<string> GenerateNextKodAsync();
+    Task<int> DeleteDuplicatesAsync();
 }

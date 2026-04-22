@@ -316,11 +316,17 @@
                                             <small class="text-muted d-block">@item.IslemTarihi.ToString("dd.MM.yy") - @TruncateText(item.Aciklama, 30)</small>
                                         </div>
                                         <div class="text-end">
-                                            <span class="badge bg-warning text-dark">@FormatPara(item.Tutar)</span>
-                                            <button class="btn btn-sm btn-success ms-1" @onclick="() => PersoneleOdeAsync(item)" title="Ödendi İşaretle">
-                                                <i class="bi bi-check2"></i>
-                                            </button>
-                                        </div>
+                                             <span class="badge bg-warning text-dark">@FormatPara(item.Tutar)</span>
+                                             <button class="btn btn-sm btn-success ms-1" @onclick="() => PersoneleOdeAsync(item)" title="Ödendi İşaretle">
+                                                 <i class="bi bi-check2"></i>
+                                             </button>
+                                             <button class="btn btn-sm btn-outline-primary ms-1" @onclick="() => HareketDuzenleAc(item)" title="Düzenle">
+                                                 <i class="bi bi-pencil"></i>
+                                             </button>
+                                             <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => SilAsync(item)" title="Sil">
+                                                 <i class="bi bi-trash"></i>
+                                             </button>
+                                         </div>
                                     </div>
                                 </div>
                             }
@@ -391,9 +397,14 @@
                                         </div>
                                         @if (h.IslemKaynak == IslemKaynak.Manuel || h.IslemKaynak == IslemKaynak.PersonelCebinden)
                                         {
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => SilAsync(h)" title="Sil">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
+                                            <div class="d-flex gap-1">
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => HareketDuzenleAc(h)" title="Düzenle">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => SilAsync(h)" title="Sil">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
                                         }
                                         else
                                         {
@@ -409,6 +420,61 @@
         </div>
     </div>
 </div>
+
+<!-- Hareket Düzenleme Modal -->
+@if (duzenleModalGoster && duzenleHareket != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Hareketi Düzenle</h5>
+                    <button type="button" class="btn-close" @onclick="() => duzenleModalGoster = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Tutar *</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" @bind="duzenleHareket.Tutar" step="0.01" min="0.01" />
+                            <span class="input-group-text">₺</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Tarih</label>
+                        <input type="date" class="form-control" @bind="duzenleHareket.IslemTarihi" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Açıklama</label>
+                        <input type="text" class="form-control" @bind="duzenleHareket.Aciklama" placeholder="Açıklama..." />
+                    </div>
+                    @if (duzenleHareket.PersonelCebindenId.HasValue)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">Personel</label>
+                            <select class="form-select" @bind="duzenleHareket.PersonelCebindenId">
+                                <option value="">Seçiniz...</option>
+                                @foreach (var p in personeller.Where(x => x.Aktif))
+                                {
+                                    <option value="@p.Id">@p.TamAd (@p.SoforKodu)</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => duzenleModalGoster = false">İptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="HareketGuncelleAsync">
+                        @if (isDuzenleniyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private BankaKasaHareket hareket = new()
@@ -429,8 +495,11 @@
     private int filtreHesapId = 0;
     private bool muhasebeFisiOlustur = false;
     private bool isKaydediliyor = false;
+    private bool isDuzenleniyor = false;
     private bool detayGoster = false;
     private bool stokDetayGoster = false;
+    private bool duzenleModalGoster = false;
+    private BankaKasaHareket? duzenleHareket = null;
     private OdemeKaynakTipi odemeKaynagi = OdemeKaynakTipi.Kasa;
     private int personeleOdenecekSayisi = 0;
 
@@ -668,6 +737,46 @@
             await MuhasebeService.CreateFisAsync(fis);
         }
         catch { }
+    }
+
+    private void HareketDuzenleAc(BankaKasaHareket h)
+    {
+        duzenleHareket = new BankaKasaHareket
+        {
+            Id = h.Id,
+            Tutar = h.Tutar,
+            IslemTarihi = h.IslemTarihi,
+            Aciklama = h.Aciklama,
+            PersonelCebindenId = h.PersonelCebindenId,
+            HareketTipi = h.HareketTipi,
+            BankaHesapId = h.BankaHesapId,
+            IslemKaynak = h.IslemKaynak,
+            PersoneleOdendi = h.PersoneleOdendi,
+            PersonelOdemeTarihi = h.PersonelOdemeTarihi
+        };
+        duzenleModalGoster = true;
+    }
+
+    private async Task HareketGuncelleAsync()
+    {
+        if (duzenleHareket == null || duzenleHareket.Tutar <= 0) return;
+        isDuzenleniyor = true;
+        try
+        {
+            await HareketService.UpdateAsync(duzenleHareket);
+            ToastService.ShowSuccess("Hareket güncellendi.");
+            duzenleModalGoster = false;
+            await FiltreleAsync();
+            await LoadPersoneleOdeneceklerAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isDuzenleniyor = false;
+        }
     }
 
     private async Task SilAsync(BankaKasaHareket h)
