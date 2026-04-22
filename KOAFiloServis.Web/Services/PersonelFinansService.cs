@@ -179,6 +179,15 @@ public class PersonelFinansService : IPersonelFinansService
         avans.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+
+        // Muhasebe kaydı oluştur
+        var avansWithPersonel = await context.Set<PersonelAvans>()
+            .Include(a => a.Personel)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == avansId);
+        if (avansWithPersonel != null)
+            await CreateMahsupMuhasebeFisiAsync(mahsup, avansWithPersonel);
+
         return mahsup;
     }
 
@@ -774,19 +783,143 @@ public class PersonelFinansService : IPersonelFinansService
 
     #region Muhasebe Entegrasyonu
 
-    private Task CreateAvansMuhasebeFisiAsync(PersonelAvans avans)
+    private async Task CreateAvansMuhasebeFisiAsync(PersonelAvans avans)
     {
-        return Task.CompletedTask;
+        var ayar = await GetAyarlarAsync(avans.FirmaId);
+        if (ayar == null || !ayar.OtomatikFisOlustur || !ayar.AvansVerildigindeFisOlustur)
+            return;
+        if (!ayar.PersonelAvanslariHesapId.HasValue || !ayar.KasaHesapId.HasValue)
+            return;
+
+        var fis = new MuhasebeFis
+        {
+            FisTarihi = DateTime.SpecifyKind(avans.AvansTarihi.Date, DateTimeKind.Utc),
+            FisTipi = FisTipi.Tediye,
+            Kaynak = FisKaynak.Otomatik,
+            KaynakId = avans.Id,
+            KaynakTip = "PersonelAvans",
+            Aciklama = $"Personel avansı - {avans.Personel?.TamAd ?? avans.PersonelId.ToString()} ({avans.Tutar:N2} ₺)",
+            Durum = FisDurum.Taslak,
+            Kalemler = new List<MuhasebeFisKalem>
+            {
+                new() { HesapId = ayar.PersonelAvanslariHesapId.Value, Borc = avans.Tutar, Alacak = 0, SiraNo = 1, Aciklama = "Verilen avans" },
+                new() { HesapId = ayar.KasaHesapId.Value, Borc = 0, Alacak = avans.Tutar, SiraNo = 2, Aciklama = "Kasa çıkışı" }
+            }
+        };
+
+        var kaydedilenFis = await _muhasebeService.CreateFisAtomicAsync(fis);
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entity = await context.Set<PersonelAvans>().FindAsync(avans.Id);
+        if (entity != null)
+        {
+            entity.MuhasebeFisId = kaydedilenFis.Id;
+            await context.SaveChangesAsync();
+        }
+        avans.MuhasebeFisId = kaydedilenFis.Id;
     }
 
-    private Task CreateBorcMuhasebeFisiAsync(PersonelBorc borc)
+    private async Task CreateBorcMuhasebeFisiAsync(PersonelBorc borc)
     {
-        return Task.CompletedTask;
+        var ayar = await GetAyarlarAsync(borc.FirmaId);
+        if (ayar == null || !ayar.OtomatikFisOlustur)
+            return;
+        if (!ayar.PersoneleBorclarHesapId.HasValue || !ayar.KasaHesapId.HasValue)
+            return;
+
+        var fis = new MuhasebeFis
+        {
+            FisTarihi = DateTime.SpecifyKind(borc.BorcTarihi.Date, DateTimeKind.Utc),
+            FisTipi = FisTipi.Mahsup,
+            Kaynak = FisKaynak.Otomatik,
+            KaynakId = borc.Id,
+            KaynakTip = "PersonelBorc",
+            Aciklama = $"Personel borç kaydı - {borc.Personel?.TamAd ?? borc.PersonelId.ToString()} ({borc.BorcNedeni})",
+            Durum = FisDurum.Taslak,
+            Kalemler = new List<MuhasebeFisKalem>
+            {
+                new() { HesapId = ayar.KasaHesapId.Value, Borc = borc.Tutar, Alacak = 0, SiraNo = 1, Aciklama = "Kasa girişi" },
+                new() { HesapId = ayar.PersoneleBorclarHesapId.Value, Borc = 0, Alacak = borc.Tutar, SiraNo = 2, Aciklama = "Personele borç" }
+            }
+        };
+
+        var kaydedilenFis = await _muhasebeService.CreateFisAtomicAsync(fis);
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entity = await context.Set<PersonelBorc>().FindAsync(borc.Id);
+        if (entity != null)
+        {
+            entity.MuhasebeFisId = kaydedilenFis.Id;
+            await context.SaveChangesAsync();
+        }
+        borc.MuhasebeFisId = kaydedilenFis.Id;
     }
 
-    private Task CreateBorcOdemeMuhasebeFisiAsync(PersonelBorcOdeme odeme, PersonelBorc borc)
+    private async Task CreateBorcOdemeMuhasebeFisiAsync(PersonelBorcOdeme odeme, PersonelBorc borc)
     {
-        return Task.CompletedTask;
+        var ayar = await GetAyarlarAsync(borc.FirmaId);
+        if (ayar == null || !ayar.OtomatikFisOlustur || !ayar.BorcOdendigindeFisOlustur)
+            return;
+        if (!ayar.PersoneleBorclarHesapId.HasValue || !ayar.KasaHesapId.HasValue)
+            return;
+
+        var kasaAlacakHesapId = odeme.BankaHesapId.HasValue && ayar.BankaHesapId.HasValue
+            ? ayar.BankaHesapId.Value
+            : ayar.KasaHesapId.Value;
+
+        var fis = new MuhasebeFis
+        {
+            FisTarihi = DateTime.SpecifyKind(odeme.OdemeTarihi.Date, DateTimeKind.Utc),
+            FisTipi = FisTipi.Tediye,
+            Kaynak = FisKaynak.Otomatik,
+            KaynakId = odeme.Id,
+            KaynakTip = "PersonelBorcOdeme",
+            Aciklama = $"Personel borç ödemesi - {borc.Personel?.TamAd ?? borc.PersonelId.ToString()} ({odeme.OdemeTutari:N2} ₺)",
+            Durum = FisDurum.Taslak,
+            Kalemler = new List<MuhasebeFisKalem>
+            {
+                new() { HesapId = ayar.PersoneleBorclarHesapId.Value, Borc = odeme.OdemeTutari, Alacak = 0, SiraNo = 1, Aciklama = "Borç kapatma" },
+                new() { HesapId = kasaAlacakHesapId, Borc = 0, Alacak = odeme.OdemeTutari, SiraNo = 2, Aciklama = "Kasa/banka çıkışı" }
+            }
+        };
+
+        var kaydedilenFis = await _muhasebeService.CreateFisAtomicAsync(fis);
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entity = await context.Set<PersonelBorcOdeme>().FindAsync(odeme.Id);
+        if (entity != null)
+        {
+            entity.MuhasebeFisId = kaydedilenFis.Id;
+            await context.SaveChangesAsync();
+        }
+        odeme.MuhasebeFisId = kaydedilenFis.Id;
+    }
+
+    private async Task CreateMahsupMuhasebeFisiAsync(PersonelAvansMahsup mahsup, PersonelAvans avans)
+    {
+        var ayar = await GetAyarlarAsync(avans.FirmaId);
+        if (ayar == null || !ayar.OtomatikFisOlustur || !ayar.AvansMahsupFisOlustur)
+            return;
+        if (!ayar.PersonelAvanslariHesapId.HasValue || !ayar.KasaHesapId.HasValue)
+            return;
+
+        var fis = new MuhasebeFis
+        {
+            FisTarihi = DateTime.SpecifyKind(mahsup.MahsupTarihi.Date, DateTimeKind.Utc),
+            FisTipi = FisTipi.Mahsup,
+            Kaynak = FisKaynak.Otomatik,
+            KaynakId = mahsup.Id,
+            KaynakTip = "PersonelAvansMahsup",
+            Aciklama = $"Avans mahsubu - {avans.Personel?.TamAd ?? avans.PersonelId.ToString()} ({mahsup.MahsupTutari:N2} ₺)",
+            Durum = FisDurum.Taslak,
+            Kalemler = new List<MuhasebeFisKalem>
+            {
+                new() { HesapId = ayar.KasaHesapId.Value, Borc = mahsup.MahsupTutari, Alacak = 0, SiraNo = 1, Aciklama = "Mahsup tahsilat" },
+                new() { HesapId = ayar.PersonelAvanslariHesapId.Value, Borc = 0, Alacak = mahsup.MahsupTutari, SiraNo = 2, Aciklama = "Avans kapatma" }
+            }
+        };
+
+        await _muhasebeService.CreateFisAtomicAsync(fis);
     }
 
     #endregion
