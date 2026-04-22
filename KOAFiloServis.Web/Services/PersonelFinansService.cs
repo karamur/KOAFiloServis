@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -107,8 +107,24 @@ public class PersonelFinansService : IPersonelFinansService
         if (avans.Mahsuplasmalar.Any())
             throw new InvalidOperationException("Mahsuplaşması olan avans silinemez!");
 
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        if (avans.MuhasebeFisId.HasValue)
+        {
+            var fis = await context.Set<MuhasebeFis>()
+                .IgnoreQueryFilters()
+                .Include(f => f.Kalemler)
+                .FirstOrDefaultAsync(f => f.Id == avans.MuhasebeFisId.Value);
+            if (fis != null)
+            {
+                context.Set<MuhasebeFisKalem>().RemoveRange(fis.Kalemler);
+                context.Set<MuhasebeFis>().Remove(fis);
+            }
+        }
+
         avans.IsDeleted = true;
         await context.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 
     public async Task<PersonelAvans> IptalEtAvansAsync(int id, string iptalNedeni)
@@ -381,8 +397,12 @@ public class PersonelFinansService : IPersonelFinansService
         {
             var fisler = await context.Set<MuhasebeFis>()
                 .IgnoreQueryFilters()
+                .Include(f => f.Kalemler)
                 .Where(f => fisIdleri.Contains(f.Id))
                 .ToListAsync();
+
+            foreach (var fis in fisler)
+                context.Set<MuhasebeFisKalem>().RemoveRange(fis.Kalemler);
 
             context.Set<MuhasebeFis>().RemoveRange(fisler);
         }
