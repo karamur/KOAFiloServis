@@ -1,4 +1,4 @@
-@page "/arac-masraflari/yeni"
+﻿@page "/arac-masraflari/yeni"
 @page "/arac-masraflari/{Id:int}"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -38,13 +38,28 @@
                     <div class="col-md-4">
                         <div class="mb-3">
                             <label class="form-label">Araç (Plaka) *</label>
-                            <InputSelect @bind-Value="masraf.AracId" class="form-select">
-                                <option value="0">-- Araç Seçiniz --</option>
-                                @foreach (var arac in araclar)
+                            <div class="position-relative">
+                                <input type="text" class="form-control" placeholder="Plaka veya marka ara..."
+                                       value="@plakaArama"
+                                       @oninput="PlakaFiltrele"
+                                       @onfocus="() => plakaDropAcik = true"
+                                       @onblur="PlakaDropKapat" />
+                                @if (plakaDropAcik && filtreliAraclar.Any())
                                 {
-                                    <option value="@arac.Id">@arac.AktifPlaka - @arac.Marka @arac.Model</option>
+                                    <div class="dropdown-menu show w-100" style="max-height:220px;overflow-y:auto;z-index:1050;">
+                                        @foreach (var a in filtreliAraclar)
+                                        {
+                                            <button type="button" class="dropdown-item" @onmousedown="() => AracSec(a)">
+                                                <strong>@a.AktifPlaka</strong> — @a.Marka @a.Model
+                                            </button>
+                                        }
+                                    </div>
                                 }
-                            </InputSelect>
+                            </div>
+                            @if (masraf.AracId > 0)
+                            {
+                                <small class="text-success"><i class="bi bi-check-circle me-1"></i>Seçili: @plakaArama</small>
+                            }
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -198,6 +213,7 @@
 
     private AracMasraf masraf = new();
     private List<Arac> araclar = new();
+    private List<Arac> filtreliAraclar = new();
     private List<MasrafKalemi> masrafKalemleri = new();
     private List<Guzergah> guzergahlar = new();
     private List<ServisCalisma> servisCalismalar = new();
@@ -206,10 +222,13 @@
     private string odemeTipi = "Kasa";
     private bool muhasebeFisiOlustur = true;
     private bool IsEdit => Id.HasValue;
+    private string plakaArama = string.Empty;
+    private bool plakaDropAcik = false;
 
     protected override async Task OnInitializedAsync()
     {
         araclar = await AracService.GetActiveAsync();
+        filtreliAraclar = araclar;
         masrafKalemleri = await MasrafKalemiService.GetActiveAsync();
         guzergahlar = await GuzergahService.GetActiveAsync();
         soforler = await SoforService.GetActiveAsync();
@@ -227,6 +246,8 @@
                 masraf = existing;
                 muhasebeFisiOlustur = masraf.MuhasebeFisId.HasValue;
                 odemeTipi = masraf.SoforId.HasValue ? "Personel" : masraf.CariId.HasValue ? "Cari" : "Kasa";
+                var seciliArac = araclar.FirstOrDefault(a => a.Id == masraf.AracId);
+                if (seciliArac != null) plakaArama = $"{seciliArac.AktifPlaka} - {seciliArac.Marka} {seciliArac.Model}";
             }
             else
             {
@@ -237,6 +258,34 @@
         {
             masraf.MasrafTarihi = DateTime.Today;
         }
+    }
+
+    private void PlakaFiltrele(ChangeEventArgs e)
+    {
+        plakaArama = e.Value?.ToString() ?? string.Empty;
+        masraf.AracId = 0;
+        plakaDropAcik = true;
+        var ara = plakaArama.Trim().ToLowerInvariant();
+        filtreliAraclar = string.IsNullOrEmpty(ara)
+            ? araclar
+            : araclar.Where(a =>
+                (a.AktifPlaka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Marka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Model ?? string.Empty).ToLowerInvariant().Contains(ara)).ToList();
+    }
+
+    private void AracSec(Arac arac)
+    {
+        masraf.AracId = arac.Id;
+        plakaArama = $"{arac.AktifPlaka} - {arac.Marka} {arac.Model}";
+        plakaDropAcik = false;
+        filtreliAraclar = araclar;
+    }
+
+    private async Task PlakaDropKapat()
+    {
+        await Task.Delay(150);
+        plakaDropAcik = false;
     }
 
     private void OdemeTipiDegisti(ChangeEventArgs e)

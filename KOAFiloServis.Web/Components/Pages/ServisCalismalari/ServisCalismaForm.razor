@@ -59,13 +59,28 @@
                     <div class="col-md-4">
                         <div class="mb-3">
                             <label class="form-label">Araç (Plaka) *</label>
-                            <InputSelect @bind-Value="calisma.AracId" class="form-select">
-                                <option value="0">-- Araç Seçiniz --</option>
-                                @foreach (var arac in araclar)
+                            <div class="position-relative">
+                                <input type="text" class="form-control" placeholder="Plaka veya marka ara..."
+                                       value="@scPlakaArama"
+                                       @oninput="ScPlakaFiltrele"
+                                       @onfocus="() => scPlakaDropAcik = true"
+                                       @onblur="ScPlakaDropKapat" />
+                                @if (scPlakaDropAcik && scFiltreliAraclar.Any())
                                 {
-                                    <option value="@arac.Id">@arac.AktifPlaka - @arac.Marka @arac.Model</option>
+                                    <div class="dropdown-menu show w-100" style="max-height:220px;overflow-y:auto;z-index:1050;">
+                                        @foreach (var a in scFiltreliAraclar)
+                                        {
+                                            <button type="button" class="dropdown-item" @onmousedown="() => ScAracSec(a)">
+                                                <strong>@a.AktifPlaka</strong> — @a.Marka @a.Model
+                                            </button>
+                                        }
+                                    </div>
                                 }
-                            </InputSelect>
+                            </div>
+                            @if (calisma.AracId > 0)
+                            {
+                                <small class="text-success"><i class="bi bi-check-circle me-1"></i>Seçili: @scPlakaArama</small>
+                            }
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -178,15 +193,19 @@
 
     private ServisCalisma calisma = new();
     private List<Arac> araclar = new();
+    private List<Arac> scFiltreliAraclar = new();
     private List<Sofor> soforler = new();
     private List<Guzergah> guzergahlar = new();
     private string? baslangicSaati;
     private string? bitisSaati;
     private bool IsEdit => Id.HasValue;
+    private string scPlakaArama = string.Empty;
+    private bool scPlakaDropAcik = false;
 
     protected override async Task OnInitializedAsync()
     {
         araclar = await AracService.GetActiveAsync();
+        scFiltreliAraclar = araclar;
         soforler = await SoforService.GetActiveSoforlerAsync(); // Sadece şoför görevli personeller
         guzergahlar = await GuzergahService.GetActiveAsync();
 
@@ -198,6 +217,8 @@
                 calisma = existing;
                 baslangicSaati = calisma.BaslangicSaati?.ToString(@"hh\:mm");
                 bitisSaati = calisma.BitisSaati?.ToString(@"hh\:mm");
+                var seciliArac = araclar.FirstOrDefault(a => a.Id == calisma.AracId);
+                if (seciliArac != null) scPlakaArama = $"{seciliArac.AktifPlaka} - {seciliArac.Marka} {seciliArac.Model}";
             }
             else
             {
@@ -210,6 +231,34 @@
             calisma.ServisTuru = ServisTuru.Sabah;
             calisma.Durum = CalismaDurum.Tamamlandi;
         }
+    }
+
+    private void ScPlakaFiltrele(ChangeEventArgs e)
+    {
+        scPlakaArama = e.Value?.ToString() ?? string.Empty;
+        calisma.AracId = 0;
+        scPlakaDropAcik = true;
+        var ara = scPlakaArama.Trim().ToLowerInvariant();
+        scFiltreliAraclar = string.IsNullOrEmpty(ara)
+            ? araclar
+            : araclar.Where(a =>
+                (a.AktifPlaka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Marka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Model ?? string.Empty).ToLowerInvariant().Contains(ara)).ToList();
+    }
+
+    private void ScAracSec(Arac arac)
+    {
+        calisma.AracId = arac.Id;
+        scPlakaArama = $"{arac.AktifPlaka} - {arac.Marka} {arac.Model}";
+        scPlakaDropAcik = false;
+        scFiltreliAraclar = araclar;
+    }
+
+    private async Task ScPlakaDropKapat()
+    {
+        await Task.Delay(150);
+        scPlakaDropAcik = false;
     }
 
     private void GuzergahDegisti(ChangeEventArgs e)

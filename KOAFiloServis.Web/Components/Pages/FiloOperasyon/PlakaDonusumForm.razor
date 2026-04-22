@@ -1,4 +1,4 @@
-@page "/filo-operasyon/plaka-donusum/yeni"
+﻿@page "/filo-operasyon/plaka-donusum/yeni"
 @page "/filo-operasyon/plaka-donusum/{Id:int}/duzenle"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -51,13 +51,35 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label">Araç <span class="text-danger">*</span></label>
-                                    <select class="form-select" @bind="_model.AracId" @bind:after="AracSecildi" disabled="@_isEdit">
-                                        <option value="0">-- Araç Seçin --</option>
-                                        @foreach (var arac in _araclar)
+                                    @if (_isEdit)
+                                    {
+                                        <input class="form-control" readonly value="@((_araclar.FirstOrDefault(a => a.Id == _model.AracId)?.AktifPlaka ?? "-"))" />
+                                    }
+                                    else
+                                    {
+                                        <div class="position-relative">
+                                            <input type="text" class="form-control" placeholder="Plaka veya marka ara..."
+                                                   value="@pdPlakaArama"
+                                                   @oninput="PdPlakaFiltrele"
+                                                   @onfocus="() => pdPlakaDropAcik = true"
+                                                   @onblur="PdPlakaDropKapat" />
+                                            @if (pdPlakaDropAcik && pdFiltreliAraclar.Any())
+                                            {
+                                                <div class="dropdown-menu show w-100" style="max-height:220px;overflow-y:auto;z-index:1050;">
+                                                    @foreach (var a in pdFiltreliAraclar)
+                                                    {
+                                                        <button type="button" class="dropdown-item" @onmousedown="() => PdAracSec(a)">
+                                                            <strong>@a.AktifPlaka</strong> — @a.Marka @a.Model
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        @if (_model.AracId > 0)
                                         {
-                                            <option value="@arac.Id">@arac.AktifPlaka - @arac.Marka @arac.Model</option>
+                                            <small class="text-success"><i class="bi bi-check-circle me-1"></i>Seçili: @pdPlakaArama</small>
                                         }
-                                    </select>
+                                    }
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Başvuru Tarihi</label>
@@ -327,13 +349,17 @@
     private bool _saving = false;
     private PlakaDonusum _model = new();
     private List<Arac> _araclar = new();
+    private List<Arac> pdFiltreliAraclar = new();
     private List<Cari> _cariler = new();
+    private string pdPlakaArama = string.Empty;
+    private bool pdPlakaDropAcik = false;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _araclar = await AracService.GetAllAsync();
+            pdFiltreliAraclar = _araclar;
             _cariler = await CariService.GetAllAsync();
 
             if (_isEdit)
@@ -346,6 +372,8 @@
                     return;
                 }
                 _model = existing;
+                var a = _araclar.FirstOrDefault(x => x.Id == _model.AracId);
+                if (a != null) pdPlakaArama = $"{a.AktifPlaka} - {a.Marka} {a.Model}";
             }
             else
             {
@@ -362,6 +390,35 @@
         {
             _loading = false;
         }
+    }
+
+    private void PdPlakaFiltrele(ChangeEventArgs e)
+    {
+        pdPlakaArama = e.Value?.ToString() ?? string.Empty;
+        _model.AracId = 0;
+        pdPlakaDropAcik = true;
+        var ara = pdPlakaArama.Trim().ToLowerInvariant();
+        pdFiltreliAraclar = string.IsNullOrEmpty(ara)
+            ? _araclar
+            : _araclar.Where(a =>
+                (a.AktifPlaka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Marka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Model ?? string.Empty).ToLowerInvariant().Contains(ara)).ToList();
+    }
+
+    private void PdAracSec(Arac arac)
+    {
+        _model.AracId = arac.Id;
+        pdPlakaArama = $"{arac.AktifPlaka} - {arac.Marka} {arac.Model}";
+        pdPlakaDropAcik = false;
+        pdFiltreliAraclar = _araclar;
+        AracSecildi();
+    }
+
+    private async Task PdPlakaDropKapat()
+    {
+        await Task.Delay(150);
+        pdPlakaDropAcik = false;
     }
 
     private void AracSecildi()

@@ -61,9 +61,9 @@ public interface IKolayMuhasebeService
     Task<MuhasebeAyar> GetMuhasebeAyarAsync();
 
     /// <summary>
-    /// Kaydedilmiş muhasebe fişini geri alır (soft delete)
+    /// Hızlı stok kalemi oluşturur
     /// </summary>
-    Task GeriAlAsync(int muhasebeFisId);
+    Task<StokBasit> HizliStokOlusturAsync(string stokAdi, string birim, decimal kdvOrani);
 }
 
 /// <summary>

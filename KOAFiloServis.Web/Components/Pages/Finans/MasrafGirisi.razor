@@ -1,4 +1,4 @@
-@page "/kasa-banka/gelir-gider-islem"
+﻿@page "/kasa-banka/gelir-gider-islem"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
@@ -583,26 +583,6 @@
                     });
                 }
                 catch { /* Stok hatası ana işlemi engellemez */ }
-            }
-
-            // PersonelBorc otomatik kayıt
-            if (odemeKaynagi == OdemeKaynakTipi.PersonelCebinden && hareket.PersonelCebindenId.HasValue)
-            {
-                try
-                {
-                    var borc = new PersonelBorc
-                    {
-                        PersonelId = hareket.PersonelCebindenId.Value,
-                        BorcTarihi = hareket.IslemTarihi,
-                        Tutar = hareket.Tutar,
-                        BorcNedeni = hareket.Aciklama ?? "Masraf - Personel Cebinden",
-                        Aciklama = $"Masraf girişinden otomatik oluşturuldu. İşlem No: {hareket.IslemNo}",
-                        BorcTipi = BorcTipi.Diger,
-                        OdemeDurum = BorcOdemeDurum.Bekliyor
-                    };
-                    await PersonelFinansService.CreateBorcAsync(borc, muhasebeKaydiOlustur: false);
-                }
-                catch { /* Borç kaydı hatası ana işlemi engellemez */ }
             }
 
             if (muhasebeFisiOlustur)

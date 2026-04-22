@@ -1,4 +1,4 @@
-@page "/ayarlar/arac-takip-cihaz"
+﻿@page "/ayarlar/arac-takip-cihaz"
 @using KOAFiloServis.Web.Services.Interfaces
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Shared.Entities
@@ -144,13 +144,28 @@
                         
                         <div class="mb-3">
                             <label class="form-label">Araç <span class="text-danger">*</span></label>
-                            <select class="form-select" @bind="duzenlenenCihaz.AracId" required>
-                                <option value="0">-- Araç Seçin --</option>
-                                @foreach (var arac in araclar)
+                            <div class="position-relative">
+                                <input type="text" class="form-control" placeholder="Plaka veya marka ara..."
+                                       value="@tcPlakaArama"
+                                       @oninput="TcPlakaFiltrele"
+                                       @onfocus="() => tcPlakaDropAcik = true"
+                                       @onblur="TcPlakaDropKapat" />
+                                @if (tcPlakaDropAcik && tcFiltreliAraclar.Any())
                                 {
-                                    <option value="@arac.Id">@arac.AktifPlaka - @arac.Marka @arac.Model</option>
+                                    <div class="dropdown-menu show w-100" style="max-height:220px;overflow-y:auto;z-index:1060;">
+                                        @foreach (var a in tcFiltreliAraclar)
+                                        {
+                                            <button type="button" class="dropdown-item" @onmousedown="() => TcAracSec(a)">
+                                                <strong>@a.AktifPlaka</strong> — @a.Marka @a.Model
+                                            </button>
+                                        }
+                                    </div>
                                 }
-                            </select>
+                            </div>
+                            @if (duzenlenenCihaz.AracId > 0)
+                            {
+                                <small class="text-success"><i class="bi bi-check-circle me-1"></i>Seçili: @tcPlakaArama</small>
+                            }
                         </div>
                         
                         <div class="mb-3">
@@ -241,11 +256,14 @@
 @code {
     private List<AracTakipCihaz> cihazlar = new();
     private List<Arac> araclar = new();
+    private List<Arac> tcFiltreliAraclar = new();
     private bool yukleniyor = true;
     private bool modalGoster = false;
     private bool kaydediliyor = false;
     private AracTakipCihaz duzenlenenCihaz = new();
     private AracTakipCihaz? silinecekCihaz = null;
+    private string tcPlakaArama = string.Empty;
+    private bool tcPlakaDropAcik = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -259,6 +277,7 @@
         {
             cihazlar = await AracTakipService.GetAllCihazlarAsync();
             araclar = await AracService.GetAllAsync();
+            tcFiltreliAraclar = araclar;
         }
         finally
         {
@@ -273,6 +292,8 @@
             Aktif = true,
             KurulumTarihi = DateTime.Today
         };
+        tcPlakaArama = string.Empty;
+        tcFiltreliAraclar = araclar;
         modalGoster = true;
     }
 
@@ -290,6 +311,9 @@
             Aktif = cihaz.Aktif,
             Notlar = cihaz.Notlar
         };
+        var a = araclar.FirstOrDefault(x => x.Id == cihaz.AracId);
+        tcPlakaArama = a != null ? $"{a.AktifPlaka} - {a.Marka} {a.Model}" : string.Empty;
+        tcFiltreliAraclar = araclar;
         modalGoster = true;
     }
 
@@ -297,6 +321,36 @@
     {
         modalGoster = false;
         duzenlenenCihaz = new();
+        tcPlakaArama = string.Empty;
+        tcPlakaDropAcik = false;
+    }
+
+    private void TcPlakaFiltrele(ChangeEventArgs e)
+    {
+        tcPlakaArama = e.Value?.ToString() ?? string.Empty;
+        duzenlenenCihaz.AracId = 0;
+        tcPlakaDropAcik = true;
+        var ara = tcPlakaArama.Trim().ToLowerInvariant();
+        tcFiltreliAraclar = string.IsNullOrEmpty(ara)
+            ? araclar
+            : araclar.Where(a =>
+                (a.AktifPlaka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Marka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Model ?? string.Empty).ToLowerInvariant().Contains(ara)).ToList();
+    }
+
+    private void TcAracSec(Arac arac)
+    {
+        duzenlenenCihaz.AracId = arac.Id;
+        tcPlakaArama = $"{arac.AktifPlaka} - {arac.Marka} {arac.Model}";
+        tcPlakaDropAcik = false;
+        tcFiltreliAraclar = araclar;
+    }
+
+    private async Task TcPlakaDropKapat()
+    {
+        await Task.Delay(150);
+        tcPlakaDropAcik = false;
     }
 
     private async Task Kaydet()

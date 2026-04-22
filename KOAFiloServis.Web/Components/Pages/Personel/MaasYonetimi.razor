@@ -1993,7 +1993,7 @@
                 var finansOzet = await PersonelFinansService.GetPersonelFinansOzetAsync(p.Id);
                 donemMaasMap.TryGetValue(p.Id, out var donemMaas);
 
-                var bankayaYatan = donemMaas?.NetMaas ?? p.ResmiNetMaas;
+                var bankayaYatan = p.ResmiNetMaas;
                 var gercekMaas = donemMaas != null
                     ? donemMaas.NetMaas + donemMaas.ToplamEklemeler
                     : p.ResmiNetMaas + p.DigerMaas;
@@ -2012,7 +2012,7 @@
                     Kesinti = 0,
                     Harcamasi = (finansOzet?.ToplamHarcama ?? 0) + (finansOzet?.KalanBorc > 0 ? finansOzet!.KalanBorc : 0)
                 };
-                satir.Odenecek = satir.GercekMaas - satir.BankayaYatan + (-satir.Avans - satir.Kesinti + satir.Harcamasi);
+                satir.Odenecek = satir.GercekMaas - satir.BankayaYatan - satir.Avans - satir.Kesinti + satir.Harcamasi;
                 durSatirlar.Add(satir);
             }
             if (durSecilenPersonelId > 0)
@@ -2194,7 +2194,7 @@
         => maas.DigerEklemeler > 0 ? maas.DigerEklemeler : maas.Sofor?.DigerMaas ?? 0;
 
     private static decimal GetBankayaYatan(PersonelMaas maas)
-        => maas.NetMaas;
+        => maas.Sofor?.ResmiNetMaas ?? maas.NetMaas;
 
     private static decimal GetBankayaYatan(MaasDetay maas)
         => maas.NetMaas;

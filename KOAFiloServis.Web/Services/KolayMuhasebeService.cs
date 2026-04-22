@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -879,33 +879,6 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             }
         }
 
-        // Personel cebinden ise PersonelBorc kaydı oluştur
-        if (giris.MasrafOdemeKaynagi == MasrafOdemeKaynagi.Personel && giris.CariId.HasValue)
-        {
-            try
-            {
-                // Cari → Sofor bağlantısını bul
-                var cari = await context.Cariler.FirstOrDefaultAsync(c => c.Id == giris.CariId.Value);
-                if (cari?.SoforId.HasValue == true)
-                {
-                    var borc = new PersonelBorc
-                    {
-                        PersonelId = cari.SoforId.Value,
-                        BorcTarihi = DateTime.SpecifyKind(giris.IslemTarihi, DateTimeKind.Utc),
-                        Tutar = giris.GenelToplam,
-                        BorcNedeni = giris.Aciklama ?? giris.BelgeNo ?? "Masraf - Personel Cebinden",
-                        Aciklama = $"Kolay giriş masraf kaydından otomatik oluşturuldu. Cari: {cari.Unvan}",
-                        BorcTipi = BorcTipi.Diger,
-                        OdemeDurum = BorcOdemeDurum.Bekliyor,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    context.PersonelBorclar.Add(borc);
-                    await context.SaveChangesAsync();
-                }
-            }
-            catch { /* PersonelBorc hatası ana işlemi engellemez */ }
-        }
-
         // Stok kalemleri varsa stok hareketleri oluştur
         foreach (var kalem in giris.Kalemler.Where(k => k.StokId.HasValue && k.Miktar > 0))
         {
@@ -1754,6 +1727,57 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             nextNum = num + 1;
 
         return $"{prefix}{nextNum:D4}";
+    }
+
+    public async Task<StokBasit> HizliStokOlusturAsync(string stokAdi, string birim, decimal kdvOrani)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        // Mevcut stok var mı kontrol et
+        var mevcut = await context.StokKartlari
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.StokAdi == stokAdi && !s.IsDeleted);
+
+        if (mevcut != null)
+            return new StokBasit
+            {
+                Id = mevcut.Id,
+                StokKodu = mevcut.StokKodu,
+                StokAdi = mevcut.StokAdi,
+                Birim = mevcut.Birim,
+                AlisFiyati = mevcut.AlisFiyati,
+                SatisFiyati = mevcut.SatisFiyati,
+                KdvOrani = mevcut.KdvOrani,
+                MevcutStok = mevcut.MevcutStok
+            };
+
+        // Yeni stok kodu üret
+        var yil = DateTime.Now.Year;
+        var sayi = await context.StokKartlari.CountAsync() + 1;
+        var stokKodu = $"STK{yil % 100:D2}{sayi:D5}";
+
+        var yeniStok = new StokKarti
+        {
+            StokKodu = stokKodu,
+            StokAdi = stokAdi,
+            Birim = birim,
+            KdvOrani = kdvOrani,
+            StokTipi = StokTipi.Hizmet,
+            Aktif = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.StokKartlari.Add(yeniStok);
+        await context.SaveChangesAsync();
+
+        return new StokBasit
+        {
+            Id = yeniStok.Id,
+            StokKodu = yeniStok.StokKodu,
+            StokAdi = yeniStok.StokAdi,
+            Birim = yeniStok.Birim,
+            KdvOrani = yeniStok.KdvOrani
+        };
     }
 
     #endregion

@@ -774,13 +774,28 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Araç (Plaka) *</label>
-                        <select class="form-select" @bind="yeniAtamaAracId">
-                            <option value="0">-- Araç Seçin --</option>
-                            @foreach (var arac in aktifAraclar)
+                        <div class="position-relative">
+                            <input type="text" class="form-control" placeholder="Plaka veya marka ara..."
+                                   value="@modalPlakaArama"
+                                   @oninput="ModalPlakaFiltrele"
+                                   @onfocus="() => modalPlakaDropAcik = true"
+                                   @onblur="ModalPlakaDropKapat" />
+                            @if (modalPlakaDropAcik && modalFiltreliAraclar.Any())
                             {
-                                <option value="@arac.Id">@arac.AktifPlaka - @arac.Marka @arac.Model</option>
+                                <div class="dropdown-menu show w-100" style="max-height:220px;overflow-y:auto;z-index:1060;">
+                                    @foreach (var a in modalFiltreliAraclar)
+                                    {
+                                        <button type="button" class="dropdown-item" @onmousedown="() => ModalAracSec(a)">
+                                            <strong>@a.AktifPlaka</strong> — @a.Marka @a.Model
+                                        </button>
+                                    }
+                                </div>
                             }
-                        </select>
+                        </div>
+                        @if (yeniAtamaAracId > 0)
+                        {
+                            <small class="text-success"><i class="bi bi-check-circle me-1"></i>Seçili: @modalPlakaArama</small>
+                        }
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Başlangıç Tarihi *</label>
@@ -876,6 +891,9 @@
     private DateTime yeniAtamaBaslangic = DateTime.Today;
     private string yeniAtamaNot = "";
     private bool atamaSaving = false;
+    private string modalPlakaArama = string.Empty;
+    private bool modalPlakaDropAcik = false;
+    private List<Arac> modalFiltreliAraclar = new();
 
     // Firma listesi
     private List<Firma> firmalar = new();
@@ -1179,12 +1197,44 @@
         yeniAtamaAracId = 0;
         yeniAtamaBaslangic = DateTime.Today;
         yeniAtamaNot = "";
+        modalPlakaArama = string.Empty;
+        modalFiltreliAraclar = aktifAraclar;
+        modalPlakaDropAcik = false;
         showAtamaModal = true;
     }
 
     private void AtamaModalKapat()
     {
         showAtamaModal = false;
+        modalPlakaDropAcik = false;
+    }
+
+    private void ModalPlakaFiltrele(ChangeEventArgs e)
+    {
+        modalPlakaArama = e.Value?.ToString() ?? string.Empty;
+        yeniAtamaAracId = 0;
+        modalPlakaDropAcik = true;
+        var ara = modalPlakaArama.Trim().ToLowerInvariant();
+        modalFiltreliAraclar = string.IsNullOrEmpty(ara)
+            ? aktifAraclar
+            : aktifAraclar.Where(a =>
+                (a.AktifPlaka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Marka ?? string.Empty).ToLowerInvariant().Contains(ara) ||
+                (a.Model ?? string.Empty).ToLowerInvariant().Contains(ara)).ToList();
+    }
+
+    private void ModalAracSec(Arac arac)
+    {
+        yeniAtamaAracId = arac.Id;
+        modalPlakaArama = $"{arac.AktifPlaka} - {arac.Marka} {arac.Model}";
+        modalPlakaDropAcik = false;
+        modalFiltreliAraclar = aktifAraclar;
+    }
+
+    private async Task ModalPlakaDropKapat()
+    {
+        await Task.Delay(150);
+        modalPlakaDropAcik = false;
     }
 
     private async Task AtamaKaydet()
