@@ -656,6 +656,9 @@ public class KullaniciService : IKullaniciService
             }
         }
 
+        // Yeni eklenen sistem yetkilerini mevcut rollere eksikse ekle (mevcut ozellestirmeleri ezmeden)
+        await EnsureRolePermissionAsync(context, SistemRolleri.Operasyon, Yetkiler.PersonelBorcSil);
+
         // Admin kullanici olustur veya sifresini dogrula
         var adminRol = await context.Roller.FirstOrDefaultAsync(r => r.RolAdi == SistemRolleri.Admin);
         if (adminRol != null)
@@ -748,6 +751,32 @@ public class KullaniciService : IKullaniciService
             .ToArray();
 
         return new string(passwordChars);
+    }
+
+    private static async Task EnsureRolePermissionAsync(ApplicationDbContext context, string roleName, string yetkiKodu)
+    {
+        var rol = await context.Roller
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.RolAdi == roleName);
+
+        if (rol == null)
+            return;
+
+        var yetkiVar = await context.RolYetkileri
+            .AnyAsync(y => y.RolId == rol.Id && y.YetkiKodu == yetkiKodu && y.Izin);
+
+        if (yetkiVar)
+            return;
+
+        context.RolYetkileri.Add(new RolYetki
+        {
+            RolId = rol.Id,
+            YetkiKodu = yetkiKodu,
+            Izin = true,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
     }
 
     #endregion

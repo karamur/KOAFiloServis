@@ -1,4 +1,4 @@
-@page "/proforma-fatura/{Id:int}/yazdir"
+﻿@page "/proforma-fatura/{Id:int}/yazdir"
 @layout EmptyLayout
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -71,10 +71,43 @@
     }
 
     .header-logo-block img {
-        max-height: 70px;
-        max-width: 140px;
+        max-height: calc(70px * var(--logo-scale, 1));
+        max-width: calc(140px * var(--logo-scale, 1));
         object-fit: contain;
         margin-bottom: 6px;
+    }
+
+    .logo-size-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #fff;
+        border: 1px solid #d0d7e2;
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 13px;
+        color: #333;
+    }
+
+    .logo-size-control input[type=range] {
+        width: 110px;
+        cursor: pointer;
+    }
+
+    .logo-size-control button {
+        padding: 2px 8px;
+        background: #eef2f7;
+        border: 1px solid #c5cfdc;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .logo-size-control .val {
+        min-width: 42px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
     }
 
     .header-logo-block .firma-adi {
@@ -361,6 +394,7 @@
     /* ---- ANTETSİZ MOD ---- */
     .a4-page.antetsiz-mod .letterhead-header { display: none !important; }
     .a4-page.antetsiz-mod .letterhead-footer { display: none !important; }
+    .a4-page.antetsiz-mod .watermark { display: none !important; }
     .a4-page.antetsiz-mod .doc-body { padding-top: 38mm; padding-bottom: 28mm; }
 
     .mod-badge {
@@ -420,6 +454,16 @@ else
         <button class="btn-mod @(logoGoster ? "aktif" : "")" @onclick="() => logoGoster = !logoGoster" title="Logoyu göster/gizle">
             @(logoGoster ? "🖼️ Logo Açık" : "🖼️ Logo Kapalı")
         </button>
+        @if (logoGoster)
+        {
+            <div class="logo-size-control no-print" title="Logo boyutu (%)">
+                <button type="button" @onclick="() => SetLogoBoyut(logoBoyut - 10)">−</button>
+                <input type="range" min="50" max="300" step="10" value="@logoBoyut"
+                       @oninput="OnLogoBoyutChanged" />
+                <button type="button" @onclick="() => SetLogoBoyut(logoBoyut + 10)">+</button>
+                <span class="val">@logoBoyut%</span>
+            </div>
+        }
         <button class="btn-mod @(firmaAdiGoster ? "aktif" : "")" @onclick="() => firmaAdiGoster = !firmaAdiGoster" title="Firma adını göster/gizle">
             @(firmaAdiGoster ? "🏢 Ad Açık" : "🏢 Ad Kapalı")
         </button>
@@ -431,7 +475,7 @@ else
         </button>
     </div>
 
-    <div class="a4-page @(antetsiz ? "antetsiz-mod" : "")">
+    <div class="a4-page @(antetsiz ? "antetsiz-mod" : "")" style="--logo-scale: @((logoBoyut / 100.0).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));">
 
         <!-- MOD GÖSTERGESİ (yalnızca ekranda) -->
         <div class="mod-badge @(antetsiz ? "antetsiz" : "antetli") no-print">
@@ -727,8 +771,22 @@ else
     private bool antetsiz = false;
     private bool logoGoster = true;
     private bool firmaAdiGoster = true;
+    private int logoBoyut = 100; // %, 50–300 arası
 
     private void ToggleMod() => antetsiz = !antetsiz;
+
+    private void SetLogoBoyut(int yeni)
+    {
+        logoBoyut = Math.Clamp(yeni, 50, 300);
+    }
+
+    private void OnLogoBoyutChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v))
+        {
+            SetLogoBoyut(v);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

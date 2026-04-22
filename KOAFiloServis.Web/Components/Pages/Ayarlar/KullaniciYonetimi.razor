@@ -1,11 +1,13 @@
-@page "/ayarlar/kullanicilar"
+﻿@page "/ayarlar/kullanicilar"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
+@using Microsoft.AspNetCore.WebUtilities
 @using YetkilerClass = KOAFiloServis.Shared.Entities.Yetkiler
 @inject IKullaniciService KullaniciService
 @inject ILisansService LisansService
 @inject IToastService ToastService
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 @rendermode InteractiveServer
 
 <PageTitle>Kullanici ve Rol Yonetimi</PageTitle>
@@ -39,12 +41,39 @@
         <!-- KULLANICILAR SEKMESI -->
         <div class="card shadow-sm">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Kullanicilar (@kullanicilar.Count)</h5>
+                <h5 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Kullanicilar (@FiltrelenmisKullanicilar.Count)</h5>
                 <button class="btn btn-primary btn-sm" @onclick="YeniKullaniciAc" disabled="@(!kullaniciEklenebilir)">
                     <i class="bi bi-plus-lg me-1"></i>Yeni Kullanici
                 </button>
             </div>
             <div class="card-body p-0">
+                <div class="p-3 border-bottom bg-light-subtle">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label mb-1">Durum Filtresi</label>
+                            <select class="form-select form-select-sm" @bind="durumFiltresi">
+                                <option value="tum">Tum Kullanıcılar</option>
+                                <option value="aktif">Sadece Aktif</option>
+                                <option value="pasif">Sadece Pasif</option>
+                                <option value="kilitli">Sadece Kilitli</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label mb-1">Rol Filtresi</label>
+                            <select class="form-select form-select-sm" @bind="rolFiltresi">
+                                <option value="tum">Tum Roller</option>
+                                @foreach (var rol in roller)
+                                {
+                                    <option value="@rol.Id">@rol.RolAdi</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label mb-1">Arama</label>
+                            <input type="text" class="form-control form-control-sm" @bind="aramaMetni" placeholder="Kullanici adi / ad soyad" />
+                        </div>
+                    </div>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
@@ -58,7 +87,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var kullanici in kullanicilar)
+                            @foreach (var kullanici in FiltrelenmisKullanicilar)
                             {
                                 var rolTanim = SistemRolleri.GetAllRoles().FirstOrDefault(r => r.Name == kullanici.Rol?.RolAdi);
                                 <tr>
@@ -422,6 +451,47 @@
     private List<Rol> roller = new();
     private Lisans? lisans;
     private bool kullaniciEklenebilir = true;
+    private static readonly HashSet<string> GecerliDurumFiltreleri = new(StringComparer.OrdinalIgnoreCase) { "tum", "aktif", "pasif", "kilitli" };
+    private bool querydenYukleniyor = false;
+    private string _durumFiltresi = "tum";
+    private string durumFiltresi
+    {
+        get => _durumFiltresi;
+        set
+        {
+            if (_durumFiltresi == value) return;
+            _durumFiltresi = value;
+            QueryStringFiltreleriniGuncelle();
+        }
+    }
+    private string _rolFiltresi = "tum";
+    private string rolFiltresi
+    {
+        get => _rolFiltresi;
+        set
+        {
+            if (_rolFiltresi == value) return;
+            _rolFiltresi = value;
+            QueryStringFiltreleriniGuncelle();
+        }
+    }
+    private string _aramaMetni = "";
+    private string aramaMetni
+    {
+        get => _aramaMetni;
+        set
+        {
+            if (_aramaMetni == value) return;
+            _aramaMetni = value;
+            QueryStringFiltreleriniGuncelle();
+        }
+    }
+
+    private List<Kullanici> FiltrelenmisKullanicilar => kullanicilar
+        .Where(DurumFiltresineUygun)
+        .Where(RolFiltresineUygun)
+        .Where(AramayaUygun)
+        .ToList();
 
     // Kullanici modal
     private bool showKullaniciModal = false;
@@ -440,6 +510,7 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadDataAsync();
+        FiltreleriQuerydenYukle();
     }
 
     private async Task LoadDataAsync()
@@ -448,6 +519,65 @@
         roller = await KullaniciService.GetRollerAsync();
         lisans = await LisansService.GetAktifLisansAsync();
         kullaniciEklenebilir = await LisansService.KullanicLimitiKontrolAsync();
+    }
+
+    private bool DurumFiltresineUygun(Kullanici kullanici) => durumFiltresi switch
+    {
+        "aktif" => kullanici.Aktif && !kullanici.Kilitli,
+        "pasif" => !kullanici.Aktif && !kullanici.Kilitli,
+        "kilitli" => kullanici.Kilitli,
+        _ => true
+    };
+
+    private bool RolFiltresineUygun(Kullanici kullanici)
+    {
+        if (rolFiltresi == "tum")
+            return true;
+
+        return int.TryParse(rolFiltresi, out var rolId) && kullanici.RolId == rolId;
+    }
+
+    private bool AramayaUygun(Kullanici kullanici)
+    {
+        if (string.IsNullOrWhiteSpace(aramaMetni))
+            return true;
+
+        return (kullanici.KullaniciAdi?.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (kullanici.AdSoyad?.Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private void FiltreleriQuerydenYukle()
+    {
+        querydenYukleniyor = true;
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        var durum = query.TryGetValue("durum", out var d) ? d.ToString() : "tum";
+        _durumFiltresi = GecerliDurumFiltreleri.Contains(durum) ? durum : "tum";
+
+        var rol = query.TryGetValue("rol", out var r) ? r.ToString() : "tum";
+        _rolFiltresi = rol == "tum" || int.TryParse(rol, out _) ? rol : "tum";
+
+        _aramaMetni = query.TryGetValue("arama", out var a) ? a.ToString() : string.Empty;
+        querydenYukleniyor = false;
+    }
+
+    private void QueryStringFiltreleriniGuncelle()
+    {
+        if (querydenYukleniyor)
+            return;
+
+        var mevcutUri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var basePath = mevcutUri.GetLeftPart(UriPartial.Path);
+        var query = new Dictionary<string, string>();
+
+        if (_durumFiltresi != "tum") query["durum"] = _durumFiltresi;
+        if (_rolFiltresi != "tum") query["rol"] = _rolFiltresi;
+        if (!string.IsNullOrWhiteSpace(_aramaMetni)) query["arama"] = _aramaMetni;
+
+        var yeniUri = query.Count > 0 ? QueryHelpers.AddQueryString(basePath, query) : basePath;
+        if (!string.Equals(Navigation.Uri, yeniUri, StringComparison.Ordinal))
+            Navigation.NavigateTo(yeniUri, replace: true);
     }
 
     #region Kullanici Islemleri
@@ -508,6 +638,7 @@
             }
             ModalKapat();
             await LoadDataAsync();
+        FiltreleriQuerydenYukle();
         }
         catch (Exception ex)
         {
@@ -542,6 +673,7 @@
             await KullaniciService.SifreSifirlaAsync(kullanici.Id, "123456");
             ToastService.ShowSuccess("Kilit kaldirildi, yeni sifre: 123456");
             await LoadDataAsync();
+        FiltreleriQuerydenYukle();
         }
         catch (Exception ex)
         {
@@ -563,6 +695,7 @@
             var guncel = await KullaniciService.ToggleAktifAsync(kullanici.Id);
             ToastService.ShowSuccess($"{guncel.AdSoyad} için durum {(guncel.Aktif ? "aktif" : "pasif")} yapıldı.");
             await LoadDataAsync();
+        FiltreleriQuerydenYukle();
         }
         catch (Exception ex)
         {
@@ -614,6 +747,7 @@
             }
             ModalKapat();
             await LoadDataAsync();
+        FiltreleriQuerydenYukle();
         }
         catch (Exception ex)
         {
@@ -632,6 +766,7 @@
                 ToastService.ShowSuccess("Rol silindi!");
                 secilenRol = null;
                 await LoadDataAsync();
+        FiltreleriQuerydenYukle();
             }
             catch (Exception ex)
             {
@@ -697,6 +832,7 @@
             await KullaniciService.SetRolYetkileriAsync(secilenRol.Id, secilenYetkiler.ToList());
             ToastService.ShowSuccess($"'{secilenRol.RolAdi}' yetkileri kaydedildi! ({secilenYetkiler.Count} yetki)");
             await LoadDataAsync();
+        FiltreleriQuerydenYukle();
 
             // Secili rolu guncelle
             secilenRol = roller.FirstOrDefault(r => r.Id == secilenRol.Id);

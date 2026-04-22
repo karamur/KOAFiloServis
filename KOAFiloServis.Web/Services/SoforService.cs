@@ -228,7 +228,9 @@ public class SoforService : ISoforService
 
     private static IQueryable<Sofor> QuerySoforler(ApplicationDbContext context, bool asNoTracking = true)
     {
-        var query = context.Soforler.Where(s => !s.IsDeleted);
+        var query = context.Soforler
+            .Include(s => s.Firma)
+            .Where(s => !s.IsDeleted);
         return asNoTracking ? query.AsNoTracking() : query;
     }
 
@@ -295,7 +297,7 @@ public class SoforService : ISoforService
         sofor.Ad = string.IsNullOrWhiteSpace(sofor.Ad) ? string.Empty : sofor.Ad.Trim();
         sofor.Soyad = string.IsNullOrWhiteSpace(sofor.Soyad) ? string.Empty : sofor.Soyad.Trim();
         sofor.TcKimlikNo = NormalizeTcKimlikNo(sofor.TcKimlikNo);
-        sofor.Telefon = NormalizeNullableText(sofor.Telefon);
+        sofor.Telefon = NormalizeNullableText(sofor.Telefon)?.Replace(" ", string.Empty);
         sofor.Email = NormalizeNullableText(sofor.Email);
         sofor.Adres = NormalizeNullableText(sofor.Adres);
         sofor.Departman = NormalizeNullableText(sofor.Departman);
@@ -550,7 +552,7 @@ public class SoforService : ISoforService
             Ad = ws.Cell(row, 1).GetString().Trim(),
             Soyad = ws.Cell(row, 2).GetString().Trim(),
             TcKimlikNo = ws.Cell(row, 3).GetString().Trim().NullIfEmpty(),
-            Telefon = ws.Cell(row, 4).GetString().Trim().NullIfEmpty(),
+            Telefon = ws.Cell(row, 4).GetString().Replace(" ", string.Empty).Trim().NullIfEmpty(),
             Email = ws.Cell(row, 5).GetString().Trim().NullIfEmpty(),
             Adres = ws.Cell(row, 6).GetString().Trim().NullIfEmpty(),
             Gorev = gorev,
@@ -583,7 +585,7 @@ public class SoforService : ISoforService
 
         existing.Ad = ws.Cell(row, 1).GetString().Trim();
         existing.Soyad = ws.Cell(row, 2).GetString().Trim();
-        existing.Telefon = ws.Cell(row, 4).GetString().Trim().NullIfEmpty() ?? existing.Telefon;
+        existing.Telefon = ws.Cell(row, 4).GetString().Replace(" ", string.Empty).Trim().NullIfEmpty() ?? existing.Telefon;
         existing.Email = ws.Cell(row, 5).GetString().Trim().NullIfEmpty() ?? existing.Email;
         existing.Adres = ws.Cell(row, 6).GetString().Trim().NullIfEmpty() ?? existing.Adres;
         existing.Departman = ws.Cell(row, 8).GetString().Trim().NullIfEmpty() ?? existing.Departman;

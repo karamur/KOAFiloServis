@@ -58,11 +58,14 @@ if (File.Exists(dbSettingsPath))
     }
 }
 
-// Diger PC'lerden erisim icin tum IP'lerden dinle
-// Kurulum ortami icin varsayilan olarak sadece HTTP acilir.
-// HTTPS kullanilacaksa kullanici sertifika/URL ayarini disaridan vermelidir.
-if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")) &&
-    !args.Any(a => a.StartsWith("--urls")))
+// URL baglama: IIS tarafi zaten adres/port yonetir; burada zorlama yapma.
+// Sadece yerel calistirmada (Development) ve explicit URL verilmediyse otomatik port sec.
+var hasExplicitUrls = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS"))
+    || args.Any(a => a.StartsWith("--urls", StringComparison.OrdinalIgnoreCase));
+var isIisHosted = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_IIS_PHYSICAL_PATH"))
+    || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_PORT"));
+
+if (!hasExplicitUrls && !isIisHosted && builder.Environment.IsDevelopment())
 {
     static bool PortKullanilabilirMi(int port)
     {
@@ -306,6 +309,7 @@ builder.Services.AddHttpClient("Webhook"); // Webhook gönderimi için HttpClien
 builder.Services.AddScoped<AutoBackupService>(); // Quartz job tarafından tetiklenen otomatik yedek servisi
 builder.Services.AddScoped<GunlukOzetService>(); // Quartz job tarafından tetiklenen günlük WhatsApp özet servisi
 builder.Services.AddScoped<IBakimPeriyotService, BakimPeriyotService>();
+builder.Services.AddScoped<ILastikService, LastikService>();
 builder.Services.AddScoped<ZamanliRaporService>(); // Zamanlanmış e-posta rapor servisi
 
 // Object Storage (Local veya S3-uyumlu)

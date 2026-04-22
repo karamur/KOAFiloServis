@@ -241,7 +241,7 @@ public static class SistemRolleri
                 Yetkiler.MasrafKalemleriOku, Yetkiler.MasrafKalemleriYaz,
                 Yetkiler.AracMasraflariOku, Yetkiler.AracMasraflariYaz,
                 // Personel
-                Yetkiler.PersonelOku, Yetkiler.PersonelYaz, Yetkiler.PersonelDuzenle,
+                Yetkiler.PersonelOku, Yetkiler.PersonelYaz, Yetkiler.PersonelDuzenle, Yetkiler.PersonelBorcSil,
                 // Stok
                 Yetkiler.StokDashboardOku, Yetkiler.StokKartlariOku, Yetkiler.AracIslemOku, Yetkiler.ServisKaydiOku,
                 // Rapor
@@ -475,6 +475,7 @@ public static class Yetkiler
     public const string MaasYaz = "maas.yaz";
     public const string MaasDuzenle = "maas.duzenle";
     public const string MaasSil = "maas.sil";
+    public const string PersonelBorcSil = "personel.borc.sil";
 
     // -- Izin Yonetimi --
     public const string IzinOku = "izin.oku";
@@ -812,6 +813,7 @@ public static class Yetkiler
                     new(MaasYaz, "Yazma", "bi-plus"),
                     new(MaasDuzenle, "Duzenleme", "bi-pencil"),
                     new(MaasSil, "Silme", "bi-trash"),
+                    new(PersonelBorcSil, "Borc Kaydi Kalici Silme", "bi-trash-fill"),
                 }),
                 new("Izin Yonetimi", "bi-calendar-check", new List<YetkiTanim>
                 {

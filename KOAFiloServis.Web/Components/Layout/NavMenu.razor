@@ -1,4 +1,4 @@
-﻿@rendermode InteractiveServer
+@rendermode InteractiveServer
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Shared.Entities
 @implements IDisposable
@@ -332,6 +332,11 @@
                                 </NavLink>
                             </div>
                         }
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="filo/puantaj">
+                                <i class="bi bi-journal-check me-2 text-success"></i> Filo Puantaj
+                            </NavLink>
+                        </div>
                         @if (HasYetki("masrafkalem.oku"))
                         {
                             <div class="nav-item px-3">
@@ -412,6 +417,26 @@
                                 </NavLink>
                             </div>
                         }
+
+                        <!-- LASTİK TAKİP -->
+                        <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                            <span><i class="bi bi-circle-half me-2"></i>Lastik Takip</span>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="lastik/degisimler">
+                                <i class="bi bi-arrow-repeat me-2 text-warning"></i> Lastik Değişimleri
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="lastik/stok">
+                                <i class="bi bi-stack me-2 text-info"></i> Lastik Stok
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="lastik/depolar">
+                                <i class="bi bi-building me-2"></i> Lastik Depoları
+                            </NavLink>
+                        </div>
                     </div>
                 }
             </div>
@@ -433,14 +458,6 @@
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="muhasebe">
                                     <i class="bi bi-speedometer2 me-2"></i> Muhasebe Dashboard
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("muhasebefis.yaz"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="muhasebe/kolay-giris">
-                                    <i class="bi bi-plus-circle me-2"></i> Kolay Giriş
                                 </NavLink>
                             </div>
                         }
@@ -683,8 +700,8 @@
                                 </NavLink>
                             </div>
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="finans/masraf-girisi">
-                                    <i class="bi bi-cash-stack me-2"></i> Masraf Girişi
+                                <NavLink class="nav-link" href="kasa-banka/gelir-gider-islem">
+                                    <i class="bi bi-cash-stack me-2"></i> Gelir/Gider İşlem
                                 </NavLink>
                             </div>
                         }
@@ -1442,4 +1459,6 @@
         }
     }
 }
+
+
 

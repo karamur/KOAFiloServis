@@ -5,6 +5,7 @@
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
 @inject ISoforService SoforService
 @inject IMuhasebeService MuhasebeService
 @inject IPersonelOzlukService OzlukService
@@ -13,6 +14,8 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject IAktiviteLogService AktiviteLog
+@inject IAracService AracService
+@inject IDbContextFactory<KOAFiloServis.Web.Data.ApplicationDbContext> DbContextFactory
 @rendermode InteractiveServer
 
 <PageTitle>@(IsEdit ? "Personel Düzenle" : "Yeni Personel")</PageTitle>
@@ -76,6 +79,19 @@
                                     <option value="@gorev">@GetGorevAdi(gorev)</option>
                                 }
                             </InputSelect>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Firma</label>
+                            <InputSelect @bind-Value="sofor.FirmaId" class="form-select">
+                                <option value="">-- Firma Seçin --</option>
+                                @foreach (var firma in firmalar)
+                                {
+                                    <option value="@firma.Id">@firma.FirmaAdi</option>
+                                }
+                            </InputSelect>
+                            <small class="text-muted">Bordro bu firmaya göre hazırlanır</small>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -272,6 +288,27 @@
                                 <InputSelect @bind-Value="sofor.BordroTipiPersonel" class="form-select" @bind-Value:after="BordroTipiDegisti">
                                     <option value="@PersonelBordroTipi.Normal">Normal</option>
                                     <option value="@PersonelBordroTipi.Arge">ARGE</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">SGK Çalışma Türü *</label>
+                                <InputSelect @bind-Value="sofor.SgkCalismaTuru" class="form-select">
+                                    <option value="@SgkCalismaTuru.TamZamanli">Tam Zamanlı (Full-time)</option>
+                                    <option value="@SgkCalismaTuru.KismiZamanli">Kısmi Süreli (Part-time)</option>
+                                    <option value="@SgkCalismaTuru.Cirak">Çırak (3308 say. Kanun)</option>
+                                    <option value="@SgkCalismaTuru.StajYuksekOgretim">Stajyer - Yükseköğretim</option>
+                                    <option value="@SgkCalismaTuru.IsBasiEgitimiIskur">İş Başı Eğitim Programı (İŞKUR)</option>
+                                    <option value="@SgkCalismaTuru.EvHizmetleri10Alti">Ev Hizmetleri (10 gün altı)</option>
+                                    <option value="@SgkCalismaTuru.EvHizmetleri10Ustu">Ev Hizmetleri (10 gün üstü)</option>
+                                    <option value="@SgkCalismaTuru.MevsimlikTarim">Mevsimlik Tarım İşçisi</option>
+                                    <option value="@SgkCalismaTuru.YabanciUyruklu">Yabancı Uyruklu</option>
+                                    <option value="@SgkCalismaTuru.EmekliAktif">Emekli (Aktif Çalışan)</option>
+                                    <option value="@SgkCalismaTuru.AsgariIscilikMuaf">Asgari İşçilik Muaf</option>
+                                    <option value="@SgkCalismaTuru.Engelli">Engelli Çalışan</option>
+                                    <option value="@SgkCalismaTuru.EskiHukumlu">Eski Hükümlü</option>
+                                    <option value="@SgkCalismaTuru.TerörMagduru">Terör Mağduru</option>
                                 </InputSelect>
                             </div>
                         </div>
@@ -501,6 +538,88 @@
         </div>
     </div>
 
+    @* Araç Eşleştirme Bölümü - Şoför Görevinde *@
+    @if (sofor.Gorev == PersonelGorev.Sofor)
+    {
+        <div class="card mt-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-truck me-2"></i>Araç Eşleştirmeleri</h5>
+                @if (IsEdit)
+                {
+                    <button class="btn btn-sm btn-primary" @onclick="AtamaModalAc">
+                        <i class="bi bi-plus-lg me-1"></i>Araç Ekle
+                    </button>
+                }
+            </div>
+            <div class="card-body">
+                @if (!IsEdit)
+                {
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Araç eşleştirmesi yapabilmek için önce personeli <strong>kaydedin</strong>, ardından bu bölümden araç ekleyebilirsiniz.
+                    </div>
+                }
+                else if (aracAtamalari == null)
+                {
+                    <div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>
+                }
+                else if (!aracAtamalari.Any())
+                {
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Henüz araç eşleştirmesi yapılmamış.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Plaka</th>
+                                    <th>Araç</th>
+                                    <th>Başlangıç</th>
+                                    <th>Bitiş</th>
+                                    <th>Notlar</th>
+                                    <th class="text-center">Durum</th>
+                                    <th class="text-center">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var atama in aracAtamalari.OrderByDescending(a => a.Aktif).ThenByDescending(a => a.BaslangicTarihi))
+                                {
+                                    <tr class="@(atama.Aktif ? "" : "table-secondary text-muted")">
+                                        <td><strong>@atama.Arac?.AktifPlaka</strong></td>
+                                        <td>@atama.Arac?.Marka @atama.Arac?.Model @atama.Arac?.ModelYili</td>
+                                        <td>@atama.BaslangicTarihi.ToString("dd.MM.yyyy")</td>
+                                        <td>@(atama.BitisTarihi?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                        <td><small>@atama.Notlar</small></td>
+                                        <td class="text-center">
+                                            @if (atama.Aktif)
+                                            {
+                                                <span class="badge bg-success">Aktif</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Pasif</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (atama.Aktif)
+                                            {
+                                                <button class="btn btn-sm btn-outline-warning" @onclick="() => AtamaKapat(atama.Id)" title="Eşleştirmeyi Kapat">
+                                                    <i class="bi bi-x-circle"></i>
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
     @* Özlük Belgeleri Bölümü - Sadece Düzenleme Modunda *@
     @if (IsEdit)
     {
@@ -642,6 +761,48 @@
     }
 </div>
 
+@* Araç Atama Modal *@
+@if (showAtamaModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Araç Eşleştir</h5>
+                    <button type="button" class="btn-close" @onclick="AtamaModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Araç (Plaka) *</label>
+                        <select class="form-select" @bind="yeniAtamaAracId">
+                            <option value="0">-- Araç Seçin --</option>
+                            @foreach (var arac in aktifAraclar)
+                            {
+                                <option value="@arac.Id">@arac.AktifPlaka - @arac.Marka @arac.Model</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Başlangıç Tarihi *</label>
+                        <input type="date" class="form-control" @bind="yeniAtamaBaslangic" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notlar</label>
+                        <input type="text" class="form-control" @bind="yeniAtamaNot" placeholder="İsteğe bağlı açıklama..." maxlength="500" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="AtamaModalKapat">İptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="AtamaKaydet" disabled="@(yeniAtamaAracId == 0 || atamaSaving)">
+                        @if (atamaSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        <i class="bi bi-check-lg me-1"></i>Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @* Evrak Yükleme Modal *@
 @if (showEvrakYukleModal && seciliEvrakDetay != null)
 {
@@ -707,9 +868,22 @@
     private IBrowserFile? secilenEvrakDosya;
     private bool evrakYukleniyor = false;
 
+    // Araç Eşleştirme
+    private List<PersonelAracAtama>? aracAtamalari;
+    private List<Arac> aktifAraclar = new();
+    private bool showAtamaModal = false;
+    private int yeniAtamaAracId = 0;
+    private DateTime yeniAtamaBaslangic = DateTime.Today;
+    private string yeniAtamaNot = "";
+    private bool atamaSaving = false;
+
+    // Firma listesi
+    private List<Firma> firmalar = new();
+
     protected override async Task OnParametersSetAsync()
     {
         await HesaplariYukle();
+        await FirmalariYukle();
 
         if (IsEdit)
         {
@@ -721,6 +895,8 @@
                 gercekMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
                 personelAvansHesap = await SoforService.GetPersonelAvansHesabiAsync(Id!.Value);
                 await EvrakDurumuYukle();
+                if (sofor.Gorev == PersonelGorev.Sofor)
+                    await AracAtamalariniYukle();
             }
             else
             {
@@ -743,6 +919,22 @@
     {
         muhasebeHesaplari = await SoforService.GetPersonelMuhasebeHesaplariAsync();
         avansHesaplari = await SoforService.GetPersonelAvansHesaplariAsync();
+    }
+
+    private async Task FirmalariYukle()
+    {
+        try
+        {
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+            firmalar = await ctx.Firmalar
+                .Where(f => !f.IsDeleted && f.Aktif)
+                .OrderBy(f => f.SiraNo).ThenBy(f => f.FirmaAdi)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FirmalariYukle HATA] {ex.Message}");
+        }
     }
 
     private async Task HesaplariYenile()
@@ -829,6 +1021,10 @@
         if (!IsEdit)
         {
             sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
+        }
+        if (IsEdit && sofor.Gorev == PersonelGorev.Sofor && aracAtamalari == null)
+        {
+            await AracAtamalariniYukle();
         }
     }
 
@@ -954,6 +1150,106 @@
             _ => "Brüt Ücret (₺)"
         };
     }
+
+    #region Araç Eşleştirme İşlemleri
+
+    private async Task AracAtamalariniYukle()
+    {
+        try
+        {
+            aktifAraclar = await AracService.GetActiveAsync();
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+            aracAtamalari = await ctx.PersonelAracAtamalari
+                .Include(a => a.Arac)
+                .Where(a => a.SoforId == Id!.Value)
+                .OrderByDescending(a => a.Aktif)
+                .ThenByDescending(a => a.BaslangicTarihi)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Araç atamaları yüklenirken hata: {ex.Message}");
+        }
+    }
+
+    private async Task AtamaModalAc()
+    {
+        if (!aktifAraclar.Any())
+            aktifAraclar = await AracService.GetActiveAsync();
+        yeniAtamaAracId = 0;
+        yeniAtamaBaslangic = DateTime.Today;
+        yeniAtamaNot = "";
+        showAtamaModal = true;
+    }
+
+    private void AtamaModalKapat()
+    {
+        showAtamaModal = false;
+    }
+
+    private async Task AtamaKaydet()
+    {
+        if (yeniAtamaAracId == 0) return;
+        atamaSaving = true;
+        try
+        {
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+            // Aynı araca aktif atama varsa kapat
+            var mevcutAktif = await ctx.PersonelAracAtamalari
+                .Where(a => a.SoforId == Id!.Value && a.AracId == yeniAtamaAracId && a.Aktif && !a.IsDeleted)
+                .FirstOrDefaultAsync();
+            if (mevcutAktif != null)
+            {
+                ToastService.ShowWarning("Bu araç zaten bu personele atanmış ve aktif durumda.");
+                return;
+            }
+            var atama = new PersonelAracAtama
+            {
+                SoforId = Id!.Value,
+                AracId = yeniAtamaAracId,
+                BaslangicTarihi = yeniAtamaBaslangic,
+                Aktif = true,
+                Notlar = string.IsNullOrWhiteSpace(yeniAtamaNot) ? null : yeniAtamaNot
+            };
+            ctx.PersonelAracAtamalari.Add(atama);
+            await ctx.SaveChangesAsync();
+            ToastService.ShowSuccess("Araç eşleştirmesi eklendi.");
+            showAtamaModal = false;
+            await AracAtamalariniYukle();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Araç eklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            atamaSaving = false;
+        }
+    }
+
+    private async Task AtamaKapat(int atamaId)
+    {
+        try
+        {
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+            var atama = await ctx.PersonelAracAtamalari.FindAsync(atamaId);
+            if (atama != null)
+            {
+                atama.Aktif = false;
+                atama.BitisTarihi = DateTime.Today;
+                atama.UpdatedAt = DateTime.UtcNow;
+                await ctx.SaveChangesAsync();
+                ToastService.ShowSuccess("Araç eşleştirmesi kapatıldı.");
+                await AracAtamalariniYukle();
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"İşlem sırasında hata: {ex.Message}");
+        }
+    }
+
+    #endregion
 
     #region Özlük Evrak İşlemleri
 

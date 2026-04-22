@@ -11,6 +11,9 @@ public interface IPersonelMaasIzinService
     Task<PersonelMaas> CreateMaasAsync(PersonelMaas maas);
     Task<PersonelMaas> UpdateMaasAsync(PersonelMaas maas);
     Task DeleteMaasAsync(int id);
+    Task<int> DeleteMaaslarAsync(List<int> maasIds);
+    Task<int> RecalculateMaaslarAsync(List<int> maasIds);
+    Task<MaasOlusturmaSonuc> CreateMaasForPersonellerAsync(int yil, int ay, List<int> soforIds);
     Task<List<PersonelMaas>> GetSoforMaasGecmisiAsync(int soforId);
     Task MaasOdemeYapAsync(int maasId, DateTime odemeTarihi);
     Task TopluMaasOlusturAsync(int yil, int ay);
@@ -109,4 +112,10 @@ public class PersonelOzet
     public int KalanIzin { get; set; }
     public int BuAySeferSayisi { get; set; }
     public bool Aktif { get; set; }
+}
+
+public class MaasOlusturmaSonuc
+{
+    public int OlusturulanSayisi { get; set; }
+    public int ZatenVarSayisi { get; set; }
 }

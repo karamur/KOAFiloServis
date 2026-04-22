@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:1e3a5f,100:2563eb&height=160&section=header&text=KOAFiloServis&fontSize=48&fontColor=ffffff&fontAlignY=38&desc=Kurumsal%20Filo%20Yönetimi%20%26%20ERP%20Platformu&descSize=18&descAlignY=60&descColor=bfdbfe" width="100%" alt="KOAFiloServis" />
 
@@ -505,3 +505,4 @@ Bu proje **Allbatros Global Teknoloji** tarafından geliştirilmekte olup ticari
 <sub>© 2024–2026 Allbatros Global Teknoloji — Tüm hakları saklıdır.</sub>
 
 </div>
+

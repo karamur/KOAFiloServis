@@ -196,17 +196,6 @@ public class BankaHesapService : IBankaHesapService
         if (hesapKoduVar)
             throw new InvalidOperationException($"'{bankaHesap.HesapKodu}' hesap kodu zaten kullanımda.");
 
-        if (string.IsNullOrWhiteSpace(bankaHesap.Iban))
-            return;
-
-        if (!IsValidIban(bankaHesap.Iban))
-            throw new InvalidOperationException("Geçerli bir IBAN giriniz.");
-
-        var ibanVar = await QueryBankaHesaplari(context)
-            .AnyAsync(b => b.Id != bankaHesap.Id && b.Iban == bankaHesap.Iban);
-
-        if (ibanVar)
-            throw new InvalidOperationException($"'{bankaHesap.Iban}' IBAN bilgisi başka bir hesapta tanımlı.");
     }
 
     private static void NormalizeBankaHesap(BankaHesap bankaHesap)
@@ -237,43 +226,6 @@ public class BankaHesapService : IBankaHesapService
             return null;
 
         return new string(iban.Where(ch => !char.IsWhiteSpace(ch)).ToArray()).ToUpperInvariant();
-    }
-
-    private static bool IsValidIban(string iban)
-    {
-        var normalizedIban = NormalizeIban(iban);
-        if (string.IsNullOrWhiteSpace(normalizedIban))
-            return false;
-
-        if (normalizedIban.Length is < 15 or > 34)
-            return false;
-
-        if (!char.IsLetter(normalizedIban[0]) || !char.IsLetter(normalizedIban[1]) ||
-            !char.IsDigit(normalizedIban[2]) || !char.IsDigit(normalizedIban[3]) ||
-            normalizedIban.Any(ch => !char.IsLetterOrDigit(ch)))
-        {
-            return false;
-        }
-
-        var rearranged = string.Concat(normalizedIban.AsSpan(4), normalizedIban.AsSpan(0, 4));
-        var remainder = 0;
-
-        foreach (var ch in rearranged)
-        {
-            if (char.IsDigit(ch))
-            {
-                remainder = (remainder * 10 + (ch - '0')) % 97;
-                continue;
-            }
-
-            var numericValue = ch - 'A' + 10;
-            foreach (var digit in numericValue.ToString())
-            {
-                remainder = (remainder * 10 + (digit - '0')) % 97;
-            }
-        }
-
-        return remainder == 1;
     }
 
     private static int? TryParseGeneratedKodNumber(string? hesapKodu)

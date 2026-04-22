@@ -276,6 +276,123 @@ else
         </div>
     </div>
 
+    <!-- Rapor Bölümü -->
+    @if (projeOzet != null && raporGoster)
+    {
+        <div id="raporKart" class="card shadow-sm mb-3 border-primary">
+            <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-file-earmark-bar-graph me-2"></i>Kâr/Zarar/Masraf Tablosu - Enflasyonlu Projeksiyon</h6>
+                <button class="btn btn-sm btn-outline-light" @onclick="() => raporGoster = false"><i class="bi bi-x"></i></button>
+            </div>
+            <div class="card-body p-0">
+                @if (projeOzet.AylikProjeksiyonlar.Any())
+                {
+                    var ilkAy = projeOzet.AylikProjeksiyonlar.First();
+                    var sonAy = projeOzet.AylikProjeksiyonlar.Last();
+                    var artisTutari = sonAy.ToplamMaliyet - ilkAy.ToplamMaliyet;
+                    var artisOrani = ilkAy.ToplamMaliyet > 0 ? artisTutari / ilkAy.ToplamMaliyet * 100 : 0;
+
+                    <div class="row g-0 border-bottom">
+                        <div class="col-md-4 p-3 text-center border-end">
+                            <small class="text-muted d-block">İlk Ay Maliyeti</small>
+                            <strong class="text-primary">@ilkAy.ToplamMaliyet.ToString("N0") ₺</strong>
+                        </div>
+                        <div class="col-md-4 p-3 text-center border-end">
+                            <small class="text-muted d-block">Son Ay Tahmini Maliyeti</small>
+                            <strong class="text-danger">@sonAy.ToplamMaliyet.ToString("N0") ₺</strong>
+                        </div>
+                        <div class="col-md-4 p-3 text-center">
+                            <small class="text-muted d-block">Süre Sonu Maliyet Artışı</small>
+                            <strong class="@(artisTutari >= 0 ? "text-warning" : "text-success")">@artisTutari.ToString("N0") ₺ (%@artisOrani.ToString("N1"))</strong>
+                        </div>
+                    </div>
+                }
+
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>Dönem</th>
+                                <th class="text-end">Maliyet</th>
+                                <th class="text-end">Kâr</th>
+                                <th class="text-end">Teklif</th>
+                                <th class="text-end">Enflasyon Etkisi</th>
+                                <th class="text-end">Küm. Maliyet</th>
+                                <th class="text-end">Küm. Kâr</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ay in projeOzet.AylikProjeksiyonlar)
+                            {
+                                <tr>
+                                    <td>@ay.DonemAdi</td>
+                                    <td class="text-end text-danger">@ay.ToplamMaliyet.ToString("N0")</td>
+                                    <td class="text-end text-success">@ay.ToplamKar.ToString("N0")</td>
+                                    <td class="text-end fw-bold">@ay.ToplamTeklif.ToString("N0")</td>
+                                    <td class="text-end @(ay.EnflasyonEtkisi > 0 ? "text-danger" : "")">
+                                        @(ay.EnflasyonEtkisi > 0 ? "+" : "")@ay.EnflasyonEtkisi.ToString("N0")
+                                    </td>
+                                    <td class="text-end">@ay.KumulatifMaliyet.ToString("N0")</td>
+                                    <td class="text-end text-success">@ay.KumulatifKar.ToString("N0")</td>
+                                </tr>
+                            }
+                        </tbody>
+                        @if (projeOzet.AylikProjeksiyonlar.Any())
+                        {
+                            <tfoot class="table-dark">
+                                <tr class="fw-bold">
+                                    <td>TOPLAM</td>
+                                    <td class="text-end text-danger">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamMaliyet).ToString("N0")</td>
+                                    <td class="text-end text-success">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamKar).ToString("N0")</td>
+                                    <td class="text-end">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamTeklif).ToString("N0")</td>
+                                    <td class="text-end">@projeOzet.AylikProjeksiyonlar.Sum(a => a.EnflasyonEtkisi).ToString("N0")</td>
+                                    <td class="text-end">—</td>
+                                    <td class="text-end text-success">@projeOzet.AylikProjeksiyonlar.Last().KumulatifKar.ToString("N0")</td>
+                                </tr>
+                            </tfoot>
+                        }
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Maliyet Dağılım Kartları -->
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <div class="card border-danger">
+                    <div class="card-body text-center py-2">
+                        <small class="text-muted">Toplam Proje Maliyeti</small>
+                        <h5 class="text-danger mb-0">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamMaliyet).ToString("N0") ₺</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-success">
+                    <div class="card-body text-center py-2">
+                        <small class="text-muted">Toplam Proje Kârı</small>
+                        <h5 class="text-success mb-0">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamKar).ToString("N0") ₺</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-primary">
+                    <div class="card-body text-center py-2">
+                        <small class="text-muted">Toplam Teklif Bedeli</small>
+                        <h5 class="text-primary mb-0">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamTeklif).ToString("N0") ₺</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-warning">
+                    <div class="card-body text-center py-2">
+                        <small class="text-muted">Enflasyon Toplam Etkisi</small>
+                        <h5 class="text-warning mb-0">@projeOzet.AylikProjeksiyonlar.Sum(a => a.EnflasyonEtkisi).ToString("N0") ₺</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     @if (gerceklesenAnaliz != null && (secilenProje.Durum == IhaleProjeDurum.Kazanildi || gerceklesenAnaliz.ToplamGerceklesenSeferSayisi > 0))
     {
         var enKarlıHat = gerceklesenAnaliz.Kalemler.OrderByDescending(x => x.GerceklesenKar).FirstOrDefault();
@@ -833,123 +950,6 @@ else
                 <button class="btn btn-sm btn-outline-light" @onclick="() => aiAnalizSonuc = null"><i class="bi bi-x"></i></button>
             </div>
             <div class="card-body" style="white-space: pre-wrap;">@aiAnalizSonuc</div>
-        </div>
-    }
-
-    <!-- Rapor Modal -->
-    @if (projeOzet != null && raporGoster)
-    {
-        <div class="card shadow-sm mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0"><i class="bi bi-file-earmark-bar-graph me-2"></i>Kâr/Zarar/Masraf Tablosu - Enflasyonlu Projeksiyon</h6>
-                <button class="btn btn-sm btn-outline-secondary" @onclick="() => raporGoster = false"><i class="bi bi-x"></i></button>
-            </div>
-            <div class="card-body p-0">
-                @if (projeOzet.AylikProjeksiyonlar.Any())
-                {
-                    var ilkAy = projeOzet.AylikProjeksiyonlar.First();
-                    var sonAy = projeOzet.AylikProjeksiyonlar.Last();
-                    var artisTutari = sonAy.ToplamMaliyet - ilkAy.ToplamMaliyet;
-                    var artisOrani = ilkAy.ToplamMaliyet > 0 ? artisTutari / ilkAy.ToplamMaliyet * 100 : 0;
-
-                    <div class="row g-0 border-bottom">
-                        <div class="col-md-4 p-3 text-center border-end">
-                            <small class="text-muted d-block">İlk Ay Maliyeti</small>
-                            <strong class="text-primary">@ilkAy.ToplamMaliyet.ToString("N0") ₺</strong>
-                        </div>
-                        <div class="col-md-4 p-3 text-center border-end">
-                            <small class="text-muted d-block">Son Ay Tahmini Maliyeti</small>
-                            <strong class="text-danger">@sonAy.ToplamMaliyet.ToString("N0") ₺</strong>
-                        </div>
-                        <div class="col-md-4 p-3 text-center">
-                            <small class="text-muted d-block">Süre Sonu Maliyet Artışı</small>
-                            <strong class="@(artisTutari >= 0 ? "text-warning" : "text-success")">@artisTutari.ToString("N0") ₺ (%@artisOrani.ToString("N1"))</strong>
-                        </div>
-                    </div>
-                }
-
-                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="table table-sm table-striped mb-0">
-                        <thead class="table-dark sticky-top">
-                            <tr>
-                                <th>Dönem</th>
-                                <th class="text-end">Maliyet</th>
-                                <th class="text-end">Kâr</th>
-                                <th class="text-end">Teklif</th>
-                                <th class="text-end">Enflasyon Etkisi</th>
-                                <th class="text-end">Küm. Maliyet</th>
-                                <th class="text-end">Küm. Kâr</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var ay in projeOzet.AylikProjeksiyonlar)
-                            {
-                                <tr>
-                                    <td>@ay.DonemAdi</td>
-                                    <td class="text-end text-danger">@ay.ToplamMaliyet.ToString("N0")</td>
-                                    <td class="text-end text-success">@ay.ToplamKar.ToString("N0")</td>
-                                    <td class="text-end fw-bold">@ay.ToplamTeklif.ToString("N0")</td>
-                                    <td class="text-end @(ay.EnflasyonEtkisi > 0 ? "text-danger" : "")">
-                                        @(ay.EnflasyonEtkisi > 0 ? "+" : "")@ay.EnflasyonEtkisi.ToString("N0")
-                                    </td>
-                                    <td class="text-end">@ay.KumulatifMaliyet.ToString("N0")</td>
-                                    <td class="text-end text-success">@ay.KumulatifKar.ToString("N0")</td>
-                                </tr>
-                            }
-                        </tbody>
-                        @if (projeOzet.AylikProjeksiyonlar.Any())
-                        {
-                            <tfoot class="table-dark">
-                                <tr class="fw-bold">
-                                    <td>TOPLAM</td>
-                                    <td class="text-end text-danger">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamMaliyet).ToString("N0")</td>
-                                    <td class="text-end text-success">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamKar).ToString("N0")</td>
-                                    <td class="text-end">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamTeklif).ToString("N0")</td>
-                                    <td class="text-end">@projeOzet.AylikProjeksiyonlar.Sum(a => a.EnflasyonEtkisi).ToString("N0")</td>
-                                    <td class="text-end">—</td>
-                                    <td class="text-end text-success">@projeOzet.AylikProjeksiyonlar.Last().KumulatifKar.ToString("N0")</td>
-                                </tr>
-                            </tfoot>
-                        }
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Maliyet Dağılım Kartları -->
-        <div class="row mb-3">
-            <div class="col-md-3">
-                <div class="card border-danger">
-                    <div class="card-body text-center py-2">
-                        <small class="text-muted">Toplam Proje Maliyeti</small>
-                        <h5 class="text-danger mb-0">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamMaliyet).ToString("N0") ₺</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-success">
-                    <div class="card-body text-center py-2">
-                        <small class="text-muted">Toplam Proje Kârı</small>
-                        <h5 class="text-success mb-0">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamKar).ToString("N0") ₺</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-primary">
-                    <div class="card-body text-center py-2">
-                        <small class="text-muted">Toplam Teklif Bedeli</small>
-                        <h5 class="text-primary mb-0">@projeOzet.AylikProjeksiyonlar.Sum(a => a.ToplamTeklif).ToString("N0") ₺</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-warning">
-                    <div class="card-body text-center py-2">
-                        <small class="text-muted">Enflasyon Toplam Etkisi</small>
-                        <h5 class="text-warning mb-0">@projeOzet.AylikProjeksiyonlar.Sum(a => a.EnflasyonEtkisi).ToString("N0") ₺</h5>
-                    </div>
-                </div>
-            </div>
         </div>
     }
 }
@@ -2191,6 +2191,8 @@ else
         {
             projeOzet = await IhaleService.GetProjeOzetAsync(secilenProje.Id);
             raporGoster = true;
+            StateHasChanged();
+            await JS.InvokeVoidAsync("eval", "document.getElementById('raporKart')?.scrollIntoView({behavior:'smooth',block:'start'})");
         }
         catch (Exception ex) { ToastService.ShowError(ex.Message); }
         finally { yukleniyor = false; }

@@ -1,0 +1,973 @@
+@page "/lastik/degisimler"
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@using KOAFiloServis.Web.Services.Interfaces
+@using System.Text.Json
+@inject ILastikService LastikService
+@inject IAracService AracService
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Lastik Değişimleri</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-arrow-repeat me-2"></i>Lastik Değişim Kayıtları</h3>
+        <button class="btn btn-primary" @onclick="YeniDegisim">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Değişim
+        </button>
+    </div>
+
+    <!-- Filtreler -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label mb-1">Araç</label>
+                    <select class="form-select form-select-sm" @onchange="AracFilter">
+                        <option value="">-- Tüm Araçlar --</option>
+                        @foreach (var a in araclar)
+                        {
+                            <option value="@a.Id">@a.AktifPlaka @a.Marka @a.Model</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1">Başlangıç</label>
+                    <input type="date" class="form-control form-control-sm" value="@filtreBaslangicStr" @onchange="BaslangicDegisti" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1">Bitiş</label>
+                    <input type="date" class="form-control form-control-sm" value="@filtreBitisStr" @onchange="BitisDegisti" />
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="FiltreSifirla">
+                        <i class="bi bi-x-circle me-1"></i>Temizle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Araç Bazlı Lastik Dönem Özeti</h6>
+            <span class="badge bg-secondary">@aracDonemOzetleri.Count araç</span>
+        </div>
+        <div class="card-body p-0">
+            @if (!aracDonemOzetleri.Any())
+            {
+                <div class="p-3 text-muted">Dönem özeti için araç kaydı bulunamadı.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Plaka</th>
+                                <th>Araç</th>
+                                <th class="text-center">Dönem</th>
+                                <th class="text-center">Takılı Lastik</th>
+                                <th class="text-center">4 Lastik Aynı mı?</th>
+                                <th>Takılı Lastik Özeti</th>
+                                <th style="width:110px;">Detay</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var o in aracDonemOzetleri)
+                            {
+                                <tr>
+                                    <td><strong>@o.Plaka</strong></td>
+                                    <td>@o.AracBilgisi</td>
+                                    <td class="text-center">
+                                        @if (o.DonemdeDegisti)
+                                        {
+                                            <span class="badge bg-warning text-dark">Degisti (@o.DonemDegisimSayisi)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success">Degismedi</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">@o.TakiliLastikSayisi</td>
+                                    <td class="text-center">
+                                        @if (o.DortLastikAyniMi)
+                                        {
+                                            <span class="badge bg-success">Evet</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Hayir</span>
+                                        }
+                                    </td>
+                                    <td><small>@o.TakiliLastikOzeti</small></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => AracDetayAc(o.AracId)">
+                                            <i class="bi bi-list-ul me-1"></i>Detay
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (degisimler == null)
+    {
+        <div class="text-center"><div class="spinner-border" role="status"></div></div>
+    }
+    else if (!degisimler.Any())
+    {
+        <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Değişim kaydı bulunamadı.</div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Araç (Plaka)</th>
+                                <th>Tür</th>
+                                <th>KM</th>
+                                <th>Takilan Lastik</th>
+                                <th>Sokulen Lastik</th>
+                                <th>Yapılan Yer</th>
+                                <th class="text-end">Ücret</th>
+                                <th style="width:100px;">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in degisimler)
+                            {
+                                <tr>
+                                    <td><strong>@d.DegisimTarihi.ToString("dd.MM.yyyy")</strong></td>
+                                    <td>@d.Arac?.AktifPlaka <small class="text-muted">@d.Arac?.Marka @d.Arac?.Model</small></td>
+                                    <td><span class="badge @GetTurBadge(d.DegisimTipi)">@GetTurText(d.DegisimTipi)</span></td>
+                                    <td>@(d.KmDurumu.HasValue ? d.KmDurumu.Value.ToString("N0") + " km" : "-")</td>
+                                    <td>
+                                        @{
+                                            var takilanSatirlari = GetTakilanOzetSatirlari(d);
+                                        }
+                                        @if (takilanSatirlari.Any())
+                                        {
+                                            foreach (var satir in takilanSatirlari)
+                                            {
+                                                <small>@satir</small><br />
+                                            }
+                                        }
+                                        else { <span class="text-muted">-</span> }
+                                    </td>
+                                    <td>
+                                        @{
+                                            var sokulenSatirlari = GetSokulenOzetSatirlari(d);
+                                        }
+                                        @if (sokulenSatirlari.Any())
+                                        {
+                                            foreach (var satir in sokulenSatirlari)
+                                            {
+                                                <small>@satir</small><br />
+                                            }
+                                        }
+                                        else { <span class="text-muted">-</span> }
+                                    </td>
+                                    <td>@d.YapilanYer</td>
+                                    <td class="text-end">@(d.Ucret.HasValue ? d.Ucret.Value.ToString("N2") + " ₺" : "-")</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(d)"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(d)"><i class="bi bi-trash"></i></button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Form Modal -->
+@if (showForm)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>@(editDegisim.Id == 0 ? "Yeni Değişim" : "Değişim Düzenle")</h5>
+                    <button type="button" class="btn-close" @onclick="() => showForm = false"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="editDegisim" OnValidSubmit="Kaydet">
+                        <DataAnnotationsValidator />
+                        <!-- Temel bilgiler -->
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Araç *</label>
+                                <InputSelect @bind-Value="editDegisim.AracId" class="form-select">
+                                    <option value="0">-- Araç Seçin --</option>
+                                    @foreach (var a in araclar)
+                                    {
+                                        <option value="@a.Id">@a.AktifPlaka - @a.Marka @a.Model</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Değişim Tarihi *</label>
+                                <InputDate @bind-Value="editDegisim.DegisimTarihi" class="form-control" />
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Değişim Türü</label>
+                                <InputSelect @bind-Value="editDegisim.DegisimTipi" class="form-select">
+                                    <option value="@LastikDegisimTipi.Mevsimlik">Mevsimlik</option>
+                                    <option value="@LastikDegisimTipi.Periyodik">Periyodik</option>
+                                    <option value="@LastikDegisimTipi.Ariza">Arıza</option>
+                                    <option value="@LastikDegisimTipi.Diger">Diğer</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">KM Durumu</label>
+                                <InputNumber @bind-Value="editDegisim.KmDurumu" class="form-control" />
+                            </div>
+                        </div>
+
+                        <div class="card mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-grid-3x2-gap me-2"></i>Takılan / Sökülen Lastik Detayı
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StandartDortluUygula">
+                                    Standart 4 Pozisyon
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Giriş Şekli</label>
+                                        <select class="form-select" value="@degisimGirisSekli" @onchange="DegisimSekliDegisti">
+                                            <option value="standart">Standart 4'lü</option>
+                                            <option value="adet">Adet bazlı</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Adet</label>
+                                        <select class="form-select" value="@degisimAdet" @onchange="DegisimAdetDegisti" disabled="@(degisimGirisSekli == "standart")">
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width:140px;">Pozisyon</th>
+                                                <th>Takılan Stok</th>
+                                                <th style="width:180px;">Takılan Kaynak Depo</th>
+                                                <th>Sökülen Stok</th>
+                                                <th style="width:180px;">Sökülen Hedef Depo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @for (int i = 0; i < degisimSatirlari.Count; i++)
+                                            {
+                                                var satir = degisimSatirlari[i];
+                                                <tr>
+                                                    <td>
+                                                        <InputText @bind-Value="satir.Pozisyon" class="form-control form-control-sm" />
+                                                    </td>
+                                                    <td>
+                                                        <InputSelect @bind-Value="satir.TakilanStokId" class="form-select form-select-sm">
+                                                            <option value="">-- Stok Seçin --</option>
+                                                            @foreach (var s in stoklar)
+                                                            {
+                                                                <option value="@s.Id">@s.Ebat @s.Marka (@s.Depo?.DepoAdi)</option>
+                                                            }
+                                                        </InputSelect>
+                                                    </td>
+                                                    <td>
+                                                        <InputSelect @bind-Value="satir.KaynakDepoId" class="form-select form-select-sm">
+                                                            <option value="">-- Depo Seçin --</option>
+                                                            @foreach (var d in depolar)
+                                                            {
+                                                                <option value="@d.Id">@d.DepoAdi</option>
+                                                            }
+                                                        </InputSelect>
+                                                    </td>
+                                                    <td>
+                                                        <InputSelect @bind-Value="satir.SokulenStokId" class="form-select form-select-sm">
+                                                            <option value="">-- Stok Seçin --</option>
+                                                            @foreach (var s in stoklar)
+                                                            {
+                                                                <option value="@s.Id">@s.Ebat @s.Marka (@s.Depo?.DepoAdi)</option>
+                                                            }
+                                                        </InputSelect>
+                                                    </td>
+                                                    <td>
+                                                        <InputSelect @bind-Value="satir.HedefDepoId" class="form-select form-select-sm">
+                                                            <option value="">-- Depo Seçin --</option>
+                                                            @foreach (var d in depolar)
+                                                            {
+                                                                <option value="@d.Id">@d.DepoAdi</option>
+                                                            }
+                                                        </InputSelect>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Yapılan Yer / Servis</label>
+                                <InputText @bind-Value="editDegisim.YapilanYer" class="form-control" placeholder="Servis adı veya lokasyon" />
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">İşlem Ücreti (₺)</label>
+                                <InputNumber @bind-Value="editDegisim.Ucret" class="form-control" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Notlar</label>
+                            <InputTextArea @bind-Value="serbestNot" class="form-control" rows="2" />
+                        </div>
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button type="button" class="btn btn-secondary" @onclick="() => showForm = false">İptal</button>
+                            <button type="submit" class="btn btn-primary" disabled="@kaydediliyor">
+                                @if (kaydediliyor) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                Kaydet
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showAracDetayModal && seciliAracDetay != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-truck me-2"></i>Lastik Detay - @seciliAracDetay.Plaka
+                        <small class="text-muted ms-2">@seciliAracDetay.AracBilgisi</small>
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="() => showAracDetayModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Anlik Takili Lastikler</h6>
+                        <button class="btn btn-sm btn-primary" @onclick="() => YeniDegisimAracIcin(seciliAracDetay.AracId)">
+                            <i class="bi bi-plus-lg me-1"></i>Bu Arac Icin Yeni Degisim
+                        </button>
+                    </div>
+
+                    @if (!seciliAracDetay.TakiliLastikler.Any())
+                    {
+                        <div class="alert alert-warning py-2">Bu araca takili aktif lastik kaydi yok.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Marka</th>
+                                        <th>Ebat</th>
+                                        <th>Sezon</th>
+                                        <th>Seri No</th>
+                                        <th>Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var s in seciliAracDetay.TakiliLastikler)
+                                    {
+                                        <tr>
+                                            <td>@s.Marka</td>
+                                            <td>@s.Ebat</td>
+                                            <td><span class="badge @GetSezonBadge(s.Sezon)">@GetSezonText(s.Sezon)</span></td>
+                                            <td>@s.SeriNo</td>
+                                            <td><span class="badge @GetDurumBadge(s.Durum)">@GetDurumText(s.Durum)</span></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    <h6 class="mb-2 mt-3">Plaka Gecmisi (En son plaka ustte)</h6>
+                    @if (!seciliAracDetay.PlakaGecmisi.Any())
+                    {
+                        <div class="alert alert-secondary py-2">Plaka gecmisi kaydi bulunamadi.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Plaka</th>
+                                        <th>Giris</th>
+                                        <th>Cikis</th>
+                                        <th>Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in seciliAracDetay.PlakaGecmisi)
+                                    {
+                                        <tr>
+                                            <td><strong>@p.Plaka</strong></td>
+                                            <td>@p.GirisTarihi.ToString("dd.MM.yyyy")</td>
+                                            <td>@(p.CikisTarihi.HasValue ? p.CikisTarihi.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                            <td>
+                                                @if (p.Aktif)
+                                                {
+                                                    <span class="badge bg-success">Aktif</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Gecmis</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    <h6 class="mb-2">Degisim Hareketleri (Donemsel)</h6>
+                    @if (!seciliAracDetay.Hareketler.Any())
+                    {
+                        <div class="alert alert-info py-2 mb-0">Secili donemde hareket bulunamadi.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tarih</th>
+                                        <th>Tur</th>
+                                        <th>KM</th>
+                                        <th>Takilan</th>
+                                        <th>Sokulen</th>
+                                        <th>Yer</th>
+                                        <th class="text-end">Ucret</th>
+                                        <th style="width:70px;">Sil</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var h in seciliAracDetay.Hareketler)
+                                    {
+                                        <tr>
+                                            <td>@h.Tarih.ToString("dd.MM.yyyy")</td>
+                                            <td><span class="badge @GetTurBadge(h.DegisimTipi)">@GetTurText(h.DegisimTipi)</span></td>
+                                            <td>@(h.KmDurumu.HasValue ? h.KmDurumu.Value.ToString("N0") : "-")</td>
+                                            <td><small>@h.TakilanAciklama</small></td>
+                                            <td><small>@h.SokulenAciklama</small></td>
+                                            <td>@h.YapilanYer</td>
+                                            <td class="text-end">@(h.Ucret.HasValue ? h.Ucret.Value.ToString("N2") + " ₺" : "-")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnayById(h.DegisimId)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Silme Onayı -->
+@if (showDeleteModal && silinecek != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Silme Onayı</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <strong>@silinecek.DegisimTarihi.ToString("dd.MM.yyyy")</strong> tarihli değişim kaydını silmek istediğinizden emin misiniz?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => showDeleteModal = false">İptal</button>
+                    <button class="btn btn-danger" @onclick="Sil">Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<LastikDegisim>? degisimler;
+    private List<Arac> araclar = new();
+    private List<LastikDepo> depolar = new();
+    private List<LastikStok> stoklar = new();
+    private List<LastikAracDonemOzet> aracDonemOzetleri = new();
+    private LastikAracDetay? seciliAracDetay;
+    private LastikDegisim editDegisim = new();
+    private LastikDegisim? silinecek;
+    private bool showForm;
+    private bool showDeleteModal;
+    private bool showAracDetayModal;
+    private bool kaydediliyor;
+    private int? filtreAracId;
+    private DateTime? filtreBaslangic;
+    private DateTime? filtreBitis;
+    private string degisimGirisSekli = "standart";
+    private int degisimAdet = 4;
+    private string serbestNot = string.Empty;
+    private List<LastikDegisimSatirForm> degisimSatirlari = new();
+    private static readonly string[] StandartPozisyonlar = ["On Sol", "On Sag", "Arka Sol", "Arka Sag"];
+    private string filtreBaslangicStr => filtreBaslangic?.ToString("yyyy-MM-dd") ?? string.Empty;
+    private string filtreBitisStr => filtreBitis?.ToString("yyyy-MM-dd") ?? string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        araclar = await AracService.GetAllAsync();
+        depolar = await LastikService.GetDepoListAsync();
+        stoklar = await LastikService.GetStokListAsync();
+        degisimler = await LastikService.GetDegisimListAsync();
+        HazirlaDegisimSatirlari(degisimAdet);
+        await YukleAracDonemOzeti();
+    }
+
+    private async Task AracFilter(ChangeEventArgs e)
+    {
+        filtreAracId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : int.Parse(e.Value.ToString()!);
+        await Filtrele();
+    }
+
+    private async Task BaslangicDegisti(ChangeEventArgs e)
+    {
+        filtreBaslangic = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!);
+        await Filtrele();
+    }
+
+    private async Task BitisDegisti(ChangeEventArgs e)
+    {
+        filtreBitis = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!);
+        await Filtrele();
+    }
+
+    private async Task Filtrele()
+    {
+        degisimler = await LastikService.GetDegisimListAsync(filtreAracId, filtreBaslangic, filtreBitis);
+        await YukleAracDonemOzeti();
+    }
+
+    private async Task FiltreSifirla()
+    {
+        filtreAracId = null;
+        filtreBaslangic = null;
+        filtreBitis = null;
+        await Filtrele();
+    }
+
+    private async Task YukleAracDonemOzeti()
+    {
+        aracDonemOzetleri = await LastikService.GetAracDonemOzetListAsync(filtreBaslangic, filtreBitis);
+    }
+
+    private async Task AracDetayAc(int aracId)
+    {
+        seciliAracDetay = await LastikService.GetAracDetayAsync(aracId, filtreBaslangic, filtreBitis);
+        showAracDetayModal = seciliAracDetay != null;
+    }
+
+    private void YeniDegisimAracIcin(int aracId)
+    {
+        editDegisim = new LastikDegisim
+        {
+            AracId = aracId,
+            DegisimTarihi = DateTime.Today,
+            DegisimTipi = LastikDegisimTipi.Mevsimlik
+        };
+        degisimGirisSekli = "standart";
+        degisimAdet = 4;
+        serbestNot = string.Empty;
+        HazirlaDegisimSatirlari(degisimAdet);
+        showAracDetayModal = false;
+        showForm = true;
+    }
+
+    private void SilOnayById(int degisimId)
+    {
+        var kayit = degisimler?.FirstOrDefault(x => x.Id == degisimId);
+        if (kayit == null)
+            return;
+
+        silinecek = kayit;
+        showDeleteModal = true;
+    }
+    private void YeniDegisim()
+    {
+        editDegisim = new LastikDegisim
+        {
+            DegisimTarihi = DateTime.Today,
+            DegisimTipi = LastikDegisimTipi.Mevsimlik
+        };
+        degisimGirisSekli = "standart";
+        degisimAdet = 4;
+        serbestNot = string.Empty;
+        HazirlaDegisimSatirlari(degisimAdet);
+        showForm = true;
+    }
+
+    private void Duzenle(LastikDegisim d)
+    {
+        editDegisim = new LastikDegisim
+        {
+            Id = d.Id, AracId = d.AracId, DegisimTarihi = d.DegisimTarihi,
+            KmDurumu = d.KmDurumu, DegisimTipi = d.DegisimTipi,
+            TakilanStokId = d.TakilanStokId, TakilanPozisyon = d.TakilanPozisyon,
+            KaynakDepoId = d.KaynakDepoId,
+            SokulenStokId = d.SokulenStokId, SokulenPozisyon = d.SokulenPozisyon,
+            HedefDepoId = d.HedefDepoId,
+            YapilanYer = d.YapilanYer, Ucret = d.Ucret, Notlar = d.Notlar
+        };
+        YukleDegisimFormDurumu(d);
+        showForm = true;
+    }
+
+    private async Task Kaydet()
+    {
+        kaydediliyor = true;
+        try
+        {
+            var gecerliSatirlar = degisimSatirlari
+                .Where(s => s.TakilanStokId.HasValue || s.SokulenStokId.HasValue)
+                .ToList();
+
+            if (!gecerliSatirlar.Any())
+            {
+                ToastService.ShowWarning("En az bir takılan veya sökülen lastik satırı girin.");
+                return;
+            }
+
+            var ilkSatir = gecerliSatirlar.First();
+            editDegisim.TakilanStokId = ilkSatir.TakilanStokId;
+            editDegisim.SokulenStokId = ilkSatir.SokulenStokId;
+            editDegisim.KaynakDepoId = ilkSatir.KaynakDepoId;
+            editDegisim.HedefDepoId = ilkSatir.HedefDepoId;
+            editDegisim.TakilanPozisyon = ilkSatir.Pozisyon;
+            editDegisim.SokulenPozisyon = ilkSatir.Pozisyon;
+
+            var payload = new LastikDegisimNotPayload
+            {
+                GirisTipi = degisimGirisSekli,
+                Adet = gecerliSatirlar.Count,
+                UserNot = serbestNot,
+                Satirlar = gecerliSatirlar.Select(s => new LastikDegisimNotSatir
+                {
+                    Pozisyon = s.Pozisyon,
+                    TakilanStokId = s.TakilanStokId,
+                    TakilanEtiket = GetStokEtiket(s.TakilanStokId),
+                    KaynakDepoId = s.KaynakDepoId,
+                    KaynakDepoAdi = GetDepoAdi(s.KaynakDepoId),
+                    SokulenStokId = s.SokulenStokId,
+                    SokulenEtiket = GetStokEtiket(s.SokulenStokId),
+                    HedefDepoId = s.HedefDepoId,
+                    HedefDepoAdi = GetDepoAdi(s.HedefDepoId)
+                }).ToList()
+            };
+
+            editDegisim.Notlar = JsonSerializer.Serialize(payload);
+
+            if (editDegisim.Id == 0)
+                await LastikService.CreateDegisimAsync(editDegisim);
+            else
+                await LastikService.UpdateDegisimAsync(editDegisim);
+
+            showForm = false;
+            await Filtrele();
+            if (showAracDetayModal && seciliAracDetay != null)
+                await AracDetayAc(seciliAracDetay.AracId);
+            ToastService.ShowSuccess("Değişim kaydedildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
+        finally { kaydediliyor = false; }
+    }
+
+    private void SilOnay(LastikDegisim d) { silinecek = d; showDeleteModal = true; }
+
+    private async Task Sil()
+    {
+        if (silinecek == null) return;
+        await LastikService.DeleteDegisimAsync(silinecek.Id);
+        showDeleteModal = false;
+        await Filtrele();
+        if (showAracDetayModal && seciliAracDetay != null)
+            await AracDetayAc(seciliAracDetay.AracId);
+        ToastService.ShowSuccess("Kayıt silindi.");
+    }
+
+    private void DegisimSekliDegisti(ChangeEventArgs e)
+    {
+        degisimGirisSekli = e.Value?.ToString() == "adet" ? "adet" : "standart";
+        if (degisimGirisSekli == "standart")
+            degisimAdet = 4;
+
+        HazirlaDegisimSatirlari(degisimAdet);
+    }
+
+    private void DegisimAdetDegisti(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var adet))
+            degisimAdet = Math.Clamp(adet, 1, 4);
+        else
+            degisimAdet = 4;
+
+        HazirlaDegisimSatirlari(degisimAdet);
+    }
+
+    private void StandartDortluUygula()
+    {
+        degisimGirisSekli = "standart";
+        degisimAdet = 4;
+        HazirlaDegisimSatirlari(degisimAdet);
+    }
+
+    private void HazirlaDegisimSatirlari(int adet)
+    {
+        var hedefAdet = Math.Clamp(adet, 1, 4);
+        var onceki = degisimSatirlari.ToList();
+
+        degisimSatirlari = Enumerable.Range(0, hedefAdet)
+            .Select(i =>
+            {
+                var mevcut = i < onceki.Count ? onceki[i] : null;
+                return new LastikDegisimSatirForm
+                {
+                    Pozisyon = mevcut?.Pozisyon ?? StandartPozisyonlar[i],
+                    TakilanStokId = mevcut?.TakilanStokId,
+                    KaynakDepoId = mevcut?.KaynakDepoId,
+                    SokulenStokId = mevcut?.SokulenStokId,
+                    HedefDepoId = mevcut?.HedefDepoId
+                };
+            })
+            .ToList();
+    }
+
+    private void YukleDegisimFormDurumu(LastikDegisim degisim)
+    {
+        var payload = ParseDegisimNotPayload(degisim.Notlar);
+        if (payload != null && payload.Satirlar.Any())
+        {
+            degisimGirisSekli = payload.GirisTipi == "adet" ? "adet" : "standart";
+            degisimAdet = Math.Clamp(payload.Adet > 0 ? payload.Adet : payload.Satirlar.Count, 1, 4);
+            serbestNot = payload.UserNot ?? string.Empty;
+            degisimSatirlari = payload.Satirlar
+                .Take(4)
+                .Select((s, i) => new LastikDegisimSatirForm
+                {
+                    Pozisyon = string.IsNullOrWhiteSpace(s.Pozisyon) ? StandartPozisyonlar[Math.Min(i, 3)] : s.Pozisyon,
+                    TakilanStokId = s.TakilanStokId,
+                    KaynakDepoId = s.KaynakDepoId,
+                    SokulenStokId = s.SokulenStokId,
+                    HedefDepoId = s.HedefDepoId
+                })
+                .ToList();
+            return;
+        }
+
+        degisimGirisSekli = "adet";
+        degisimAdet = 1;
+        serbestNot = degisim.Notlar ?? string.Empty;
+        degisimSatirlari = new List<LastikDegisimSatirForm>
+        {
+            new()
+            {
+                Pozisyon = degisim.TakilanPozisyon ?? degisim.SokulenPozisyon ?? StandartPozisyonlar[0],
+                TakilanStokId = degisim.TakilanStokId,
+                KaynakDepoId = degisim.KaynakDepoId,
+                SokulenStokId = degisim.SokulenStokId,
+                HedefDepoId = degisim.HedefDepoId
+            }
+        };
+    }
+
+    private List<string> GetTakilanOzetSatirlari(LastikDegisim degisim)
+    {
+        var payload = ParseDegisimNotPayload(degisim.Notlar);
+        if (payload != null && payload.Satirlar.Any())
+        {
+            return payload.Satirlar
+                .Where(s => !string.IsNullOrWhiteSpace(s.TakilanEtiket))
+                .Select(s => $"{(string.IsNullOrWhiteSpace(s.Pozisyon) ? "Pozisyon?" : s.Pozisyon)}: {s.TakilanEtiket} | {s.KaynakDepoAdi ?? "-"}")
+                .ToList();
+        }
+
+        if (degisim.TakilanStok == null)
+            return new List<string>();
+
+        return new List<string>
+        {
+            $"{degisim.TakilanStok.Ebat} {degisim.TakilanStok.Marka} ({GetSezonText(degisim.TakilanStok.Sezon)}) | {degisim.KaynakDepo?.DepoAdi ?? "-"} | {degisim.TakilanPozisyon ?? "-"}"
+        };
+    }
+
+    private List<string> GetSokulenOzetSatirlari(LastikDegisim degisim)
+    {
+        var payload = ParseDegisimNotPayload(degisim.Notlar);
+        if (payload != null && payload.Satirlar.Any())
+        {
+            return payload.Satirlar
+                .Where(s => !string.IsNullOrWhiteSpace(s.SokulenEtiket))
+                .Select(s => $"{(string.IsNullOrWhiteSpace(s.Pozisyon) ? "Pozisyon?" : s.Pozisyon)}: {s.SokulenEtiket} | {s.HedefDepoAdi ?? "-"}")
+                .ToList();
+        }
+
+        if (degisim.SokulenStok == null)
+            return new List<string>();
+
+        return new List<string>
+        {
+            $"{degisim.SokulenStok.Ebat} {degisim.SokulenStok.Marka} ({GetSezonText(degisim.SokulenStok.Sezon)}) | {degisim.HedefDepo?.DepoAdi ?? "-"} | {degisim.SokulenPozisyon ?? "-"}"
+        };
+    }
+
+    private LastikDegisimNotPayload? ParseDegisimNotPayload(string? notlar)
+    {
+        if (string.IsNullOrWhiteSpace(notlar))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<LastikDegisimNotPayload>(notlar);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string? GetStokEtiket(int? stokId)
+    {
+        if (!stokId.HasValue)
+            return null;
+
+        var stok = stoklar.FirstOrDefault(s => s.Id == stokId.Value);
+        if (stok == null)
+            return null;
+
+        return $"{stok.Ebat} {stok.Marka}";
+    }
+
+    private string? GetDepoAdi(int? depoId)
+    {
+        if (!depoId.HasValue)
+            return null;
+
+        return depolar.FirstOrDefault(d => d.Id == depoId.Value)?.DepoAdi;
+    }
+
+    private string GetTurBadge(LastikDegisimTipi t) => t switch
+    {
+        LastikDegisimTipi.Mevsimlik => "bg-primary",
+        LastikDegisimTipi.Periyodik => "bg-success",
+        LastikDegisimTipi.Ariza => "bg-danger",
+        _ => "bg-secondary"
+    };
+    private string GetTurText(LastikDegisimTipi t) => t switch
+    {
+        LastikDegisimTipi.Mevsimlik => "Mevsimlik",
+        LastikDegisimTipi.Periyodik => "Periyodik",
+        LastikDegisimTipi.Ariza => "Arıza",
+        LastikDegisimTipi.Diger => "Diğer",
+        _ => t.ToString()
+    };
+
+    private string GetSezonBadge(LastikSezon s) => s switch
+    {
+        LastikSezon.YazLastigi => "bg-warning text-dark",
+        LastikSezon.KisLastigi => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+
+    private string GetSezonText(LastikSezon s) => s switch
+    {
+        LastikSezon.YazLastigi => "Yaz",
+        LastikSezon.KisLastigi => "Kis",
+        LastikSezon.DortMevsim => "4 Mevsim",
+        _ => s.ToString()
+    };
+
+    private string GetDurumBadge(LastikDurum d) => d switch
+    {
+        LastikDurum.Kullanilabilir => "bg-success",
+        LastikDurum.Hasarli => "bg-warning text-dark",
+        LastikDurum.Hurda => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetDurumText(LastikDurum d) => d switch
+    {
+        LastikDurum.Kullanilabilir => "Kullanilabilir",
+        LastikDurum.Hasarli => "Hasarli",
+        LastikDurum.Hurda => "Hurda",
+        _ => d.ToString()
+    };
+
+    private sealed class LastikDegisimSatirForm
+    {
+        public string Pozisyon { get; set; } = string.Empty;
+        public int? TakilanStokId { get; set; }
+        public int? KaynakDepoId { get; set; }
+        public int? SokulenStokId { get; set; }
+        public int? HedefDepoId { get; set; }
+    }
+
+    private sealed class LastikDegisimNotPayload
+    {
+        public string? GirisTipi { get; set; }
+        public int Adet { get; set; }
+        public string? UserNot { get; set; }
+        public List<LastikDegisimNotSatir> Satirlar { get; set; } = new();
+    }
+
+    private sealed class LastikDegisimNotSatir
+    {
+        public string? Pozisyon { get; set; }
+
+        public int? TakilanStokId { get; set; }
+        public string? TakilanEtiket { get; set; }
+        public int? KaynakDepoId { get; set; }
+        public string? KaynakDepoAdi { get; set; }
+
+        public int? SokulenStokId { get; set; }
+        public string? SokulenEtiket { get; set; }
+        public int? HedefDepoId { get; set; }
+        public string? HedefDepoAdi { get; set; }
+    }
+}

@@ -3,11 +3,14 @@
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
+@using KOAFiloServis.Web.Data
+@using Microsoft.EntityFrameworkCore
 @inject ISoforService SoforService
 @inject IPersonelOzlukService OzlukService
 @inject IJSRuntime JS
 @inject IToastService ToastService
 @inject NavigationManager Navigation
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @rendermode InteractiveServer
 
 <PageTitle>Personel Listesi</PageTitle>
@@ -15,14 +18,37 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3><i class="bi bi-people me-2"></i>Personel Listesi</h3>
-        <div class="d-flex gap-2">
-            <select class="form-select" style="width: 180px;" @bind="secilenGorev" @bind:after="FiltreleAsync">
-                <option value="">Tüm Personel</option>
+        <div class="d-flex gap-2 flex-wrap">
+            <input type="text" class="form-control" style="width: 200px;" placeholder="Ad, kod, telefon ara..." 
+                   @bind="aramaMetni" @bind:after="FiltreleAsync" />
+            <select class="form-select" style="width: 160px;" @bind="secilenGorev" @bind:after="FiltreleAsync">
+                <option value="">Tüm Görevler</option>
                 @foreach (PersonelGorev gorev in Enum.GetValues(typeof(PersonelGorev)))
                 {
                     <option value="@gorev">@GetGorevAdi(gorev)</option>
                 }
             </select>
+            <select class="form-select" style="width: 160px;" @bind="secilenFirmaId" @bind:after="FiltreleAsync">
+                <option value="0">Tüm Firmalar</option>
+                @foreach (var firma in firmalar)
+                {
+                    <option value="@firma.Id">@firma.FirmaAdi</option>
+                }
+            </select>
+            <div class="btn-group" role="group" aria-label="Durum filtresi">
+                <button type="button" class="btn @(secilenAktifDurum == "" ? "btn-secondary" : "btn-outline-secondary")" 
+                        @onclick='() => AktifDurumFiltrele("")'>
+                    <i class="bi bi-people me-1"></i>Tümü
+                </button>
+                <button type="button" class="btn @(secilenAktifDurum == "aktif" ? "btn-success" : "btn-outline-success")" 
+                        @onclick='() => AktifDurumFiltrele("aktif")'>
+                    <i class="bi bi-check-circle me-1"></i>Aktif
+                </button>
+                <button type="button" class="btn @(secilenAktifDurum == "pasif" ? "btn-danger" : "btn-outline-danger")" 
+                        @onclick='() => AktifDurumFiltrele("pasif")'>
+                    <i class="bi bi-x-circle me-1"></i>Pasif
+                </button>
+            </div>
             <div class="btn-group">
                 <button class="btn btn-outline-success" @onclick="ImportSablonIndir" title="Import Şablonu İndir">
                     <i class="bi bi-download me-1"></i>Şablon
@@ -57,7 +83,15 @@
     else if (!personeller.Any())
     {
         <div class="alert alert-info">
-            <i class="bi bi-info-circle me-2"></i>Henüz personel kaydı bulunmamaktadır.
+            <i class="bi bi-info-circle me-2"></i>
+            @if (tumPersoneller?.Any() == true)
+            {
+                <span>Seçilen filtreye uygun personel bulunamadı.</span>
+            }
+            else
+            {
+                <span>Henüz personel kaydı bulunmamaktadır.</span>
+            }
         </div>
     }
     else
@@ -72,7 +106,9 @@
                                 <th>Personel Kodu</th>
                                 <th>Ad Soyad</th>
                                 <th>Görev</th>
+                                <th>Firma</th>
                                 <th>Telefon</th>
+                                <th>Araç</th>
                                 <th>İşe Başlama</th>
                                 <th>İşten Çıkış</th>
                                 <th>SGK Çıkış</th>
@@ -98,7 +134,27 @@
                                             @GetGorevAdi(personel.Gorev)
                                         </span>
                                     </td>
-                                    <td>@personel.Telefon</td>
+                                    <td>
+                                        @if (personel.Firma != null)
+                                        {
+                                            <span class="badge bg-secondary">@personel.Firma.FirmaAdi</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>@(personel.Telefon ?? "-")</td>
+                                    <td>
+                                        @if (personelAraclar.TryGetValue(personel.Id, out var plaka))
+                                        {
+                                            <span class="badge bg-primary">@plaka</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
                                     <td>@personel.IseBaslamaTarihi?.ToString("dd.MM.yyyy")</td>
                                      <td>@personel.IstenAyrilmaTarihi?.ToString("dd.MM.yyyy")</td>
                                      <td>@personel.SgkCikisTarihi?.ToString("dd.MM.yyyy")</td>
@@ -164,8 +220,8 @@
             <div class="col-md-3">
                 <div class="card bg-light">
                     <div class="card-body py-2 text-center">
-                        <small class="text-muted">Toplam Personel</small>
-                        <h5 class="mb-0">@personeller.Count</h5>
+                        <small class="text-muted">Gösterilen / Toplam</small>
+                        <h5 class="mb-0">@personeller.Count / @(tumPersoneller?.Count ?? 0)</h5>
                     </div>
                 </div>
             </div>
@@ -350,10 +406,16 @@
 }
 
 @code {
+    private List<Sofor>? tumPersoneller;
     private List<Sofor>? personeller;
+    private Dictionary<int, string> personelAraclar = new();
+    private List<KOAFiloServis.Shared.Entities.Firma> firmalar = new();
     private bool showDeleteModal = false;
     private Sofor? silinecekPersonel;
     private string secilenGorev = "";
+    private string secilenAktifDurum = "aktif";
+    private string aramaMetni = "";
+    private int secilenFirmaId = 0;
 
     // Import değişkenleri
     private bool showImportModal = false;
@@ -370,19 +432,96 @@
 
     private async Task LoadData()
     {
-        personeller = await SoforService.GetAllAsync();
+        await using var ctx = await DbContextFactory.CreateDbContextAsync();
+        tumPersoneller = await ctx.Soforler
+            .Include(s => s.Firma)
+            .Where(s => !s.IsDeleted)
+            .OrderBy(s => s.Ad)
+            .ThenBy(s => s.Soyad)
+            .AsNoTracking()
+            .ToListAsync();
+        await LoadPersonelAraclarAsync();
+        await LoadFirmalarAsync();
+        UygulaFiltre();
     }
 
     private async Task FiltreleAsync()
     {
-        if (string.IsNullOrEmpty(secilenGorev))
+        if (tumPersoneller == null)
         {
-            personeller = await SoforService.GetAllAsync();
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+            tumPersoneller = await ctx.Soforler
+                .Include(s => s.Firma)
+                .Where(s => !s.IsDeleted)
+                .OrderBy(s => s.Ad)
+                .ThenBy(s => s.Soyad)
+                .AsNoTracking()
+                .ToListAsync();
         }
-        else if (Enum.TryParse<PersonelGorev>(secilenGorev, out var gorev))
+        UygulaFiltre();
+    }
+
+    private void AktifDurumFiltrele(string durum)
+    {
+        secilenAktifDurum = durum;
+        UygulaFiltre();
+    }
+
+    private void UygulaFiltre()
+    {
+        var sorgu = tumPersoneller?.AsEnumerable() ?? Enumerable.Empty<Sofor>();
+
+        if (!string.IsNullOrEmpty(secilenGorev) && Enum.TryParse<PersonelGorev>(secilenGorev, out var gorev))
+            sorgu = sorgu.Where(p => p.Gorev == gorev);
+
+        if (secilenAktifDurum == "aktif")
+            sorgu = sorgu.Where(p => p.Aktif);
+        else if (secilenAktifDurum == "pasif")
+            sorgu = sorgu.Where(p => !p.Aktif);
+
+        if (!string.IsNullOrWhiteSpace(aramaMetni))
         {
-            personeller = await SoforService.GetByGorevAsync(gorev);
+            var aranan = aramaMetni.Trim().ToLowerInvariant();
+            sorgu = sorgu.Where(p =>
+                (p.Ad + " " + p.Soyad).ToLowerInvariant().Contains(aranan) ||
+                (p.SoforKodu ?? "").ToLowerInvariant().Contains(aranan) ||
+                (p.Telefon ?? "").Contains(aranan));
         }
+
+        if (secilenFirmaId > 0)
+            sorgu = sorgu.Where(p => p.FirmaId == secilenFirmaId);
+
+        personeller = sorgu.ToList();
+    }
+
+    private async Task LoadPersonelAraclarAsync()
+    {
+        try
+        {
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+            var atamalar = await ctx.PersonelAracAtamalari
+                .Include(a => a.Arac)
+                .Where(a => a.Aktif)
+                .ToListAsync();
+            personelAraclar = atamalar
+                .GroupBy(a => a.SoforId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.BaslangicTarihi).First().Arac?.AktifPlaka ?? "");
+        }
+        catch { /* araç ataması yüklenemezse sessizce devam et */ }
+    }
+
+    private async Task LoadFirmalarAsync()
+    {
+        try
+        {
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+            firmalar = await ctx.Firmalar
+                .Where(f => !f.IsDeleted)
+                .OrderBy(f => f.FirmaAdi)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+        catch { }
     }
 
     private void YeniPersonel()

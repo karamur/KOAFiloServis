@@ -91,6 +91,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PersonelMaas> PersonelMaaslari { get; set; }
     public DbSet<PersonelIzin> PersonelIzinleri { get; set; }
     public DbSet<PersonelIzinHakki> PersonelIzinHaklari { get; set; }
+    public DbSet<PersonelAracAtama> PersonelAracAtamalari { get; set; }
 
     // Butce Modulu
     public DbSet<BudgetOdeme> BudgetOdemeler { get; set; }
@@ -289,6 +290,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<BakimPeriyot> BakimPeriyotlar { get; set; }
     public DbSet<AracBakimUyari> AracBakimUyarilari { get; set; }
 
+    // Lastik Takip Modülü
+    public DbSet<LastikDepo> LastikDepolar { get; set; }
+    public DbSet<LastikStok> LastikStoklar { get; set; }
+    public DbSet<LastikDegisim> LastikDegisimler { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -389,6 +395,14 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.SirketId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Firma ilişkisi (çalıştığı firma)
+            entity.HasOne(e => e.Firma)
+                .WithMany()
+                .HasForeignKey(e => e.FirmaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(e => e.SgkCalismaTuru).HasDefaultValue(SgkCalismaTuru.TamZamanli);
 
             // Global Query Filter: IsDeleted + Multi-tenant
             entity.HasQueryFilter(e => !e.IsDeleted && 
@@ -672,7 +686,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.HesapKodu).HasMaxLength(50);
             entity.Property(e => e.HesapAdi).HasMaxLength(200);
             entity.Property(e => e.BankaAdi).HasMaxLength(100);
-            entity.Property(e => e.Iban).HasMaxLength(34);
             entity.Property(e => e.ParaBirimi).HasMaxLength(3);
             entity.Property(e => e.AcilisBakiye).HasPrecision(18, 2);
 
@@ -1433,6 +1446,23 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.AracId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // PersonelAracAtama
+        modelBuilder.Entity<PersonelAracAtama>(entity =>
+        {
+            entity.ToTable("PersonelAracAtamalari");
+            entity.HasIndex(e => new { e.SoforId, e.AracId, e.BaslangicTarihi });
+            entity.Property(e => e.Notlar).HasMaxLength(500);
+            entity.HasOne(e => e.Sofor)
+                .WithMany(s => s.AracAtamalari)
+                .HasForeignKey(e => e.SoforId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Arac)
+                .WithMany()
+                .HasForeignKey(e => e.AracId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
@@ -2332,6 +2362,72 @@ public class ApplicationDbContext : DbContext
 
         // Şirketler Arası Transfer Konfigürasyonu
         ConfigureSirketTransferLog(modelBuilder);
+
+        // Lastik Takip Modülü
+        modelBuilder.Entity<LastikDepo>(entity =>
+        {
+            entity.Property(e => e.DepoAdi).HasMaxLength(150);
+            entity.Property(e => e.SorumluKisi).HasMaxLength(100);
+            entity.Property(e => e.Telefon).HasMaxLength(20);
+            entity.HasOne(e => e.Sirket)
+                .WithMany()
+                .HasForeignKey(e => e.SirketId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<LastikStok>(entity =>
+        {
+            entity.Property(e => e.Marka).HasMaxLength(100);
+            entity.Property(e => e.Ebat).HasMaxLength(30);
+            entity.Property(e => e.SeriNo).HasMaxLength(50);
+            entity.HasOne(e => e.Depo)
+                .WithMany(d => d.Stoklar)
+                .HasForeignKey(e => e.DepoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Arac)
+                .WithMany()
+                .HasForeignKey(e => e.AracId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Sirket)
+                .WithMany()
+                .HasForeignKey(e => e.SirketId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<LastikDegisim>(entity =>
+        {
+            entity.Property(e => e.YapilanYer).HasMaxLength(150);
+            entity.Property(e => e.SokulenPozisyon).HasMaxLength(50);
+            entity.Property(e => e.TakilanPozisyon).HasMaxLength(50);
+            entity.Property(e => e.Ucret).HasPrecision(18, 2);
+            entity.HasOne(e => e.Arac)
+                .WithMany()
+                .HasForeignKey(e => e.AracId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.SokulenStok)
+                .WithMany()
+                .HasForeignKey(e => e.SokulenStokId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.TakilanStok)
+                .WithMany(s => s.Degisimler)
+                .HasForeignKey(e => e.TakilanStokId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.HedefDepo)
+                .WithMany()
+                .HasForeignKey(e => e.HedefDepoId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.KaynakDepo)
+                .WithMany()
+                .HasForeignKey(e => e.KaynakDepoId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Sirket)
+                .WithMany()
+                .HasForeignKey(e => e.SirketId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
     }
 
     public override int SaveChanges()

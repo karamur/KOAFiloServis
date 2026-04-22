@@ -409,6 +409,12 @@
                                                     <i class="bi bi-arrow-counterclockwise"></i>
                                                 </button>
                                             }
+                                            <button class="btn btn-outline-danger btn-sm"
+                                                    @onclick="() => PuantajSil(puantaj.Id)"
+                                                    disabled="@(puantaj.OnayDurumu == PersonelPuantajOnayDurumu.Onaylandi)"
+                                                    title="@(puantaj.OnayDurumu == PersonelPuantajOnayDurumu.Onaylandi ? "Önce onayı geri alın" : "Puantajı kalıcı sil")">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1726,6 +1732,23 @@
         catch (Exception ex)
         {
             ShowBildirim("Hata", $"Onay geri alma hatası: {ex.Message}", "danger");
+        }
+    }
+
+    private async Task PuantajSil(int puantajId)
+    {
+        var onay = await JS.InvokeAsync<bool>("confirm", "Bu puantaj kaydı ve tüm günlük detayları kalıcı olarak silinecek. Devam edilsin mi?");
+        if (!onay) return;
+
+        try
+        {
+            await PuantajService.DeletePuantajAsync(puantajId);
+            await YenileAsync();
+            ShowBildirim("Başarılı", "Puantaj kaydı kalıcı olarak silindi.", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowBildirim("Hata", $"Silme hatası: {ex.Message}", "danger");
         }
     }
 

@@ -10,6 +10,9 @@ public static class DbInitializer
 {
     private const string AracSasePlakaMigrationId = "20260326224724_AracSasePlakaYapisi";
     private const string PersonelBordroGuncellemeMigrationId = "20260416191435_PersonelBordroGuncelleme";
+    private const string AddPersonelAracAtamaMigrationId = "20260420111658_AddPersonelAracAtama";
+    private const string AddLastikTakipModuluMigrationId = "20260421110504_AddLastikTakipModulu";
+    private const string LastikStokBireyselTakipMigrationId = "20260421133935_LastikStokBireyselTakip";
 
     public static async Task InitializeAsync(ApplicationDbContext context, IConfiguration configuration)
     {
@@ -76,13 +79,26 @@ public static class DbInitializer
             else if (context.Database.IsNpgsql()
                 && ex.GetBaseException() is PostgresException pgEx
                 && pgEx.SqlState == PostgresErrorCodes.DuplicateColumn
-                && pendingMigrations.Contains(PersonelBordroGuncellemeMigrationId))
+                && pgEx.MessageText.Contains("column \"FirmaId\"", StringComparison.OrdinalIgnoreCase)
+                && pgEx.MessageText.Contains("relation \"Personeller\"", StringComparison.OrdinalIgnoreCase))
             {
                 try
                 {
-                    await EnsurePostgreSqlMigrationHistoryEntryAsync(context, configuration, PersonelBordroGuncellemeMigrationId);
-                    migrationRecovered = true;
-                    Console.WriteLine("PostgreSQL duplicate-column nedeniyle migration gecmisi duzeltildi: PersonelBordroGuncelleme");
+                    var recoverableDuplicateColumnMigrations = pendingMigrations
+                        .Where(migrationId => migrationId == PersonelBordroGuncellemeMigrationId
+                            || migrationId == AddLastikTakipModuluMigrationId)
+                        .ToList();
+
+                    if (recoverableDuplicateColumnMigrations.Any())
+                    {
+                        foreach (var migrationId in recoverableDuplicateColumnMigrations)
+                        {
+                            await EnsurePostgreSqlMigrationHistoryEntryAsync(context, configuration, migrationId);
+                        }
+
+                        migrationRecovered = true;
+                        Console.WriteLine($"PostgreSQL duplicate-column nedeniyle migration gecmisi duzeltildi: {string.Join(", ", recoverableDuplicateColumnMigrations)}");
+                    }
                 }
                 catch (Exception npgsqlFixEx)
                 {
@@ -90,9 +106,64 @@ public static class DbInitializer
                 }
             }
 
+            else if (context.Database.IsNpgsql()
+                && ex.GetBaseException() is PostgresException duplicateTableEx
+                && duplicateTableEx.SqlState == PostgresErrorCodes.DuplicateTable)
+            {
+                try
+                {
+                    var recoverableMigrations = new List<string>();
+
+                    if (pendingMigrations.Contains(AddPersonelAracAtamaMigrationId)
+                        && await PostgreSqlTableExistsAsync(context, configuration, "PersonelAracAtamalari"))
+                    {
+                        recoverableMigrations.Add(AddPersonelAracAtamaMigrationId);
+                    }
+
+                    if (pendingMigrations.Contains(AddLastikTakipModuluMigrationId)
+                        && await PostgreSqlTableExistsAsync(context, configuration, "LastikDepolar")
+                        && await PostgreSqlTableExistsAsync(context, configuration, "LastikStoklar")
+                        && await PostgreSqlTableExistsAsync(context, configuration, "LastikDegisimler"))
+                    {
+                        recoverableMigrations.Add(AddLastikTakipModuluMigrationId);
+                    }
+
+                    if (pendingMigrations.Contains(LastikStokBireyselTakipMigrationId)
+                        && await PostgreSqlColumnExistsAsync(context, configuration, "LastikStoklar", "Aktif")
+                        && await PostgreSqlColumnExistsAsync(context, configuration, "LastikStoklar", "AracId")
+                        && await PostgreSqlColumnExistsAsync(context, configuration, "LastikStoklar", "YedekMi"))
+                    {
+                        recoverableMigrations.Add(LastikStokBireyselTakipMigrationId);
+                    }
+
+                    if (recoverableMigrations.Any())
+                    {
+                        foreach (var migrationId in recoverableMigrations)
+                        {
+                            await EnsurePostgreSqlMigrationHistoryEntryAsync(context, configuration, migrationId);
+                        }
+
+                        migrationRecovered = true;
+                        Console.WriteLine($"PostgreSQL duplicate-table nedeniyle migration gecmisi duzeltildi: {string.Join(", ", recoverableMigrations)}");
+                    }
+                }
+                catch (Exception npgsqlFixEx)
+                {
+                    Console.WriteLine($"PostgreSQL duplicate-table migration duzeltme hatasi: {npgsqlFixEx.Message}");
+                }
+            }
+
             if (migrationRecovered)
             {
                 Console.WriteLine("Migration kurtarma islemi tamamlandi, startup yardimcilari calistiriliyor.");
+
+                pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToList();
+                if (pendingMigrations.Any())
+                {
+                    Console.WriteLine($"Kurtarma sonrasi kalan migration sayisi: {pendingMigrations.Count}");
+                    await context.Database.MigrateAsync();
+                    Console.WriteLine("Kalan migration'lar basariyla uygulandi.");
+                }
             }
             else
             {
@@ -170,6 +241,46 @@ WHERE NOT EXISTS (
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("migrationId", migrationId);
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    private static async Task<bool> PostgreSqlTableExistsAsync(ApplicationDbContext context, IConfiguration configuration, string tableName)
+    {
+        var connectionString = GetDefaultConnectionString(context, configuration);
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+
+        const string sql = @"
+SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = current_schema()
+      AND table_name = @tableName
+);";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("tableName", tableName);
+        return (bool)(await cmd.ExecuteScalarAsync() ?? false);
+    }
+
+    private static async Task<bool> PostgreSqlColumnExistsAsync(ApplicationDbContext context, IConfiguration configuration, string tableName, string columnName)
+    {
+        var connectionString = GetDefaultConnectionString(context, configuration);
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+
+        const string sql = @"
+SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = @tableName
+      AND column_name = @columnName
+);";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("tableName", tableName);
+        cmd.Parameters.AddWithValue("columnName", columnName);
+        return (bool)(await cmd.ExecuteScalarAsync() ?? false);
     }
 
     private static async Task NormalizePostgreSqlAuditTimestampColumnsAsync(ApplicationDbContext context, IConfiguration configuration)

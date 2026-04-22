@@ -1609,6 +1609,11 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         return $"{islemAdi}: {detay}";
     }
 
+    public async Task GeriAlAsync(int muhasebeFisId)
+    {
+        await _muhasebeService.DeleteFisAsync(muhasebeFisId);
+    }
+
     private async Task<(int? SoforId, int? CariId, string? PersonelAdi)> ResolveMasrafPersoneliAsync(ApplicationDbContext context, int? cariId, string? fallbackUnvan)
     {
         if (!cariId.HasValue)

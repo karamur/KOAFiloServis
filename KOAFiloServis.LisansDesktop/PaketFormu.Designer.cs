@@ -1,4 +1,4 @@
-﻿namespace KOAFiloServis.LisansDesktop;
+namespace KOAFiloServis.LisansDesktop;
 
 partial class PaketFormu
 {
@@ -16,6 +16,9 @@ partial class PaketFormu
         lblWorkspace = new Label();
         txtWorkspace = new TextBox();
         btnWorkspaceSec = new Button();
+        lblOutputDir = new Label();
+        txtOutputDir = new TextBox();
+        btnOutputDirSec = new Button();
         chkSkipBuild = new CheckBox();
         btnUpdate = new Button();
         btnInstall = new Button();
@@ -55,7 +58,7 @@ partial class PaketFormu
         chkSkipBuild.UseVisualStyleBackColor = true;
 
         // btnUpdate
-        btnUpdate.Location = new Point(22, 145);
+        btnUpdate.Location = new Point(22, 175);
         btnUpdate.Size = new Size(280, 80);
         btnUpdate.Text = "GUNCELLEME PAKETI\r\n(Mevcut DB korunur)";
         btnUpdate.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
@@ -64,7 +67,7 @@ partial class PaketFormu
         btnUpdate.Click += btnUpdate_Click;
 
         // btnInstall
-        btnInstall.Location = new Point(320, 145);
+        btnInstall.Location = new Point(320, 175);
         btnInstall.Size = new Size(280, 80);
         btnInstall.Text = "YENI KURULUM PAKETI\r\n(DB SIFIRLANIR)";
         btnInstall.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
@@ -73,7 +76,7 @@ partial class PaketFormu
         btnInstall.Click += btnInstall_Click;
 
         // btnCiktiAc
-        btnCiktiAc.Location = new Point(620, 145);
+        btnCiktiAc.Location = new Point(620, 175);
         btnCiktiAc.Size = new Size(230, 80);
         btnCiktiAc.Text = "publish klasorunu ac";
         btnCiktiAc.UseVisualStyleBackColor = true;
@@ -81,16 +84,16 @@ partial class PaketFormu
 
         // lblDurum
         lblDurum.AutoSize = true;
-        lblDurum.Location = new Point(22, 235);
+        lblDurum.Location = new Point(22, 265);
         lblDurum.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
 
         // lblCikti
         lblCikti.AutoSize = true;
-        lblCikti.Location = new Point(22, 265);
+        lblCikti.Location = new Point(22, 295);
         lblCikti.Text = "Cikti:";
 
         // txtCikti
-        txtCikti.Location = new Point(22, 290);
+        txtCikti.Location = new Point(22, 320);
         txtCikti.Size = new Size(828, 280);
         txtCikti.Multiline = true;
         txtCikti.ScrollBars = ScrollBars.Vertical;
@@ -102,11 +105,14 @@ partial class PaketFormu
         // PaketFormu
         AutoScaleDimensions = new SizeF(8F, 20F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(880, 590);
+        ClientSize = new Size(880, 620);
         Controls.Add(lblBaslik);
         Controls.Add(lblWorkspace);
         Controls.Add(txtWorkspace);
         Controls.Add(btnWorkspaceSec);
+        Controls.Add(lblOutputDir);
+        Controls.Add(txtOutputDir);
+        Controls.Add(btnOutputDirSec);
         Controls.Add(chkSkipBuild);
         Controls.Add(btnUpdate);
         Controls.Add(btnInstall);
@@ -126,6 +132,9 @@ partial class PaketFormu
     private Label lblWorkspace;
     private TextBox txtWorkspace;
     private Button btnWorkspaceSec;
+    private Label lblOutputDir;
+    private TextBox txtOutputDir;
+    private Button btnOutputDirSec;
     private CheckBox chkSkipBuild;
     private Button btnUpdate;
     private Button btnInstall;
@@ -134,3 +143,5 @@ partial class PaketFormu
     private Label lblCikti;
     private TextBox txtCikti;
 }
+
+

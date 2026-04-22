@@ -1,0 +1,392 @@
+@page "/lastik/stok"
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@using KOAFiloServis.Web.Services.Interfaces
+@inject ILastikService LastikService
+@inject IToastService ToastService
+@rendermode InteractiveServer
+
+<PageTitle>Lastik Takip</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-stack me-2"></i>Lastik Takip</h3>
+        <button class="btn btn-primary" @onclick="YeniStok">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Lastik Ekle
+        </button>
+    </div>
+
+    <!-- Aktif / Pasif Filtre -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-auto">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn @(filtreAktif == true ? "btn-success" : "btn-outline-success")"
+                                @onclick='() => AktifFiltreDegistir(true)'>
+                            <i class="bi bi-check-circle me-1"></i>Aktif
+                        </button>
+                        <button type="button" class="btn @(filtreAktif == false ? "btn-secondary" : "btn-outline-secondary")"
+                                @onclick='() => AktifFiltreDegistir(false)'>
+                            <i class="bi bi-archive me-1"></i>Pasif
+                        </button>
+                        <button type="button" class="btn @(filtreAktif == null ? "btn-dark" : "btn-outline-dark")"
+                                @onclick='() => AktifFiltreDegistir(null)'>
+                            Tümü
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @onchange="DepoFilter">
+                        <option value="">-- Tüm Depolar --</option>
+                        @foreach (var d in depolar)
+                        {
+                            <option value="@d.Id">@d.DepoAdi</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (stoklar == null)
+    {
+        <div class="text-center"><div class="spinner-border" role="status"></div></div>
+    }
+    else if (!stoklar.Any())
+    {
+        <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Kayıt bulunamadı.</div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Depo</th>
+                                <th>Marka / Ebat</th>
+                                <th class="text-center">Sezon</th>
+                                <th class="text-center">Durum</th>
+                                <th>Araç / Plaka</th>
+                                <th>Seri No</th>
+                                <th style="width:130px;">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in stoklar)
+                            {
+                                <tr class="@(!s.Aktif ? "table-secondary text-muted" : "")">
+                                    <td>@(s.Depo?.DepoAdi ?? "—")</td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(s.Marka))
+                                        {
+                                            <strong>@s.Marka</strong>
+                                            <small class="text-muted ms-1">@s.Ebat</small>
+                                        }
+                                        else
+                                        {
+                                            <span>@s.Ebat</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge @GetSezonBadge(s.Sezon)">@GetSezonText(s.Sezon)</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge @GetDurumBadge(s.Durum)">@GetDurumText(s.Durum)</span>
+                                    </td>
+                                    <td>
+                                        @if (s.YedekMi)
+                                        {
+                                            <span class="badge bg-light text-dark border"><i class="bi bi-archive me-1"></i>Yedek</span>
+                                        }
+                                        else if (s.Arac != null)
+                                        {
+                                            <span><i class="bi bi-truck me-1 text-primary"></i>@s.Arac.AktifPlaka</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Depoda</span>
+                                        }
+                                    </td>
+                                    <td><small class="text-muted">@s.SeriNo</small></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(s)" title="Düzenle">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        @if (s.Aktif)
+                                        {
+                                            <button class="btn btn-sm btn-outline-warning me-1" @onclick="() => PasifOnay(s)" title="Pasife Al">
+                                                <i class="bi bi-archive"></i>
+                                            </button>
+                                        }
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(s)" title="Sil">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-2 text-muted small">Toplam: <strong>@stoklar.Count</strong> lastik</div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Form Modal -->
+@if (showForm)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-stack me-2"></i>@(editStok.Id == 0 ? "Yeni Lastik Ekle" : "Lastik Düzenle")</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showForm = false"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="editStok" OnValidSubmit="Kaydet">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Depo</label>
+                                <InputSelect @bind-Value="editStok.DepoId" class="form-select">
+                                    <option value="">-- Depo Seçin (opsiyonel) --</option>
+                                    @foreach (var d in depolar)
+                                    {
+                                        <option value="@d.Id">@d.DepoAdi</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Marka</label>
+                                <InputText @bind-Value="editStok.Marka" class="form-control" placeholder="Bridgestone, Michelin..." />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Ebat *</label>
+                                <InputText @bind-Value="editStok.Ebat" class="form-control" placeholder="195/65R15" />
+                                <ValidationMessage For="@(() => editStok.Ebat)" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Sezon</label>
+                                <InputSelect @bind-Value="editStok.Sezon" class="form-select">
+                                    <option value="@LastikSezon.YazLastigi">Yaz Lastiği</option>
+                                    <option value="@LastikSezon.KisLastigi">Kış Lastiği</option>
+                                    <option value="@LastikSezon.DortMevsim">Dört Mevsim</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Durum</label>
+                                <InputSelect @bind-Value="editStok.Durum" class="form-select">
+                                    <option value="@LastikDurum.Kullanilabilir">Kullanılabilir</option>
+                                    <option value="@LastikDurum.Hasarli">Hasarlı</option>
+                                    <option value="@LastikDurum.Hurda">Hurda</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Seri / DOT No</label>
+                                <InputText @bind-Value="editStok.SeriNo" class="form-control" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check mt-4">
+                                    <InputCheckbox @bind-Value="editStok.YedekMi" class="form-check-input" id="yedekMiCheck" />
+                                    <label class="form-check-label" for="yedekMiCheck">Yedek lastik (plaka atanmaz)</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notlar</label>
+                            <InputTextArea @bind-Value="editStok.Notlar" class="form-control" rows="2" />
+                        </div>
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button type="button" class="btn btn-secondary" @onclick="() => showForm = false">İptal</button>
+                            <button type="submit" class="btn btn-primary" disabled="@kaydediliyor">
+                                @if (kaydediliyor) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                Kaydet
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Pasife Al Onayı -->
+@if (showPasifModal && pasifYapilacak != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="bi bi-archive me-2"></i>Lastiği Pasife Al</h5>
+                    <button type="button" class="btn-close" @onclick="() => showPasifModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>@pasifYapilacak.Marka @pasifYapilacak.Ebat</strong> lastiğini hurda / pasif olarak işaretlemek istediğinize emin misiniz?</p>
+                    <p class="text-muted mb-0"><small>Durum "Hurda" olarak güncellenir ve pasif listeye taşınır.</small></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => showPasifModal = false">İptal</button>
+                    <button class="btn btn-warning" @onclick="PasifYap">Pasife Al</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Silme Onayı -->
+@if (showDeleteModal && silinecek != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Silme Onayı</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <strong>@silinecek.Ebat (@silinecek.Marka)</strong> kaydını tamamen silmek istiyor musunuz?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => showDeleteModal = false">İptal</button>
+                    <button class="btn btn-danger" @onclick="Sil">Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<LastikStok>? stoklar;
+    private List<LastikDepo> depolar = new();
+    private LastikStok editStok = new();
+    private LastikStok? silinecek;
+    private LastikStok? pasifYapilacak;
+    private bool showForm;
+    private bool showDeleteModal;
+    private bool showPasifModal;
+    private bool kaydediliyor;
+    private int? filtreDepoId;
+    private bool? filtreAktif = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        depolar = await LastikService.GetDepoListAsync();
+        await YukleStoklar();
+    }
+
+    private async Task YukleStoklar()
+    {
+        stoklar = await LastikService.GetStokListAsync(filtreDepoId, filtreAktif);
+    }
+
+    private async Task AktifFiltreDegistir(bool? aktif)
+    {
+        filtreAktif = aktif;
+        await YukleStoklar();
+    }
+
+    private async Task DepoFilter(ChangeEventArgs e)
+    {
+        filtreDepoId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : int.Parse(e.Value.ToString()!);
+        await YukleStoklar();
+    }
+
+    private void YeniStok()
+    {
+        editStok = new LastikStok { Sezon = LastikSezon.YazLastigi, Durum = LastikDurum.Kullanilabilir, Aktif = true };
+        showForm = true;
+    }
+
+    private void Duzenle(LastikStok s)
+    {
+        editStok = new LastikStok
+        {
+            Id = s.Id, DepoId = s.DepoId, AracId = s.AracId,
+            Marka = s.Marka, Ebat = s.Ebat,
+            Sezon = s.Sezon, SeriNo = s.SeriNo,
+            YedekMi = s.YedekMi, Durum = s.Durum,
+            Aktif = s.Aktif, Notlar = s.Notlar
+        };
+        showForm = true;
+    }
+
+    private async Task Kaydet()
+    {
+        kaydediliyor = true;
+        try
+        {
+            if (editStok.Id == 0)
+                await LastikService.CreateStokAsync(editStok);
+            else
+                await LastikService.UpdateStokAsync(editStok);
+
+            showForm = false;
+            await YukleStoklar();
+            ToastService.ShowSuccess("Lastik kaydedildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
+        finally { kaydediliyor = false; }
+    }
+
+    private void PasifOnay(LastikStok s) { pasifYapilacak = s; showPasifModal = true; }
+
+    private async Task PasifYap()
+    {
+        if (pasifYapilacak == null) return;
+        await LastikService.PasifAlAsync(pasifYapilacak.Id);
+        showPasifModal = false;
+        await YukleStoklar();
+        ToastService.ShowSuccess("Lastik pasife alındı.");
+    }
+
+    private void SilOnay(LastikStok s) { silinecek = s; showDeleteModal = true; }
+
+    private async Task Sil()
+    {
+        if (silinecek == null) return;
+        await LastikService.DeleteStokAsync(silinecek.Id);
+        showDeleteModal = false;
+        await YukleStoklar();
+        ToastService.ShowSuccess("Kayıt silindi.");
+    }
+
+    private string GetSezonBadge(LastikSezon s) => s switch
+    {
+        LastikSezon.YazLastigi => "bg-warning text-dark",
+        LastikSezon.KisLastigi => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+    private string GetSezonText(LastikSezon s) => s switch
+    {
+        LastikSezon.YazLastigi => "Yaz",
+        LastikSezon.KisLastigi => "Kış",
+        LastikSezon.DortMevsim => "4 Mevsim",
+        _ => s.ToString()
+    };
+    private string GetDurumBadge(LastikDurum d) => d switch
+    {
+        LastikDurum.Kullanilabilir => "bg-success",
+        LastikDurum.Hasarli => "bg-warning text-dark",
+        LastikDurum.Hurda => "bg-danger",
+        _ => "bg-secondary"
+    };
+    private string GetDurumText(LastikDurum d) => d switch
+    {
+        LastikDurum.Kullanilabilir => "Kullanılabilir",
+        LastikDurum.Hasarli => "Hasarlı",
+        LastikDurum.Hurda => "Hurda",
+        _ => d.ToString()
+    };
+}
+

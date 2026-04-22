@@ -59,6 +59,11 @@ public interface IKolayMuhasebeService
     /// Varsayılan muhasebe ayarlarını getirir
     /// </summary>
     Task<MuhasebeAyar> GetMuhasebeAyarAsync();
+
+    /// <summary>
+    /// Kaydedilmiş muhasebe fişini geri alır (soft delete)
+    /// </summary>
+    Task GeriAlAsync(int muhasebeFisId);
 }
 
 /// <summary>

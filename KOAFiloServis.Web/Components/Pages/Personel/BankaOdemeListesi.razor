@@ -6,6 +6,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject ISoforService SoforService
 @inject IPersonelFinansService FinansService
+@inject IPersonelMaasIzinService PersonelMaasService
 @inject IBankaHesapService BankaHesapService
 @inject ApplicationDbContext DbContext
 @inject IToastService ToastService
@@ -49,8 +50,11 @@
                 <button class="btn btn-outline-success btn-sm" @onclick="ExcelAktar" disabled="@(personelListesi == null || !personelListesi.Any())">
                     <i class="bi bi-file-earmark-excel me-1"></i>Excel
                 </button>
-                <button class="btn btn-success btn-sm" @onclick="BankaEftExport" disabled="@(personelListesi == null || !personelListesi.Any())" title="Banka EFT/Havale toplu ödeme dosyası">
-                    <i class="bi bi-bank me-1"></i>EFT Dosyası
+                <button class="btn btn-success btn-sm" @onclick="VakifbankExcelAktar" disabled="@(personelListesi == null || !personelListesi.Any(p => p.BankayaYatan > 0))" title="Vakıfbank toplu maaş ödeme formatı">
+                    <i class="bi bi-bank me-1"></i>Vakıfbank Toplu Maaş
+                </button>
+                <button class="btn btn-outline-primary btn-sm" @onclick="BankaEftExport" disabled="@(personelListesi == null || !personelListesi.Any())" title="Banka EFT/Havale toplu ödeme dosyası">
+                    <i class="bi bi-file-earmark-text me-1"></i>EFT CSV
                 </button>
             </div>
             <div class="btn-group" role="group">
@@ -544,17 +548,27 @@
 
             // Her personel için avans ve borç bilgilerini al
             personelListesi = new List<PersonelOdemeKalemi>();
+            var donemMaasKayitlari = await PersonelMaasService.GetMaaslarAsync(secilenYil, secilenAy);
+            var donemMaasMap = donemMaasKayitlari
+                .GroupBy(m => m.SoforId)
+                .ToDictionary(g => g.Key, g => g.First());
 
             foreach (var personel in aktifPersoneller)
             {
                 var finansOzet = await FinansService.GetPersonelFinansOzetAsync(personel.Id);
+                donemMaasMap.TryGetValue(personel.Id, out var donemMaas);
+
+                var bankayaYatan = donemMaas?.NetMaas ?? personel.ResmiNetMaas;
+                var gercekMaas = donemMaas != null
+                    ? donemMaas.NetMaas + donemMaas.ToplamEklemeler
+                    : personel.ResmiNetMaas + personel.DigerMaas;
 
                 var item = new PersonelOdemeKalemi
                 {
                     Personel = personel,
                     SiralamaNo = personel.SiralamaNo,
-                    GercekMaas = personel.NetMaas,
-                    BankayaYatan = personel.ResmiNetMaas,
+                    GercekMaas = gercekMaas,
+                    BankayaYatan = bankayaYatan,
                     Avans = finansOzet?.KalanAvans ?? 0,
                     Kesinti = 0,
                     PersonelHarcamasi = (finansOzet?.ToplamHarcama ?? 0) + (finansOzet?.KalanBorc > 0 ? finansOzet!.KalanBorc : 0)
@@ -706,6 +720,75 @@
         catch (Exception ex)
         {
             ToastService.ShowError($"Excel oluşturulurken hata: {ex.Message}");
+        }
+    }
+
+    private async Task VakifbankExcelAktar()
+    {
+        try
+        {
+            if (personelListesi == null) return;
+            var liste = personelListesi.Where(p => p.BankayaYatan > 0 && !string.IsNullOrWhiteSpace(p.Personel.IBAN)).ToList();
+            if (!liste.Any())
+            {
+                ToastService.ShowWarning("IBAN bilgisi olan ve bankaya yatan tutarı bulunan personel yok.");
+                return;
+            }
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var ws = workbook.Worksheets.Add("Toplu Maas");
+
+            // Vakıfbank toplu EFT formatı
+            // Başlık satırı
+            ws.Cell("A1").Value = $"Vakıfbank Toplu Maaş Ödeme - {new DateTime(secilenYil, secilenAy, 1):MMMM yyyy}";
+            ws.Range("A1:E1").Merge().Style.Font.Bold = true;
+            ws.Range("A1:E1").Style.Font.FontSize = 13;
+            ws.Range("A1:E1").Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#005B99");
+            ws.Range("A1:E1").Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+
+            // Sütun başlıkları (Vakıfbank formatı)
+            ws.Cell("A2").Value = "IBAN";
+            ws.Cell("B2").Value = "AD SOYAD";
+            ws.Cell("C2").Value = "TUTAR";
+            ws.Cell("D2").Value = "AÇIKLAMA";
+            ws.Cell("E2").Value = "BANKA";
+            var headerRow = ws.Row(2);
+            headerRow.Style.Font.Bold = true;
+            headerRow.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightBlue;
+
+            int row = 3;
+            foreach (var item in liste)
+            {
+                var iban = item.Personel.IBAN!.Replace(" ", "").Trim().ToUpper();
+                ws.Cell(row, 1).Value = iban;
+                ws.Cell(row, 2).Value = item.Personel.TamAd;
+                ws.Cell(row, 3).Value = item.BankayaYatan;
+                ws.Cell(row, 4).Value = $"{new DateTime(secilenYil, secilenAy, 1):yyyy-MM} MAAS";
+                ws.Cell(row, 5).Value = item.Personel.BankaAdi ?? "";
+                row++;
+            }
+
+            // Toplam satırı
+            ws.Cell(row, 2).Value = "TOPLAM";
+            ws.Cell(row, 3).Value = liste.Sum(p => p.BankayaYatan);
+            ws.Row(row).Style.Font.Bold = true;
+            ws.Row(row).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightYellow;
+
+            // Para formatı
+            ws.Range(3, 3, row, 3).Style.NumberFormat.Format = "#,##0.00";
+
+            ws.Columns().AdjustToContents();
+            ws.Column(1).Width = 30; // IBAN kolonu geniş
+
+            using var ms = new MemoryStream();
+            workbook.SaveAs(ms);
+            var dosyaAdi = $"vakifbank_toplu_maas_{secilenYil}_{secilenAy:00}.xlsx";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi, Convert.ToBase64String(ms.ToArray()));
+            ToastService.ShowSuccess($"Vakıfbank toplu maaş dosyası: {liste.Count} personel, Toplam: {liste.Sum(p => p.BankayaYatan):N2} ₺");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Vakıfbank Excel hata: {ex.Message}");
         }
     }
 

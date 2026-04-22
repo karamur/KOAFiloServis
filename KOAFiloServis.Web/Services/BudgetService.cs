@@ -1,6 +1,7 @@
 using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace KOAFiloServis.Web.Services;
 
@@ -9,14 +10,16 @@ public class BudgetService : IBudgetService
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IBankaKasaHareketService _bankaKasaHareketService;
     private readonly IMuhasebeService _muhasebeService;
+    private readonly ILogger<BudgetService> _logger;
     private static readonly string[] AyAdlari = { "", "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", 
                                                    "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik" };
 
-    public BudgetService(IDbContextFactory<ApplicationDbContext> contextFactory, IBankaKasaHareketService bankaKasaHareketService, IMuhasebeService muhasebeService)
+    public BudgetService(IDbContextFactory<ApplicationDbContext> contextFactory, IBankaKasaHareketService bankaKasaHareketService, IMuhasebeService muhasebeService, ILogger<BudgetService> logger)
     {
         _contextFactory = contextFactory;
         _bankaKasaHareketService = bankaKasaHareketService;
         _muhasebeService = muhasebeService;
+        _logger = logger;
     }
 
     #region Odeme Islemleri
@@ -282,6 +285,8 @@ public class BudgetService : IBudgetService
         var updatedAt = DateTime.UtcNow;
         int? bankaKasaHareketId = null;
 
+        BankaKasaHareket? kaydedilenHareket = null;
+
         // Cari Mahsup ödeme tipi için özel işlem
         if (request.OdemeTipi == OdemeTipi.CariMahsup)
         {
@@ -319,9 +324,24 @@ public class BudgetService : IBudgetService
             // Hareket ID'sini kaydet
             if (sonuc.KaynakHareket != null)
                 bankaKasaHareketId = sonuc.KaynakHareket.Id;
+
+            // Ödeme durumunu güncelle
+            await context.BudgetOdemeler
+                .Where(o => o.Id == odemeId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(o => o.Durum, OdemeDurum.Odendi)
+                    .SetProperty(o => o.GercekOdemeTarihi, odemeTarihi)
+                    .SetProperty(o => o.OdenenTutar, netOdemeTutari)
+                    .SetProperty(o => o.OdemeYapildigiHesapId, request.BankaHesapId)
+                    .SetProperty(o => o.OdemeNotu, odemeNotu)
+                    .SetProperty(o => o.MasrafKesintisi, masrafKesintisi)
+                    .SetProperty(o => o.CezaKesintisi, cezaKesintisi)
+                    .SetProperty(o => o.DigerKesinti, digerKesinti)
+                    .SetProperty(o => o.KesintiAciklamasi, request.KesintiAciklamasi)
+                    .SetProperty(o => o.BankaKasaHareketId, bankaKasaHareketId)
+                    .SetProperty(o => o.UpdatedAt, updatedAt));
         }
-        // Kasa/Banka hareketi olustur (Mahsup ve CariMahsup disinda)
-        // KASA = BORC (Cikis hareket), ODEME = ALACAK
+        // Kasa/Banka/KrediKarti hareketi olustur (Mahsup ve CariMahsup disinda)
         else if (request.OdemeTipi != OdemeTipi.Mahsup && request.BankaHesapId.HasValue)
         {
             var aciklamaBuilder = $"Bütçe Ödemesi: {odeme.MasrafKalemi}";
@@ -338,17 +358,47 @@ public class BudgetService : IBudgetService
                 IslemTarihi = odemeTarihi,
                 HareketTipi = HareketTipi.Cikis, // Kasa = Borc (para cikiyor)
                 BankaHesapId = request.BankaHesapId.Value,
-                Tutar = netOdemeTutari, // Net tutar
+                Tutar = netOdemeTutari,
                 Aciklama = aciklamaBuilder,
                 IslemKaynak = IslemKaynak.Butce,
                 CreatedAt = DateTime.UtcNow
             };
 
-            context.BankaKasaHareketleri.Add(hareket);
-            await context.SaveChangesAsync();
+            // Npgsql retry stratejisiyle uyumlu transaction kullanımı
+            var strategy = context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await context.Database.BeginTransactionAsync();
+                try
+                {
+                    context.BankaKasaHareketleri.Add(hareket);
+                    await context.SaveChangesAsync();
+                    bankaKasaHareketId = hareket.Id;
+                    kaydedilenHareket = hareket;
 
-            // Hareket ID'sini kaydet
-            bankaKasaHareketId = hareket.Id;
+                    await context.BudgetOdemeler
+                        .Where(o => o.Id == odemeId)
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(o => o.Durum, OdemeDurum.Odendi)
+                            .SetProperty(o => o.GercekOdemeTarihi, odemeTarihi)
+                            .SetProperty(o => o.OdenenTutar, netOdemeTutari)
+                            .SetProperty(o => o.OdemeYapildigiHesapId, request.BankaHesapId)
+                            .SetProperty(o => o.OdemeNotu, odemeNotu)
+                            .SetProperty(o => o.MasrafKesintisi, masrafKesintisi)
+                            .SetProperty(o => o.CezaKesintisi, cezaKesintisi)
+                            .SetProperty(o => o.DigerKesinti, digerKesinti)
+                            .SetProperty(o => o.KesintiAciklamasi, request.KesintiAciklamasi)
+                            .SetProperty(o => o.BankaKasaHareketId, bankaKasaHareketId)
+                            .SetProperty(o => o.UpdatedAt, updatedAt));
+
+                    await tx.CommitAsync();
+                }
+                catch
+                {
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
 
             if (ShouldCreateKrediKartiBorcu(odeme, request.OdemeTipi))
             {
@@ -357,24 +407,34 @@ public class BudgetService : IBudgetService
                 await AddKrediKartiBorcAsync(request.BankaHesapId.Value, netOdemeTutari, donemAy, donemYil, aciklamaBuilder, odeme.Id);
             }
 
-            await CreateBudgetMuhasebeFisiAsync(context, odeme, request, hareket, odemeTutari, masrafKesintisi, cezaKesintisi, digerKesinti);
+            // Muhasebe fişi oluşturma — başarısız olsa bile ödeme ve hareket tamamlanmış sayılır
+            try
+            {
+                await CreateBudgetMuhasebeFisiAsync(context, odeme, request, hareket, odemeTutari, masrafKesintisi, cezaKesintisi, digerKesinti);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Bütçe ödeme muhasebe fişi oluşturulamadı (OdemeId={OdemeId}). Ödeme ve hareket başarıyla kaydedildi.", odemeId);
+            }
         }
-
-        // Doğrudan veritabanında güncelle - ExecuteUpdateAsync ile tracking sorunu olmaz
-        await context.BudgetOdemeler
-            .Where(o => o.Id == odemeId)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(o => o.Durum, OdemeDurum.Odendi)
-                .SetProperty(o => o.GercekOdemeTarihi, odemeTarihi)
-                .SetProperty(o => o.OdenenTutar, netOdemeTutari)
-                .SetProperty(o => o.OdemeYapildigiHesapId, request.BankaHesapId)
-                .SetProperty(o => o.OdemeNotu, odemeNotu)
-                .SetProperty(o => o.MasrafKesintisi, masrafKesintisi)
-                .SetProperty(o => o.CezaKesintisi, cezaKesintisi)
-                .SetProperty(o => o.DigerKesinti, digerKesinti)
-                .SetProperty(o => o.KesintiAciklamasi, request.KesintiAciklamasi)
-                .SetProperty(o => o.BankaKasaHareketId, bankaKasaHareketId)
-                .SetProperty(o => o.UpdatedAt, updatedAt));
+        else
+        {
+            // Mahsup tipi — hareket oluşturulmaz, sadece ödeme durumu güncellenir
+            await context.BudgetOdemeler
+                .Where(o => o.Id == odemeId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(o => o.Durum, OdemeDurum.Odendi)
+                    .SetProperty(o => o.GercekOdemeTarihi, odemeTarihi)
+                    .SetProperty(o => o.OdenenTutar, netOdemeTutari)
+                    .SetProperty(o => o.OdemeYapildigiHesapId, request.BankaHesapId)
+                    .SetProperty(o => o.OdemeNotu, odemeNotu)
+                    .SetProperty(o => o.MasrafKesintisi, masrafKesintisi)
+                    .SetProperty(o => o.CezaKesintisi, cezaKesintisi)
+                    .SetProperty(o => o.DigerKesinti, digerKesinti)
+                    .SetProperty(o => o.KesintiAciklamasi, request.KesintiAciklamasi)
+                    .SetProperty(o => o.BankaKasaHareketId, bankaKasaHareketId)
+                    .SetProperty(o => o.UpdatedAt, updatedAt));
+        }
 
         // Güncellenmiş entity'yi döndür
         odeme.Durum = OdemeDurum.Odendi;

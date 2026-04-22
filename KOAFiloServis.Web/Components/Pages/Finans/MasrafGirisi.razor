@@ -1,5 +1,4 @@
-﻿@page "/finans/masraf-girisi"
-@page "/kasa-banka/masraf"
+@page "/kasa-banka/gelir-gider-islem"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
@@ -16,13 +15,13 @@
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
-<PageTitle>Masraf/Gelir Girişi</PageTitle>
+<PageTitle>Gelir/Gider İşlem</PageTitle>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h3><i class="bi bi-lightning-charge text-warning me-2"></i>Masraf/Gelir Girişi</h3>
-            <small class="text-muted">Kasa, Banka veya Personel Cebinden harcama kaydı</small>
+            <h3><i class="bi bi-lightning-charge text-warning me-2"></i>Gelir/Gider İşlem</h3>
+            <small class="text-muted">Kasa, Banka veya Personel Cebinden gelir/gider kaydı</small>
         </div>
         <div class="d-flex gap-2">
             <a href="/finans/personel-odenecekler" class="btn btn-outline-info btn-sm">
@@ -766,3 +765,4 @@
             hareket.Tutar = masrafKalemleri.Sum(k => k.Miktar * k.BirimFiyat);
     }
 }
+

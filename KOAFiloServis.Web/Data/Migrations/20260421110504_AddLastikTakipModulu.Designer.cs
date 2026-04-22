@@ -3,17 +3,20 @@ using System;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace KOAFiloServis.Web.Migrations
+namespace KOAFiloServis.Web.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260421110504_AddLastikTakipModulu")]
+    partial class AddLastikTakipModulu
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -7064,16 +7067,13 @@ namespace KOAFiloServis.Web.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<bool>("Aktif")
-                        .HasColumnType("boolean");
-
-                    b.Property<int?>("AracId")
+                    b.Property<int>("Adet")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<int?>("DepoId")
+                    b.Property<int>("DepoId")
                         .HasColumnType("integer");
 
                     b.Property<int>("Durum")
@@ -7107,12 +7107,7 @@ namespace KOAFiloServis.Web.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<bool>("YedekMi")
-                        .HasColumnType("boolean");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("AracId");
 
                     b.HasIndex("DepoId");
 
@@ -13038,22 +13033,16 @@ namespace KOAFiloServis.Web.Migrations
 
             modelBuilder.Entity("KOAFiloServis.Shared.Entities.LastikStok", b =>
                 {
-                    b.HasOne("KOAFiloServis.Shared.Entities.Arac", "Arac")
-                        .WithMany()
-                        .HasForeignKey("AracId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("KOAFiloServis.Shared.Entities.LastikDepo", "Depo")
                         .WithMany("Stoklar")
                         .HasForeignKey("DepoId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("KOAFiloServis.Shared.Entities.Sirket", "Sirket")
                         .WithMany()
                         .HasForeignKey("SirketId")
                         .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Arac");
 
                     b.Navigation("Depo");
 

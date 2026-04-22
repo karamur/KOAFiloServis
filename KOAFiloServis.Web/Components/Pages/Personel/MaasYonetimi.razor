@@ -7,6 +7,7 @@
 @inject IPersonelFinansService PersonelFinansService
 @inject ISoforService SoforService
 @inject IBordroService BordroService
+@inject IKullaniciService KullaniciService
 @inject IJSRuntime JS
 @implements IDisposable
 @rendermode InteractiveServer
@@ -17,81 +18,39 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3><i class="bi bi-cash-coin me-2"></i>Maaş / Ödeme Yönetimi</h3>
         <div class="d-flex gap-2 align-items-center">
-            @if (aktifTab == "yonetim")
-            {
-                <select class="form-select" style="width: 120px;" @bind="maasYil" @bind:after="YenileMaasData">
-                    @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
-                    {
-                        <option value="@y">@y</option>
-                    }
-                </select>
-                <select class="form-select" style="width: 150px;" @bind="maasAy" @bind:after="YenileMaasData">
-                    @for (int m = 1; m <= 12; m++)
-                    {
-                        <option value="@m">@(new DateTime(2024, m, 1).ToString("MMMM"))</option>
-                    }
-                </select>
-                <button class="btn btn-success" @onclick="TopluMaasOlustur">
-                    <i class="bi bi-plus-circle me-1"></i>Toplu Maaş Oluştur
-                </button>
-            }
-            @if (aktifTab == "hareketler")
-            {
-                <button class="btn btn-outline-success" @onclick="HareketExcelExport" disabled="@(!filtrelenmisHareketler.Any())">
-                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
-                </button>
-            }
-            @if (aktifTab == "durum")
-            {
-                <input type="text" class="form-control form-control-sm" style="width: 200px;" placeholder="Personel ara..."
-                    @bind="durAramaMetni" @bind:event="oninput" />
-                <select class="form-select form-select-sm" style="width: 160px;" @bind="durSecilenGorev" @bind:after="StateHasChanged">
-                    <option value="">Tüm Görevler</option>
-                    @foreach (PersonelGorev gorev in Enum.GetValues(typeof(PersonelGorev)))
-                    {
-                        <option value="@gorev">@GetGorevAdi(gorev)</option>
-                    }
-                </select>
-                <select class="form-select form-select-sm" style="width: 110px;" @bind="durYil" @bind:after="YenileDurumData">
-                    @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
-                    {
-                        <option value="@y">@y</option>
-                    }
-                </select>
-                <select class="form-select form-select-sm" style="width: 140px;" @bind="durAy" @bind:after="YenileDurumData">
-                    @for (int m = 1; m <= 12; m++)
-                    {
-                        <option value="@m">@(new DateTime(2024, m, 1).ToString("MMMM"))</option>
-                    }
-                </select>
-                <button class="btn btn-outline-success btn-sm" @onclick="DurumExcelAktar" disabled="@(!DurFiltreliSatirlar.Any())">
-                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
-                </button>
-                <button class="btn btn-outline-secondary btn-sm" @onclick="YenileDurumData" disabled="@isLoading" title="Yenile">
-                    <i class="bi bi-arrow-clockwise"></i>
-                </button>
-            }
+            <input type="text" class="form-control form-control-sm" style="width: 200px;" placeholder="Personel ara..."
+                @bind="durAramaMetni" @bind:event="oninput" />
+            <select class="form-select form-select-sm" style="width: 160px;" @bind="durSecilenGorev" @bind:after="StateHasChanged">
+                <option value="">Tüm Görevler</option>
+                @foreach (PersonelGorev gorev in Enum.GetValues(typeof(PersonelGorev)))
+                {
+                    <option value="@gorev">@GetGorevAdi(gorev)</option>
+                }
+            </select>
+            <select class="form-select form-select-sm" style="width: 110px;" @bind="durYil" @bind:after="YenileDurumData">
+                @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
+                {
+                    <option value="@y">@y</option>
+                }
+            </select>
+            <select class="form-select form-select-sm" style="width: 140px;" @bind="durAy" @bind:after="YenileDurumData">
+                @for (int m = 1; m <= 12; m++)
+                {
+                    <option value="@m">@(new DateTime(2024, m, 1).ToString("MMMM"))</option>
+                }
+            </select>
+            <button class="btn btn-outline-success btn-sm" @onclick="DurumExcelAktar" disabled="@(!DurFiltreliSatirlar.Any())">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="YenileDurumData" disabled="@isLoading" title="Yenile">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
         </div>
     </div>
 
-    <!-- Sekmeler -->
-    <ul class="nav nav-tabs mb-3">
-        <li class="nav-item">
-            <button class="nav-link @(aktifTab == "yonetim" ? "active" : "")" @onclick='() => TabDegistir("yonetim")'>
-                <i class="bi bi-cash-stack me-1"></i>Maaş Yönetimi
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link @(aktifTab == "hareketler" ? "active" : "")" @onclick='() => TabDegistir("hareketler")'>
-                <i class="bi bi-clock-history me-1"></i>Maaş Hareketleri
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link @(aktifTab == "durum" ? "active" : "")" @onclick='() => TabDegistir("durum")'>
-                <i class="bi bi-person-lines-fill me-1"></i>Ödeme / Durum
-            </button>
-        </li>
-    </ul>
+    <div class="mb-3 text-muted small">
+        <i class="bi bi-person-lines-fill me-1"></i>Ödeme / Durum
+    </div>
 
     @if (isLoading)
     {
@@ -102,493 +61,9 @@
     else
     {
         <!-- ============================================================ -->
-        <!-- TAB 1: MAAŞ YÖNETİMİ                                        -->
-        <!-- ============================================================ -->
-        @if (aktifTab == "yonetim")
-        {
-            @if (maasRapor != null)
-            {
-                <!-- Özet Kartları -->
-                <div class="row mb-4">
-                    <div class="col-md-2">
-                        <div class="card bg-primary text-white">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">Personel</h6>
-                                <h4 class="mb-0">@maasRapor.PersonelSayisi</h4>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="card bg-info text-white">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">Brüt Maaş</h6>
-                                <h5 class="mb-0">@maasRapor.ToplamBrutMaas.ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="card bg-success text-white">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">Net Maaş</h6>
-                                <h5 class="mb-0">@maasRapor.ToplamNetMaas.ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="card bg-warning text-dark">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">SGK (İşçi)</h6>
-                                <h5 class="mb-0">@maasRapor.ToplamSGKIsci.ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="card bg-danger text-white">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">SGK (İşveren)</h6>
-                                <h5 class="mb-0">@maasRapor.ToplamSGKIsveren.ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="card bg-secondary text-white">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">Toplam Ödeme</h6>
-                                <h5 class="mb-0">@maasRapor.ToplamOdeme.ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Vergi Özet -->
-                <div class="row mb-4">
-                    <div class="col-md-4">
-                        <div class="card border-warning">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0 text-warning">Gelir Vergisi</h6>
-                                <h5 class="mb-0">@maasRapor.ToplamGelirVergisi.ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card border-info">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0 text-info">Damga Vergisi</h6>
-                                <h5 class="mb-0">@(maasRapor.Detaylar.Any() ? maasRapor.Detaylar.Sum(d => d.DamgaVergisi).ToString("N0") : "0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card border-danger">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0 text-danger">İşveren Maliyeti</h6>
-                                <h5 class="mb-0">@(maasRapor.Detaylar.Any() ? (maasRapor.ToplamBrutMaas + maasRapor.ToplamSGKIsveren).ToString("N0") : "0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Maaş Listesi -->
-                <div class="card">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Personel</th>
-                                        <th class="text-end">Brüt Maaş</th>
-                                        <th class="text-end">SGK İşçi</th>
-                                        <th class="text-end">G.Vergisi</th>
-                                        <th class="text-end">Net Maaş</th>
-                                        <th class="text-end">Eklemeler</th>
-                                        <th class="text-end">Kesintiler</th>
-                                        <th class="text-end">Ödenecek</th>
-                                        <th class="text-center">Durum</th>
-                                        <th class="text-center">İşlem</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var maas in maasRapor.Detaylar)
-                                    {
-                                        <tr>
-                                            <td><strong>@maas.SoforAdSoyad</strong></td>
-                                            <td class="text-end">@maas.BrutMaas.ToString("N0") ₺</td>
-                                            <td class="text-end text-warning">@maas.SGKIsciPayi.ToString("N0") ₺</td>
-                                            <td class="text-end text-danger">@maas.GelirVergisi.ToString("N0") ₺</td>
-                                            <td class="text-end">@maas.NetMaas.ToString("N0") ₺</td>
-                                            <td class="text-end">
-                                                @if (maas.ToplamEklemeler > 0)
-                                                {
-                                                    <span class="text-success">+@maas.ToplamEklemeler.ToString("N0") ₺</span>
-                                                }
-                                                @if (maas.DigerEklemeler > 0)
-                                                {
-                                                    <br /><small class="text-success" title="Personel Harcaması">+@maas.DigerEklemeler.ToString("N0") ₺ harcama</small>
-                                                }
-                                                @if (maas.Avans > 0)
-                                                {
-                                                    <br /><small class="text-danger" title="Avans Kesintisi">-@maas.Avans.ToString("N0") ₺ avans</small>
-                                                }
-                                                @if (maas.ToplamEklemeler == 0 && maas.Avans == 0)
-                                                {
-                                                    <span class="text-muted">-</span>
-                                                }
-                                            </td>
-                                            <td class="text-end text-danger">-@maas.ToplamKesintiler.ToString("N0") ₺</td>
-                                            <td class="text-end"><strong>@maas.OdenecekTutar.ToString("N0") ₺</strong></td>
-                                            <td class="text-center">
-                                                @if (maas.OdemeDurum == "Odendi")
-                                                {
-                                                    <span class="badge bg-success" title="@(maas.OdemeTarihi?.ToString("dd.MM.yyyy"))">
-                                                        <i class="bi bi-check-circle me-1"></i>Ödendi
-                                                    </span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-warning text-dark">
-                                                        <i class="bi bi-clock me-1"></i>Bekliyor
-                                                    </span>
-                                                }
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-primary" @onclick="() => DuzenleAc(maas.MaasId)" title="Düzenle">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    @if (maas.OdemeDurum != "Odendi")
-                                                    {
-                                                        <button class="btn btn-outline-success" @onclick="() => OdemeModalAc(maas)" title="Ödeme Yap" disabled="@isOdemeYapiliyor">
-                                                            <i class="bi bi-cash-coin"></i>
-                                                        </button>
-                                                    }
-                                                    else
-                                                    {
-                                                        <button class="btn btn-outline-warning btn-sm" @onclick="() => OdemeIptalEt(maas.MaasId)" title="Ödemeyi İptal Et">
-                                                            <i class="bi bi-arrow-counterclockwise"></i>
-                                                        </button>
-                                                    }
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle me-2"></i>Seçilen dönem için maaş kaydı bulunamadı.
-                </div>
-            }
-        }
-
-        <!-- ============================================================ -->
-        <!-- TAB 2: MAAŞ HAREKETLERİ                                      -->
-        <!-- ============================================================ -->
-        @if (aktifTab == "hareketler")
-        {
-            <!-- Filtreler -->
-            <div class="card mb-4">
-                <div class="card-body py-3">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold">Personel</label>
-                            <select class="form-select form-select-sm" @bind="hSecilenSoforId" @bind:after="HareketFiltrele">
-                                <option value="0">-- Tüm Personel --</option>
-                                @foreach (var sofor in soforler)
-                                {
-                                    <option value="@sofor.Id">@sofor.TamAd</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold">Yıl</label>
-                            <select class="form-select form-select-sm" @bind="hareketYil" @bind:after="HareketFiltrele">
-                                <option value="0">-- Tüm Yıllar --</option>
-                                @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 5; y--)
-                                {
-                                    <option value="@y">@y</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold">Ay</label>
-                            <select class="form-select form-select-sm" @bind="hareketAy" @bind:after="HareketFiltrele">
-                                <option value="0">-- Tüm Aylar --</option>
-                                @for (int m = 1; m <= 12; m++)
-                                {
-                                    <option value="@m">@(new DateTime(2024, m, 1).ToString("MMMM"))</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold">Ödeme Durumu</label>
-                            <select class="form-select form-select-sm" @bind="hSecilenDurum" @bind:after="HareketFiltrele">
-                                <option value="-1">-- Tümü --</option>
-                                <option value="0">Bekliyor</option>
-                                <option value="1">Ödendi</option>
-                                <option value="2">Kısmi Ödendi</option>
-                                <option value="3">İptal Edildi</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3 text-end">
-                            <span class="badge bg-secondary fs-6">@filtrelenmisHareketler.Count kayıt</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            @if (filtrelenmisHareketler.Any())
-            {
-                <div class="row mb-4">
-                    <div class="col-md-3">
-                        <div class="card bg-primary text-white">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">Toplam Kayıt</h6>
-                                <h4 class="mb-0">@filtrelenmisHareketler.Count</h4>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-success text-white">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">Toplam Ödenen</h6>
-                                <h5 class="mb-0">@filtrelenmisHareketler.Where(h => h.OdemeDurum == MaasOdemeDurum.Odendi).Sum(h => h.OdenecekTutar).ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-warning text-dark">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">Bekleyen</h6>
-                                <h5 class="mb-0">@filtrelenmisHareketler.Where(h => h.OdemeDurum == MaasOdemeDurum.Bekliyor).Sum(h => h.OdenecekTutar).ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-info text-white">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0">Genel Toplam</h6>
-                                <h5 class="mb-0">@filtrelenmisHareketler.Sum(h => h.OdenecekTutar).ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row mb-4">
-                    <div class="col-md-4">
-                        <div class="card border-warning">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0 text-warning">SGK İşçi</h6>
-                                <h5 class="mb-0">@filtrelenmisHareketler.Sum(h => h.SGKIsciPayi).ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card border-danger">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0 text-danger">Gelir Vergisi</h6>
-                                <h5 class="mb-0">@filtrelenmisHareketler.Sum(h => h.GelirVergisi).ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card border-secondary">
-                            <div class="card-body text-center py-2">
-                                <h6 class="mb-0 text-secondary">Damga Vergisi</h6>
-                                <h5 class="mb-0">@filtrelenmisHareketler.Sum(h => h.DamgaVergisi).ToString("N0") ₺</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-
-            <!-- Hareket Tablosu -->
-            <div class="card">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-sm mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width:40px">#</th>
-                                    <th>Personel</th>
-                                    <th class="text-center">Dönem</th>
-                                    <th class="text-end">Brüt Maaş</th>
-                                    <th class="text-end">SGK İşçi</th>
-                                    <th class="text-end">G.Vergisi</th>
-                                    <th class="text-end">Net Maaş</th>
-                                    <th class="text-end">Eklemeler</th>
-                                    <th class="text-end">Kesintiler</th>
-                                    <th class="text-end">Ödenecek</th>
-                                    <th class="text-center">Çalışma</th>
-                                    <th class="text-center">Durum</th>
-                                    <th class="text-center">Ödeme Tarihi</th>
-                                    <th class="text-center">Detay</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @{ int hSira = 0; }
-                                @foreach (var h in filtrelenmisHareketler)
-                                {
-                                    hSira++;
-                                    <tr class="@(h.OdemeDurum == MaasOdemeDurum.IptalEdildi ? "table-secondary text-muted" : "")">
-                                        <td class="text-muted">@hSira</td>
-                                        <td><strong>@(h.Sofor != null ? h.Sofor.TamAd : "-")</strong></td>
-                                        <td class="text-center">
-                                            <span class="badge bg-light text-dark">@(new DateTime(h.Yil, h.Ay, 1).ToString("MMMM yyyy"))</span>
-                                        </td>
-                                        <td class="text-end">@h.BrutMaas.ToString("N0") ₺</td>
-                                        <td class="text-end text-warning">@h.SGKIsciPayi.ToString("N0") ₺</td>
-                                        <td class="text-end text-danger">@h.GelirVergisi.ToString("N0") ₺</td>
-                                        <td class="text-end">@h.NetMaas.ToString("N0") ₺</td>
-                                        <td class="text-end">
-                                            @if (h.ToplamEklemeler > 0)
-                                            {
-                                                <span class="text-success">+@h.ToplamEklemeler.ToString("N0") ₺</span>
-                                            }
-                                            @if (h.DigerEklemeler > 0)
-                                            {
-                                                <br /><small class="text-success" title="Personel Harcaması">+@h.DigerEklemeler.ToString("N0") ₺ harcama</small>
-                                            }
-                                            @if (h.Avans > 0)
-                                            {
-                                                <br /><small class="text-danger" title="Avans Kesintisi">-@h.Avans.ToString("N0") ₺ avans</small>
-                                            }
-                                            @if (h.ToplamEklemeler == 0 && h.Avans == 0)
-                                            {
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                        <td class="text-end text-danger">
-                                            @if (h.ToplamKesintiler > 0)
-                                            {
-                                                <span>-@h.ToplamKesintiler.ToString("N0") ₺</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                        <td class="text-end"><strong>@h.OdenecekTutar.ToString("N0") ₺</strong></td>
-                                        <td class="text-center">
-                                            <small>@h.CalismaGunu gün</small>
-                                            @if (h.IzinliGun > 0)
-                                            {
-                                                <br /><small class="text-warning">@h.IzinliGun izin</small>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            @switch (h.OdemeDurum)
-                                            {
-                                                case MaasOdemeDurum.Odendi:
-                                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Ödendi</span>
-                                                    break;
-                                                case MaasOdemeDurum.Bekliyor:
-                                                    <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Bekliyor</span>
-                                                    break;
-                                                case MaasOdemeDurum.KismiOdendi:
-                                                    <span class="badge bg-info"><i class="bi bi-cash me-1"></i>Kısmi</span>
-                                                    break;
-                                                case MaasOdemeDurum.IptalEdildi:
-                                                    <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>İptal</span>
-                                                    break;
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            <small>@(h.OdemeTarihi.HasValue ? h.OdemeTarihi.Value.ToString("dd.MM.yyyy") : "-")</small>
-                                        </td>
-                                        <td class="text-center">
-                                            <button class="btn btn-outline-primary btn-sm" @onclick="() => DetayGoster(h)" title="Detay">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                            @if (filtrelenmisHareketler.Any())
-                            {
-                                <tfoot class="table-light fw-bold">
-                                    <tr>
-                                        <td colspan="3" class="text-end">TOPLAM:</td>
-                                        <td class="text-end">@filtrelenmisHareketler.Sum(h => h.BrutMaas).ToString("N0") ₺</td>
-                                        <td class="text-end text-warning">@filtrelenmisHareketler.Sum(h => h.SGKIsciPayi).ToString("N0") ₺</td>
-                                        <td class="text-end text-danger">@filtrelenmisHareketler.Sum(h => h.GelirVergisi).ToString("N0") ₺</td>
-                                        <td class="text-end">@filtrelenmisHareketler.Sum(h => h.NetMaas).ToString("N0") ₺</td>
-                                        <td class="text-end text-success">+@filtrelenmisHareketler.Sum(h => h.ToplamEklemeler).ToString("N0") ₺</td>
-                                        <td class="text-end text-danger">-@filtrelenmisHareketler.Sum(h => h.ToplamKesintiler).ToString("N0") ₺</td>
-                                        <td class="text-end">@filtrelenmisHareketler.Sum(h => h.OdenecekTutar).ToString("N0") ₺</td>
-                                        <td colspan="4"></td>
-                                    </tr>
-                                </tfoot>
-                            }
-                        </table>
-                    </div>
-                    @if (!filtrelenmisHareketler.Any())
-                    {
-                        <div class="text-center py-5 text-muted">
-                            <i class="bi bi-inbox fs-1"></i>
-                            <p class="mt-2">Kayıt bulunamadı</p>
-                        </div>
-                    }
-                </div>
-            </div>
-
-            @if (hSecilenSoforId == 0 && filtrelenmisHareketler.Any())
-            {
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Personel Bazlı Özet</h6>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-sm mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Personel</th>
-                                        <th class="text-center">Kayıt Sayısı</th>
-                                        <th class="text-end">Toplam Brüt</th>
-                                        <th class="text-end">Toplam Net</th>
-                                        <th class="text-end">Toplam Ödenecek</th>
-                                        <th class="text-center">Ödenen</th>
-                                        <th class="text-center">Bekleyen</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var g in personelOzetleri)
-                                    {
-                                        <tr>
-                                            <td><strong>@g.AdSoyad</strong></td>
-                                            <td class="text-center">@g.KayitSayisi</td>
-                                            <td class="text-end">@g.ToplamBrut.ToString("N0") ₺</td>
-                                            <td class="text-end">@g.ToplamNet.ToString("N0") ₺</td>
-                                            <td class="text-end"><strong>@g.ToplamOdenecek.ToString("N0") ₺</strong></td>
-                                            <td class="text-center"><span class="badge bg-success">@g.OdenenSayisi</span></td>
-                                            <td class="text-center">
-                                                @if (g.BekleyenSayisi > 0)
-                                                {
-                                                    <span class="badge bg-warning text-dark">@g.BekleyenSayisi</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-light text-muted">0</span>
-                                                }
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            }
-        }
-
-        <!-- ============================================================ -->
         <!-- TAB 3: ÖDEME / DURUM TABLOSU                                 -->
         <!-- ============================================================ -->
-        @if (aktifTab == "durum")
+        @if (true)
         {
             <div class="row">
                 <!-- SOL: Personel Listesi -->
@@ -926,7 +401,7 @@
                                             {
                                                 <div class="table-responsive">
                                                     <table class="table table-sm table-hover mb-0">
-                                                        <thead class="table-light"><tr><th>Tarih</th><th>Açıklama</th><th class="text-end">Tutar</th><th class="text-end">Kalan</th><th>Durum</th></tr></thead>
+                                                        <thead class="table-light"><tr><th>Tarih</th><th>Açıklama</th><th class="text-end">Tutar</th><th class="text-end">Kalan</th><th>Durum</th><th class="text-center" style="width:48px;">Sil</th></tr></thead>
                                                         <tbody>
                                                             @foreach (var borc in durBorclar.OrderByDescending(b => b.BorcTarihi))
                                                             {
@@ -936,6 +411,18 @@
                                                                     <td class="text-end"><small>@FormatPara(borc.Tutar)</small></td>
                                                                     <td class="text-end"><small class="fw-bold text-danger">@FormatPara(borc.KalanBorc)</small></td>
                                                                     <td><span class="badge @GetBorcDurumBadge(borc.OdemeDurum)" style="font-size:0.65rem;">@GetBorcDurumAdi(borc.OdemeDurum)</span></td>
+                                                                    <td class="text-center">
+                                                                        @if (CanBorcKaydiKaliciSil)
+                                                                        {
+                                                                            <button class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => DurumBorcKaydiniSil(borc)" title="Borç kaydını kalıcı sil">
+                                                                                <i class="bi bi-trash"></i>
+                                                                            </button>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <span class="text-muted">-</span>
+                                                                        }
+                                                                    </td>
                                                                 </tr>
                                                             }
                                                         </tbody>
@@ -944,6 +431,7 @@
                                                                 <td colspan="2"><strong>Toplam</strong></td>
                                                                 <td class="text-end"><strong>@FormatPara(durBorclar.Sum(b => b.Tutar))</strong></td>
                                                                 <td class="text-end"><strong class="text-danger">@FormatPara(durBorclar.Sum(b => b.KalanBorc))</strong></td>
+                                                                <td></td>
                                                                 <td></td>
                                                             </tr>
                                                         </tfoot>
@@ -1044,6 +532,42 @@
 <!-- ============================================================ -->
 <!-- MODALS                                                        -->
 <!-- ============================================================ -->
+
+<!-- Maaş Silme Onay Modal -->
+@if (silinecekMaas != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Maaş Kaydını Sil</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="MaasSilIptal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Aşağıdaki maaş kaydını silmek istediğinize emin misiniz?</p>
+                    <ul class="list-unstyled mb-0">
+                        <li><strong>Personel:</strong> @silinecekMaas.Sofor?.TamAd</li>
+                        <li><strong>Dönem:</strong> @(new DateTime(silinecekMaas.Yil, silinecekMaas.Ay, 1).ToString("MMMM yyyy"))</li>
+                        <li><strong>Ödenecek:</strong> @silinecekMaas.OdenecekTutar.ToString("N0") ₺</li>
+                    </ul>
+                    <div class="alert alert-warning mt-3 mb-0 py-2">
+                        <i class="bi bi-info-circle me-1"></i> Bu işlem geri alınamaz. Kayıt veritabanından kalıcı olarak silinecek.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="MaasSilIptal">İptal</button>
+                    <button type="button" class="btn btn-danger" @onclick="MaasSilOnayla" disabled="@isSiliniyor">
+                        @if (isSiliniyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-trash me-1"></i>Sil
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- Maaş Düzenleme Modal -->
 @if (duzenlenenMaas != null)
@@ -1368,13 +892,12 @@
 }
 
 @code {
-    // ===== SEKME =====
-    private string aktifTab = "yonetim";
-
     // ===== MAAŞ YÖNETİMİ STATE =====
     private int maasYil = DateTime.Today.Year;
     private int maasAy = DateTime.Today.Month;
     private MaasRaporOzet? maasRapor;
+    private HashSet<int> seciliMaasIds = new();
+    private HashSet<int> seciliOlusturmaPersonelIds = new();
     private PersonelMaas? duzenlenenMaas;
     private bool isLoading = false;
     private List<PersonelAvans> acikAvanslar = new();
@@ -1387,6 +910,11 @@
     private string? bildirimMesaj;
     private bool bildirimBasarili;
     private System.Threading.Timer? bildirimTimer;
+    private HashSet<string> kullaniciYetkileri = new();
+
+    // Silme
+    private PersonelMaas? silinecekMaas;
+    private bool isSiliniyor = false;
 
     // ===== MAAŞ HAREKETLERİ STATE =====
     private List<Sofor> soforler = new();
@@ -1417,6 +945,14 @@
     private List<EkstreHareket> durEkstreHareketler = new();
     private BordroDetay? durBordroDetay;
     private List<PersonelCebindenHarcamaItem> durCebHarcamalar = new();
+    private bool CanBorcKaydiKaliciSil => kullaniciYetkileri.Contains("*") || kullaniciYetkileri.Contains(Yetkiler.PersonelBorcSil);
+    private List<Sofor> OlusturulabilirMaasPersoneller => soforler
+        .Where(s => s.Aktif && !s.IsDeleted)
+        .Where(s => maasRapor == null || maasRapor.Detaylar.All(d => d.SoforId != s.Id))
+        .OrderBy(s => s.SiralamaNo == 0 ? int.MaxValue : s.SiralamaNo)
+        .ThenBy(s => s.Ad)
+        .ThenBy(s => s.Soyad)
+        .ToList();
     private IEnumerable<PersonelDurumSatir> DurFiltreliSatirlar => durSatirlar
         .Where(s => (string.IsNullOrWhiteSpace(durAramaMetni)
                 || s.AdSoyad.Contains(durAramaMetni, StringComparison.OrdinalIgnoreCase)
@@ -1427,30 +963,8 @@
     // ===== LIFECYCLE =====
     protected override async Task OnInitializedAsync()
     {
-        soforler = await SoforService.GetActiveAsync();
-        await YenileMaasData();
-    }
-
-    private async Task TabDegistir(string tab)
-    {
-        aktifTab = tab;
-        isLoading = true;
-        try
-        {
-            if (tab == "yonetim")
-                await YenileMaasData();
-            else if (tab == "hareketler" && !hareketler.Any())
-            {
-                hareketYil = DateTime.Today.Year;
-                await HareketleriVeriYukle();
-            }
-            else if (tab == "durum" && !durSatirlar.Any())
-                await YenileDurumData();
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        kullaniciYetkileri = await KullaniciService.GetCurrentUserYetkilerAsync();
+        await YenileDurumData();
     }
 
     // ===== MAAŞ YÖNETİMİ METHODS =====
@@ -1460,6 +974,8 @@
         try
         {
             maasRapor = await PersonelService.GetMaasRaporuAsync(maasYil, maasAy);
+            seciliMaasIds.RemoveWhere(id => maasRapor.Detaylar.All(m => m.MaasId != id));
+            seciliOlusturmaPersonelIds.RemoveWhere(id => OlusturulabilirMaasPersoneller.All(s => s.Id != id));
         }
         finally
         {
@@ -1469,9 +985,115 @@
 
     private async Task TopluMaasOlustur()
     {
-        await PersonelService.TopluMaasOlusturAsync(maasYil, maasAy);
+        var tumAktifPersonelIds = soforler.Where(s => s.Aktif && !s.IsDeleted).Select(s => s.Id).ToList();
+        var sonuc = await PersonelService.CreateMaasForPersonellerAsync(maasYil, maasAy, tumAktifPersonelIds);
         await YenileMaasData();
-        BildirimGoster("Toplu maaş kayıtları oluşturuldu.", true);
+
+        if (sonuc.OlusturulanSayisi == 0 && sonuc.ZatenVarSayisi > 0)
+        {
+            BildirimGoster("Bu ay için tüm personellerde maaş zaten mevcut. Yeniden oluşturulmadı.", false);
+            return;
+        }
+
+        BildirimGoster($"Toplu maaş oluşturma tamamlandı. Oluşturulan: {sonuc.OlusturulanSayisi}, Zaten var: {sonuc.ZatenVarSayisi}.", true);
+    }
+
+    private async Task SeciliPersonellerIcinMaasOlustur()
+    {
+        if (!seciliOlusturmaPersonelIds.Any())
+        {
+            BildirimGoster("Önce maaş oluşturulacak personelleri işaretleyin.", false);
+            return;
+        }
+
+        var sonuc = await PersonelService.CreateMaasForPersonellerAsync(maasYil, maasAy, seciliOlusturmaPersonelIds.ToList());
+        await YenileMaasData();
+
+        if (sonuc.OlusturulanSayisi == 0 && sonuc.ZatenVarSayisi > 0)
+        {
+            BildirimGoster("İşaretli personellerde bu ay maaş zaten mevcut. Yeniden oluşturulmadı.", false);
+            return;
+        }
+
+        seciliOlusturmaPersonelIds.Clear();
+        BildirimGoster($"İşaretli maaş oluşturma tamamlandı. Oluşturulan: {sonuc.OlusturulanSayisi}, Zaten var: {sonuc.ZatenVarSayisi}.", true);
+    }
+
+    private async Task SeciliMaaslariSil()
+    {
+        if (!seciliMaasIds.Any())
+        {
+            BildirimGoster("Önce silinecek maaş kayıtlarını işaretleyin.", false);
+            return;
+        }
+
+        var onay = await JS.InvokeAsync<bool>("confirm", "İşaretli maaş kayıtları veritabanından kalıcı olarak silinecek. Devam edilsin mi?");
+        if (!onay) return;
+
+        var silinen = await PersonelService.DeleteMaaslarAsync(seciliMaasIds.ToList());
+        seciliMaasIds.Clear();
+        await YenileMaasData();
+        await HareketleriVeriYukle();
+        BildirimGoster($"{silinen} maaş kaydı kalıcı olarak silindi.", true);
+    }
+
+    private async Task SeciliMaaslariYenidenHesapla()
+    {
+        if (!seciliMaasIds.Any())
+        {
+            BildirimGoster("Önce yeniden hesaplanacak maaş kayıtlarını işaretleyin.", false);
+            return;
+        }
+
+        var guncellenen = await PersonelService.RecalculateMaaslarAsync(seciliMaasIds.ToList());
+        await YenileMaasData();
+        await HareketleriVeriYukle();
+        BildirimGoster($"{guncellenen} maaş kaydı yeniden hesaplandı.", true);
+    }
+
+    private void MaasSecimDegisti(int maasId, ChangeEventArgs e)
+    {
+        var secili = e.Value is bool b && b;
+        if (secili)
+            seciliMaasIds.Add(maasId);
+        else
+            seciliMaasIds.Remove(maasId);
+    }
+
+    private bool TumMaaslarSeciliMi()
+    {
+        if (maasRapor == null || !maasRapor.Detaylar.Any()) return false;
+        return maasRapor.Detaylar.All(m => seciliMaasIds.Contains(m.MaasId));
+    }
+
+    private void TumMaaslariSecToggle(ChangeEventArgs e)
+    {
+        var secili = e.Value is bool b && b;
+        if (maasRapor == null) return;
+
+        if (secili)
+            seciliMaasIds = maasRapor.Detaylar.Select(m => m.MaasId).ToHashSet();
+        else
+            seciliMaasIds.Clear();
+    }
+
+    private void TumOlusturulabilirMaasPersonelleriSec()
+    {
+        seciliOlusturmaPersonelIds = OlusturulabilirMaasPersoneller.Select(s => s.Id).ToHashSet();
+    }
+
+    private void OlusturulabilirMaasSecimiTemizle()
+    {
+        seciliOlusturmaPersonelIds.Clear();
+    }
+
+    private void OlusturulabilirMaasSecimDegisti(int personelId, ChangeEventArgs e)
+    {
+        var secili = e.Value is bool b && b;
+        if (secili)
+            seciliOlusturmaPersonelIds.Add(personelId);
+        else
+            seciliOlusturmaPersonelIds.Remove(personelId);
     }
 
     private async Task DuzenleAc(int maasId)
@@ -1612,6 +1234,39 @@
         }
     }
 
+    private void MaasSilOnay(PersonelMaas maas)
+    {
+        silinecekMaas = maas;
+    }
+
+    private void MaasSilIptal()
+    {
+        silinecekMaas = null;
+        isSiliniyor = false;
+    }
+
+    private async Task MaasSilOnayla()
+    {
+        if (silinecekMaas == null) return;
+        isSiliniyor = true;
+        try
+        {
+            await PersonelService.DeleteMaasAsync(silinecekMaas.Id);
+            BildirimGoster("Maaş kaydı kalıcı olarak silindi.", true);
+            silinecekMaas = null;
+            await YenileMaasData();
+            await HareketleriVeriYukle();
+        }
+        catch (Exception ex)
+        {
+            BildirimGoster($"Silme sırasında hata: {ex.Message}", false);
+        }
+        finally
+        {
+            isSiliniyor = false;
+        }
+    }
+
     // ===== MAAŞ HAREKETLERİ METHODS =====
     private async Task HareketleriVeriYukle()
     {
@@ -1696,7 +1351,7 @@
             using var workbook = new XLWorkbook();
             var ws = workbook.Worksheets.Add("Maaş Hareketleri");
             ws.Cell(1, 1).Value = "Maaş Hareket Listesi";
-            ws.Range(1, 1, 1, 12).Merge().Style.Font.Bold = true;
+            ws.Range(1, 1, 1, 10).Merge().Style.Font.Bold = true;
             ws.Cell(1, 1).Style.Font.FontSize = 14;
             var filtreBilgi = "Filtre: ";
             if (hareketYil > 0) filtreBilgi += $"Yıl: {hareketYil} ";
@@ -1707,8 +1362,8 @@
                 if (sofor != null) filtreBilgi += $"Personel: {sofor.TamAd}";
             }
             ws.Cell(2, 1).Value = filtreBilgi;
-            ws.Range(2, 1, 2, 12).Merge();
-            var basliklar = new[] { "Personel", "Dönem", "Brüt Maaş", "Net Maaş", "Prim", "İkramiye", "Yemek", "Yol", "Mesai", "Kesintiler", "Ödenecek", "Durum", "Ödeme Tarihi" };
+            ws.Range(2, 1, 2, 10).Merge();
+            var basliklar = new[] { "Personel", "Dönem", "Brüt Maaş", "Net Maaş (Bankaya Yatan)", "Gerçek Maaş", "Eklemeler", "Kesintiler", "Ödenecek", "Durum", "Ödeme Tarihi" };
             for (int i = 0; i < basliklar.Length; i++)
             {
                 ws.Cell(4, i + 1).Value = basliklar[i];
@@ -1721,25 +1376,27 @@
                 ws.Cell(satir, 1).Value = h.Sofor != null ? h.Sofor.TamAd : "-";
                 ws.Cell(satir, 2).Value = new DateTime(h.Yil, h.Ay, 1).ToString("MMMM yyyy");
                 ws.Cell(satir, 3).Value = h.BrutMaas;
-                ws.Cell(satir, 4).Value = h.NetMaas;
-                ws.Cell(satir, 5).Value = h.Prim;
-                ws.Cell(satir, 6).Value = h.Ikramiye;
-                ws.Cell(satir, 7).Value = h.Yemek;
-                ws.Cell(satir, 8).Value = h.Yol;
-                ws.Cell(satir, 9).Value = h.Mesai;
-                ws.Cell(satir, 10).Value = h.ToplamKesintiler;
-                ws.Cell(satir, 11).Value = h.OdenecekTutar;
-                ws.Cell(satir, 12).Value = h.OdemeDurum.ToString();
-                ws.Cell(satir, 13).Value = h.OdemeTarihi.HasValue ? h.OdemeTarihi.Value.ToString("dd.MM.yyyy") : "-";
-                for (int col = 3; col <= 11; col++)
+                ws.Cell(satir, 4).Value = GetBankayaYatan(h);
+                ws.Cell(satir, 5).Value = GetGercekMaas(h);
+                ws.Cell(satir, 6).Value = GetGorunenEklemeler(h);
+                ws.Cell(satir, 7).Value = h.ToplamKesintiler;
+                ws.Cell(satir, 8).Value = GetGorunenOdenecek(h);
+                ws.Cell(satir, 9).Value = h.OdemeDurum.ToString();
+                ws.Cell(satir, 10).Value = h.OdemeTarihi.HasValue ? h.OdemeTarihi.Value.ToString("dd.MM.yyyy") : "-";
+                for (int col = 3; col <= 8; col++)
                     ws.Cell(satir, col).Style.NumberFormat.Format = "#,##0.00";
                 satir++;
             }
             ws.Cell(satir, 1).Value = "TOPLAM";
             ws.Cell(satir, 1).Style.Font.Bold = true;
             ws.Cell(satir, 3).Value = filtrelenmisHareketler.Sum(h => h.BrutMaas);
-            ws.Cell(satir, 4).Value = filtrelenmisHareketler.Sum(h => h.NetMaas);
-            ws.Cell(satir, 11).Value = filtrelenmisHareketler.Sum(h => h.OdenecekTutar);
+            ws.Cell(satir, 4).Value = filtrelenmisHareketler.Sum(GetBankayaYatan);
+            ws.Cell(satir, 5).Value = filtrelenmisHareketler.Sum(GetGercekMaas);
+            ws.Cell(satir, 6).Value = filtrelenmisHareketler.Sum(GetGorunenEklemeler);
+            ws.Cell(satir, 7).Value = filtrelenmisHareketler.Sum(h => h.ToplamKesintiler);
+            ws.Cell(satir, 8).Value = filtrelenmisHareketler.Sum(GetGorunenOdenecek);
+            for (int col = 3; col <= 8; col++)
+                ws.Cell(satir, col).Style.NumberFormat.Format = "#,##0.00";
             ws.Columns().AdjustToContents();
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -1829,14 +1486,27 @@
         {
             durTumPersoneller = await SoforService.GetAllAsync();
             var aktifler = durTumPersoneller
-                .Where(p => p.Aktif)
+                .Where(p => !p.IsDeleted)
                 .OrderBy(p => p.SiralamaNo == 0 ? int.MaxValue : p.SiralamaNo)
                 .ThenBy(p => p.Ad)
                 .ToList();
+
+            var donemMaasKayitlari = await PersonelService.GetMaaslarAsync(durYil, durAy);
+            var donemMaasMap = donemMaasKayitlari
+                .GroupBy(m => m.SoforId)
+                .ToDictionary(g => g.Key, g => g.First());
+
             durSatirlar = new List<PersonelDurumSatir>();
             foreach (var p in aktifler)
             {
                 var finansOzet = await PersonelFinansService.GetPersonelFinansOzetAsync(p.Id);
+                donemMaasMap.TryGetValue(p.Id, out var donemMaas);
+
+                var bankayaYatan = donemMaas?.NetMaas ?? p.ResmiNetMaas;
+                var gercekMaas = donemMaas != null
+                    ? donemMaas.NetMaas + donemMaas.ToplamEklemeler
+                    : p.ResmiNetMaas + p.DigerMaas;
+
                 var satir = new PersonelDurumSatir
                 {
                     PersonelId = p.Id,
@@ -1845,13 +1515,13 @@
                     GorevAdi = GetGorevAdi(p.Gorev),
                     GorevEnum = p.Gorev,
                     SiralamaNo = p.SiralamaNo,
-                    GercekMaas = p.NetMaas,
-                    BankayaYatan = p.ResmiNetMaas,
+                    GercekMaas = gercekMaas,
+                    BankayaYatan = bankayaYatan,
                     Avans = finansOzet?.KalanAvans ?? 0,
                     Kesinti = 0,
                     Harcamasi = (finansOzet?.ToplamHarcama ?? 0) + (finansOzet?.KalanBorc > 0 ? finansOzet!.KalanBorc : 0)
                 };
-                satir.Odenecek = satir.GercekMaas - satir.BankayaYatan - satir.Avans - satir.Kesinti + satir.Harcamasi;
+                satir.Odenecek = satir.GercekMaas - satir.BankayaYatan + (-satir.Avans - satir.Kesinti + satir.Harcamasi);
                 durSatirlar.Add(satir);
             }
             if (durSecilenPersonelId > 0)
@@ -1938,6 +1608,34 @@
         }
     }
 
+    private async Task DurumBorcKaydiniSil(PersonelBorc borc)
+    {
+        if (!CanBorcKaydiKaliciSil)
+        {
+            BildirimGoster("Borç kaydı silme yetkiniz yok.", false);
+            return;
+        }
+
+        var onay = await JS.InvokeAsync<bool>("confirm",
+            $"{borc.BorcTarihi:dd.MM.yyyy} tarihli borç kaydı kalıcı olarak silinecek. Bağlı ödeme hareketleri de silinecek. Devam edilsin mi?");
+        if (!onay)
+            return;
+
+        try
+        {
+            await PersonelFinansService.DeleteBorcAsync(borc.Id);
+            await YenileDurumData();
+            if (durSecilenPersonelId > 0)
+                await DurumPersonelDetayYukle();
+
+            BildirimGoster("Borç kaydı ve bağlı hareketleri kalıcı olarak silindi.", true);
+        }
+        catch (Exception ex)
+        {
+            BildirimGoster($"Borç silme hatası: {ex.Message}", false);
+        }
+    }
+
     private static List<EkstreHareket> DurumOlusturEkstre(List<PersonelAvans> avanslar, List<PersonelBorc> borclar, List<PersonelCebindenHarcamaItem>? harcamalar = null)
     {
         var hareketler = new List<EkstreHareket>();
@@ -1997,6 +1695,36 @@
         PersonelGorev.Diger => "Diğer",
         _ => gorev.ToString()
     };
+
+    private static decimal GetGorunenToplamEklemeler(PersonelMaas maas)
+        => maas.ToplamEklemeler > 0 ? maas.ToplamEklemeler : maas.Sofor?.DigerMaas ?? 0;
+
+    private static decimal GetGorunenDigerEklemeler(PersonelMaas maas)
+        => maas.DigerEklemeler > 0 ? maas.DigerEklemeler : maas.Sofor?.DigerMaas ?? 0;
+
+    private static decimal GetBankayaYatan(PersonelMaas maas)
+        => maas.NetMaas;
+
+    private static decimal GetBankayaYatan(MaasDetay maas)
+        => maas.NetMaas;
+
+    private static decimal GetGercekMaas(PersonelMaas maas)
+        => maas.Sofor?.NetMaas > 0 ? maas.Sofor.NetMaas : maas.NetMaas + GetGorunenToplamEklemeler(maas);
+
+    private static decimal GetGercekMaas(MaasDetay maas)
+        => maas.NetMaas + maas.ToplamEklemeler;
+
+    private static decimal GetGorunenEklemeler(PersonelMaas maas)
+        => -maas.Avans - maas.ToplamKesintiler + GetGorunenDigerEklemeler(maas);
+
+    private static decimal GetGorunenEklemeler(MaasDetay maas)
+        => -maas.Avans - maas.ToplamKesintiler + maas.DigerEklemeler;
+
+    private static decimal GetGorunenOdenecek(PersonelMaas maas)
+        => GetGercekMaas(maas) - GetBankayaYatan(maas) + GetGorunenEklemeler(maas);
+
+    private static decimal GetGorunenOdenecek(MaasDetay maas)
+        => GetGercekMaas(maas) - GetBankayaYatan(maas) + GetGorunenEklemeler(maas);
 
     private void BildirimGoster(string mesaj, bool basarili)
     {

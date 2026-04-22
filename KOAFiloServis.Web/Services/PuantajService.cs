@@ -158,12 +158,22 @@ public class PuantajService : IPuantajService
     public async Task DeletePuantajAsync(int id)
     {
         using var context = await _contextFactory.CreateDbContextAsync();
-        var puantaj = await context.PersonelPuantajlar.FindAsync(id);
-        if (puantaj != null)
-        {
-            puantaj.IsDeleted = true;
-            await context.SaveChangesAsync();
-        }
+        var puantaj = await context.PersonelPuantajlar
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+
+        if (puantaj == null)
+            return;
+
+        if (puantaj.OnayDurumu == PersonelPuantajOnayDurumu.Onaylandi)
+            throw new InvalidOperationException("Onaylanan puantaj silinemez. Önce onayı geri alın.");
+
+        var gunlukler = await context.GunlukPuantajlar
+            .Where(g => g.PersonelPuantajId == id)
+            .ToListAsync();
+
+        context.GunlukPuantajlar.RemoveRange(gunlukler);
+        context.PersonelPuantajlar.Remove(puantaj);
+        await context.SaveChangesAsync();
     }
 
     public async Task<List<GunlukPuantaj>> GetGunlukPuantajlarAsync(int puantajId)

@@ -48,9 +48,14 @@ public class Sofor : BaseEntity
     public decimal DigerMaas { get; set; }
     public decimal NetMaas { get; set; }
 
+    // Firma Bilgisi (çalıştığı firma)
+    public int? FirmaId { get; set; }
+    public virtual Firma? Firma { get; set; }
+
     // SGK Bordro Ayarları
     public bool SGKBordroDahilMi { get; set; } = false;
     public PersonelBordroTipi BordroTipiPersonel { get; set; } = PersonelBordroTipi.Yok;
+    public SgkCalismaTuru SgkCalismaTuru { get; set; } = SgkCalismaTuru.TamZamanli;
 
     // ARGE ve Toplu Maaş Bilgileri
     public bool ArgePersoneli { get; set; } = false; // Geriye dönük uyumluluk
@@ -89,6 +94,24 @@ public class Sofor : BaseEntity
     public virtual ICollection<PersonelMaas> Maaslar { get; set; } = new List<PersonelMaas>();
     public virtual ICollection<PersonelIzin> Izinler { get; set; } = new List<PersonelIzin>();
     public virtual ICollection<PersonelIzinHakki> IzinHaklari { get; set; } = new List<PersonelIzinHakki>();
+    public virtual ICollection<PersonelAracAtama> AracAtamalari { get; set; } = new List<PersonelAracAtama>();
+}
+
+/// <summary>
+/// Personel - Araç eşleştirme kaydı
+/// </summary>
+public class PersonelAracAtama : BaseEntity
+{
+    public int SoforId { get; set; }
+    public virtual Sofor Sofor { get; set; } = null!;
+
+    public int AracId { get; set; }
+    public virtual Arac Arac { get; set; } = null!;
+
+    public DateTime BaslangicTarihi { get; set; } = DateTime.Today;
+    public DateTime? BitisTarihi { get; set; }
+    public bool Aktif { get; set; } = true;
+    public string? Notlar { get; set; }
 }
 
 /// <summary>
@@ -120,4 +143,25 @@ public enum BrutMaasHesaplamaTipi
     Saatlik = 1,
     Aylik = 2,
     Gunluk = 3
+}
+
+/// <summary>
+/// SGK çalışma türü (MUHSGK Beyannamesi'nde kullanılan çalışma şekilleri)
+/// </summary>
+public enum SgkCalismaTuru
+{
+    TamZamanli = 1,           // Tam Zamanlı (Full-time) - en yaygın
+    KismiZamanli = 2,         // Kısmi Süreli (Part-time)
+    Cirak = 3,                // Çırak (3308 sayılı Mesleki Eğitim Kanunu)
+    StajYuksekOgretim = 4,    // Stajyer - Yükseköğretim (2547 sayılı Kanun)
+    IsBasiEgitimiIskur = 5,   // İş Başı Eğitim Programı (İŞKUR)
+    EvHizmetleri10Alti = 6,   // Ev Hizmetleri - Ayda 10 günden az
+    EvHizmetleri10Ustu = 7,   // Ev Hizmetleri - Ayda 10 gün ve üzeri
+    MevsimlikTarim = 8,       // Mevsimlik Tarım İşçisi
+    YabanciUyruklu = 9,       // Yabancı Uyruklu Çalışan
+    EmekliAktif = 10,         // Emekli - Çalışmaya Devam Eden (5510/30.md)
+    AsgariIscilikMuaf = 11,   // Asgari İşçilik Muafiyeti Kapsamında
+    Engelli = 12,             // Engelli Çalışan (%3 kotası)
+    EskiHukumlu = 13,         // Eski Hükümlü (%2 kotası)
+    TerörMagduru = 14,        // Terör Mağduru (%1 kotası)
 }

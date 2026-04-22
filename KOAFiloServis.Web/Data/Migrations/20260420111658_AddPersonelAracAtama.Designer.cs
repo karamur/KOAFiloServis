@@ -3,17 +3,20 @@ using System;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace KOAFiloServis.Web.Migrations
+namespace KOAFiloServis.Web.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260420111658_AddPersonelAracAtama")]
+    partial class AddPersonelAracAtama
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -6927,200 +6930,6 @@ namespace KOAFiloServis.Web.Migrations
                     b.ToTable("KullaniciTercihleri");
                 });
 
-            modelBuilder.Entity("KOAFiloServis.Shared.Entities.LastikDegisim", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AracId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime>("DegisimTarihi")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<int>("DegisimTipi")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("HedefDepoId")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<int?>("KaynakDepoId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("KmDurumu")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Notlar")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("SirketId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("SokulenPozisyon")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int?>("SokulenStokId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TakilanPozisyon")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int?>("TakilanStokId")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("Ucret")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("YapilanYer")
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AracId");
-
-                    b.HasIndex("HedefDepoId");
-
-                    b.HasIndex("KaynakDepoId");
-
-                    b.HasIndex("SirketId");
-
-                    b.HasIndex("SokulenStokId");
-
-                    b.HasIndex("TakilanStokId");
-
-                    b.ToTable("LastikDegisimler");
-                });
-
-            modelBuilder.Entity("KOAFiloServis.Shared.Entities.LastikDepo", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Adres")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("Aktif")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("DepoAdi")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Notlar")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("SirketId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("SorumluKisi")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Telefon")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SirketId");
-
-                    b.ToTable("LastikDepolar");
-                });
-
-            modelBuilder.Entity("KOAFiloServis.Shared.Entities.LastikStok", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Aktif")
-                        .HasColumnType("boolean");
-
-                    b.Property<int?>("AracId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<int?>("DepoId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Durum")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Ebat")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Marka")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Notlar")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SeriNo")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int>("Sezon")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("SirketId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<bool>("YedekMi")
-                        .HasColumnType("boolean");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AracId");
-
-                    b.HasIndex("DepoId");
-
-                    b.HasIndex("SirketId");
-
-                    b.ToTable("LastikStoklar");
-                });
-
             modelBuilder.Entity("KOAFiloServis.Shared.Entities.Lisans", b =>
                 {
                     b.Property<int>("Id")
@@ -10565,9 +10374,6 @@ namespace KOAFiloServis.Web.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("text");
 
-                    b.Property<int?>("FirmaId")
-                        .HasColumnType("integer");
-
                     b.Property<int>("Gorev")
                         .HasColumnType("integer");
 
@@ -10620,11 +10426,6 @@ namespace KOAFiloServis.Web.Migrations
                     b.Property<decimal>("SendikaKesintisi")
                         .HasColumnType("numeric");
 
-                    b.Property<int>("SgkCalismaTuru")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1);
-
                     b.Property<DateTime?>("SgkCikisTarihi")
                         .HasColumnType("timestamp without time zone");
 
@@ -10673,8 +10474,6 @@ namespace KOAFiloServis.Web.Migrations
                         .HasColumnType("numeric");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("FirmaId");
 
                     b.HasIndex("MuhasebeHesapId");
 
@@ -12980,86 +12779,6 @@ namespace KOAFiloServis.Web.Migrations
                     b.Navigation("Kullanici");
                 });
 
-            modelBuilder.Entity("KOAFiloServis.Shared.Entities.LastikDegisim", b =>
-                {
-                    b.HasOne("KOAFiloServis.Shared.Entities.Arac", "Arac")
-                        .WithMany()
-                        .HasForeignKey("AracId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("KOAFiloServis.Shared.Entities.LastikDepo", "HedefDepo")
-                        .WithMany()
-                        .HasForeignKey("HedefDepoId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("KOAFiloServis.Shared.Entities.LastikDepo", "KaynakDepo")
-                        .WithMany()
-                        .HasForeignKey("KaynakDepoId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("KOAFiloServis.Shared.Entities.Sirket", "Sirket")
-                        .WithMany()
-                        .HasForeignKey("SirketId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("KOAFiloServis.Shared.Entities.LastikStok", "SokulenStok")
-                        .WithMany()
-                        .HasForeignKey("SokulenStokId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("KOAFiloServis.Shared.Entities.LastikStok", "TakilanStok")
-                        .WithMany("Degisimler")
-                        .HasForeignKey("TakilanStokId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Arac");
-
-                    b.Navigation("HedefDepo");
-
-                    b.Navigation("KaynakDepo");
-
-                    b.Navigation("Sirket");
-
-                    b.Navigation("SokulenStok");
-
-                    b.Navigation("TakilanStok");
-                });
-
-            modelBuilder.Entity("KOAFiloServis.Shared.Entities.LastikDepo", b =>
-                {
-                    b.HasOne("KOAFiloServis.Shared.Entities.Sirket", "Sirket")
-                        .WithMany()
-                        .HasForeignKey("SirketId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Sirket");
-                });
-
-            modelBuilder.Entity("KOAFiloServis.Shared.Entities.LastikStok", b =>
-                {
-                    b.HasOne("KOAFiloServis.Shared.Entities.Arac", "Arac")
-                        .WithMany()
-                        .HasForeignKey("AracId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("KOAFiloServis.Shared.Entities.LastikDepo", "Depo")
-                        .WithMany("Stoklar")
-                        .HasForeignKey("DepoId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("KOAFiloServis.Shared.Entities.Sirket", "Sirket")
-                        .WithMany()
-                        .HasForeignKey("SirketId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Arac");
-
-                    b.Navigation("Depo");
-
-                    b.Navigation("Sirket");
-                });
-
             modelBuilder.Entity("KOAFiloServis.Shared.Entities.Mesaj", b =>
                 {
                     b.HasOne("KOAFiloServis.Shared.Entities.Kullanici", "Alici")
@@ -13777,11 +13496,6 @@ namespace KOAFiloServis.Web.Migrations
 
             modelBuilder.Entity("KOAFiloServis.Shared.Entities.Sofor", b =>
                 {
-                    b.HasOne("KOAFiloServis.Shared.Entities.Firma", "Firma")
-                        .WithMany()
-                        .HasForeignKey("FirmaId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("KOAFiloServis.Shared.Entities.MuhasebeHesap", "MuhasebeHesap")
                         .WithMany()
                         .HasForeignKey("MuhasebeHesapId")
@@ -13791,8 +13505,6 @@ namespace KOAFiloServis.Web.Migrations
                         .WithMany()
                         .HasForeignKey("SirketId")
                         .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Firma");
 
                     b.Navigation("MuhasebeHesap");
 
@@ -14173,16 +13885,6 @@ namespace KOAFiloServis.Web.Migrations
                     b.Navigation("GonderilenMesajlar");
 
                     b.Navigation("Hatirlaticilar");
-                });
-
-            modelBuilder.Entity("KOAFiloServis.Shared.Entities.LastikDepo", b =>
-                {
-                    b.Navigation("Stoklar");
-                });
-
-            modelBuilder.Entity("KOAFiloServis.Shared.Entities.LastikStok", b =>
-                {
-                    b.Navigation("Degisimler");
                 });
 
             modelBuilder.Entity("KOAFiloServis.Shared.Entities.MasrafKalemi", b =>

@@ -20,7 +20,7 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
         await using var context = await _contextFactory.CreateDbContextAsync();
         return await context.PersonelMaaslari
             .Include(m => m.Sofor)
-            .Where(m => m.Yil == yil && m.Ay == ay)
+            .Where(m => m.Yil == yil && m.Ay == ay && !m.IsDeleted)
             .OrderBy(m => m.Sofor.Ad)
             .ToListAsync();
     }
@@ -38,7 +38,7 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
         await using var context = await _contextFactory.CreateDbContextAsync();
         return await context.PersonelMaaslari
             .Include(m => m.Sofor)
-            .FirstOrDefaultAsync(m => m.SoforId == soforId && m.Yil == yil && m.Ay == ay);
+            .FirstOrDefaultAsync(m => m.SoforId == soforId && m.Yil == yil && m.Ay == ay && !m.IsDeleted);
     }
 
     public async Task<PersonelMaas> CreateMaasAsync(PersonelMaas maas)
@@ -66,9 +66,94 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
         var maas = await context.PersonelMaaslari.FindAsync(id);
         if (maas != null)
         {
-            maas.IsDeleted = true;
+            context.PersonelMaaslari.Remove(maas);
             await context.SaveChangesAsync();
         }
+    }
+
+    public async Task<int> DeleteMaaslarAsync(List<int> maasIds)
+    {
+        if (maasIds == null || !maasIds.Any()) return 0;
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kayitlar = await context.PersonelMaaslari
+            .Where(m => maasIds.Contains(m.Id))
+            .ToListAsync();
+
+        if (!kayitlar.Any()) return 0;
+
+        context.PersonelMaaslari.RemoveRange(kayitlar);
+        await context.SaveChangesAsync();
+        return kayitlar.Count;
+    }
+
+    public async Task<int> RecalculateMaaslarAsync(List<int> maasIds)
+    {
+        if (maasIds == null || !maasIds.Any()) return 0;
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var kayitlar = await context.PersonelMaaslari
+            .Include(m => m.Sofor)
+            .Where(m => maasIds.Contains(m.Id) && !m.IsDeleted)
+            .ToListAsync();
+
+        foreach (var maas in kayitlar)
+        {
+            var sofor = maas.Sofor;
+            if (sofor == null) continue;
+
+            maas.BrutMaas = sofor.BrutMaas;
+            maas.NetMaas = sofor.ResmiNetMaas > 0 ? sofor.ResmiNetMaas : sofor.NetMaas;
+
+            // Eğer kayıtta başka ekleme yoksa personel kartındaki diğer maaşı taşı.
+            if (maas.ToplamEklemeler <= 0 && sofor.DigerMaas > 0)
+            {
+                maas.DigerEklemeler = sofor.DigerMaas;
+            }
+
+            maas.SGKIsciPayi = maas.BrutMaas * 0.14m;
+            maas.SGKIsverenPayi = maas.BrutMaas * 0.205m;
+            maas.IssizlikPrimi = maas.BrutMaas * 0.01m;
+            maas.DamgaVergisi = maas.BrutMaas * 0.00759m;
+
+            var vergiMatrahi = maas.BrutMaas - maas.SGKIsciPayi - maas.IssizlikPrimi;
+            maas.GelirVergisi = vergiMatrahi * 0.15m;
+            maas.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await context.SaveChangesAsync();
+        return kayitlar.Count;
+    }
+
+    public async Task<MaasOlusturmaSonuc> CreateMaasForPersonellerAsync(int yil, int ay, List<int> soforIds)
+    {
+        var sonuc = new MaasOlusturmaSonuc();
+        if (soforIds == null || !soforIds.Any()) return sonuc;
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var benzersizSoforIds = soforIds.Distinct().ToList();
+
+        var mevcutSoforIds = await context.PersonelMaaslari
+            .Where(m => m.Yil == yil && m.Ay == ay && benzersizSoforIds.Contains(m.SoforId) && !m.IsDeleted)
+            .Select(m => m.SoforId)
+            .Distinct()
+            .ToListAsync();
+
+        sonuc.ZatenVarSayisi = mevcutSoforIds.Count;
+
+        var olusturulacakSoforler = await context.Soforler
+            .Where(s => s.Aktif && benzersizSoforIds.Contains(s.Id) && !mevcutSoforIds.Contains(s.Id))
+            .ToListAsync();
+
+        foreach (var sofor in olusturulacakSoforler)
+        {
+            var yeniMaas = BuildDefaultMaasFromSofor(sofor, yil, ay);
+            context.PersonelMaaslari.Add(yeniMaas);
+        }
+
+        await context.SaveChangesAsync();
+        sonuc.OlusturulanSayisi = olusturulacakSoforler.Count;
+        return sonuc;
     }
 
     public async Task<List<PersonelMaas>> GetSoforMaasGecmisiAsync(int soforId)
@@ -76,7 +161,7 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
         await using var context = await _contextFactory.CreateDbContextAsync();
         return await context.PersonelMaaslari
             .Include(m => m.Sofor)
-            .Where(m => m.SoforId == soforId)
+            .Where(m => m.SoforId == soforId && !m.IsDeleted)
             .OrderByDescending(m => m.Yil)
             .ThenByDescending(m => m.Ay)
             .ToListAsync();
@@ -106,32 +191,37 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
             var mevcutMaas = await GetMaasBySoforAsync(sofor.Id, yil, ay);
             if (mevcutMaas == null)
             {
-                var yeniMaas = new PersonelMaas
-                {
-                    SoforId = sofor.Id,
-                    Yil = yil,
-                    Ay = ay,
-                    BrutMaas = sofor.BrutMaas,
-                    NetMaas = sofor.NetMaas,
-                    CalismaGunu = 26,
-                    OdemeDurum = MaasOdemeDurum.Bekliyor
-                };
-
-                // SGK hesaplamalar� (2024 oranlar�)
-                yeniMaas.SGKIsciPayi = yeniMaas.BrutMaas * 0.14m;
-                yeniMaas.SGKIsverenPayi = yeniMaas.BrutMaas * 0.205m;
-                yeniMaas.IssizlikPrimi = yeniMaas.BrutMaas * 0.01m;
-                yeniMaas.DamgaVergisi = yeniMaas.BrutMaas * 0.00759m;
-
-                // Gelir vergisi matrah� ve vergi hesaplamas�
-                var vergiMatrahi = yeniMaas.BrutMaas - yeniMaas.SGKIsciPayi - yeniMaas.IssizlikPrimi;
-                yeniMaas.GelirVergisi = vergiMatrahi * 0.15m; // Basit hesaplama
-
+                var yeniMaas = BuildDefaultMaasFromSofor(sofor, yil, ay);
                 context.PersonelMaaslari.Add(yeniMaas);
             }
         }
 
         await context.SaveChangesAsync();
+    }
+
+    private static PersonelMaas BuildDefaultMaasFromSofor(Sofor sofor, int yil, int ay)
+    {
+        var yeniMaas = new PersonelMaas
+        {
+            SoforId = sofor.Id,
+            Yil = yil,
+            Ay = ay,
+            BrutMaas = sofor.BrutMaas,
+            NetMaas = sofor.ResmiNetMaas > 0 ? sofor.ResmiNetMaas : sofor.NetMaas,
+            DigerEklemeler = sofor.DigerMaas,
+            CalismaGunu = 26,
+            OdemeDurum = MaasOdemeDurum.Bekliyor
+        };
+
+        yeniMaas.SGKIsciPayi = yeniMaas.BrutMaas * 0.14m;
+        yeniMaas.SGKIsverenPayi = yeniMaas.BrutMaas * 0.205m;
+        yeniMaas.IssizlikPrimi = yeniMaas.BrutMaas * 0.01m;
+        yeniMaas.DamgaVergisi = yeniMaas.BrutMaas * 0.00759m;
+
+        var vergiMatrahi = yeniMaas.BrutMaas - yeniMaas.SGKIsciPayi - yeniMaas.IssizlikPrimi;
+        yeniMaas.GelirVergisi = vergiMatrahi * 0.15m;
+
+        return yeniMaas;
     }
 
     #endregion
@@ -347,8 +437,8 @@ public class PersonelMaasIzinService : IPersonelMaasIzinService
                 SGKIsciPayi = m.SGKIsciPayi,
                 GelirVergisi = m.GelirVergisi,
                 DamgaVergisi = m.DamgaVergisi,
-                ToplamEklemeler = m.ToplamEklemeler,
-                DigerEklemeler = m.DigerEklemeler,
+                ToplamEklemeler = m.ToplamEklemeler > 0 ? m.ToplamEklemeler : (m.Sofor.DigerMaas > 0 ? m.Sofor.DigerMaas : 0),
+                DigerEklemeler = m.DigerEklemeler > 0 ? m.DigerEklemeler : (m.Sofor.DigerMaas > 0 ? m.Sofor.DigerMaas : 0),
                 Avans = m.Avans,
                 ToplamKesintiler = m.ToplamKesintiler,
                 OdenecekTutar = m.OdenecekTutar,

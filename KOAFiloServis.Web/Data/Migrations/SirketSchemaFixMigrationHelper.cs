@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 namespace KOAFiloServis.Web.Data.Migrations;
 
@@ -147,6 +147,28 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Personeller' AND column_name = 'MuhasebeHesapId') THEN
         ALTER TABLE ""Personeller"" ADD COLUMN ""MuhasebeHesapId"" INTEGER NULL;
         RAISE NOTICE 'Personeller.MuhasebeHesapId eklendi.';
+    END IF;
+
+    -- Personeller.SgkCalismaTuru (SGK calisma turu - default 1=TamZamanli)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Personeller' AND column_name = 'SgkCalismaTuru') THEN
+        ALTER TABLE ""Personeller"" ADD COLUMN ""SgkCalismaTuru"" INTEGER NOT NULL DEFAULT 1;
+        RAISE NOTICE 'Personeller.SgkCalismaTuru eklendi.';
+    END IF;
+
+    -- Personeller.FirmaId (personelin calistigi firma)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Personeller' AND column_name = 'FirmaId') THEN
+        ALTER TABLE ""Personeller"" ADD COLUMN ""FirmaId"" INTEGER NULL;
+        RAISE NOTICE 'Personeller.FirmaId eklendi.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'Personeller' AND indexname = 'IX_Personeller_FirmaId') THEN
+        CREATE INDEX ""IX_Personeller_FirmaId"" ON ""Personeller"" (""FirmaId"");
+        RAISE NOTICE 'IX_Personeller_FirmaId indexi eklendi.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_Personeller_Firmalar_FirmaId') THEN
+        ALTER TABLE ""Personeller"" ADD CONSTRAINT ""FK_Personeller_Firmalar_FirmaId"" FOREIGN KEY (""FirmaId"") REFERENCES ""Firmalar""(""Id"") ON DELETE RESTRICT;
+        RAISE NOTICE 'FK_Personeller_Firmalar_FirmaId eklendi.';
     END IF;
 END $$;";
 
@@ -631,5 +653,53 @@ END $$;";
                 Console.WriteLine($"SQLite: {table}.SirketId hatası: {ex.Message}");
             }
         }
+        // SQLite için Personeller.SgkCalismaTuru kolonu kontrolü
+        try
+        {
+            var connection = context.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            using var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = "SELECT 1 FROM pragma_table_info('Personeller') WHERE name = 'SgkCalismaTuru' LIMIT 1";
+            var exists = await checkCmd.ExecuteScalarAsync() is not null;
+
+            if (!exists)
+            {
+                using var alterCmd = connection.CreateCommand();
+                alterCmd.CommandText = @"ALTER TABLE ""Personeller"" ADD COLUMN ""SgkCalismaTuru"" INTEGER NOT NULL DEFAULT 1";
+                await alterCmd.ExecuteNonQueryAsync();
+                Console.WriteLine("SQLite: Personeller.SgkCalismaTuru eklendi.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SQLite: Personeller.SgkCalismaTuru hatası: {ex.Message}");
+        }
+
+        // SQLite için Personeller.FirmaId kolonu kontrolü
+        try
+        {
+            var connection = context.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            using var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = "SELECT 1 FROM pragma_table_info('Personeller') WHERE name = 'FirmaId' LIMIT 1";
+            var exists = await checkCmd.ExecuteScalarAsync() is not null;
+
+            if (!exists)
+            {
+                using var alterCmd = connection.CreateCommand();
+                alterCmd.CommandText = @"ALTER TABLE ""Personeller"" ADD COLUMN ""FirmaId"" INTEGER NULL";
+                await alterCmd.ExecuteNonQueryAsync();
+                Console.WriteLine("SQLite: Personeller.FirmaId eklendi.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SQLite: Personeller.FirmaId hatası: {ex.Message}");
+        }
+
     }
 }

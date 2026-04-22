@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -25,7 +25,12 @@ public partial class PaketFormu : Form
         {
             _ayarlar.WorkspacePath = WorkspaceTahminEt();
         }
+        if (string.IsNullOrWhiteSpace(_ayarlar.OutputDir) && !string.IsNullOrWhiteSpace(_ayarlar.WorkspacePath))
+        {
+            _ayarlar.OutputDir = Path.Combine(_ayarlar.WorkspacePath, "publish");
+        }
         txtWorkspace.Text = _ayarlar.WorkspacePath ?? string.Empty;
+        txtOutputDir.Text = _ayarlar.OutputDir ?? string.Empty;
         chkSkipBuild.Checked = _ayarlar.SkipBuild;
         DurumGuncelle();
     }
@@ -68,6 +73,7 @@ public partial class PaketFormu : Form
         try
         {
             _ayarlar.WorkspacePath = txtWorkspace.Text.Trim();
+            _ayarlar.OutputDir = txtOutputDir.Text.Trim();
             _ayarlar.SkipBuild = chkSkipBuild.Checked;
             var json = JsonSerializer.Serialize(_ayarlar, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_ayarYolu, json, Encoding.UTF8);
@@ -89,6 +95,25 @@ public partial class PaketFormu : Form
         if (dlg.ShowDialog() == DialogResult.OK)
         {
             txtWorkspace.Text = dlg.SelectedPath;
+            if (string.IsNullOrWhiteSpace(txtOutputDir.Text))
+            {
+                txtOutputDir.Text = Path.Combine(dlg.SelectedPath, "publish");
+            }
+            DurumGuncelle();
+        }
+    }
+
+    private void btnOutputDirSec_Click(object? sender, EventArgs e)
+    {
+        using var dlg = new FolderBrowserDialog
+        {
+            Description = "Setup dosyalarinin yazilacagi cikti klasorunu secin",
+            UseDescriptionForTitle = true,
+            SelectedPath = txtOutputDir.Text
+        };
+        if (dlg.ShowDialog() == DialogResult.OK)
+        {
+            txtOutputDir.Text = dlg.SelectedPath;
             DurumGuncelle();
         }
     }
@@ -118,11 +143,19 @@ public partial class PaketFormu : Form
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(txtOutputDir.Text))
+        {
+            MessageBox.Show("Once setup cikti klasoru secin.", "Uyari", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        Directory.CreateDirectory(txtOutputDir.Text.Trim());
         AyarlariKaydet();
 
         txtCikti.Clear();
         AppendLine($"=== Paket olusturma basliyor: {mode} ===");
         AppendLine($"Workspace : {txtWorkspace.Text}");
+        AppendLine($"OutputDir : {txtOutputDir.Text}");
         AppendLine($"SkipBuild : {chkSkipBuild.Checked}");
         AppendLine("");
 
@@ -132,6 +165,7 @@ public partial class PaketFormu : Form
         args.Append("-NoProfile -ExecutionPolicy Bypass -File \"");
         args.Append(Path.Combine(txtWorkspace.Text, "scripts", "paketle.ps1"));
         args.Append("\" -Mode ").Append(mode);
+        args.Append(" -OutputDir \"").Append(txtOutputDir.Text.Trim()).Append("\"");
         if (chkSkipBuild.Checked) args.Append(" -SkipBuild");
 
         var psi = new ProcessStartInfo
@@ -180,10 +214,10 @@ public partial class PaketFormu : Form
 
     private void btnCiktiAc_Click(object? sender, EventArgs e)
     {
-        var path = Path.Combine(txtWorkspace.Text.Trim(), "publish");
+        var path = txtOutputDir.Text.Trim();
         if (!Directory.Exists(path))
         {
-            MessageBox.Show("publish klasoru bulunamadi: " + path, "Uyari", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("Cikti klasoru bulunamadi: " + path, "Uyari", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
@@ -204,8 +238,10 @@ public partial class PaketFormu : Form
         btnUpdate.Enabled = aktif;
         btnInstall.Enabled = aktif;
         btnWorkspaceSec.Enabled = aktif;
+        btnOutputDirSec.Enabled = aktif;
+        txtOutputDir.Enabled = aktif;
         chkSkipBuild.Enabled = aktif;
-        btnCiktiAc.Enabled = aktif && Directory.Exists(Path.Combine(txtWorkspace.Text.Trim(), "publish"));
+        btnCiktiAc.Enabled = aktif && Directory.Exists(txtOutputDir.Text.Trim());
     }
 
     private bool WorkspaceGecerli()
@@ -225,14 +261,26 @@ public partial class PaketFormu : Form
         lblDurum.ForeColor = ok ? Color.DarkGreen : Color.Firebrick;
         btnUpdate.Enabled = ok;
         btnInstall.Enabled = ok;
-        btnCiktiAc.Enabled = ok && Directory.Exists(Path.Combine(txtWorkspace.Text.Trim(), "publish"));
+        btnCiktiAc.Enabled = ok && Directory.Exists(txtOutputDir.Text.Trim());
     }
 
-    private void txtWorkspace_TextChanged(object? sender, EventArgs e) => DurumGuncelle();
+    private void txtWorkspace_TextChanged(object? sender, EventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(txtOutputDir.Text) && Directory.Exists(txtWorkspace.Text.Trim()))
+        {
+            txtOutputDir.Text = Path.Combine(txtWorkspace.Text.Trim(), "publish");
+        }
+        DurumGuncelle();
+    }
+
+    private void txtOutputDir_TextChanged(object? sender, EventArgs e) => DurumGuncelle();
 
     private sealed class PaketAyarlari
     {
         public string? WorkspacePath { get; set; }
+        public string? OutputDir { get; set; }
         public bool SkipBuild { get; set; }
     }
 }
+
+

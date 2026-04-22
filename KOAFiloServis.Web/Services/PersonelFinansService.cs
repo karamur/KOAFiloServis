@@ -356,17 +356,39 @@ public class PersonelFinansService : IPersonelFinansService
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var borc = await context.Set<PersonelBorc>()
+            .IgnoreQueryFilters()
             .Include(b => b.Odemeler)
             .FirstOrDefaultAsync(b => b.Id == id);
 
         if (borc == null)
             throw new InvalidOperationException($"Borç bulunamadı. Id: {id}");
 
-        if (borc.Odemeler.Any())
-            throw new InvalidOperationException("Ödemesi olan borç silinemez!");
+        var fisIdleri = new HashSet<int>();
+        if (borc.MuhasebeFisId.HasValue)
+            fisIdleri.Add(borc.MuhasebeFisId.Value);
 
-        borc.IsDeleted = true;
+        foreach (var odeme in borc.Odemeler)
+        {
+            if (odeme.MuhasebeFisId.HasValue)
+                fisIdleri.Add(odeme.MuhasebeFisId.Value);
+        }
+
+        await using var transaction = await context.Database.BeginTransactionAsync();
+        context.Set<PersonelBorcOdeme>().RemoveRange(borc.Odemeler);
+        context.Set<PersonelBorc>().Remove(borc);
+
+        if (fisIdleri.Count > 0)
+        {
+            var fisler = await context.Set<MuhasebeFis>()
+                .IgnoreQueryFilters()
+                .Where(f => fisIdleri.Contains(f.Id))
+                .ToListAsync();
+
+            context.Set<MuhasebeFis>().RemoveRange(fisler);
+        }
+
         await context.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 
     public async Task<PersonelBorc> IptalEtBorcAsync(int id, string iptalNedeni)

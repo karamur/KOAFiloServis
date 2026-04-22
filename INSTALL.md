@@ -230,6 +230,21 @@ C:\Apps\CRMFiloServis\logs\
 └── access-{date}.log
 ```
 
+### IIS 500.30 Tanilama (Kurulum Yapilan PC)
+
+```powershell
+# IIS / Hosting Bundle / web.config / stdout / Event Viewer tek raporda toplanir
+powershell -ExecutionPolicy Bypass -File .\setup\scripts\collect-iis-diagnostics.ps1 \
+  -InstallPath "C:\KOAFiloServis\IIS" \
+  -SiteName "KOAFiloServis"
+```
+
+Rapor dosyasi varsayilan olarak su klasore yazilir:
+
+```
+C:\KOAFiloServis\IIS\logs\diag-YYYYMMDD-HHMMSS.txt
+```
+
 ---
 
 ## 📞 Destek
