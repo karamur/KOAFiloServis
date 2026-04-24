@@ -1,4 +1,4 @@
-@page "/soforler"
+﻿@page "/soforler"
 @page "/personel"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -199,6 +199,9 @@
                                     <td>
                                         <button class="btn btn-sm btn-outline-success me-1" @onclick="() => PersonelDosyasiIndir(personel.Id)" title="Dosya Hazırla">
                                             <i class="bi bi-file-earmark-pdf"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary me-1" @onclick='() => Navigation.NavigateTo($"/personel/{personel.Id}/bordrolar")' title="Bordrolar">
+                                            <i class="bi bi-file-earmark-text"></i>
                                         </button>
                                         <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(personel.Id)" title="Düzenle">
                                             <i class="bi bi-pencil"></i>

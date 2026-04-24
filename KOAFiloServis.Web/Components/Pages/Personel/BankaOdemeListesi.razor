@@ -558,7 +558,7 @@
             // Aktif personelleri al
             var tumPersoneller = await SoforService.GetAllAsync();
             var aktifPersoneller = tumPersoneller
-                .Where(p => p.Aktif && p.SGKBordroDahilMi)
+                .Where(p => p.Aktif)
                 .OrderBy(p => p.SiralamaNo == 0 ? int.MaxValue : p.SiralamaNo)
                 .ThenBy(p => p.Ad)
                 .ToList();
