@@ -295,6 +295,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<LastikStok> LastikStoklar { get; set; }
     public DbSet<LastikDegisim> LastikDegisimler { get; set; }
 
+    public DbSet<AppAyarlari> AppAyarlari { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

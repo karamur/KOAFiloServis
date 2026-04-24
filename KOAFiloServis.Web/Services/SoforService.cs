@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Services.Interfaces;
 using ClosedXML.Excel;
@@ -230,6 +230,8 @@ public class SoforService : ISoforService
     {
         var query = context.Soforler
             .Include(s => s.Firma)
+            .Include(s => s.AracAtamalari.Where(a => a.Aktif))
+                .ThenInclude(a => a.Arac)
             .Where(s => !s.IsDeleted);
         return asNoTracking ? query.AsNoTracking() : query;
     }
@@ -326,11 +328,15 @@ public class SoforService : ISoforService
 
     private static void NormalizeMaasBilgileri(Sofor sofor)
     {
+        // Orijinal NetMaas değerini sakla (ApplyMaasHesaplama sıfırlayabilir)
+        var originalNetMaas = sofor.NetMaas;
+
         ApplyMaasHesaplama(sofor);
 
-        if (sofor.ResmiNetMaas == 0 && sofor.DigerMaas == 0 && sofor.NetMaas > 0)
+        // Eski kayıt: ResmiNetMaas ve DigerMaas hiç girilmemiş, sadece NetMaas var
+        if (sofor.ResmiNetMaas == 0 && sofor.DigerMaas == 0 && originalNetMaas > 0)
         {
-            sofor.ResmiNetMaas = sofor.NetMaas;
+            sofor.ResmiNetMaas = originalNetMaas;
         }
 
         sofor.NetMaas = RoundCurrency(sofor.ResmiNetMaas + sofor.DigerMaas);
