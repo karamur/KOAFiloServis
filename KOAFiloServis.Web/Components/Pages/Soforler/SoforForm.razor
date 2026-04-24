@@ -275,7 +275,11 @@
                             <div class="form-check form-switch mt-4">
                                 <InputCheckbox @bind-Value="sofor.SGKBordroDahilMi" class="form-check-input" id="sgkBordro" />
                                 <label class="form-check-label" for="sgkBordro">
-                                    <strong>SGK Bordro Düzenlensin</strong>
+                                    <strong>@(sofor.SGKBordroDahilMi ? "✓ SGK Bordro Düzenlenecek" : "SGK Bordro Düzenlensin")</strong>
+                                    @if (sofor.SGKBordroDahilMi)
+                                    {
+                                        <span class="badge bg-success ms-1">Aktif</span>
+                                    }
                                 </label>
                             </div>
                         </div>

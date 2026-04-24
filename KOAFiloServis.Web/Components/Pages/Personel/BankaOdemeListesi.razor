@@ -50,11 +50,14 @@
                 <button class="btn btn-outline-success btn-sm" @onclick="ExcelAktar" disabled="@(personelListesi == null || !personelListesi.Any())">
                     <i class="bi bi-file-earmark-excel me-1"></i>Excel
                 </button>
-                <button class="btn btn-success btn-sm" @onclick="VakifbankExcelAktar" disabled="@(personelListesi == null || !personelListesi.Any(p => p.BankayaYatan > 0))" title="Vakıfbank toplu maaş ödeme formatı">
+                <button class="btn btn-success btn-sm" @onclick="VakifbankModalAc" disabled="@(personelListesi == null || !personelListesi.Any(p => p.BankayaYatan > 0))" title="Vakıfbank toplu maaş ödeme formatı">
                     <i class="bi bi-bank me-1"></i>Vakıfbank Toplu Maaş
                 </button>
                 <button class="btn btn-outline-primary btn-sm" @onclick="BankaEftExport" disabled="@(personelListesi == null || !personelListesi.Any())" title="Banka EFT/Havale toplu ödeme dosyası">
                     <i class="bi bi-file-earmark-text me-1"></i>EFT CSV
+                </button>
+                <button class="btn btn-outline-danger btn-sm" @onclick="PdfAktar" disabled="@(personelListesi == null || !personelListesi.Any())" title="PDF olarak aktar">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>PDF
                 </button>
             </div>
             <div class="btn-group" role="group">
@@ -64,10 +67,11 @@
                 <button class="btn btn-primary btn-sm" @onclick="TopluOdemeModalAc" disabled="@(personelListesi == null || !personelListesi.Any())" title="Banka hesabından toplu maaş ödemesi yap">
                     <i class="bi bi-cash-stack me-1"></i>Bankadan Öde
                 </button>
+                <button class="btn btn-success btn-sm" @onclick="BankayaYatanKaydet" disabled="@(personelListesi == null || !personelListesi.Any() || isKaydediliyor)" title="Bankaya Yatan tutarlarını personel kartlarına kaydet">
+                    @if (isKaydediliyor) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <i class="bi bi-floppy me-1"></i>Kaydet
+                </button>
             </div>
-            <button class="btn btn-outline-primary btn-sm" @onclick="Yazdir" disabled="@(personelListesi == null || !personelListesi.Any())">
-                <i class="bi bi-printer me-1"></i>Yazdır
-            </button>
         </div>
     </div>
 
@@ -99,11 +103,7 @@
                                 <th>Ad Soyad</th>
                                 <th>Görev</th>
                                 <th>Banka / IBAN</th>
-                                <th class="text-end bg-secondary bg-opacity-10" style="width: 110px;" title="Personelin toplam gerçek maaşı">Gerçek Maaş</th>
-                                <th class="text-end bg-info bg-opacity-10" style="width: 110px;" title="Banka hesabına yatırılacak resmi net maaş">Bankaya Yatan</th>
-                                <th class="text-end text-warning" style="width: 90px;">Avans</th>
-                                <th class="text-end text-danger" style="width: 90px;">Kesinti</th>
-                                <th class="text-end text-success" style="width: 110px;">Personel Harcaması</th>
+                                <th class="text-end bg-info bg-opacity-10" style="width: 150px;" title="Banka hesabına yatırılacak resmi net maaş">Bankaya Yatan</th>
                                 <th class="text-end bg-success bg-opacity-25" style="width: 130px;"><strong>Elden Ödenecek</strong></th>
                             </tr>
                         </thead>
@@ -136,48 +136,14 @@
                                             <span class="text-muted">-</span>
                                         }
                                     </td>
-                                    <td class="text-end bg-secondary bg-opacity-10">
-                                        <strong title="Gerçek maaş">@FormatPara(item.GercekMaas)</strong>
-                                    </td>
-                                    <td class="text-end bg-info bg-opacity-10">
-                                        @if (item.BankayaYatan > 0)
-                                        {
-                                            <span title="Banka ödemesi">@FormatPara(item.BankayaYatan)</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">-</span>
-                                        }
-                                    </td>
-                                    <td class="text-end text-warning">
-                                        @if (item.Avans > 0)
-                                        {
-                                            <span>-@FormatPara(item.Avans)</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">-</span>
-                                        }
-                                    </td>
-                                    <td class="text-end text-danger">
-                                        @if (item.Kesinti > 0)
-                                        {
-                                            <span>-@FormatPara(item.Kesinti)</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">-</span>
-                                        }
-                                    </td>
-                                    <td class="text-end text-success">
-                                        @if (item.PersonelHarcamasi > 0)
-                                        {
-                                            <span>+@FormatPara(item.PersonelHarcamasi)</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">-</span>
-                                        }
+                                    <td class="text-end bg-info bg-opacity-10" style="width:150px;">
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" class="form-control form-control-sm text-end"
+                                                   step="0.01" min="0"
+                                                   value="@item.BankayaYatan"
+                                                   @onchange="(e) => BankayaYatanDegisti(item, e)" />
+                                            <span class="input-group-text">₺</span>
+                                        </div>
                                     </td>
                                     <td class="text-end bg-success bg-opacity-25">
                                         <strong>@FormatPara(item.EldenOdenecek)</strong>
@@ -185,14 +151,10 @@
                                 </tr>
                             }
                         </tbody>
-                        <tfoot class="table-dark">
+                            <tfoot class="table-dark">
                             <tr>
                                 <td colspan="4" class="text-end"><strong>GENEL TOPLAM</strong></td>
-                                <td class="text-end"><strong>@FormatPara(personelListesi.Sum(p => p.GercekMaas))</strong></td>
                                 <td class="text-end bg-info"><strong>@FormatPara(personelListesi.Sum(p => p.BankayaYatan))</strong></td>
-                                <td class="text-end text-warning"><strong>-@FormatPara(personelListesi.Sum(p => p.Avans))</strong></td>
-                                <td class="text-end text-danger"><strong>-@FormatPara(personelListesi.Sum(p => p.Kesinti))</strong></td>
-                                <td class="text-end text-success"><strong>+@FormatPara(personelListesi.Sum(p => p.PersonelHarcamasi))</strong></td>
                                 <td class="text-end bg-success"><strong>@FormatPara(personelListesi.Sum(p => p.EldenOdenecek))</strong></td>
                             </tr>
                         </tfoot>
@@ -214,10 +176,8 @@
                                 <tr>
                                     <th>Görev</th>
                                     <th class="text-center">Kişi</th>
-                                     <th class="text-end">Gerçek Maaş</th>
-                                     <th class="text-end">Bankaya Yatan</th>
-                                    <th class="text-end">Kesintiler</th>
-                                     <th class="text-end">Elden Ödenecek</th>
+                                    <th class="text-end">Bankaya Yatan</th>
+                                    <th class="text-end">Elden Ödenecek</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -228,9 +188,7 @@
                                             <span class="badge @ozet.BadgeClass">@ozet.GorevAdi</span>
                                         </td>
                                         <td class="text-center">@ozet.KisiSayisi</td>
-                                        <td class="text-end">@FormatPara(ozet.ToplamGercekMaas)</td>
                                         <td class="text-end">@FormatPara(ozet.ToplamBankayaYatan)</td>
-                                        <td class="text-end text-danger">@FormatPara(ozet.ToplamKesinti)</td>
                                         <td class="text-end"><strong>@FormatPara(ozet.ToplamEldenOdenecek)</strong></td>
                                     </tr>
                                 }
@@ -239,10 +197,8 @@
                                 <tr>
                                     <td><strong>TOPLAM</strong></td>
                                     <td class="text-center"><strong>@gorevOzetleri.Sum(g => g.KisiSayisi)</strong></td>
-                                     <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamGercekMaas))</strong></td>
-                                     <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamBankayaYatan))</strong></td>
-                                    <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamKesinti))</strong></td>
-                                     <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamEldenOdenecek))</strong></td>
+                                    <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamBankayaYatan))</strong></td>
+                                    <td class="text-end"><strong>@FormatPara(gorevOzetleri.Sum(g => g.ToplamEldenOdenecek))</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -257,24 +213,8 @@
                     <div class="card-body">
                         <table class="table table-sm mb-0">
                             <tr class="table-info">
-                                <td><i class="bi bi-wallet2 text-secondary me-2"></i>Toplam Gerçek Maaş</td>
-                                <td class="text-end"><strong>@FormatPara(personelListesi.Sum(p => p.GercekMaas))</strong></td>
-                            </tr>
-                            <tr class="table-info">
                                 <td><i class="bi bi-bank text-info me-2"></i>Toplam Bankaya Yatan</td>
-                                <td class="text-end"><strong>- @FormatPara(personelListesi.Sum(p => p.BankayaYatan))</strong></td>
-                            </tr>
-                            <tr class="table-warning">
-                                <td><i class="bi bi-dash-circle text-warning me-2"></i>Toplam Avans</td>
-                                <td class="text-end text-warning">- @FormatPara(personelListesi.Sum(p => p.Avans))</td>
-                            </tr>
-                            <tr>
-                                <td><i class="bi bi-dash-circle text-danger me-2"></i>Toplam Kesinti</td>
-                                <td class="text-end text-danger">- @FormatPara(personelListesi.Sum(p => p.Kesinti))</td>
-                            </tr>
-                            <tr>
-                                <td><i class="bi bi-plus-circle text-success me-2"></i>Toplam Personel Harcaması</td>
-                                <td class="text-end text-success">+ @FormatPara(personelListesi.Sum(p => p.PersonelHarcamasi))</td>
+                                <td class="text-end"><strong>@FormatPara(personelListesi.Sum(p => p.BankayaYatan))</strong></td>
                             </tr>
                             <tr class="table-success">
                                 <td><strong><i class="bi bi-cash-coin me-2"></i>Elden Ödenecek Tutar</strong></td>
@@ -294,6 +234,88 @@
         </div>
     }
 </div>
+
+@* Vakıfbank Format Modal *@
+@if (showVakifbankModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-bank me-2"></i>Vakıfbank Toplu Maaş Ödeme Dosyası</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showVakifbankModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Lütfen Vakıfbank tarafından verilen bilgileri girin. Bu bilgiler dosyanın başlık bölümüne eklenecektir.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">VB Müşteri Numarası <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" @bind="vbMusteriNo" placeholder="Vakıfbank müşteri no" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ödeme Tarihi <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" @bind="vbOdemeTarihi" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Şube Kodu</label>
+                            <input type="text" class="form-control" @bind="vbSubeKodu" placeholder="Şube kodu" maxlength="10" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Kurum Kodu</label>
+                            <input type="text" class="form-control" @bind="vbKurumKodu" placeholder="Kurum kodu" maxlength="20" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ay</label>
+                            <select class="form-select" @bind="vbAy">
+                                @for (int m = 1; m <= 12; m++)
+                                {
+                                    <option value="@m">@(new DateTime(2024, m, 1).ToString("MMMM")) (@m)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ödeme Türü</label>
+                            <select class="form-select" @bind="vbOdemeTuru">
+                                <option value="MAAS">MAAS - Maaş Ödemesi</option>
+                                <option value="ÜCRET">ÜCRET - Ücret Ödemesi</option>
+                                <option value="AVANS">AVANS - Avans Ödemesi</option>
+                                <option value="PRIM">PRIM - Prim Ödemesi</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Para Birimi</label>
+                            <select class="form-select" @bind="vbParaBirimi">
+                                <option value="TRY">TRY - Türk Lirası</option>
+                                <option value="USD">USD - Amerikan Doları</option>
+                                <option value="EUR">EUR - Euro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (personelListesi != null)
+                    {
+                        var liste = personelListesi.Where(p => p.BankayaYatan > 0).ToList();
+                        <div class="alert alert-secondary mt-3">
+                            <div class="d-flex justify-content-between">
+                                <span><i class="bi bi-people me-2"></i>Personel sayısı: <strong>@liste.Count</strong></span>
+                                <span>Toplam tutar: <strong>@FormatPara(liste.Sum(p => p.BankayaYatan))</strong></span>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showVakifbankModal = false">İptal</button>
+                    <button type="button" class="btn btn-primary" @onclick="VakifbankExcelAktar">
+                        <i class="bi bi-download me-1"></i>Dosyayı İndir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @* Toplu Tahakkuk Modal *@
 @if (showTahakkukModal)
@@ -521,6 +543,19 @@
     private string odemeBelgeNo = "";
     private string odemeAciklama = "";
 
+    // Vakıfbank Modal
+    private bool showVakifbankModal = false;
+    private string vbMusteriNo = "";
+    private DateTime vbOdemeTarihi = DateTime.Today;
+    private string vbSubeKodu = "";
+    private string vbKurumKodu = "";
+    private int vbAy = DateTime.Now.Month;
+    private string vbOdemeTuru = "MAAS";
+    private string vbParaBirimi = "TRY";
+
+    // Kaydet
+    private bool isKaydediliyor = false;
+
     protected override async Task OnInitializedAsync()
     {
         await YenileData();
@@ -728,62 +763,105 @@
         try
         {
             if (personelListesi == null) return;
-            var liste = personelListesi.Where(p => p.BankayaYatan > 0 && !string.IsNullOrWhiteSpace(p.Personel.IBAN)).ToList();
+            var liste = personelListesi.Where(p => p.BankayaYatan > 0).ToList();
             if (!liste.Any())
             {
-                ToastService.ShowWarning("IBAN bilgisi olan ve bankaya yatan tutarı bulunan personel yok.");
+                ToastService.ShowWarning("Bankaya yatan tutarı bulunan personel yok.");
                 return;
             }
 
             using var workbook = new ClosedXML.Excel.XLWorkbook();
             var ws = workbook.Worksheets.Add("Toplu Maas");
 
-            // Vakıfbank toplu EFT formatı
-            // Başlık satırı
-            ws.Cell("A1").Value = $"Vakıfbank Toplu Maaş Ödeme - {new DateTime(secilenYil, secilenAy, 1):MMMM yyyy}";
+            // === VAKIFBANK FORMAT (bankaodme.xls yapısına uygun) ===
+            // Satır 1: Başlık
+            ws.Cell("A1").Value = "VAKIFBANK EXCEL FORMAT DOSYASININ KULLANIMI";
             ws.Range("A1:E1").Merge().Style.Font.Bold = true;
-            ws.Range("A1:E1").Style.Font.FontSize = 13;
-            ws.Range("A1:E1").Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#005B99");
+            ws.Range("A1:E1").Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#003399");
             ws.Range("A1:E1").Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+            ws.Range("A1:E1").Style.Font.FontSize = 12;
 
-            // Sütun başlıkları (Vakıfbank formatı)
-            ws.Cell("A2").Value = "IBAN";
-            ws.Cell("B2").Value = "AD SOYAD";
-            ws.Cell("C2").Value = "TUTAR";
-            ws.Cell("D2").Value = "AÇIKLAMA";
-            ws.Cell("E2").Value = "BANKA";
-            var headerRow = ws.Row(2);
+            // Satır 2: Boş
+            // Satır 3: Boş
+
+            // Satır 4: Müşteri No + Ödeme Tarihi + Toplam
+            ws.Cell("A4").Value = "VB MÜŞTERİ NUMARASI";
+            ws.Cell("B4").Value = vbMusteriNo;
+            ws.Cell("C4").Value = "Ödeme Tarihi";
+            ws.Cell("D4").Value = vbOdemeTarihi.ToString("dd.MM.yyyy");
+            ws.Cell("E4").Value = $"Toplam: {FormatPara(liste.Sum(p => p.BankayaYatan))} / {liste.Count} personel";
+
+            // Satır 5: Şube Kodu
+            ws.Cell("B5").Value = string.IsNullOrWhiteSpace(vbSubeKodu) ? "Şube Kodu" : vbSubeKodu;
+
+            // Satır 6: Kurum Kodu
+            ws.Cell("B6").Value = string.IsNullOrWhiteSpace(vbKurumKodu) ? "Kurum Kodu" : vbKurumKodu;
+
+            // Satır 7: Ay + Para Birimi
+            ws.Cell("B7").Value = $"{new DateTime(secilenYil, vbAy, 1):MMMM} ({vbAy})";
+            ws.Cell("C7").Value = "AY KODUNU SEÇİNİZ";
+            ws.Cell("D7").Value = "Para Birimi";
+            ws.Cell("E7").Value = vbParaBirimi;
+
+            // Satır 8: Ödeme Türü
+            ws.Cell("B8").Value = vbOdemeTuru;
+            ws.Cell("C8").Value = "ÖDEME TÜRÜNÜ SEÇİNİZ";
+            ws.Cell("D8").Value = "Para Birimini Seçiniz:";
+            ws.Cell("E8").Value = vbParaBirimi;
+
+            // Satır 9: Sütun başlıkları (bankaodme.xls formatı)
+            ws.Cell("A9").Value = "Personel Adı Soyadı";
+            ws.Cell("B9").Value = "Personel Hesap No";
+            ws.Cell("C9").Value = "Personel Sicil No";
+            ws.Cell("D9").Value = "Meblağ";
+            ws.Cell("E9").Value = "Personel Iban No";
+            var headerRow = ws.Row(9);
             headerRow.Style.Font.Bold = true;
             headerRow.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightBlue;
 
-            int row = 3;
+            // Satır 10: Açıklama satırı
+            ws.Cell("A10").Value = " Personel Adı Soyadı";
+            ws.Cell("B10").Value = "17 haneli bankomat hesap numarasını yazınız.\n( 001580..……. )";
+            ws.Cell("C10").Value = "Sicl Hanesi 12 Karakteri geçmemelidir.";
+            ws.Cell("D10").Value = "Miktarı giriniz,Kuruş hanesi 2 karakterdir.\nİgili kişinin miktarı yok ise; sadece sıfır (0) giriniz.";
+            ws.Cell("E10").Value = "26 haneli Iban numarasını yazınız.\n(TR……………………. )";
+            ws.Row(10).Style.Font.Italic = true;
+            ws.Row(10).Style.Font.FontSize = 8;
+
+            // Veri satırları — 11'den itibaren
+            int row = 11;
             foreach (var item in liste)
             {
-                var iban = item.Personel.IBAN!.Replace(" ", "").Trim().ToUpper();
-                ws.Cell(row, 1).Value = iban;
-                ws.Cell(row, 2).Value = item.Personel.TamAd;
-                ws.Cell(row, 3).Value = item.BankayaYatan;
-                ws.Cell(row, 4).Value = $"{new DateTime(secilenYil, secilenAy, 1):yyyy-MM} MAAS";
-                ws.Cell(row, 5).Value = item.Personel.BankaAdi ?? "";
+                var iban = (item.Personel.IBAN ?? "").Replace(" ", "").Trim().ToUpper();
+                ws.Cell(row, 1).Value = item.Personel.TamAd;
+                ws.Cell(row, 2).Value = ""; // Banka hesap no (17 haneli) — kullanıcı girer
+                ws.Cell(row, 3).Value = item.Personel.SoforKodu ?? "";
+                ws.Cell(row, 4).Value = item.BankayaYatan;
+                ws.Cell(row, 5).Value = iban;
                 row++;
             }
 
             // Toplam satırı
-            ws.Cell(row, 2).Value = "TOPLAM";
-            ws.Cell(row, 3).Value = liste.Sum(p => p.BankayaYatan);
+            ws.Cell(row, 3).Value = "TOPLAM";
+            ws.Cell(row, 4).Value = liste.Sum(p => p.BankayaYatan);
             ws.Row(row).Style.Font.Bold = true;
             ws.Row(row).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightYellow;
 
             // Para formatı
-            ws.Range(3, 3, row, 3).Style.NumberFormat.Format = "#,##0.00";
+            ws.Range(11, 4, row, 4).Style.NumberFormat.Format = "#,##0.00";
 
-            ws.Columns().AdjustToContents();
-            ws.Column(1).Width = 30; // IBAN kolonu geniş
+            // Sütun genişlikleri
+            ws.Column(1).Width = 25;
+            ws.Column(2).Width = 22;
+            ws.Column(3).Width = 15;
+            ws.Column(4).Width = 15;
+            ws.Column(5).Width = 32;
 
             using var ms = new MemoryStream();
             workbook.SaveAs(ms);
             var dosyaAdi = $"vakifbank_toplu_maas_{secilenYil}_{secilenAy:00}.xlsx";
             await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi, Convert.ToBase64String(ms.ToArray()));
+            showVakifbankModal = false;
             ToastService.ShowSuccess($"Vakıfbank toplu maaş dosyası: {liste.Count} personel, Toplam: {liste.Sum(p => p.BankayaYatan):N2} ₺");
         }
         catch (Exception ex)
@@ -1177,4 +1255,65 @@
     }
 
     #endregion
+
+    private void BankayaYatanDegisti(PersonelOdemeKalemi item, ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var val))
+        {
+            item.BankayaYatan = val;
+            item.EldenOdenecek = item.GercekMaas - item.BankayaYatan - item.Kesinti + item.PersonelHarcamasi - item.Avans;
+        }
+    }
+
+    private async Task BankayaYatanKaydet()
+    {
+        if (personelListesi == null || !personelListesi.Any()) return;
+        isKaydediliyor = true;
+        try
+        {
+            int guncellenen = 0;
+            foreach (var item in personelListesi)
+            {
+                var personelId = item.Personel.Id;
+                var sofor = await DbContext.Soforler.FindAsync(personelId);
+                if (sofor != null && sofor.ResmiNetMaas != item.BankayaYatan)
+                {
+                    sofor.ResmiNetMaas = item.BankayaYatan;
+                    sofor.UpdatedAt = DateTime.UtcNow;
+                    guncellenen++;
+                }
+            }
+            await DbContext.SaveChangesAsync();
+            ToastService.ShowSuccess($"{guncellenen} personelin bankaya yatan tutarı güncellendi.");
+            await YenileData();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Kaydetme sırasında hata: {ex.Message}");
+        }
+        finally
+        {
+            isKaydediliyor = false;
+        }
+    }
+
+    private async Task PdfAktar()
+    {
+        try
+        {
+            // Tarayıcı print dialog ile PDF
+            await JS.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"PDF hatası: {ex.Message}");
+        }
+    }
+
+    private void VakifbankModalAc()
+    {
+        vbAy = secilenAy;
+        vbOdemeTarihi = new DateTime(secilenYil, secilenAy, DateTime.DaysInMonth(secilenYil, secilenAy));
+        showVakifbankModal = true;
+    }
 }
