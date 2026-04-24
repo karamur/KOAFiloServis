@@ -542,10 +542,8 @@
         </div>
     </div>
 
-    @* Araç Eşleştirme Bölümü - Şoför Görevinde *@
-    @if (sofor.Gorev == PersonelGorev.Sofor)
-    {
-        <div class="card mt-4">
+    @* Araç Eşleştirme Bölümü - Tüm personel görevleri için *@
+    <div class="card mt-4">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="bi bi-truck me-2"></i>Araç Eşleştirmeleri</h5>
                 @if (IsEdit)
@@ -630,7 +628,6 @@
                 }
             </div>
         </div>
-    }
 
     @* Özlük Belgeleri Bölümü - Sadece Düzenleme Modunda *@
     @if (IsEdit)
@@ -998,8 +995,7 @@
                 gercekMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
                 personelAvansHesap = await SoforService.GetPersonelAvansHesabiAsync(Id!.Value);
                 await EvrakDurumuYukle();
-                if (sofor.Gorev == PersonelGorev.Sofor)
-                    await AracAtamalariniYukle();
+                await AracAtamalariniYukle();
             }
             else
             {
@@ -1125,7 +1121,7 @@
         {
             sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
         }
-        if (IsEdit && sofor.Gorev == PersonelGorev.Sofor && aracAtamalari == null)
+        if (IsEdit && aracAtamalari == null)
         {
             await AracAtamalariniYukle();
         }
