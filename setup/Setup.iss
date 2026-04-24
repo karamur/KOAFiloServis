@@ -4,7 +4,7 @@
 #define MyAppExeName "KOAFiloServis.Web.exe"
 #define MyInstallDir "C:\KOAFiloServis"
 #define MyDataDir "C:\KOAFiloServis\data"
-#define MyLisansExe "KOAFiloServis.LisansDesktop.exe"
+#define MyLisansExe "KOAFiloServisLisans.exe"
 #define MyDataSyncExe "KOAFiloServis.DataSync.exe"
 
 #ifndef MyAppVersion

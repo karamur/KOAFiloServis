@@ -87,7 +87,7 @@ public class BackupService : IBackupService
             switch (dbProvider.ToUpperInvariant())
             {
                 case "POSTGRESQL":
-                    backupFileName = $"KOAFiloServis_PostgreSQL_{timestamp}.sql";
+                    backupFileName = $"KOAFiloServis_PostgreSQL_{timestamp}.backup";
                     backupFilePath = Path.Combine(backupFolder, backupFileName);
                     result = await CreatePostgreSqlBackupAsync(backupFilePath);
                     break;
@@ -212,15 +212,19 @@ public class BackupService : IBackupService
 
             if (string.IsNullOrWhiteSpace(pgDumpPath))
             {
-                var jsonPath = backupFilePath.Replace(".sql", ".json", StringComparison.OrdinalIgnoreCase);
-                await CreateJsonBackupAsync(jsonPath);
-                return CreateSuccessResult(jsonPath);
+                result.ErrorMessage = "pg_dump bulunamadi. PostgreSQL full dump icin PostgreSQL client araclari kurulmalidir.";
+                return result;
             }
+
+            var host = connParts.GetValueOrDefault("Host", "localhost");
+            var port = connParts.GetValueOrDefault("Port", "5432");
+            var username = connParts.GetValueOrDefault("Username", string.Empty);
+            var database = connParts.GetValueOrDefault("Database", string.Empty);
 
             var processInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = pgDumpPath,
-                Arguments = $"-h {connParts.GetValueOrDefault("Host", "localhost")} -p {connParts.GetValueOrDefault("Port", "5432")} -U {connParts.GetValueOrDefault("Username", string.Empty)} -d {connParts.GetValueOrDefault("Database", string.Empty)} -f \"{backupFilePath}\"",
+                Arguments = $"-h {host} -p {port} -U {username} -d {database} --format=custom --compress=9 --blobs --verbose --no-owner --no-privileges --encoding=UTF8 -f \"{backupFilePath}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -236,16 +240,16 @@ public class BackupService : IBackupService
                 if (process.ExitCode != 0)
                 {
                     var error = await process.StandardError.ReadToEndAsync();
-                    _logger.LogWarning("pg_dump hatasi: {Error}", error);
-
-                    var jsonPath = backupFilePath.Replace(".sql", ".json", StringComparison.OrdinalIgnoreCase);
-                    await CreateJsonBackupAsync(jsonPath);
-                    backupFilePath = jsonPath;
+                    _logger.LogError("pg_dump hatasi: {Error}", error);
+                    result.ErrorMessage = $"pg_dump hatasi: {error}";
+                    return result;
                 }
             }
 
             if (File.Exists(backupFilePath))
                 return CreateSuccessResult(backupFilePath);
+
+            result.ErrorMessage = "pg_dump tamamlandi ancak dump dosyasi olusturulamadi.";
         }
         catch (Exception ex)
         {
@@ -858,6 +862,47 @@ public class BackupService : IBackupService
             var database = connParts.GetValueOrDefault("Database", string.Empty);
             var password = connParts.GetValueOrDefault("Password", string.Empty);
 
+            if (backupFilePath.EndsWith(".backup", StringComparison.OrdinalIgnoreCase))
+            {
+                var pgRestorePath = FindPgRestore();
+                if (string.IsNullOrWhiteSpace(pgRestorePath))
+                {
+                    _logger.LogError("pg_restore bulunamadi. PostgreSQL custom dump geri yukleme icin PostgreSQL client araclari kurulmalidir.");
+                    return false;
+                }
+
+                var restoreInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = pgRestorePath,
+                    Arguments = $"-h {host} -p {port} -U {username} -d {database} --clean --if-exists --no-owner --no-privileges --verbose \"{backupFilePath}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                restoreInfo.Environment["PGPASSWORD"] = password;
+
+                _logger.LogInformation("PostgreSQL restore calistiriliyor: pg_restore -h {Host} -d {Database}", host, database);
+
+                using var restoreProcess = System.Diagnostics.Process.Start(restoreInfo);
+                if (restoreProcess != null)
+                {
+                    var restoreError = await restoreProcess.StandardError.ReadToEndAsync();
+                    await restoreProcess.WaitForExitAsync();
+
+                    if (restoreProcess.ExitCode == 0)
+                    {
+                        _logger.LogInformation("PostgreSQL restore basarili");
+                        return true;
+                    }
+
+                    _logger.LogError("PostgreSQL restore hatasi: {Error}", restoreError);
+                }
+
+                return false;
+            }
+
             var processInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = psqlPath,
@@ -1016,6 +1061,29 @@ public class BackupService : IBackupService
         return commonPaths.FirstOrDefault(File.Exists);
     }
 
+    private string? FindPgRestore()
+    {
+        var pgDumpPath = FindPgDump();
+        if (!string.IsNullOrWhiteSpace(pgDumpPath))
+        {
+            var pgRestorePath = pgDumpPath.Replace("pg_dump", "pg_restore", StringComparison.OrdinalIgnoreCase);
+            if (File.Exists(pgRestorePath))
+                return pgRestorePath;
+        }
+
+        var commonPaths = new[]
+        {
+            @"C:\Program Files\PostgreSQL\17\bin\pg_restore.exe",
+            @"C:\Program Files\PostgreSQL\16\bin\pg_restore.exe",
+            @"C:\Program Files\PostgreSQL\15\bin\pg_restore.exe",
+            @"C:\Program Files\PostgreSQL\14\bin\pg_restore.exe",
+            "/usr/bin/pg_restore",
+            "/usr/local/bin/pg_restore"
+        };
+
+        return commonPaths.FirstOrDefault(File.Exists);
+    }
+
     private string? FindMySql()
     {
         var commonPaths = new[]
@@ -1064,7 +1132,7 @@ public class BackupService : IBackupService
                 return;
 
             var files = Directory.GetFiles(backupFolder, "KOAFiloServis_*.*", SearchOption.AllDirectories)
-                .Where(f => f.EndsWith(".sql") || f.EndsWith(".json") || f.EndsWith(".db") || f.EndsWith(".bak"))
+                .Where(f => f.EndsWith(".sql") || f.EndsWith(".json") || f.EndsWith(".db") || f.EndsWith(".bak") || f.EndsWith(".backup"))
                 .OrderByDescending(f => new FileInfo(f).CreationTime)
                 .Skip(keepCount)
                 .ToList();

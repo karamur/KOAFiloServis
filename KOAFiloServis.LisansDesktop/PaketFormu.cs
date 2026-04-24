@@ -27,28 +27,57 @@ public partial class PaketFormu : Form
         }
         if (string.IsNullOrWhiteSpace(_ayarlar.OutputDir) && !string.IsNullOrWhiteSpace(_ayarlar.WorkspacePath))
         {
-            _ayarlar.OutputDir = Path.Combine(_ayarlar.WorkspacePath, "publish");
+            _ayarlar.OutputDir = Path.Combine(_ayarlar.WorkspacePath, "setup", "output");
         }
         txtWorkspace.Text = _ayarlar.WorkspacePath ?? string.Empty;
         txtOutputDir.Text = _ayarlar.OutputDir ?? string.Empty;
+        txtVersiyon.Text = _ayarlar.Versiyon ?? string.Empty;
         chkSkipBuild.Checked = _ayarlar.SkipBuild;
         DurumGuncelle();
     }
 
     private static string WorkspaceTahminEt()
     {
-        // exe konumundan yukari dogru paketle.ps1 ara
+        // exe konumundan yukari dogru once yeni setup akisini, sonra legacy scripti ara
         var dir = AppContext.BaseDirectory;
         for (int i = 0; i < 8 && dir != null; i++)
         {
-            var probe = Path.Combine(dir, "scripts", "paketle.ps1");
-            if (File.Exists(probe))
+            var setupBuild = Path.Combine(dir, "setup", "build.ps1");
+            if (File.Exists(setupBuild))
+            {
+                return dir;
+            }
+            var legacyPaketle = Path.Combine(dir, "scripts", "paketle.ps1");
+            if (File.Exists(legacyPaketle))
             {
                 return dir;
             }
             dir = Path.GetDirectoryName(dir);
         }
         return string.Empty;
+    }
+
+    private string? GetPaketScriptPath()
+    {
+        var root = txtWorkspace.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+        {
+            return null;
+        }
+
+        var setupBuild = Path.Combine(root, "setup", "build.ps1");
+        if (File.Exists(setupBuild))
+        {
+            return setupBuild;
+        }
+
+        var legacyPaketle = Path.Combine(root, "scripts", "paketle.ps1");
+        if (File.Exists(legacyPaketle))
+        {
+            return legacyPaketle;
+        }
+
+        return null;
     }
 
     private PaketAyarlari AyarlariYukle()
@@ -74,6 +103,7 @@ public partial class PaketFormu : Form
         {
             _ayarlar.WorkspacePath = txtWorkspace.Text.Trim();
             _ayarlar.OutputDir = txtOutputDir.Text.Trim();
+            _ayarlar.Versiyon = txtVersiyon.Text.Trim();
             _ayarlar.SkipBuild = chkSkipBuild.Checked;
             var json = JsonSerializer.Serialize(_ayarlar, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_ayarYolu, json, Encoding.UTF8);
@@ -88,7 +118,7 @@ public partial class PaketFormu : Form
     {
         using var dlg = new FolderBrowserDialog
         {
-            Description = "Workspace klasorunu secin (paketle.ps1 dosyasini iceren proje koku)",
+            Description = "Workspace klasorunu secin (setup\\build.ps1 veya scripts\\paketle.ps1 iceren proje koku)",
             UseDescriptionForTitle = true,
             SelectedPath = txtWorkspace.Text
         };
@@ -97,7 +127,7 @@ public partial class PaketFormu : Form
             txtWorkspace.Text = dlg.SelectedPath;
             if (string.IsNullOrWhiteSpace(txtOutputDir.Text))
             {
-                txtOutputDir.Text = Path.Combine(dlg.SelectedPath, "publish");
+                txtOutputDir.Text = Path.Combine(dlg.SelectedPath, "setup", "output");
             }
             DurumGuncelle();
         }
@@ -118,7 +148,7 @@ public partial class PaketFormu : Form
         }
     }
 
-    private void btnUpdate_Click(object? sender, EventArgs e) => PaketUret("Update");
+    private void btnUpdate_Click(object? sender, EventArgs e) => PaketUretAll();
     private void btnInstall_Click(object? sender, EventArgs e)
     {
         var sonuc = MessageBox.Show(
@@ -131,14 +161,15 @@ public partial class PaketFormu : Form
             MessageBoxIcon.Warning,
             MessageBoxDefaultButton.Button2);
         if (sonuc != DialogResult.Yes) return;
-        PaketUret("Install");
+        PaketUretAll();
     }
 
-    private void PaketUret(string mode)
+    private void PaketUretAll()
     {
-        if (!WorkspaceGecerli())
+        var paketScript = GetPaketScriptPath();
+        if (string.IsNullOrWhiteSpace(paketScript))
         {
-            MessageBox.Show("Once gecerli bir workspace klasoru secin (scripts\\paketle.ps1 dosyasini iceren).",
+            MessageBox.Show("Once gecerli bir workspace klasoru secin (setup\\build.ps1 veya scripts\\paketle.ps1 dosyasini iceren).",
                 "Uyari", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -149,24 +180,73 @@ public partial class PaketFormu : Form
             return;
         }
 
-        Directory.CreateDirectory(txtOutputDir.Text.Trim());
+        var versiyon = (txtVersiyon.Text ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(versiyon))
+        {
+            MessageBox.Show("Once versiyon girin (orn: 1.2.3).", "Uyari", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            txtVersiyon.Focus();
+            return;
+        }
+
+        // Gecersiz dosya yolu karakterlerini ayikla
+        foreach (var c in Path.GetInvalidFileNameChars())
+        {
+            versiyon = versiyon.Replace(c.ToString(), string.Empty);
+        }
+
+        var workspaceRoot = txtWorkspace.Text.Trim();
+        var outputRoot = txtOutputDir.Text.Trim();
+        var isSetupBuild = paketScript.EndsWith(Path.Combine("setup", "build.ps1"), StringComparison.OrdinalIgnoreCase);
+
+        // setup/build.ps1 ciktiyi sabit olarak workspace\setup\output\v<versiyon> altina yazar.
+        var varsayilanSetupOutputRoot = Path.Combine(workspaceRoot, "setup", "output");
+        var versiyonluOutputDir = isSetupBuild
+            ? Path.Combine(varsayilanSetupOutputRoot, "v" + versiyon)
+            : Path.Combine(outputRoot, versiyon);
+
+        Directory.CreateDirectory(versiyonluOutputDir);
         AyarlariKaydet();
 
         txtCikti.Clear();
-        AppendLine($"=== Paket olusturma basliyor: {mode} ===");
+        AppendLine("=== Paket olusturma basliyor: All (Update + Install) ===");
         AppendLine($"Workspace : {txtWorkspace.Text}");
-        AppendLine($"OutputDir : {txtOutputDir.Text}");
-        AppendLine($"SkipBuild : {chkSkipBuild.Checked}");
+        AppendLine($"OutputDir : {versiyonluOutputDir}");
+        AppendLine($"Versiyon  : {versiyon}");
+        if (isSetupBuild)
+        {
+            AppendLine($"SkipBuild : {chkSkipBuild.Checked} (build.ps1 icin SkipPublish olarak kullanilir)");
+        }
+        else
+        {
+            AppendLine($"SkipBuild : {chkSkipBuild.Checked} (All modunda sadece Update adiminda kullanilir)");
+        }
         AppendLine("");
 
         ButonlariAyarla(false);
 
         var args = new StringBuilder();
         args.Append("-NoProfile -ExecutionPolicy Bypass -File \"");
-        args.Append(Path.Combine(txtWorkspace.Text, "scripts", "paketle.ps1"));
-        args.Append("\" -Mode ").Append(mode);
-        args.Append(" -OutputDir \"").Append(txtOutputDir.Text.Trim()).Append("\"");
-        if (chkSkipBuild.Checked) args.Append(" -SkipBuild");
+        args.Append(paketScript);
+        args.Append("\"");
+
+        if (isSetupBuild)
+        {
+            args.Append(" -Version \"").Append(versiyon).Append("\"");
+            if (chkSkipBuild.Checked) args.Append(" -SkipPublish");
+            if (!string.Equals(outputRoot, varsayilanSetupOutputRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                AppendLine("[BILGI] setup/build.ps1 secili oldugu icin OutputDir ayari yok sayildi.");
+                AppendLine("[BILGI] Cikti varsayilan klasore yazilacak: " + varsayilanSetupOutputRoot);
+                AppendLine("");
+            }
+        }
+        else
+        {
+            args.Append(" -Mode All");
+            args.Append(" -OutputDir \"").Append(versiyonluOutputDir).Append("\"");
+            args.Append(" -Version \"").Append(versiyon).Append("\"");
+            if (chkSkipBuild.Checked) args.Append(" -SkipBuild");
+        }
 
         var psi = new ProcessStartInfo
         {
@@ -193,7 +273,7 @@ public partial class PaketFormu : Form
                 {
                     AppendLine("");
                     AppendLine(rc == 0
-                        ? $"=== Paket olusturma TAMAMLANDI ({mode}) ==="
+                        ? "=== Paket olusturma TAMAMLANDI (Update + Install) ==="
                         : $"=== Paket olusturma HATA ile bitti. ExitCode={rc} ===");
                     ButonlariAyarla(true);
                     if (rc == 0) btnCiktiAc.Enabled = true;
@@ -214,11 +294,20 @@ public partial class PaketFormu : Form
 
     private void btnCiktiAc_Click(object? sender, EventArgs e)
     {
-        var path = txtOutputDir.Text.Trim();
+        var root = txtOutputDir.Text.Trim();
+        var versiyon = (txtVersiyon.Text ?? string.Empty).Trim();
+        var path = !string.IsNullOrWhiteSpace(versiyon)
+            ? Path.Combine(root, versiyon)
+            : root;
         if (!Directory.Exists(path))
         {
-            MessageBox.Show("Cikti klasoru bulunamadi: " + path, "Uyari", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
+            // Versiyonlu klasor yoksa kok klasore d\u00FCs
+            if (!Directory.Exists(root))
+            {
+                MessageBox.Show("Cikti klasoru bulunamadi: " + path, "Uyari", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            path = root;
         }
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
     }
@@ -246,10 +335,7 @@ public partial class PaketFormu : Form
 
     private bool WorkspaceGecerli()
     {
-        var path = txtWorkspace.Text?.Trim();
-        return !string.IsNullOrWhiteSpace(path)
-               && Directory.Exists(path)
-               && File.Exists(Path.Combine(path, "scripts", "paketle.ps1"));
+        return !string.IsNullOrWhiteSpace(GetPaketScriptPath());
     }
 
     private void DurumGuncelle()
@@ -257,7 +343,7 @@ public partial class PaketFormu : Form
         var ok = WorkspaceGecerli();
         lblDurum.Text = ok
             ? "Workspace OK. Paket olusturmaya hazir."
-            : "Workspace gecersiz. paketle.ps1 bulunamadi.";
+            : "Workspace gecersiz. setup\\build.ps1 veya scripts\\paketle.ps1 bulunamadi.";
         lblDurum.ForeColor = ok ? Color.DarkGreen : Color.Firebrick;
         btnUpdate.Enabled = ok;
         btnInstall.Enabled = ok;
@@ -268,7 +354,7 @@ public partial class PaketFormu : Form
     {
         if (string.IsNullOrWhiteSpace(txtOutputDir.Text) && Directory.Exists(txtWorkspace.Text.Trim()))
         {
-            txtOutputDir.Text = Path.Combine(txtWorkspace.Text.Trim(), "publish");
+            txtOutputDir.Text = Path.Combine(txtWorkspace.Text.Trim(), "setup", "output");
         }
         DurumGuncelle();
     }
@@ -279,8 +365,11 @@ public partial class PaketFormu : Form
     {
         public string? WorkspacePath { get; set; }
         public string? OutputDir { get; set; }
+        public string? Versiyon { get; set; }
         public bool SkipBuild { get; set; }
     }
 }
+
+
 
 

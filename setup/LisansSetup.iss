@@ -1,7 +1,7 @@
 ﻿; ============================================================
 ; KOAFiloServis — Lisans Yonetim Araci (Bagimsiz Installer)
 ; ============================================================
-; Bu paket SADECE KOAFiloServis.LisansDesktop.exe'yi kurar.
+; Bu paket SADECE KOAFiloServisLisans.exe'yi kurar.
 ; Ana uygulama (IIS, Web) kurulmaz.
 ; Kullanim amaci: Yetkili bayi/yonetici pc'ye lisans uretme araci dagitmak.
 ; ============================================================
@@ -9,7 +9,7 @@
 #define LisansAppName   "KOA Lisans Yonetimi"
 #define LisansPublisher "KOA Yazilim"
 #define LisansURL       "https://karamur.github.io/KOAFiloServis"
-#define LisansExe       "KOAFiloServis.LisansDesktop.exe"
+#define LisansExe       "KOAFiloServisLisans.exe"
 #define LisansInstallDir "C:\KOALisans"
 
 #ifndef LisansAppVersion

@@ -101,9 +101,9 @@ public class DatabaseBackupService : IHostedService, IDisposable
             var backupDir = Path.Combine(_backupPath, fileName);
             Directory.CreateDirectory(backupDir);
 
-            // 1. Veritabanı yedeği (SQL Export)
-            var sqlFile = Path.Combine(backupDir, "database.sql");
-            await ExportDatabaseToSqlAsync(sqlFile);
+            // 1. Veritabanı yedeği (PostgreSQL full dump)
+            var dumpFile = Path.Combine(backupDir, "database.backup");
+            await ExportDatabaseToSqlAsync(dumpFile);
 
             // 2. Uploads klasörü yedeği
             var uploadsSource = Path.Combine(AppContext.BaseDirectory, "wwwroot", "uploads");
@@ -185,7 +185,7 @@ public class DatabaseBackupService : IHostedService, IDisposable
         }
         else
         {
-            await ExportWithEFCoreAsync(context, filePath);
+            throw new InvalidOperationException("pg_dump bulunamadi. Full dump icin PostgreSQL client araclari kurulmalidir.");
         }
     }
 
@@ -193,6 +193,7 @@ public class DatabaseBackupService : IHostedService, IDisposable
     {
         var possiblePaths = new[]
         {
+            @"C:\Program Files\PostgreSQL\17\bin\pg_dump.exe",
             @"C:\Program Files\PostgreSQL\16\bin\pg_dump.exe",
             @"C:\Program Files\PostgreSQL\15\bin\pg_dump.exe",
             @"C:\Program Files\PostgreSQL\14\bin\pg_dump.exe",
@@ -207,7 +208,7 @@ public class DatabaseBackupService : IHostedService, IDisposable
     {
         var builder = new NpgsqlConnectionStringBuilder(connectionString);
         
-        var args = $"-h {builder.Host} -p {builder.Port} -U {builder.Username} -d {builder.Database} -f \"{outputPath}\" --no-password";
+        var args = $"-h {builder.Host} -p {builder.Port} -U {builder.Username} -d {builder.Database} --format=custom --compress=9 --blobs --verbose --no-owner --no-privileges --encoding=UTF8 -f \"{outputPath}\" --no-password";
         
         var psi = new System.Diagnostics.ProcessStartInfo
         {
