@@ -19,6 +19,8 @@ partial class PaketFormu
         lblOutputDir = new Label();
         txtOutputDir = new TextBox();
         btnOutputDirSec = new Button();
+        lblVersiyon = new Label();
+        txtVersiyon = new TextBox();
         chkSkipBuild = new CheckBox();
         btnUpdate = new Button();
         btnInstall = new Button();
@@ -51,49 +53,76 @@ partial class PaketFormu
         btnWorkspaceSec.UseVisualStyleBackColor = true;
         btnWorkspaceSec.Click += btnWorkspaceSec_Click;
 
+        // lblOutputDir
+        lblOutputDir.AutoSize = true;
+        lblOutputDir.Location = new Point(22, 110);
+        lblOutputDir.Text = "Setup kok klasoru:";
+
+        // txtOutputDir
+        txtOutputDir.Location = new Point(170, 107);
+        txtOutputDir.Size = new Size(560, 27);
+        txtOutputDir.TextChanged += txtOutputDir_TextChanged;
+
+        // btnOutputDirSec
+        btnOutputDirSec.Location = new Point(740, 105);
+        btnOutputDirSec.Size = new Size(110, 31);
+        btnOutputDirSec.Text = "Sec...";
+        btnOutputDirSec.UseVisualStyleBackColor = true;
+        btnOutputDirSec.Click += btnOutputDirSec_Click;
+
+        // lblVersiyon
+        lblVersiyon.AutoSize = true;
+        lblVersiyon.Location = new Point(22, 150);
+        lblVersiyon.Text = "Versiyon:";
+
+        // txtVersiyon
+        txtVersiyon.Location = new Point(170, 147);
+        txtVersiyon.Size = new Size(200, 27);
+        txtVersiyon.PlaceholderText = "Orn: 1.2.3";
+
         // chkSkipBuild
         chkSkipBuild.AutoSize = true;
-        chkSkipBuild.Location = new Point(170, 105);
+        chkSkipBuild.Location = new Point(390, 150);
         chkSkipBuild.Text = "Build atla (publish\\IIS klasoru zaten hazirsa)";
         chkSkipBuild.UseVisualStyleBackColor = true;
 
         // btnUpdate
-        btnUpdate.Location = new Point(22, 175);
+        btnUpdate.Location = new Point(22, 200);
         btnUpdate.Size = new Size(280, 80);
-        btnUpdate.Text = "GUNCELLEME PAKETI\r\n(Mevcut DB korunur)";
+        btnUpdate.Text = "TUM SETUP PAKETLERI\r\n(Update + Install)";
         btnUpdate.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
         btnUpdate.BackColor = Color.LightSteelBlue;
         btnUpdate.UseVisualStyleBackColor = false;
         btnUpdate.Click += btnUpdate_Click;
 
         // btnInstall
-        btnInstall.Location = new Point(320, 175);
+        btnInstall.Location = new Point(320, 200);
         btnInstall.Size = new Size(280, 80);
-        btnInstall.Text = "YENI KURULUM PAKETI\r\n(DB SIFIRLANIR)";
+        btnInstall.Text = "TUM SETUP PAKETLERI\r\n(Update + Install)";
         btnInstall.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
         btnInstall.BackColor = Color.LightSalmon;
         btnInstall.UseVisualStyleBackColor = false;
         btnInstall.Click += btnInstall_Click;
 
         // btnCiktiAc
-        btnCiktiAc.Location = new Point(620, 175);
+        btnCiktiAc.Location = new Point(620, 200);
         btnCiktiAc.Size = new Size(230, 80);
-        btnCiktiAc.Text = "publish klasorunu ac";
+        btnCiktiAc.Text = "setup klasorunu ac";
         btnCiktiAc.UseVisualStyleBackColor = true;
         btnCiktiAc.Click += btnCiktiAc_Click;
 
         // lblDurum
         lblDurum.AutoSize = true;
-        lblDurum.Location = new Point(22, 265);
+        lblDurum.Location = new Point(22, 290);
         lblDurum.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
 
         // lblCikti
         lblCikti.AutoSize = true;
-        lblCikti.Location = new Point(22, 295);
+        lblCikti.Location = new Point(22, 320);
         lblCikti.Text = "Cikti:";
 
         // txtCikti
-        txtCikti.Location = new Point(22, 320);
+        txtCikti.Location = new Point(22, 345);
         txtCikti.Size = new Size(828, 280);
         txtCikti.Multiline = true;
         txtCikti.ScrollBars = ScrollBars.Vertical;
@@ -105,7 +134,7 @@ partial class PaketFormu
         // PaketFormu
         AutoScaleDimensions = new SizeF(8F, 20F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(880, 620);
+        ClientSize = new Size(880, 645);
         Controls.Add(lblBaslik);
         Controls.Add(lblWorkspace);
         Controls.Add(txtWorkspace);
@@ -113,6 +142,8 @@ partial class PaketFormu
         Controls.Add(lblOutputDir);
         Controls.Add(txtOutputDir);
         Controls.Add(btnOutputDirSec);
+        Controls.Add(lblVersiyon);
+        Controls.Add(txtVersiyon);
         Controls.Add(chkSkipBuild);
         Controls.Add(btnUpdate);
         Controls.Add(btnInstall);
@@ -135,6 +166,8 @@ partial class PaketFormu
     private Label lblOutputDir;
     private TextBox txtOutputDir;
     private Button btnOutputDirSec;
+    private Label lblVersiyon;
+    private TextBox txtVersiyon;
     private CheckBox chkSkipBuild;
     private Button btnUpdate;
     private Button btnInstall;
@@ -143,5 +176,6 @@ partial class PaketFormu
     private Label lblCikti;
     private TextBox txtCikti;
 }
+
 
 
