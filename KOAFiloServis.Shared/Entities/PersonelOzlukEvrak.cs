@@ -1,4 +1,4 @@
-namespace KOAFiloServis.Shared.Entities;
+﻿namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
 /// Personel özlük dosyası evrak durumları
@@ -10,6 +10,12 @@ public class PersonelOzlukEvrak : BaseEntity
 
     public bool Tamamlandi { get; set; }
     public DateTime? TamamlanmaTarihi { get; set; }
+
+    /// <summary>
+    /// Belgenin geçerlilik bitiş tarihi (Ehliyet, SRC, Psikoteknik, Sağlık Raporu vb. için)
+    /// </summary>
+    public DateTime? GecerlilikBitisTarihi { get; set; }
+
     public string? DosyaYolu { get; set; }
     public string? DosyaAdi { get; set; }
     public string? DosyaTipi { get; set; }

@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 
 namespace KOAFiloServis.Web.Services;
 
@@ -17,6 +17,7 @@ public class BelgeUyariOzet
     public List<BelgeUyari> SrcUyarilari { get; set; } = new();
     public List<BelgeUyari> PsikoteknikUyarilari { get; set; } = new();
     public List<BelgeUyari> SaglikRaporuUyarilari { get; set; } = new();
+    public List<BelgeUyari> DigerPersonelEvrakUyarilari { get; set; } = new();
 
     // Araç Belgeleri
     public List<BelgeUyari> MuayeneUyarilari { get; set; } = new();
@@ -29,6 +30,7 @@ public class BelgeUyariOzet
         .Concat(SrcUyarilari)
         .Concat(PsikoteknikUyarilari)
         .Concat(SaglikRaporuUyarilari)
+        .Concat(DigerPersonelEvrakUyarilari)
         .Concat(MuayeneUyarilari)
         .Concat(KaskoUyarilari)
         .Concat(TrafikSigortasiUyarilari)

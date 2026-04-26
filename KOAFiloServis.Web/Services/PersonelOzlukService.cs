@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
@@ -260,6 +260,7 @@ public class PersonelOzlukService : IPersonelOzlukService
                 Zorunlu = tanim.Zorunlu,
                 Tamamlandi = personelEvrak?.Tamamlandi ?? false,
                 TamamlanmaTarihi = personelEvrak?.TamamlanmaTarihi,
+                GecerlilikBitisTarihi = personelEvrak?.GecerlilikBitisTarihi,
                 DosyaYolu = personelEvrak?.DosyaYolu,
                 Aciklama = personelEvrak?.Aciklama ?? tanim.Aciklama
             });
@@ -368,6 +369,9 @@ public class PersonelOzlukService : IPersonelOzlukService
         existing.TamamlanmaTarihi = evrak.Tamamlandi
             ? (evrak.TamamlanmaTarihi.HasValue ? DateTime.SpecifyKind(evrak.TamamlanmaTarihi.Value, DateTimeKind.Utc) : DateTime.UtcNow)
             : null;
+        existing.GecerlilikBitisTarihi = evrak.GecerlilikBitisTarihi.HasValue
+            ? DateTime.SpecifyKind(evrak.GecerlilikBitisTarihi.Value, DateTimeKind.Utc)
+            : null;
         existing.Aciklama = evrak.Aciklama;
         existing.UpdatedAt = DateTime.UtcNow;
 
@@ -375,9 +379,66 @@ public class PersonelOzlukService : IPersonelOzlukService
         return existing;
     }
 
-    #endregion
+    public async Task SoforBelgeTarihleriniSenkronizeEtAsync(int soforId, DateTime? ehliyetTarihi, DateTime? srcTarihi, DateTime? psikoteknikTarihi, DateTime? saglikTarihi)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
 
-    #region Raporlama
+        // Evrak adına göre eşleşen özlük evraklarını bul ve GecerlilikBitisTarihi'ni güncelle
+        var tanimlari = await context.OzlukEvrakTanimlari
+            .Where(t => !t.IsDeleted && t.Aktif)
+            .ToListAsync();
+
+        var evraklar = await context.PersonelOzlukEvraklar
+            .Where(e => e.SoforId == soforId && !e.IsDeleted)
+            .ToListAsync();
+
+        var updates = new List<(string araKelime, DateTime? tarih)>
+        {
+            ("Ehliyet", ehliyetTarihi),
+            ("SRC", srcTarihi),
+            ("Psikoteknik", psikoteknikTarihi),
+            ("Sağlık", saglikTarihi),
+            ("Saglik", saglikTarihi),
+        };
+
+        foreach (var (araKelime, tarih) in updates)
+        {
+            var eslesenTanimlar = tanimlari
+                .Where(t => t.EvrakAdi.Contains(araKelime, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var tanim in eslesenTanimlar)
+            {
+                var evrak = evraklar.FirstOrDefault(e => e.EvrakTanimId == tanim.Id);
+                if (evrak == null)
+                {
+                    if (tarih.HasValue)
+                    {
+                        evrak = new PersonelOzlukEvrak
+                        {
+                            SoforId = soforId,
+                            EvrakTanimId = tanim.Id,
+                            Tamamlandi = true,
+                            TamamlanmaTarihi = DateTime.UtcNow,
+                            GecerlilikBitisTarihi = DateTime.SpecifyKind(tarih.Value.Date, DateTimeKind.Utc),
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        context.PersonelOzlukEvraklar.Add(evrak);
+                        evraklar.Add(evrak);
+                    }
+                }
+                else
+                {
+                    evrak.GecerlilikBitisTarihi = tarih.HasValue
+                        ? DateTime.SpecifyKind(tarih.Value.Date, DateTimeKind.Utc)
+                        : null;
+                    evrak.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
+
+        await context.SaveChangesAsync();
+    }
 
     public async Task<List<PersonelOzlukEvrakDurum>> GetEksikEvrakliPersonellerAsync()
     {

@@ -956,7 +956,11 @@
 
         foreach (var evrak in seciliDurum.Evraklar.Where(GecerlilikTarihiDestekleniyor))
         {
-            evrakGecerlilikTarihleri[evrak.EvrakTanimId] = GetPersonelBelgeTarihi(personel, evrak);
+            // Önce özlük evrak kaydındaki GecerlilikBitisTarihi'ne bak
+            if (evrak.GecerlilikBitisTarihi.HasValue)
+                evrakGecerlilikTarihleri[evrak.EvrakTanimId] = evrak.GecerlilikBitisTarihi;
+            else
+                evrakGecerlilikTarihleri[evrak.EvrakTanimId] = GetPersonelBelgeTarihi(personel, evrak);
         }
     }
 
@@ -970,10 +974,20 @@
             return;
 
         var guncellendi = EvrakTarihAlaniniUygula(personel, evrak, secilenTarih.Value.Date);
-        if (!guncellendi)
-            return;
+        if (guncellendi)
+            await SoforService.UpdateAsync(personel);
 
-        await SoforService.UpdateAsync(personel);
+        // Özlük evrak kaydındaki GecerlilikBitisTarihi'ni de güncelle
+        try
+        {
+            var personelEvrak = await OzlukService.EvrakIsaretle(soforId, evrak.EvrakTanimId, true);
+            personelEvrak.GecerlilikBitisTarihi = secilenTarih.Value.Date;
+            await OzlukService.UpdatePersonelEvrakAsync(personelEvrak);
+        }
+        catch
+        {
+            // GecerlilikBitisTarihi güncellemesi başarısız olsa da devam et
+        }
     }
 
     private async Task EvrakGecerlilikTarihiDegistiAsync(int soforId, OzlukEvrakDetay evrak, ChangeEventArgs e)

@@ -1,4 +1,4 @@
-@page "/belge-uyarilari"
+﻿@page "/belge-uyarilari"
 @using KOAFiloServis.Web.Services
 @inject IBelgeUyariService BelgeUyariService
 @inject IExcelService ExcelService
@@ -357,7 +357,8 @@
         (uyarilar?.EhliyetUyarilari ?? new List<BelgeUyari>())
         .Concat(uyarilar?.SrcUyarilari ?? new List<BelgeUyari>())
         .Concat(uyarilar?.PsikoteknikUyarilari ?? new List<BelgeUyari>())
-        .Concat(uyarilar?.SaglikRaporuUyarilari ?? new List<BelgeUyari>()));
+        .Concat(uyarilar?.SaglikRaporuUyarilari ?? new List<BelgeUyari>())
+        .Concat(uyarilar?.DigerPersonelEvrakUyarilari ?? new List<BelgeUyari>()));
 
     private List<BelgeUyari> FiltrelenmisAracUyarilari => FiltreUygula(
         (uyarilar?.MuayeneUyarilari ?? new List<BelgeUyari>())

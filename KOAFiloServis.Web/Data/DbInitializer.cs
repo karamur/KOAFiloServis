@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Data;
@@ -2115,6 +2115,42 @@ WHERE IsDeleted = 0;");
     {
         try
         {
+            // M001 formatındaki eski/çift kayıtları temizle: referansları MSR- formatına taşı, sonra sil
+            var eskiFormatKodlari = new[] { "M001", "M002", "M003", "M004", "M005", "M006", "M007", "M008", "M009", "M010" };
+            var eskiKayitlar = await context.MasrafKalemleri
+                .IgnoreQueryFilters()
+                .Where(k => eskiFormatKodlari.Contains(k.MasrafKodu))
+                .ToListAsync();
+
+            if (eskiKayitlar.Any())
+            {
+                foreach (var eski in eskiKayitlar)
+                {
+                    // Aynı kategorideki MSR- formatındaki yeni kaydı bul
+                    var yeniKalem = await context.MasrafKalemleri
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(k => !eskiFormatKodlari.Contains(k.MasrafKodu) && k.Kategori == eski.Kategori);
+
+                    if (yeniKalem != null)
+                    {
+                        // Bu eski kaleme bağlı tüm masrafları yeni kaleme taşı
+                        var baglıMasraflar = await context.AracMasraflari
+                            .Where(m => m.MasrafKalemiId == eski.Id)
+                            .ToListAsync();
+
+                        foreach (var masraf in baglıMasraflar)
+                            masraf.MasrafKalemiId = yeniKalem.Id;
+                    }
+                }
+
+                await context.SaveChangesAsync();
+
+                // Referanslar taşındıktan sonra eski kayıtları sil
+                context.MasrafKalemleri.RemoveRange(eskiKayitlar);
+                await context.SaveChangesAsync();
+                Console.WriteLine($"M001 formatındaki {eskiKayitlar.Count} eski masraf kalemi silindi.");
+            }
+
             // Temel masraf kalemleri listesi
             var masrafKalemleri = new List<(string Kod, string Ad, MasrafKategori Kategori)>
             {

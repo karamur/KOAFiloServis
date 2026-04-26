@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 
 namespace KOAFiloServis.Web.Services;
 
@@ -21,6 +21,7 @@ public interface IPersonelOzlukService
     Task<PersonelOzlukEvrak> EvrakIsaretle(int soforId, int evrakTanimId, bool tamamlandi, string? aciklama = null);
     Task<PersonelOzlukEvrak> EvrakDosyaYukle(int soforId, int evrakTanimId, string dosyaYolu);
     Task<PersonelOzlukEvrak> UpdatePersonelEvrakAsync(PersonelOzlukEvrak evrak);
+    Task SoforBelgeTarihleriniSenkronizeEtAsync(int soforId, DateTime? ehliyetTarihi, DateTime? srcTarihi, DateTime? psikoteknikTarihi, DateTime? saglikTarihi);
 
     // Raporlama
     Task<List<PersonelOzlukEvrakDurum>> GetEksikEvrakliPersonellerAsync();
@@ -51,6 +52,7 @@ public class OzlukEvrakDetay
     public bool Zorunlu { get; set; }
     public bool Tamamlandi { get; set; }
     public DateTime? TamamlanmaTarihi { get; set; }
+    public DateTime? GecerlilikBitisTarihi { get; set; }
     public string? DosyaYolu { get; set; }
     public string? Aciklama { get; set; }
 }

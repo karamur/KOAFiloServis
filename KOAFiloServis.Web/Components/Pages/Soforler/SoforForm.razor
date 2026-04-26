@@ -1091,6 +1091,16 @@
                 // Aksi halde validasyon yeni kayıt gibi davranıp TC kimlik no çakışması üretebilir.
                 sofor.Id = Id!.Value;
                 await SoforService.UpdateAsync(sofor);
+                // Şoför belge tarihlerini özlük evraklarıyla senkronize et
+                if (sofor.Gorev == PersonelGorev.Sofor)
+                {
+                    await OzlukService.SoforBelgeTarihleriniSenkronizeEtAsync(
+                        sofor.Id,
+                        sofor.EhliyetGecerlilikTarihi,
+                        sofor.SrcBelgesiGecerlilikTarihi,
+                        sofor.PsikoteknikGecerlilikTarihi,
+                        sofor.SaglikRaporuGecerlilikTarihi);
+                }
                 ToastService.ShowSuccess($"{sofor.TamAd} başarıyla güncellendi.");
             }
             else
