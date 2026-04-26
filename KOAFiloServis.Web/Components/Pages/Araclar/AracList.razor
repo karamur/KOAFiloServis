@@ -46,11 +46,44 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small">Plaka</label>
-                    <input type="text" class="form-control form-control-sm" @bind="filtrePlaka" title="Geçmiş plakalar dahil" placeholder="Plaka ara..." />
+                    <input type="text"
+                           class="form-control form-control-sm"
+                           @bind-value="filtrePlaka"
+                           @bind-value:event="oninput"
+                           @bind-value:after="PlakaFiltreDegisti"
+                           list="plakaOnerileri"
+                           title="Geçmiş plakalar dahil"
+                           placeholder="Plaka ara..." />
+                    <datalist id="plakaOnerileri">
+                        @foreach (var plaka in GetPlakaOnerileri())
+                        {
+                            <option value="@plaka"></option>
+                        }
+                    </datalist>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small">Marka / Model</label>
                     <input type="text" class="form-control form-control-sm" @bind="filtreMarkaModel" placeholder="Marka veya model..." />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Sınıf</label>
+                    <select class="form-select form-select-sm" @bind="filtreSinif">
+                        <option value="Tumu">Tümü</option>
+                        @foreach (AracTipi tip in Enum.GetValues(typeof(AracTipi)))
+                        {
+                            <option value="@tip.ToString()">@GetTipText(tip)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Sahiplik</label>
+                    <select class="form-select form-select-sm" @bind="filtreSahiplikTipi">
+                        <option value="Tumu">Tümü</option>
+                        @foreach (AracSahiplikTipi sahiplik in Enum.GetValues(typeof(AracSahiplikTipi)))
+                        {
+                            <option value="@sahiplik.ToString()">@GetSahiplikText(sahiplik)</option>
+                        }
+                    </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small">Kayıt Yılı / Ayı</label>
@@ -144,6 +177,7 @@
                                             var durum = arac.Durumu;
                                             var badgeClass = durum switch
                                             {
+                                                (AracDurumu)0 => "bg-secondary",
                                                 AracDurumu.Bosta => "bg-secondary",
                                                 AracDurumu.Operasyon => "bg-primary",
                                                 AracDurumu.Yonetim => "bg-info",
@@ -465,10 +499,12 @@
     private bool isPlakaKaydediliyor = false;
 
     // Filtre Değişkenleri
-    private string filtreDurum = "Aktif";
+    private string filtreDurum = "Tumu";
     private string? filtreSase;
     private string? filtrePlaka;
     private string? filtreMarkaModel;
+    private string filtreSinif = "Tumu";
+    private string filtreSahiplikTipi = "Tumu";
     private int? filtreYil;
     private int? filtreAy;
 
@@ -492,7 +528,7 @@
         // Durum Filtresi
         if (filtreDurum == "Bosta")
         {
-            sorgu = sorgu.Where(a => a.Durumu == AracDurumu.Bosta);
+            sorgu = sorgu.Where(a => a.Durumu == AracDurumu.Bosta || (int)a.Durumu == 0);
         }
         else if (filtreDurum == "Operasyon")
         {
@@ -531,6 +567,18 @@
             );
         }
 
+        // Sınıf
+        if (filtreSinif != "Tumu" && Enum.TryParse<AracTipi>(filtreSinif, out var sinifTipi))
+        {
+            sorgu = sorgu.Where(a => a.AracTipi == sinifTipi);
+        }
+
+        // Sahiplik Tipi
+        if (filtreSahiplikTipi != "Tumu" && Enum.TryParse<AracSahiplikTipi>(filtreSahiplikTipi, out var sahiplikTipi))
+        {
+            sorgu = sorgu.Where(a => a.SahiplikTipi == sahiplikTipi);
+        }
+
         // Kayıt Yılı
         if (filtreYil.HasValue)
         {
@@ -552,9 +600,38 @@
         filtreSase = null;
         filtrePlaka = null;
         filtreMarkaModel = null;
+        filtreSinif = "Tumu";
+        filtreSahiplikTipi = "Tumu";
         filtreYil = null;
         filtreAy = null;
         Filtrele();
+    }
+
+    private void PlakaFiltreDegisti()
+    {
+        Filtrele();
+    }
+
+    private IEnumerable<string> GetPlakaOnerileri()
+    {
+        var tumPlakalar = tumAraclar
+            .SelectMany(a =>
+                new[] { a.AktifPlaka }
+                .Concat(a.PlakaGecmisi.Select(p => p.Plaka)))
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p!.Trim().ToUpperInvariant())
+            .Distinct()
+            .OrderBy(p => p)
+            .AsEnumerable();
+
+        if (string.IsNullOrWhiteSpace(filtrePlaka))
+        {
+            return tumPlakalar.Take(20);
+        }
+
+        return tumPlakalar
+            .Where(p => p.Contains(filtrePlaka.Trim(), StringComparison.OrdinalIgnoreCase))
+            .Take(20);
     }
 
     private void YeniArac()
@@ -605,11 +682,12 @@
 
     private string GetAracDurumuText(AracDurumu durum) => durum switch
     {
+        (AracDurumu)0 => "Boşta",
         AracDurumu.Bosta => "Boşta",
         AracDurumu.Operasyon => "Operasyon",
         AracDurumu.Yonetim => "Yönetim",
         AracDurumu.Satis => "Satış",
-        _ => durum.ToString()
+        _ => "Boşta"
     };
 
     private void EvraklarGit(int aracId)
