@@ -60,8 +60,9 @@ public class Arac : BaseEntity
     public DateTime? KoltukSigortasiBitisTarihi { get; set; }
     
     public int? KmDurumu { get; set; }
+    public AracDurumu Durumu { get; set; } = AracDurumu.Bosta;
     public bool Aktif { get; set; } = true;
-    public string? Notlar { get; set; }
+    public string? Notlar { get; set;}
     
     // Satış durumu
     public bool SatisaAcik { get; set; } = false;
@@ -153,4 +154,12 @@ public enum KomisyonHesaplamaTipi
 {
     YuzdeOrani = 1,
     SabitTutar = 2
+}
+
+public enum AracDurumu
+{
+    Bosta = 1,
+    Operasyon = 2,
+    Yonetim = 3,
+    Satis = 4
 }

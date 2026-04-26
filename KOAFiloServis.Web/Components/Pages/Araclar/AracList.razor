@@ -33,10 +33,11 @@
                 <div class="col-md-2">
                     <label class="form-label small">Durum</label>
                     <select class="form-select form-select-sm" @bind="filtreDurum">
-                        <option value="Aktif">Aktif</option>
-                        <option value="Pasif">Pasif (Satışta Olmayan)</option>
-                        <option value="Satista">Satışta</option>
                         <option value="Tumu">Tümü</option>
+                        <option value="Bosta">Boşta</option>
+                        <option value="Operasyon">Operasyon</option>
+                        <option value="Yonetim">Yönetim</option>
+                        <option value="Satis">Satış</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -139,17 +140,21 @@
                                         <span class="badge bg-info">@GetSahiplikText(arac.SahiplikTipi)</span>
                                     </td>
                                     <td>
-                                        @if (arac.SatisaAcik)
-                                        {
-                                            <span class="badge bg-warning text-dark">Satışta</span>
+                                        @{
+                                            var durum = arac.Durumu;
+                                            var badgeClass = durum switch
+                                            {
+                                                AracDurumu.Bosta => "bg-secondary",
+                                                AracDurumu.Operasyon => "bg-primary",
+                                                AracDurumu.Yonetim => "bg-info",
+                                                AracDurumu.Satis => "bg-warning text-dark",
+                                                _ => "bg-secondary"
+                                            };
                                         }
-                                        else if (arac.Aktif)
+                                        <span class="badge @badgeClass">@GetAracDurumuText(arac.Durumu)</span>
+                                        @if (!arac.Aktif)
                                         {
-                                            <span class="badge bg-success">Aktif</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-danger">Pasif</span>
+                                            <span class="badge bg-danger ms-1">Pasif</span>
                                         }
                                     </td>
                                     <td>@arac.ModelYili</td>
@@ -485,17 +490,21 @@
         var sorgu = tumAraclar.AsQueryable();
 
         // Durum Filtresi
-        if (filtreDurum == "Aktif")
+        if (filtreDurum == "Bosta")
         {
-            sorgu = sorgu.Where(a => a.Aktif && !a.SatisaAcik);
+            sorgu = sorgu.Where(a => a.Durumu == AracDurumu.Bosta);
         }
-        else if (filtreDurum == "Pasif")
+        else if (filtreDurum == "Operasyon")
         {
-            sorgu = sorgu.Where(a => !a.Aktif && !a.SatisaAcik);
+            sorgu = sorgu.Where(a => a.Durumu == AracDurumu.Operasyon);
         }
-        else if (filtreDurum == "Satista")
+        else if (filtreDurum == "Yonetim")
         {
-            sorgu = sorgu.Where(a => a.SatisaAcik);
+            sorgu = sorgu.Where(a => a.Durumu == AracDurumu.Yonetim);
+        }
+        else if (filtreDurum == "Satis")
+        {
+            sorgu = sorgu.Where(a => a.Durumu == AracDurumu.Satis);
         }
 
         // Şase No
@@ -592,6 +601,15 @@
         AracSahiplikTipi.Komisyon => "Komisyon",
         AracSahiplikTipi.Diger => "Diğer",
         _ => tip.ToString()
+    };
+
+    private string GetAracDurumuText(AracDurumu durum) => durum switch
+    {
+        AracDurumu.Bosta => "Boşta",
+        AracDurumu.Operasyon => "Operasyon",
+        AracDurumu.Yonetim => "Yönetim",
+        AracDurumu.Satis => "Satış",
+        _ => durum.ToString()
     };
 
     private void EvraklarGit(int aracId)
