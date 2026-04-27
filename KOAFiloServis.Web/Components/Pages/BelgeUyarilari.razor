@@ -1,4 +1,4 @@
-﻿@page "/belge-uyarilari"
+@page "/belge-uyarilari"
 @using KOAFiloServis.Web.Services
 @inject IBelgeUyariService BelgeUyariService
 @inject IExcelService ExcelService
@@ -279,6 +279,102 @@
             </div>
         </div>
 
+        <!-- Diger Onemli Belgeler -->
+        @if (uyarilar.DigerTumPersonelBelgeler.Any())
+        {
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-folder2-open me-2"></i>Diger Onemli Belgeler</h6>
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="badge bg-light text-dark">@FiltrelenmisDigerBelgeler.Count kayit</span>
+                        <input type="text" class="form-control form-control-sm" style="width:200px;"
+                               placeholder="Personel veya belge ara..."
+                               @bind="digerBelgeArama" @bind:event="oninput" />
+                        <select class="form-select form-select-sm" style="width:160px;" @bind="digerBelgeDurum">
+                            <option value="">Tum Durumlar</option>
+                            <option value="eksik">Eksik</option>
+                            <option value="gecmis">Suresi Gecmis</option>
+                            <option value="yaklasan">Yaklasan (30 gun)</option>
+                            <option value="gecerli">Gecerli</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Personel</th>
+                                    <th>Belge</th>
+                                    <th class="text-center">Zorunlu</th>
+                                    <th class="text-center">Durum</th>
+                                    <th>Gecerlilik Tarihi</th>
+                                    <th class="text-center">Dosya</th>
+                                    <th class="text-center">Islem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var b in FiltrelenmisDigerBelgeler)
+                                {
+                                    <tr class="@(!b.Tamamlandi ? "table-warning" : b.KalanGun < 0 ? "table-danger" : "")">
+                                        <td>
+                                            <strong>@b.PersonelAdi</strong>
+                                            <br /><small class="text-muted">@b.PersonelKodu</small>
+                                        </td>
+                                        <td>@b.EvrakAdi</td>
+                                        <td class="text-center">
+                                            @if (b.Zorunlu)
+                                            {
+                                                <span class="badge bg-danger">Zorunlu</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-light text-muted border">Istege Bagli</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge @b.DurumClass">@b.DurumMetin</span>
+                                        </td>
+                                        <td>
+                                            @if (b.GecerlilikBitisTarihi.HasValue)
+                                            {
+                                                <span class="@(b.KalanGun < 0 ? "text-danger fw-bold" : b.KalanGun <= 30 ? "text-warning fw-semibold" : "")">
+                                                    @b.GecerlilikBitisTarihi.Value.ToString("dd.MM.yyyy")
+                                                </span>
+                                            }
+                                            else if (b.TamamlanmaTarihi.HasValue)
+                                            {
+                                                <small class="text-muted">@b.TamamlanmaTarihi.Value.ToString("dd.MM.yyyy")</small>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (!string.IsNullOrWhiteSpace(b.DosyaYolu))
+                                            {
+                                                <i class="bi bi-paperclip text-success" title="Dosya mevcut"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-dash text-muted"></i>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <a class="btn btn-sm btn-outline-primary" href="@b.DetayUrl" title="Ozluk Evrak Sayfasina Git">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+
         <!-- Belge Turu Bazinda Ozet -->
         <div class="card">
             <div class="card-header">
@@ -349,9 +445,29 @@
     private string seviyeFiltre = "Tumu";
     private string aramaMetni = string.Empty;
 
+    private string digerBelgeArama = string.Empty;
+    private string digerBelgeDurum = string.Empty;
+
     private bool FiltreVarMi => kaynakFiltre != "Tumu"
         || seviyeFiltre != "Tumu"
         || !string.IsNullOrWhiteSpace(aramaMetni);
+    private List<PersonelBelgeDetay> FiltrelenmisDigerBelgeler => (uyarilar?.DigerTumPersonelBelgeler ?? new List<PersonelBelgeDetay>())
+        .Where(b => string.IsNullOrWhiteSpace(digerBelgeArama)
+            || b.PersonelAdi.Contains(digerBelgeArama, StringComparison.OrdinalIgnoreCase)
+            || b.PersonelKodu.Contains(digerBelgeArama, StringComparison.OrdinalIgnoreCase)
+            || b.EvrakAdi.Contains(digerBelgeArama, StringComparison.OrdinalIgnoreCase))
+        .Where(b => digerBelgeDurum switch
+        {
+            "eksik" => !b.Tamamlandi,
+            "gecmis" => b.Tamamlandi && b.KalanGun.HasValue && b.KalanGun < 0,
+            "yaklasan" => b.Tamamlandi && b.KalanGun.HasValue && b.KalanGun >= 0 && b.KalanGun <= 30,
+            "gecerli" => b.Tamamlandi && (!b.KalanGun.HasValue || b.KalanGun > 30),
+            _ => true
+        })
+        .OrderBy(b => b.PersonelAdi)
+        .ThenBy(b => b.EvrakAdi)
+        .ToList();
+
 
     private List<BelgeUyari> FiltrelenmisPersonelUyarilari => FiltreUygula(
         (uyarilar?.EhliyetUyarilari ?? new List<BelgeUyari>())
@@ -435,3 +551,5 @@
             .ToList();
     }
 }
+
+

@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -1261,6 +1261,7 @@ public class IhaleHazirlikService : IIhaleHazirlikService
 
         // Örnek araç oluştur (veritabanında yoksa)
         var ornekArac = await context.Araclar
+            .OrderBy(a => a.Id)
             .FirstOrDefaultAsync(a => a.SaseNo == "ORNEK2022001" && !a.IsDeleted);
 
         if (ornekArac == null)

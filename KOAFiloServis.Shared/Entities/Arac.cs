@@ -34,6 +34,7 @@ public class Arac : BaseEntity
     public string? Renk { get; set; }
     public int KoltukSayisi { get; set; }
     public AracTipi AracTipi { get; set; }
+    public AracSinifi AracSinifi { get; set; } = AracSinifi.PersonelTasiti;
     public AracSahiplikTipi SahiplikTipi { get; set; } = AracSahiplikTipi.Ozmal;
     
     // Kiralık araç bilgileri
@@ -133,6 +134,12 @@ public enum AracTipi
     Otobus = 3,
     Otomobil = 4,
     Panelvan = 5
+}
+
+public enum AracSinifi
+{
+    PersonelTasiti = 1,
+    OkulTasiti = 2
 }
 
 public enum AracSahiplikTipi

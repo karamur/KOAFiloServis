@@ -508,14 +508,13 @@
             foreach (var personel in aktifPersoneller)
             {
                 // Bankaya yatan: personel dosyasından okunur.
-                // Eski kayıtlarda ResmiNetMaas 0 olabildiği için NetMaas/BrutMaas fallback uygulanır.
+                // Eski kayıtlarda ResmiNetMaas ve NetMaas 0, sadece BrutMaas varsa fallback uygula.
+                // Kullanıcı kasıtlı 0 girmişse ResmiNetMaas=0 ve NetMaas=DigerMaas olacağından 0 gösterilir.
                 var finansOzet = await FinansService.GetPersonelFinansOzetAsync(personel.Id);
                 donemMaasMap.TryGetValue(personel.Id, out var donemMaas);
-                var bankayaYatan = personel.ResmiNetMaas > 0
-                    ? personel.ResmiNetMaas
-                    : personel.NetMaas > 0
-                        ? personel.NetMaas
-                        : personel.BrutMaas;
+                var bankayaYatan = (personel.ResmiNetMaas == 0 && personel.NetMaas == 0 && personel.BrutMaas > 0)
+                    ? personel.BrutMaas
+                    : personel.ResmiNetMaas;
                 var gercekMaas = donemMaas != null
                     ? donemMaas.NetMaas + donemMaas.ToplamEklemeler
                     : personel.ResmiNetMaas + personel.DigerMaas;
@@ -942,16 +941,27 @@
 
     #endregion
 
-    private void BankayaYatanDegisti(PersonelOdemeKalemi item, ChangeEventArgs e)
+    private async Task BankayaYatanDegisti(PersonelOdemeKalemi item, ChangeEventArgs e)
     {
         if (!decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any,
             System.Globalization.CultureInfo.InvariantCulture, out var val))
             decimal.TryParse(e.Value?.ToString(), out val);
 
-        // Sadece local değer güncellenir; personel dosyasına yazma "Kaydet" ile yapılır
         item.BankayaYatan = val;
         item.EldenOdenecek = item.GercekMaas - item.BankayaYatan - item.Kesinti + item.PersonelHarcamasi - item.Avans;
         GorevOzetleriniGuncelle();
+
+        // Personel kartına anında kaydet
+        try
+        {
+            item.Personel.ResmiNetMaas = item.BankayaYatan;
+            item.Personel.NetMaas = item.BankayaYatan + item.Personel.DigerMaas;
+            await SoforService.UpdateAsync(item.Personel);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Kaydetme hatası: {ex.Message}");
+        }
     }
 
     private void GorevOzetleriniGuncelle()

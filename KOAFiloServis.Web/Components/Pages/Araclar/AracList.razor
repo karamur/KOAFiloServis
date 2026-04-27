@@ -66,7 +66,7 @@
                     <input type="text" class="form-control form-control-sm" @bind="filtreMarkaModel" placeholder="Marka veya model..." />
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small">Sınıf</label>
+                    <label class="form-label small">Araç Tipi</label>
                     <select class="form-select form-select-sm" @bind="filtreSinif">
                         <option value="Tumu">Tümü</option>
                         @foreach (AracTipi tip in Enum.GetValues(typeof(AracTipi)))
@@ -82,6 +82,16 @@
                         @foreach (AracSahiplikTipi sahiplik in Enum.GetValues(typeof(AracSahiplikTipi)))
                         {
                             <option value="@sahiplik.ToString()">@GetSahiplikText(sahiplik)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Sınıf</label>
+                    <select class="form-select form-select-sm" @bind="filtreSinifTipi">
+                        <option value="Tumu">Tümü</option>
+                        @foreach (AracSinifi sinif in Enum.GetValues(typeof(AracSinifi)))
+                        {
+                            <option value="@sinif.ToString()">@GetSinifText(sinif)</option>
                         }
                     </select>
                 </div>
@@ -130,6 +140,7 @@
                                 <th>Aktif Plaka</th>
                                 <th>Geçmiş Plakalar</th>
                                 <th>Marka/Model</th>
+                                <th>Araç Tipi</th>
                                 <th>Sınıf</th>
                                 <th>Sahiplik Tipi</th>
                                 <th>Durum</th>
@@ -168,6 +179,9 @@
                                     <td><strong>@arac.Marka</strong> <span class="text-muted">@arac.Model</span></td>
                                     <td>
                                         <span class="badge bg-secondary">@GetTipText(arac.AracTipi)</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">@GetSinifText(arac.AracSinifi)</span>
                                     </td>
                                     <td>
                                         <span class="badge bg-info">@GetSahiplikText(arac.SahiplikTipi)</span>
@@ -505,6 +519,7 @@
     private string? filtreMarkaModel;
     private string filtreSinif = "Tumu";
     private string filtreSahiplikTipi = "Tumu";
+    private string filtreSinifTipi = "Tumu";
     private int? filtreYil;
     private int? filtreAy;
 
@@ -573,6 +588,12 @@
             sorgu = sorgu.Where(a => a.AracTipi == sinifTipi);
         }
 
+        // Sınıf (AracSinifi)
+        if (filtreSinifTipi != "Tumu" && Enum.TryParse<AracSinifi>(filtreSinifTipi, out var aracSinifi))
+        {
+            sorgu = sorgu.Where(a => a.AracSinifi == aracSinifi);
+        }
+
         // Sahiplik Tipi
         if (filtreSahiplikTipi != "Tumu" && Enum.TryParse<AracSahiplikTipi>(filtreSahiplikTipi, out var sahiplikTipi))
         {
@@ -602,6 +623,7 @@
         filtreMarkaModel = null;
         filtreSinif = "Tumu";
         filtreSahiplikTipi = "Tumu";
+        filtreSinifTipi = "Tumu";
         filtreYil = null;
         filtreAy = null;
         Filtrele();
@@ -669,6 +691,13 @@
         AracTipi.Otomobil => "Otomobil",
         AracTipi.Panelvan => "Panelvan",
         _ => tip.ToString()
+    };
+
+    private string GetSinifText(AracSinifi sinif) => sinif switch
+    {
+        AracSinifi.PersonelTasiti => "Personel Taşıtı",
+        AracSinifi.OkulTasiti => "Okul Taşıtı",
+        _ => sinif.ToString()
     };
 
     private string GetSahiplikText(AracSahiplikTipi tip) => tip switch

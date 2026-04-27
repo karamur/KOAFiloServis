@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -255,6 +255,52 @@ public class BelgeUyariService : IBelgeUyariService
                 ozet.DigerAracEvrakUyarilari.Add(uyari);
         }
 
+
+        // Tum personeller icin "Diger" kategorisindeki evrak durumlarini cek (uyari filtresi yok - tam liste)
+        var digerEvrakTanimlari = await context.OzlukEvrakTanimlari
+            .AsNoTracking()
+            .Where(t => t.Aktif && t.Kategori == OzlukEvrakKategori.Diger)
+            .OrderBy(t => t.SiraNo)
+            .ThenBy(t => t.EvrakAdi)
+            .ToListAsync();
+
+        if (digerEvrakTanimlari.Count > 0)
+        {
+            var digerEvrakTanimIds = digerEvrakTanimlari.Select(t => t.Id).ToHashSet();
+
+            var mevcutDigerEvraklar = await context.PersonelOzlukEvraklar
+                .AsNoTracking()
+                .Include(e => e.Sofor)
+                .Where(e => !e.IsDeleted
+                    && e.Sofor != null && e.Sofor.Aktif && !e.Sofor.IsDeleted
+                    && digerEvrakTanimIds.Contains(e.EvrakTanimId))
+                .ToListAsync();
+
+            foreach (var sofor in soforler.OrderBy(s => s.Ad).ThenBy(s => s.Soyad))
+            {
+                foreach (var tanim in digerEvrakTanimlari)
+                {
+                    var kayit = mevcutDigerEvraklar
+                        .FirstOrDefault(e => e.SoforId == sofor.Id && e.EvrakTanimId == tanim.Id);
+
+                    ozet.DigerTumPersonelBelgeler.Add(new PersonelBelgeDetay
+                    {
+                        EvrakId = kayit?.Id ?? 0,
+                        SoforId = sofor.Id,
+                        PersonelAdi = sofor.TamAd,
+                        PersonelKodu = sofor.SoforKodu ?? sofor.Id.ToString(),
+                        EvrakAdi = tanim.EvrakAdi,
+                        Kategori = tanim.Kategori,
+                        Tamamlandi = kayit?.Tamamlandi ?? false,
+                        TamamlanmaTarihi = kayit?.TamamlanmaTarihi,
+                        GecerlilikBitisTarihi = kayit?.GecerlilikBitisTarihi,
+                        Zorunlu = tanim.Zorunlu,
+                        DosyaYolu = kayit?.DosyaYolu,
+                        DetayUrl = $"/personel/ozluk-evrak"
+                    });
+                }
+            }
+        }
         // Özet sayıları hesapla
         ozet.ToplamKritikUyari = ozet.TumUyarilar.Count(u => u.Seviye == BelgeUyariSeviye.Kritik || u.Seviye == BelgeUyariSeviye.Acil);
         ozet.ToplamUyari = ozet.TumUyarilar.Count;
@@ -262,3 +308,4 @@ public class BelgeUyariService : IBelgeUyariService
         return ozet;
     }
 }
+

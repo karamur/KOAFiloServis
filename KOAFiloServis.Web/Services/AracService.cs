@@ -254,6 +254,7 @@ public class AracService : IAracService
             existing.Renk = arac.Renk;
             existing.KoltukSayisi = arac.KoltukSayisi;
             existing.AracTipi = arac.AracTipi;
+            existing.AracSinifi = arac.AracSinifi;
             existing.SahiplikTipi = arac.SahiplikTipi;
             existing.GunlukKiraBedeli = arac.GunlukKiraBedeli;
             existing.AylikKiraBedeli = arac.AylikKiraBedeli;

@@ -1,4 +1,4 @@
-﻿@page "/araclar/yeni"
+@page "/araclar/yeni"
 @page "/araclar/{Id:int}"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -63,6 +63,17 @@
                                 @foreach (AracTipi tip in Enum.GetValues(typeof(AracTipi)))
                                 {
                                     <option value="@tip">@GetTipText(tip)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Sınıf</label>
+                            <InputSelect @bind-Value="arac.AracSinifi" class="form-select">
+                                @foreach (AracSinifi sinif in Enum.GetValues(typeof(AracSinifi)))
+                                {
+                                    <option value="@sinif">@GetSinifText(sinif)</option>
                                 }
                             </InputSelect>
                         </div>
@@ -981,6 +992,13 @@
     #endregion
 
     #region Helper Metodları
+
+    private string GetSinifText(AracSinifi sinif) => sinif switch
+    {
+        AracSinifi.PersonelTasiti => "Personel Taşıtı",
+        AracSinifi.OkulTasiti => "Okul Taşıtı",
+        _ => sinif.ToString()
+    };
 
     private string GetTipText(AracTipi tip) => tip switch
     {

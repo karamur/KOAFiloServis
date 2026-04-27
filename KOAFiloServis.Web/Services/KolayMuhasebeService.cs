@@ -66,7 +66,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).OrderBy(c => c.Id).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -149,7 +149,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).OrderBy(c => c.Id).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -234,6 +234,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (giris.MasrafKalemiId.HasValue)
         {
             var masrafKalemi = await context.MasrafKalemleri.AsNoTracking()
+                .OrderBy(m => m.Id)
                 .FirstOrDefaultAsync(m => m.Id == giris.MasrafKalemiId);
             if (masrafKalemi != null)
             {
@@ -302,6 +303,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (giris.BankaHesapId.HasValue)
         {
             var bankaHesap = await context.BankaHesaplari.AsNoTracking()
+                .OrderBy(b => b.Id)
                 .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
             if (bankaHesap != null)
             {
@@ -327,7 +329,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).OrderBy(c => c.Id).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -363,7 +365,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).OrderBy(c => c.Id).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -392,6 +394,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (giris.BankaHesapId.HasValue)
         {
             var bankaHesap = await context.BankaHesaplari.AsNoTracking()
+                .OrderBy(b => b.Id)
                 .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
             if (bankaHesap != null)
             {
@@ -426,7 +429,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         if (giris.CariId.HasValue)
         {
-            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).FirstOrDefaultAsync(c => c.Id == giris.CariId);
+            var cari = await context.Cariler.AsNoTracking().Include(c => c.MuhasebeHesap).OrderBy(c => c.Id).FirstOrDefaultAsync(c => c.Id == giris.CariId);
             if (cari != null)
             {
                 cariUnvan = cari.Unvan;
@@ -455,6 +458,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (giris.BankaHesapId.HasValue)
         {
             var bankaHesap = await context.BankaHesaplari.AsNoTracking()
+                .OrderBy(b => b.Id)
                 .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
             if (bankaHesap != null)
             {
@@ -463,7 +467,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             }
         }
 
-        // Mahsup işlemi: Cari tipine göre borç/alacak belirlenir
+        // Mahsup işlemi:
         // Müşteri ise: Müşteriden tahsilat yapılıyor (Alıcılar azalıyor)
         // Tedarikçi ise: Tedarikçiye ödeme yapılıyor (Satıcılar azalıyor)
         bool musteriMahsup = cariTipi == CariTipi.Musteri || cariTipi == CariTipi.MusteriTedarikci;
@@ -539,6 +543,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (giris.PersonelAvansHesapId.HasValue)
         {
             var ozguHesap = await context.MuhasebeHesaplari.AsNoTracking()
+                .OrderBy(h => h.Id)
                 .FirstOrDefaultAsync(h => h.Id == giris.PersonelAvansHesapId.Value && !h.IsDeleted);
             if (ozguHesap != null)
             {
@@ -573,6 +578,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (giris.BankaHesapId.HasValue)
         {
             var bankaHesap = await context.BankaHesaplari.AsNoTracking()
+                .OrderBy(b => b.Id)
                 .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
             if (bankaHesap != null)
             {
@@ -1038,6 +1044,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (giris.PersonelId.HasValue && giris.PersonelId.Value > 0)
         {
             var bankaHesap = await context.BankaHesaplari.AsNoTracking()
+                .OrderBy(b => b.Id)
                 .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
             var odemeSekli = bankaHesap?.HesapTipi == HesapTipi.Kasa
                 ? AvansOdemeSekli.Nakit
@@ -1087,6 +1094,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (giris.CariId.HasValue)
         {
             var cari = await context.Cariler.AsNoTracking()
+                .OrderBy(c => c.Id)
                 .FirstOrDefaultAsync(c => c.Id == giris.CariId.Value);
             hareketTipi = (cari?.CariTipi == CariTipi.Musteri || cari?.CariTipi == CariTipi.MusteriTedarikci)
                 ? HareketTipi.Giris   // Müşteriden mahsup tahsilat
@@ -1364,6 +1372,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         // Önce aynı unvan ile mevcut cari var mı kontrol et
         var mevcutCari = await context.Cariler
             .IgnoreQueryFilters()
+            .OrderBy(c => c.Id)
             .FirstOrDefaultAsync(c => c.Unvan == unvan && !c.IsDeleted);
 
         if (mevcutCari != null)
@@ -1421,6 +1430,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             if (giris.BankaHesapId.HasValue)
             {
                 var bankaHesap = await context.BankaHesaplari.AsNoTracking()
+                    .OrderBy(b => b.Id)
                     .FirstOrDefaultAsync(b => b.Id == giris.BankaHesapId);
                 if (bankaHesap != null)
                 {
@@ -1442,6 +1452,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         var cari = await context.Cariler
             .AsNoTracking()
             .Include(c => c.MuhasebeHesap)
+            .OrderBy(c => c.Id)
             .FirstOrDefaultAsync(c => c.Id == giris.CariId.Value);
 
         if (cari == null)
@@ -1523,6 +1534,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         await using var context = await _contextFactory.CreateDbContextAsync();
         return await context.MuhasebeAyarlari
             .Include(a => a.KdvHesapEslestirmeleri)
+            .OrderBy(a => a.Id)
             .FirstOrDefaultAsync() ?? new MuhasebeAyar();
     }
 
@@ -1534,6 +1546,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         // Önce tam eşleşme dene
         var hesap = await context.MuhasebeHesaplari
             .AsNoTracking()
+            .OrderBy(h => h.Id)
             .FirstOrDefaultAsync(h => h.HesapKodu == hesapKodu);
 
         if (hesap != null)
@@ -1543,6 +1556,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         var anaKod = hesapKodu.Split('.')[0];
         hesap = await context.MuhasebeHesaplari
             .AsNoTracking()
+            .OrderBy(h => h.Id)
             .FirstOrDefaultAsync(h => h.HesapKodu == anaKod || h.HesapKodu.StartsWith(anaKod + "."));
 
         return hesap?.Id;
@@ -1594,6 +1608,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
 
         var cari = await context.Cariler
             .Include(c => c.Sofor)
+            .OrderBy(c => c.Id)
             .FirstOrDefaultAsync(c => c.Id == cariId.Value);
 
         if (cari == null)
@@ -1622,7 +1637,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (!string.IsNullOrWhiteSpace(cari.TcKimlikNo))
         {
             var tc = cari.TcKimlikNo.Trim();
-            var byTc = await query.FirstOrDefaultAsync(s => s.TcKimlikNo == tc);
+            var byTc = await query.OrderBy(s => s.Id).FirstOrDefaultAsync(s => s.TcKimlikNo == tc);
             if (byTc != null)
                 return byTc;
         }
@@ -1630,7 +1645,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (!string.IsNullOrWhiteSpace(cari.Email))
         {
             var email = cari.Email.Trim();
-            var byEmail = await query.FirstOrDefaultAsync(s => s.Email == email);
+            var byEmail = await query.OrderBy(s => s.Id).FirstOrDefaultAsync(s => s.Email == email);
             if (byEmail != null)
                 return byEmail;
         }
@@ -1638,7 +1653,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         if (!string.IsNullOrWhiteSpace(cari.Telefon))
         {
             var telefon = cari.Telefon.Trim();
-            var byTelefon = await query.FirstOrDefaultAsync(s => s.Telefon == telefon);
+            var byTelefon = await query.OrderBy(s => s.Id).FirstOrDefaultAsync(s => s.Telefon == telefon);
             if (byTelefon != null)
                 return byTelefon;
         }
@@ -1647,7 +1662,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
             return null;
 
         var unvan = cari.Unvan.Trim();
-        return await query.FirstOrDefaultAsync(s => ((s.Ad ?? string.Empty) + " " + (s.Soyad ?? string.Empty)) == unvan);
+        return await query.OrderBy(s => s.Id).FirstOrDefaultAsync(s => ((s.Ad ?? string.Empty) + " " + (s.Soyad ?? string.Empty)) == unvan);
     }
 
     private static string GetKaynakTip(FisKaynak kaynak)
@@ -1736,6 +1751,7 @@ public class KolayMuhasebeService : IKolayMuhasebeService
         // Mevcut stok var mı kontrol et
         var mevcut = await context.StokKartlari
             .AsNoTracking()
+            .OrderBy(s => s.Id)
             .FirstOrDefaultAsync(s => s.StokAdi == stokAdi && !s.IsDeleted);
 
         if (mevcut != null)

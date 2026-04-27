@@ -1090,6 +1090,7 @@ public class BordroService : IBordroService
         using var context = await _contextFactory.CreateDbContextAsync();
         
         var ayar = await context.BordroAyarlar
+            .OrderBy(a => a.Id)
             .FirstOrDefaultAsync(a => a.FirmaId == firmaId);
 
         if (ayar == null)

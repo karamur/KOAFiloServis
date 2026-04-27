@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,12 +16,13 @@ public static class PersonelAvansHesapMigrationHelper
         {
             if (!context.Database.IsNpgsql()) return;
 
-            var ayar = await context.MuhasebeAyarlari.FirstOrDefaultAsync() ?? new MuhasebeAyar();
+            var ayar = await context.MuhasebeAyarlari.OrderBy(a => a.Id).FirstOrDefaultAsync() ?? new MuhasebeAyar();
             var avansPrefix = string.IsNullOrWhiteSpace(ayar.PersonelAvansPrefix) ? "195.01" : ayar.PersonelAvansPrefix;
 
             // 195 ana hesabını kontrol et/oluştur
             var kod195 = avansPrefix.Split('.')[0];
             var hesap195 = await context.MuhasebeHesaplari
+                .OrderBy(h => h.Id)
                 .FirstOrDefaultAsync(h => h.HesapKodu == kod195);
             if (hesap195 == null)
             {
@@ -42,6 +43,7 @@ public static class PersonelAvansHesapMigrationHelper
 
             // 195.01 alt hesabını kontrol et/oluştur
             var hesap195_01 = await context.MuhasebeHesaplari
+                .OrderBy(h => h.Id)
                 .FirstOrDefaultAsync(h => h.HesapKodu == avansPrefix);
             if (hesap195_01 == null)
             {
@@ -72,6 +74,7 @@ public static class PersonelAvansHesapMigrationHelper
             {
                 // Zaten bu isimde 195.01.XXX var mı?
                 var mevcutAvansHesap = await context.MuhasebeHesaplari
+                    .OrderBy(h => h.Id)
                     .FirstOrDefaultAsync(h => h.HesapKodu.StartsWith(avansPrefix + ".") && h.HesapAdi == cari.Unvan);
 
                 if (mevcutAvansHesap == null)
