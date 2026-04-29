@@ -31,6 +31,9 @@ public class Sofor : BaseEntity
     public DateTime? SrcBelgesiGecerlilikTarihi { get; set; }
     public DateTime? PsikoteknikGecerlilikTarihi { get; set; }
     public DateTime? SaglikRaporuGecerlilikTarihi { get; set; }
+    public DateTime? KimlikGecerlilikTarihi { get; set; }
+    public DateTime? AdliSicilGecerlilikTarihi { get; set; }
+    public DateTime? SuruculCezaBarkodluBelgeTarihi { get; set; }
     
     // Genel Bilgiler
     public DateTime? IseBaslamaTarihi { get; set; }

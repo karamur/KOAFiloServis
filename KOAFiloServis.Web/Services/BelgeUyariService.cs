@@ -1,3 +1,4 @@
+﻿using System.IO.Compression;
 using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
@@ -7,10 +8,17 @@ namespace KOAFiloServis.Web.Services;
 public class BelgeUyariService : IBelgeUyariService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+    private readonly IPersonelOzlukService _ozlukService;
+    private readonly ISecureFileService _secureFileService;
 
-    public BelgeUyariService(IDbContextFactory<ApplicationDbContext> contextFactory)
+    public BelgeUyariService(
+        IDbContextFactory<ApplicationDbContext> contextFactory,
+        IPersonelOzlukService ozlukService,
+        ISecureFileService secureFileService)
     {
         _contextFactory = contextFactory;
+        _ozlukService = ozlukService;
+        _secureFileService = secureFileService;
     }
 
     public async Task<BelgeUyariOzet> GetBelgeUyarilarAsync(int yaklasanGunSayisi = 30)
@@ -307,5 +315,109 @@ public class BelgeUyariService : IBelgeUyariService
 
         return ozet;
     }
+
+    public async Task<List<PersonelBelgeTabloKalemi>> GetPersonelBelgeTablosuAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var soforler = await context.Soforler
+            .AsNoTracking()
+            .Where(s => !s.IsDeleted)
+            .OrderBy(s => s.SiralamaNo == 0 ? int.MaxValue : s.SiralamaNo)
+            .ThenBy(s => s.Ad)
+            .ToListAsync();
+
+        var result = new List<PersonelBelgeTabloKalemi>();
+        foreach (var s in soforler)
+        {
+            var evrakDurum = await _ozlukService.GetPersonelEvrakDurumuAsync(s.Id);
+            var dosyalar = evrakDurum.Evraklar
+                .Select(e => new OzlukEvrakDosyaBilgisi
+                {
+                    EvrakTanimId = e.EvrakTanimId,
+                    EvrakAdi = e.EvrakAdi,
+                    DosyaYolu = e.DosyaYolu,
+                    DosyaAdi = e.DosyaYolu != null ? Path.GetFileName(e.DosyaYolu) : null
+                }).ToList();
+
+            result.Add(new PersonelBelgeTabloKalemi
+            {
+                SoforId = s.Id,
+                PersonelAdi = s.TamAd,
+                PersonelKodu = s.SoforKodu,
+                Gorev = s.Gorev.ToString(),
+                Aktif = s.Aktif,
+                ToplamEvrakSayisi = evrakDurum.ToplamEvrak,
+                YuklenmisEvrakSayisi = evrakDurum.TamamlananEvrak,
+                EvrakDosyalari = dosyalar,
+                EhliyetGecerlilik = s.EhliyetGecerlilikTarihi,
+                KimlikGecerlilik = s.KimlikGecerlilikTarihi,
+                SrcGecerlilik = s.SrcBelgesiGecerlilikTarihi,
+                PsikoteknikGecerlilik = s.PsikoteknikGecerlilikTarihi,
+                AdliSicilGecerlilik = s.AdliSicilGecerlilikTarihi,
+                SaglikRaporuGecerlilik = s.SaglikRaporuGecerlilikTarihi,
+                SuruculCezaBarkodGecerlilik = s.SuruculCezaBarkodluBelgeTarihi
+            });
+        }
+        return result;
+    }
+
+    public async Task<bool> PersonelBelgeTarihGuncelleAsync(int soforId, string belgeAlani, DateTime? tarih)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var sofor = await context.Soforler.FindAsync(soforId);
+        if (sofor == null) return false;
+
+        switch (belgeAlani)
+        {
+            case "Ehliyet": sofor.EhliyetGecerlilikTarihi = tarih; break;
+            case "Kimlik": sofor.KimlikGecerlilikTarihi = tarih; break;
+            case "Src": sofor.SrcBelgesiGecerlilikTarihi = tarih; break;
+            case "Psikoteknik": sofor.PsikoteknikGecerlilikTarihi = tarih; break;
+            case "AdliSicil": sofor.AdliSicilGecerlilikTarihi = tarih; break;
+            case "SaglikRaporu": sofor.SaglikRaporuGecerlilikTarihi = tarih; break;
+            case "SuruculCezaBarkod": sofor.SuruculCezaBarkodluBelgeTarihi = tarih; break;
+            default: return false;
+        }
+
+        sofor.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<byte[]> PersonelBelgePdfAsync(int soforId)
+    {
+        return await _ozlukService.ExportPersonelDosyaPdfAsync(soforId);
+    }
+
+    public async Task<byte[]> SeciliPersonelBelgelerZipAsync(List<int> soforIdler)
+    {
+        using var zipMs = new MemoryStream();
+        using (var archive = new ZipArchive(zipMs, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var soforId in soforIdler)
+            {
+                var evrakDurum = await _ozlukService.GetPersonelEvrakDurumuAsync(soforId);
+                var personelKlasoru = evrakDurum.PersonelKodu ?? soforId.ToString();
+
+                foreach (var evrak in evrakDurum.Evraklar.Where(e => !string.IsNullOrEmpty(e.DosyaYolu)))
+                {
+                    var icerik = await _secureFileService.ReadDecryptedAsync(evrak.DosyaYolu);
+                    if (icerik == null || icerik.Length == 0) continue;
+
+                    var uzanti = Path.GetExtension(evrak.DosyaYolu);
+                    var guvenliAd = string.Join("_", evrak.EvrakAdi.Split(Path.GetInvalidFileNameChars()));
+                    var zipYolu = $"{personelKlasoru}/{guvenliAd}{uzanti}";
+
+                    var entry = archive.CreateEntry(zipYolu, CompressionLevel.Optimal);
+                    await using var entryStream = entry.Open();
+                    await entryStream.WriteAsync(icerik);
+                }
+            }
+        }
+        zipMs.Position = 0;
+        return zipMs.ToArray();
+    }
 }
+
 

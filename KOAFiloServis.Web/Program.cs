@@ -1,4 +1,4 @@
-using KOAFiloServis.Web.Components;
+﻿using KOAFiloServis.Web.Components;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Helpers;
 using KOAFiloServis.Web.Jobs;
@@ -629,6 +629,13 @@ await RunScopedSafeAsync(app, "PersonelAvansHesapMigration", async services =>
 {
     var context = services.GetRequiredService<ApplicationDbContext>();
     await KOAFiloServis.Web.Data.Migrations.PersonelAvansHesapMigrationHelper.ApplyPersonelAvansHesaplariAsync(context);
+});
+
+await RunScopedSafeAsync(app, "PersonelBelgeTarihleriMigration", async services =>
+{
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    await KOAFiloServis.Web.Data.Migrations.PersonelBelgeTarihleriMigrationHelper.ApplyPersonelBelgeTarihleriAsync(context, logger);
 });
 
 await RunScopedSafeAsync(app, "SeedDefaultEvrakTanimlari", async services =>

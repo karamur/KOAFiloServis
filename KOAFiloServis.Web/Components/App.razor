@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="tr">
 
 <head>
@@ -111,6 +111,24 @@
 
         function getLocalStorageItem(key) {
             return window.localStorage.getItem(key);
+        }
+
+        // PDF yazdırma (base64)
+        function printBase64Pdf(base64Content) {
+            const byteCharacters = atob(base64Content);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+            const blobUrl = URL.createObjectURL(blob);
+            const printWindow = window.open(blobUrl, '_blank');
+            if (printWindow) {
+                printWindow.addEventListener('load', function () {
+                    setTimeout(function () { printWindow.print(); }, 500);
+                });
+            }
         }
     </script>
     <!-- Leaflet.js Harita Kütüphanesi -->

@@ -1,10 +1,14 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 
 namespace KOAFiloServis.Web.Services;
 
 public interface IBelgeUyariService
 {
     Task<BelgeUyariOzet> GetBelgeUyarilarAsync(int yaklasanGunSayisi = 30);
+    Task<List<PersonelBelgeTabloKalemi>> GetPersonelBelgeTablosuAsync();
+    Task<bool> PersonelBelgeTarihGuncelleAsync(int soforId, string belgeAlani, DateTime? tarih);
+    Task<byte[]> SeciliPersonelBelgelerZipAsync(List<int> soforIdler);
+    Task<byte[]> PersonelBelgePdfAsync(int soforId);
 }
 
 public class BelgeUyariOzet
@@ -134,4 +138,59 @@ public class PersonelBelgeDetay
             };
         }
     }
+}
+
+/// <summary>
+/// Personel belge takip tablosu – her satır bir personel, sütunlar belge türleri
+/// </summary>
+public class PersonelBelgeTabloKalemi
+{
+    public int SoforId { get; set; }
+    public string PersonelAdi { get; set; } = string.Empty;
+    public string PersonelKodu { get; set; } = string.Empty;
+    public string Gorev { get; set; } = string.Empty;
+    public bool Aktif { get; set; }
+    public bool Secili { get; set; } = false;
+
+    // Özlük evrak dosyaları
+    public int ToplamEvrakSayisi { get; set; }
+    public int YuklenmisEvrakSayisi { get; set; }
+    public List<OzlukEvrakDosyaBilgisi> EvrakDosyalari { get; set; } = new();
+
+    // Belge tarihleri
+    public DateTime? EhliyetGecerlilik { get; set; }
+    public DateTime? KimlikGecerlilik { get; set; }
+    public DateTime? SrcGecerlilik { get; set; }
+    public DateTime? PsikoteknikGecerlilik { get; set; }
+    public DateTime? AdliSicilGecerlilik { get; set; }
+    public DateTime? SaglikRaporuGecerlilik { get; set; }
+    public DateTime? SuruculCezaBarkodGecerlilik { get; set; }
+
+    // Yardımcı: belge durumu rengi
+    public static string BelgeDurumClass(DateTime? tarih) => tarih == null ? "bg-secondary"
+        : (tarih.Value - DateTime.Today).Days switch
+        {
+            < 0 => "bg-danger",
+            <= 7 => "bg-warning text-dark",
+            <= 30 => "bg-info",
+            _ => "bg-success"
+        };
+
+    public static string BelgeDurumMetin(DateTime? tarih) => tarih == null ? "Yok"
+        : (tarih.Value - DateTime.Today).Days switch
+        {
+            var d when d < 0 => $"{Math.Abs(d)}g geçti",
+            var d when d <= 30 => $"{d}g kaldı",
+            _ => tarih.Value.ToString("dd.MM.yy")
+        };
+}
+
+public class OzlukEvrakDosyaBilgisi
+{
+    public int EvrakTanimId { get; set; }
+    public string EvrakAdi { get; set; } = string.Empty;
+    public string? DosyaYolu { get; set; }
+    public string? DosyaAdi { get; set; }
+    public bool DosyaVar => !string.IsNullOrEmpty(DosyaYolu);
+    public bool Secili { get; set; } = false;
 }
