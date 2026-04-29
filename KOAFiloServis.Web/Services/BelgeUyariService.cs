@@ -362,6 +362,45 @@ public class BelgeUyariService : IBelgeUyariService
         return result;
     }
 
+    public async Task<PersonelBelgeTabloKalemi?> GetTekPersonelBelgeAsync(int soforId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var s = await context.Soforler
+            .AsNoTracking()
+            .Where(x => x.Id == soforId && !x.IsDeleted)
+            .FirstOrDefaultAsync();
+        if (s == null) return null;
+
+        var evrakDurum = await _ozlukService.GetPersonelEvrakDurumuAsync(s.Id);
+        var dosyalar = evrakDurum.Evraklar
+            .Select(e => new OzlukEvrakDosyaBilgisi
+            {
+                EvrakTanimId = e.EvrakTanimId,
+                EvrakAdi = e.EvrakAdi,
+                DosyaYolu = e.DosyaYolu,
+                DosyaAdi = e.DosyaYolu != null ? Path.GetFileName(e.DosyaYolu) : null
+            }).ToList();
+
+        return new PersonelBelgeTabloKalemi
+        {
+            SoforId = s.Id,
+            PersonelAdi = s.TamAd,
+            PersonelKodu = s.SoforKodu,
+            Gorev = s.Gorev.ToString(),
+            Aktif = s.Aktif,
+            ToplamEvrakSayisi = evrakDurum.ToplamEvrak,
+            YuklenmisEvrakSayisi = evrakDurum.TamamlananEvrak,
+            EvrakDosyalari = dosyalar,
+            EhliyetGecerlilik = s.EhliyetGecerlilikTarihi,
+            KimlikGecerlilik = s.KimlikGecerlilikTarihi,
+            SrcGecerlilik = s.SrcBelgesiGecerlilikTarihi,
+            PsikoteknikGecerlilik = s.PsikoteknikGecerlilikTarihi,
+            AdliSicilGecerlilik = s.AdliSicilGecerlilikTarihi,
+            SaglikRaporuGecerlilik = s.SaglikRaporuGecerlilikTarihi,
+            SuruculCezaBarkodGecerlilik = s.SuruculCezaBarkodluBelgeTarihi
+        };
+    }
+
     public async Task<bool> PersonelBelgeTarihGuncelleAsync(int soforId, string belgeAlani, DateTime? tarih)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
@@ -390,7 +429,7 @@ public class BelgeUyariService : IBelgeUyariService
         return await _ozlukService.ExportPersonelDosyaPdfAsync(soforId);
     }
 
-    public async Task<byte[]> SeciliPersonelBelgelerZipAsync(List<int> soforIdler)
+    public async Task<byte[]> SeciliPersonelBelgelerZipAsync(List<int> soforIdler, List<string>? seciliDosyaYollari = null)
     {
         using var zipMs = new MemoryStream();
         using (var archive = new ZipArchive(zipMs, ZipArchiveMode.Create, leaveOpen: true))
@@ -398,16 +437,26 @@ public class BelgeUyariService : IBelgeUyariService
             foreach (var soforId in soforIdler)
             {
                 var evrakDurum = await _ozlukService.GetPersonelEvrakDurumuAsync(soforId);
-                var personelKlasoru = evrakDurum.PersonelKodu ?? soforId.ToString();
+                var personelKlasoru = string.Join("_",
+                    (evrakDurum.PersonelAdi?.Length > 0 ? evrakDurum.PersonelAdi : evrakDurum.PersonelKodu ?? soforId.ToString())
+                    .Split(Path.GetInvalidFileNameChars()));
 
-                foreach (var evrak in evrakDurum.Evraklar.Where(e => !string.IsNullOrEmpty(e.DosyaYolu)))
+                // Seçili dosya yolu filtresi varsa uygula
+                var evraklar = evrakDurum.Evraklar
+                    .Where(e => !string.IsNullOrEmpty(e.DosyaYolu))
+                    .Where(e => seciliDosyaYollari == null || seciliDosyaYollari.Contains(e.DosyaYolu!))
+                    .ToList();
+
+                foreach (var evrak in evraklar)
                 {
                     var icerik = await _secureFileService.ReadDecryptedAsync(evrak.DosyaYolu);
                     if (icerik == null || icerik.Length == 0) continue;
 
                     var uzanti = Path.GetExtension(evrak.DosyaYolu);
-                    var guvenliAd = string.Join("_", evrak.EvrakAdi.Split(Path.GetInvalidFileNameChars()));
-                    var zipYolu = $"{personelKlasoru}/{guvenliAd}{uzanti}";
+                    var guvenliEvrakAd = string.Join("_", evrak.EvrakAdi.Split(Path.GetInvalidFileNameChars()));
+                    var zipYolu = soforIdler.Count > 1
+                        ? $"{personelKlasoru}/{guvenliEvrakAd}{uzanti}"
+                        : $"{guvenliEvrakAd}{uzanti}";
 
                     var entry = archive.CreateEntry(zipYolu, CompressionLevel.Optimal);
                     await using var entryStream = entry.Open();

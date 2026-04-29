@@ -6,8 +6,9 @@ public interface IBelgeUyariService
 {
     Task<BelgeUyariOzet> GetBelgeUyarilarAsync(int yaklasanGunSayisi = 30);
     Task<List<PersonelBelgeTabloKalemi>> GetPersonelBelgeTablosuAsync();
+    Task<PersonelBelgeTabloKalemi?> GetTekPersonelBelgeAsync(int soforId);
     Task<bool> PersonelBelgeTarihGuncelleAsync(int soforId, string belgeAlani, DateTime? tarih);
-    Task<byte[]> SeciliPersonelBelgelerZipAsync(List<int> soforIdler);
+    Task<byte[]> SeciliPersonelBelgelerZipAsync(List<int> soforIdler, List<string>? seciliDosyaYollari = null);
     Task<byte[]> PersonelBelgePdfAsync(int soforId);
 }
 

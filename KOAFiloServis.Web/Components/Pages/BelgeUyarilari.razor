@@ -643,15 +643,23 @@
                                         <td class="text-center p-1">
                                             @BelgeCelHtml(item, "SuruculCezaBarkod", item.SuruculCezaBarkodGecerlilik)
                                         </td>
-                                        <td class="text-center p-1">
-                                            <div class="d-flex gap-1 justify-content-center">
-                                                <button class="btn btn-xs btn-outline-info" title="Özlük İşlem — Belgeler"
-                                                        @onclick="() => OzlukIslemAc(item)">
-                                                    <i class="bi bi-file-earmark-person"></i>
-                                                </button>
-                                                <a class="btn btn-xs btn-outline-secondary" href="/personel/@item.SoforId/ozluk-evrak" title="Özlük Evrak Sayfası">
-                                                    <i class="bi bi-folder2-open"></i>
-                                                </a>
+                                        <td class="text-center p-1" style="min-width:110px;">
+                                            <div class="d-flex flex-column align-items-center gap-1">
+                                                <div class="d-flex gap-1">
+                                                    <button class="btn btn-xs btn-outline-info" title="Özlük İşlem — Belgeleri Görüntüle / İndir"
+                                                            @onclick="() => OzlukIslemAc(item)">
+                                                        <i class="bi bi-file-earmark-person"></i>
+                                                    </button>
+                                                    <a class="btn btn-xs btn-outline-secondary" href="/personel/@item.SoforId/ozluk-evrak" title="Özlük Evrak Sayfası">
+                                                        <i class="bi bi-folder2-open"></i>
+                                                    </a>
+                                                </div>
+                                                @if (item.ToplamEvrakSayisi > 0)
+                                                {
+                                                    <span class="badge @(item.YuklenmisEvrakSayisi == item.ToplamEvrakSayisi ? "bg-success" : item.YuklenmisEvrakSayisi == 0 ? "bg-secondary" : "bg-warning text-dark")" style="font-size:0.65rem;">
+                                                        @item.YuklenmisEvrakSayisi/@item.ToplamEvrakSayisi
+                                                    </span>
+                                                }
                                             </div>
                                         </td>
                                     </tr>
@@ -1073,31 +1081,26 @@
     {
         ozlukModalItem = item;
         showOzlukModal = true;
-
-        // Evrak dosyaları henüz yüklenmediyse yükle
-        if (!item.EvrakDosyalari.Any())
+        isOzlukYukleniyor = true;
+        StateHasChanged();
+        try
         {
-            isOzlukYukleniyor = true;
+            var guncel = await BelgeUyariService.GetTekPersonelBelgeAsync(item.SoforId);
+            if (guncel != null)
+            {
+                item.EvrakDosyalari = guncel.EvrakDosyalari;
+                item.ToplamEvrakSayisi = guncel.ToplamEvrakSayisi;
+                item.YuklenmisEvrakSayisi = guncel.YuklenmisEvrakSayisi;
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Evrak bilgileri alınamadı: {ex.Message}");
+        }
+        finally
+        {
+            isOzlukYukleniyor = false;
             StateHasChanged();
-            try
-            {
-                var guncel = (await BelgeUyariService.GetPersonelBelgeTablosuAsync())
-                    .FirstOrDefault(p => p.SoforId == item.SoforId);
-                if (guncel != null)
-                {
-                    item.EvrakDosyalari = guncel.EvrakDosyalari;
-                    item.ToplamEvrakSayisi = guncel.ToplamEvrakSayisi;
-                    item.YuklenmisEvrakSayisi = guncel.YuklenmisEvrakSayisi;
-                }
-            }
-            catch (Exception ex)
-            {
-                ToastService.ShowError($"Evrak bilgileri alınamadı: {ex.Message}");
-            }
-            finally
-            {
-                isOzlukYukleniyor = false;
-            }
         }
     }
 
@@ -1150,12 +1153,19 @@
         if (!seciliDosyalar.Any()) { ToastService.ShowWarning("Lütfen belge seçin."); return; }
         try
         {
+            var seciliYollar = seciliDosyalar.Select(d => d.DosyaYolu!).ToList();
             var zipBytes = await BelgeUyariService.SeciliPersonelBelgelerZipAsync(
-                new List<int> { ozlukModalItem.SoforId });
-            var dosyaAdi = $"{ozlukModalItem.PersonelKodu}_Belgeler_{DateTime.Now:yyyyMMdd_HHmm}.zip";
-            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi,
-                Convert.ToBase64String(zipBytes), "application/zip");
-            ToastService.ShowSuccess("Belgeler indirildi.");
+                new List<int> { ozlukModalItem.SoforId }, seciliYollar);
+            if (zipBytes.Length == 0) { ToastService.ShowWarning("İndirilebilecek belge bulunamadı."); return; }
+            var dosyaAdi = seciliDosyalar.Count == 1
+                ? (seciliDosyalar[0].DosyaAdi ?? $"{seciliDosyalar[0].EvrakAdi}{Path.GetExtension(seciliDosyalar[0].DosyaYolu ?? "")}") 
+                : $"{ozlukModalItem.PersonelKodu}_Belgeler_{DateTime.Now:yyyyMMdd_HHmm}.zip";
+            var contentType = seciliDosyalar.Count == 1
+                ? Path.GetExtension(seciliDosyalar[0].DosyaYolu ?? "").ToLower() switch
+                  { ".pdf" => "application/pdf", ".jpg" or ".jpeg" => "image/jpeg", ".png" => "image/png", _ => "application/octet-stream" }
+                : "application/zip";
+            await JS.InvokeVoidAsync("downloadFile", dosyaAdi, Convert.ToBase64String(zipBytes), contentType);
+            ToastService.ShowSuccess($"{seciliDosyalar.Count} belge indirildi.");
         }
         catch (Exception ex)
         {
@@ -1169,9 +1179,9 @@
         try
         {
             var pdfBytes = await BelgeUyariService.PersonelBelgePdfAsync(ozlukModalItem.SoforId);
+            if (pdfBytes.Length == 0) { ToastService.ShowWarning("PDF oluşturulamadı."); return; }
             var dosyaAdi = $"{ozlukModalItem.PersonelKodu}_OzlukBelgeler_{DateTime.Now:yyyyMMdd}.pdf";
-            await JS.InvokeVoidAsync("downloadFileFromBase64", dosyaAdi,
-                Convert.ToBase64String(pdfBytes), "application/pdf");
+            await JS.InvokeVoidAsync("downloadFile", dosyaAdi, Convert.ToBase64String(pdfBytes), "application/pdf");
             ToastService.ShowSuccess("PDF indirildi.");
         }
         catch (Exception ex)
