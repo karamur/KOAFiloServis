@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Data;
@@ -105,11 +105,32 @@ public class BackupService : IBackupService
                     result = await CreateMySqlBackupAsync(backupFilePath);
                     break;
 
+                case "MONGO":
+                case "MONGODB":
+                    backupFileName = $"KOAFiloServis_Mongo_{timestamp}.json";
+                    backupFilePath = Path.Combine(backupFolder, backupFileName);
+                    await CreateJsonBackupAsync(backupFilePath);
+                    result = CreateSuccessResult(backupFilePath);
+                    break;
+
+                case "EXCEL":
+                    backupFileName = $"KOAFiloServis_Excel_{timestamp}.json";
+                    backupFilePath = Path.Combine(backupFolder, backupFileName);
+                    await CreateJsonBackupAsync(backupFilePath);
+                    result = CreateSuccessResult(backupFilePath);
+                    break;
+
                 case "SQLITE":
-                default:
                     backupFileName = $"KOAFiloServis_SQLite_{timestamp}.db";
                     backupFilePath = Path.Combine(backupFolder, backupFileName);
                     result = await CreateSqliteBackupAsync(backupFilePath);
+                    break;
+
+                default:
+                    backupFileName = $"KOAFiloServis_{dbProvider}_{timestamp}.json";
+                    backupFilePath = Path.Combine(backupFolder, backupFileName);
+                    await CreateJsonBackupAsync(backupFilePath);
+                    result = CreateSuccessResult(backupFilePath);
                     break;
             }
 
@@ -128,7 +149,6 @@ public class BackupService : IBackupService
 
         return result;
     }
-
     private async Task<BackupResult> CreateSqliteBackupAsync(string backupFilePath)
     {
         var result = new BackupResult();
@@ -659,13 +679,19 @@ public class BackupService : IBackupService
 
     private static BackupResult CreateSuccessResult(string filePath)
     {
-        var fileInfo = new FileInfo(filePath);
+        long fileSize = 0;
+        try
+        {
+            fileSize = new FileInfo(filePath).Length;
+        }
+        catch (IOException) { /* dosya hala yazılıyor olabilir, boyutu 0 bırak */ }
+
         return new BackupResult
         {
             Success = true,
             FileName = Path.GetFileName(filePath),
             FilePath = filePath,
-            FileSizeBytes = fileInfo.Length,
+            FileSizeBytes = fileSize,
             CreatedAt = DateTime.Now
         };
     }
@@ -680,7 +706,7 @@ public class BackupService : IBackupService
         {
             // KOAFiloServis_ ile baslayan dosyalar
             var crmFiles = Directory.GetFiles(backupFolder, "KOAFiloServis_*.*", SearchOption.AllDirectories)
-                .Where(f => f.EndsWith(".sql") || f.EndsWith(".json") || f.EndsWith(".db") || f.EndsWith(".bak"));
+                .Where(f => f.EndsWith(".sql") || f.EndsWith(".json") || f.EndsWith(".db") || f.EndsWith(".bak") || f.EndsWith(".backup"));
 
             // uploaded_ ile baslayan dosyalar (disaridan yuklenen)
             var uploadedFiles = Directory.GetFiles(backupFolder, "uploaded_*.*", SearchOption.AllDirectories)
@@ -698,14 +724,22 @@ public class BackupService : IBackupService
 
             foreach (var file in allFiles)
             {
-                var fileInfo = new FileInfo(file);
-                backups.Add(new BackupInfo
+                try
                 {
-                    FileName = fileInfo.Name,
-                    FilePath = file,
-                    FileSizeBytes = fileInfo.Length,
-                    CreatedAt = fileInfo.CreationTime
-                });
+                    var fileInfo = new FileInfo(file);
+                    backups.Add(new BackupInfo
+                    {
+                        FileName = fileInfo.Name,
+                        FilePath = file,
+                        FileSizeBytes = fileInfo.Length,
+                        CreatedAt = fileInfo.CreationTime
+                    });
+                }
+                catch (IOException)
+                {
+                    // Dosya baska bir islem tarafindan kullaniliyorsa atla
+                    _logger.LogWarning("Yedek listesine eklenemedi (kullanımda): {File}", file);
+                }
             }
         }
 
@@ -1810,3 +1844,4 @@ public class BackupService : IBackupService
         }
     }
 }
+

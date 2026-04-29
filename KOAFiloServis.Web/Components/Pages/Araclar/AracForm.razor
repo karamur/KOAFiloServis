@@ -1,4 +1,4 @@
-﻿@page "/araclar/yeni"
+@page "/araclar/yeni"
 @page "/araclar/{Id:int}"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -274,12 +274,6 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-md-4">
-                        <div class="mb-3">
-                            <label class="form-label">Koltuk Sigortası Başlangıç</label>
-                            <InputDate @bind-Value="arac.KoltukSigortasiBaslangiçTarihi" class="form-control" />
-                        </div>
-                    </div>
                     <div class="col-md-4">
                         <div class="mb-3">
                             <label class="form-label">Koltuk Sigortası Bitiş</label>
@@ -1112,3 +1106,5 @@
 
     #endregion
 }
+
+

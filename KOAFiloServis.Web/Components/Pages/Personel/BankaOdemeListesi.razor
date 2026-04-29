@@ -1,4 +1,4 @@
-@page "/personel/banka-odeme-listesi"
+﻿@page "/personel/banka-odeme-listesi"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
@@ -146,12 +146,16 @@
                                         }
                                     </td>
                                     <td class="text-end bg-info bg-opacity-10" style="width:160px;">
-                                        <div class="input-group input-group-sm">
+                                        <div class="form-control form-control-sm text-end fw-bold">
+                                            <span class="card-text"></span>
+
+@* burasında input yerine direkt span ile gösterelim, banka yatana müdahale edilmesin. Değişiklik yapmak isteyen muhasebe personeli personel kartından yapar, oraya da kaydet butonu ekleyelim. Böylece yanlışlıkla değişiklik yapılmasının da önüne geçmiş oluruz.
                                             <input type="number" class="form-control form-control-sm text-end fw-bold"
                                                    step="0.01" min="0" placeholder="0.00"
                                                    value="@item.BankayaYatan.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)"
-                                                   @onchange="(e) => BankayaYatanDegisti(item, e)" disabled="@(!item.Personel.Aktif)" />
-                                            <span class="input-group-text">₺</span>
+                                                   @onchange="(e) => BankayaYatanDegisti(item, e)" disabled="@(!item.Personel.Aktif)" />*@
+
+                                            <span class="input-group-text">₺@item.BankayaYatan.ToString("0,000.##", System.Globalization.CultureInfo.InvariantCulture)</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -963,6 +967,7 @@
             item.Personel.ResmiNetMaas = item.BankayaYatan;
             item.Personel.NetMaas = item.BankayaYatan + item.Personel.DigerMaas;
             await SoforService.UpdateAsync(item.Personel);
+            ToastService.ShowSuccess($"{item.Personel.TamAd} – Bankaya Yatan güncellendi: {FormatPara(item.BankayaYatan)}");
         }
         catch (Exception ex)
         {

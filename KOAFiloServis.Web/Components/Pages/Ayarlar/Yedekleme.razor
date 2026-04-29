@@ -1,4 +1,4 @@
-@page "/ayarlar/yedekleme"
+﻿@page "/ayarlar/yedekleme"
 @using KOAFiloServis.Web.Helpers
 @using KOAFiloServis.Web.Services
 @using System.Globalization
@@ -15,13 +15,13 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3><i class="bi bi-database-down me-2"></i>Veritabani Yedekleme</h3>
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary" @onclick="() => showMigrationModal = true">
+            <button class="btn btn-outline-primary" @onclick="() => showMigrationModal = true" disabled="@IsAnyOperationInProgress">
                 <i class="bi bi-arrow-repeat me-1"></i>Migration
             </button>
-            <button class="btn btn-outline-warning" @onclick="() => showYukleModal = true">
+            <button class="btn btn-outline-warning" @onclick="() => showYukleModal = true" disabled="@IsAnyOperationInProgress">
                 <i class="bi bi-upload me-1"></i>Yedek Yukle
             </button>
-            <button class="btn btn-success" @onclick="YedekAl" disabled="@isBackingUp">
+            <button class="btn btn-success" @onclick="YedekAl" disabled="@IsAnyOperationInProgress">
                 @if (isBackingUp)
                 {
                     <span class="spinner-border spinner-border-sm me-1"></span>
@@ -169,7 +169,7 @@
                         <label class="form-label">Yedekleme Klasoru</label>
                         <input type="text" class="form-control" @bind="settings.BackupFolder" placeholder="Backups" />
                     </div>
-                    <button class="btn btn-primary" @onclick="AyarlariKaydet">
+                    <button class="btn btn-primary" @onclick="AyarlariKaydet" disabled="@IsAnyOperationInProgress">
                         <i class="bi bi-check-lg me-1"></i>Ayarlari Kaydet
                     </button>
                 </div>
@@ -181,7 +181,7 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-archive me-2"></i>Yedek Dosyalari (@backups.Count adet)</h5>
-            <button class="btn btn-outline-primary btn-sm" @onclick="YedekleriYenile">
+            <button class="btn btn-outline-primary btn-sm" @onclick="YedekleriYenile" disabled="@IsAnyOperationInProgress">
                 <i class="bi bi-arrow-clockwise"></i>
             </button>
         </div>
@@ -231,22 +231,22 @@
                                     </td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-success" @onclick="() => YedekIndir(backup)" title="Indir">
+                                            <button class="btn btn-outline-success" @onclick="() => YedekIndir(backup)" title="Indir" disabled="@IsAnyOperationInProgress">
                                                 <i class="bi bi-download"></i>
                                             </button>
                                             @if (CanRestore(backup.FileName))
                                             {
-                                                <button class="btn btn-outline-warning" @onclick="() => GeriYukleOnay(backup)" title="Geri Yukle">
+                                                <button class="btn btn-outline-warning" @onclick="() => GeriYukleOnay(backup)" title="Geri Yukle" disabled="@IsAnyOperationInProgress">
                                                     <i class="bi bi-arrow-counterclockwise"></i>
                                                 </button>
                                             }
                                             @if (CanConvert(backup.FileName))
                                             {
-                                                <button class="btn btn-outline-info" @onclick="() => DonusumAc(backup)" title="Donustur ve Yukle">
+                                                <button class="btn btn-outline-info" @onclick="() => DonusumAc(backup)" title="Donustur ve Yukle" disabled="@IsAnyOperationInProgress">
                                                     <i class="bi bi-arrow-left-right"></i>
                                                 </button>
                                             }
-                                            <button class="btn btn-outline-danger" @onclick="() => SilOnay(backup)" title="Sil">
+                                            <button class="btn btn-outline-danger" @onclick="() => SilOnay(backup)" title="Sil" disabled="@IsAnyOperationInProgress">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </div>
@@ -276,7 +276,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="() => showSilModal = false">Iptal</button>
-                    <button class="btn btn-danger" @onclick="YedekSil">Sil</button>
+                    <button class="btn btn-danger" @onclick="YedekSil" disabled="@IsAnyOperationInProgress">Sil</button>
                 </div>
             </div>
         </div>
@@ -301,7 +301,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="() => showRestoreModal = false">Iptal</button>
-                    <button class="btn btn-warning" @onclick="GeriYukle" disabled="@isRestoring">
+                    <button class="btn btn-warning" @onclick="GeriYukle" disabled="@IsAnyOperationInProgress">
                         @if (isRestoring)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -344,7 +344,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="() => { showYukleModal = false; yuklenecekDosya = null; }">Iptal</button>
-                    <button class="btn btn-warning" @onclick="YedekDosyaYukle" disabled="@(yuklenecekDosya == null || isUploading)">
+                    <button class="btn btn-warning" @onclick="YedekDosyaYukle" disabled="@(yuklenecekDosya == null || IsAnyOperationInProgress)">
                         @if (isUploading)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -382,7 +382,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="() => { showMigrationModal = false; migrationOnay = false; }">Iptal</button>
-                    <button class="btn btn-primary" @onclick="MigrationUygula" disabled="@(!migrationOnay || isMigrating)">
+                    <button class="btn btn-primary" @onclick="MigrationUygula" disabled="@(!migrationOnay || IsAnyOperationInProgress)">
                         @if (isMigrating)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -434,7 +434,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="() => { showDonusumModal = false; donusumOnay = false; }">Iptal</button>
-                    <button class="btn btn-info" @onclick="DonusumYap" disabled="@(!donusumOnay || isDonusuyor)">
+                    <button class="btn btn-info" @onclick="DonusumYap" disabled="@(!donusumOnay || IsAnyOperationInProgress)">
                         @if (isDonusuyor)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -545,13 +545,19 @@
     {
         try
         {
-            var bytes = await File.ReadAllBytesAsync(backup.FilePath);
+            byte[] bytes;
+            // FileShare.ReadWrite ile açarak başka işlemlerin dosyayı kullanmasına izin ver
+            await using (var fs = new FileStream(backup.FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                bytes = new byte[fs.Length];
+                await fs.ReadExactlyAsync(bytes, 0, bytes.Length);
+            }
             await JS.InvokeVoidAsync("downloadFileFromBase64", backup.FileName, Convert.ToBase64String(bytes));
             ToastService.ShowSuccess("Dosya indiriliyor...");
         }
         catch (Exception ex)
         {
-            ToastService.ShowError($"Indirme hatasi: {ex.Message}");
+            ToastService.ShowError($"İndirme hatası: {ex.Message}");
         }
     }
 
@@ -800,6 +806,8 @@
         }
     }
 
+    private bool IsAnyOperationInProgress => isBackingUp || isRestoring || isUploading || isMigrating || isDonusuyor;
+
     private static bool CanRestore(string fileName)
     {
         // JSON dosyalari restore edilemez
@@ -838,3 +846,7 @@
         return CultureInfo.GetCultureInfo("tr-TR").DateTimeFormat.GetDayName(day);
     }
 }
+
+
+
+

@@ -1,7 +1,7 @@
 @page "/ayarlar/sistem-saglik"
 @using KOAFiloServis.Web.Services
 @inject ISystemHealthService HealthService
-@inject DatabaseBackupService BackupService
+@inject IBackupService BackupService
 @inject IToastService ToastService
 @rendermode InteractiveServer
 
@@ -290,7 +290,7 @@
         try
         {
             report = await HealthService.GetHealthReportAsync();
-            backups = BackupService.GetBackupList();
+            backups = await BackupService.GetBackupListAsync();
         }
         catch (Exception ex)
         {
@@ -309,12 +309,12 @@
 
         try
         {
-            var result = await BackupService.CreateBackupAsync("Manuel");
+            var result = await BackupService.CreateBackupAsync();
 
             if (result.Success)
             {
                 ToastService.ShowSuccess($"Yedek oluşturuldu: {Path.GetFileName(result.FilePath)}");
-                backups = BackupService.GetBackupList();
+                backups = await BackupService.GetBackupListAsync();
             }
             else
             {
@@ -355,3 +355,4 @@
         _ => "Bilinmiyor"
     };
 }
+
