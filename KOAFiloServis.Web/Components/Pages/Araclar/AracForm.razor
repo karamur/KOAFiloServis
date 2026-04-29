@@ -1,4 +1,4 @@
-@page "/araclar/yeni"
+﻿@page "/araclar/yeni"
 @page "/araclar/{Id:int}"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -708,7 +708,10 @@
             loadWarning = $"Cari listesi yüklenemedi: {ex.GetBaseException().Message}";
             ToastService.ShowWarning(loadWarning);
         }
+    }
 
+    protected override async Task OnParametersSetAsync()
+    {
         if (IsEdit)
         {
             try
@@ -734,10 +737,27 @@
         }
         else
         {
-            arac.Aktif = true;
-            arac.AracTipi = AracTipi.Minibus;
-            arac.SahiplikTipi = AracSahiplikTipi.Ozmal;
+            YeniAracFormunuSifirla();
         }
+    }
+
+    private void YeniAracFormunuSifirla()
+    {
+        arac = new Arac
+        {
+            Aktif = true,
+            AracTipi = AracTipi.Minibus,
+            AracSinifi = AracSinifi.PersonelTasiti,
+            SahiplikTipi = AracSahiplikTipi.Ozmal
+        };
+
+        plaka = string.Empty;
+        aracEvraklari = new();
+        seciliEvrak = null;
+        dosyaYukleEvrak = null;
+        showYeniEvrakModal = false;
+        showEvrakDetayModal = false;
+        showDosyaYukleModal = false;
     }
 
     private async Task EvraklariYukle()
@@ -834,6 +854,9 @@
             {
                 await AracService.CreateAsync(arac, plaka!, PlakaIslemTipi.Alis);
                 ToastService.ShowSuccess($"{plaka} plakalı araç başarıyla eklendi.");
+                YeniAracFormunuSifirla();
+                Navigation.NavigateTo("/araclar/yeni", forceLoad: false);
+                return;
             }
             Navigation.NavigateTo("/araclar");
         }

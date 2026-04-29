@@ -623,6 +623,10 @@ public static class Yetkiler
     public const string GuncellemeOku = "guncelleme.oku";
     public const string GuncellemeUygula = "guncelleme.uygula";
 
+    // -- Arac Sase Yonetimi --
+    public const string AracSaseYonetimiOku = "aracsase.oku";
+    public const string AracSaseYonetimiDuzenle = "aracsase.duzenle";
+
     /// <summary>
     /// Tum yetki kodlarini dondurur
     /// </summary>
@@ -1023,6 +1027,11 @@ public static class Yetkiler
                 {
                     new(GuncellemeOku, "Kontrol", "bi-eye"),
                     new(GuncellemeUygula, "Uygulama", "bi-download"),
+                }),
+                new("Arac Sase Yonetimi", "bi-upc-scan", new List<YetkiTanim>
+                {
+                    new(AracSaseYonetimiOku, "Goruntuleme", "bi-eye"),
+                    new(AracSaseYonetimiDuzenle, "Duzenleme", "bi-pencil"),
                 }),
             }),
         };

@@ -247,6 +247,7 @@ public class AracService : IAracService
             existing.SatisaAcilmaTarihi = arac.SatisaAcilmaTarihi?.Date;
             
             // Sadece değiştirilebilir alanları güncelle
+            existing.SaseNo = arac.SaseNo.Trim().ToUpperInvariant();
             existing.Marka = arac.Marka;
             existing.Model = arac.Model;
             existing.ModelYili = arac.ModelYili;

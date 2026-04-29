@@ -1,4 +1,4 @@
-﻿namespace KOAFiloServis.Shared.Entities;
+namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
 /// Arac Evrak/Belge Yonetimi - Ruhsat, Sigorta, Muayene vb.
@@ -77,7 +77,6 @@ public static class EvrakKategorileri
     public const string TrafikSigortasi = "Trafik Sigortasi";
     public const string Kasko = "Kasko";
     public const string Muayene = "Muayene";
-    public const string SRCBelgesi = "SRC Belgesi";
     public const string YetkiBelgesi = "Yetki Belgesi";
     public const string UygunlukBelgesi = "Uygunluk Belgesi";
     public const string EmisyonBelgesi = "Emisyon Belgesi";
@@ -85,7 +84,7 @@ public static class EvrakKategorileri
 
     public static readonly string[] TumKategoriler = new[]
     {
-        Ruhsat, TrafikSigortasi, Kasko, Muayene, SRCBelgesi, 
+        Ruhsat, TrafikSigortasi, Kasko, Muayene, 
         YetkiBelgesi, UygunlukBelgesi, EmisyonBelgesi, Diger
     };
 }

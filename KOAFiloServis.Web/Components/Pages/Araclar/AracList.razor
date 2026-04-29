@@ -1,4 +1,4 @@
-@page "/araclar"
+﻿@page "/araclar"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
@@ -62,8 +62,16 @@
                     </datalist>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small">Marka / Model</label>
-                    <input type="text" class="form-control form-control-sm" @bind="filtreMarkaModel" placeholder="Marka veya model..." />
+                    <label class="form-label small">Marka</label>
+                    <input type="text" class="form-control form-control-sm" @bind="filtreMarka" placeholder="Marka ara..." />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Model Yılı</label>
+                    <input type="number" class="form-control form-control-sm" @bind="filtreModelYili" placeholder="Örn: 2020" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Koltuk Sayısı</label>
+                    <input type="number" class="form-control form-control-sm" @bind="filtreKoltukSayisi" placeholder="Örn: 27" min="0" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small">Araç Tipi</label>
@@ -114,6 +122,44 @@
         </div>
     </div>
 
+
+    @if (!isLoading)
+    {
+        <div class="row g-2 mb-3">
+            <div class="col-md-3">
+                <div class="card border-primary">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Filtre Sonucu Toplam</small>
+                        <div class="fs-4 fw-bold text-primary">@filtrelenmisAraclar.Count</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-success">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Aktif Araç</small>
+                        <div class="fs-4 fw-bold text-success">@filtrelenmisAraclar.Count(a => a.Aktif)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-info">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Boşta Durumdaki</small>
+                        <div class="fs-4 fw-bold text-info">@filtrelenmisAraclar.Count(a => a.Durumu == AracDurumu.Bosta || (int)a.Durumu == 0)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-warning">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Satış Durumu</small>
+                        <div class="fs-4 fw-bold text-warning">@filtrelenmisAraclar.Count(a => a.Durumu == AracDurumu.Satis || a.SatisaAcik)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
     @if (isLoading)
     {
         <div class="text-center py-5">
@@ -139,12 +185,14 @@
                                 <th>Şase No</th>
                                 <th>Aktif Plaka</th>
                                 <th>Geçmiş Plakalar</th>
-                                <th>Marka/Model</th>
+                                <th>Marka</th>
+                                <th>Model</th>
                                 <th>Araç Tipi</th>
                                 <th>Sınıf</th>
                                 <th>Sahiplik Tipi</th>
                                 <th>Durum</th>
                                 <th>Model Yılı</th>
+                                <th>Koltuk</th>
                                 <th>Kayıt T.</th>
                                 <th>Muayene</th>
                                 <th style="width: 120px;" class="text-center">İşlemler</th>
@@ -176,15 +224,16 @@
                                             <i class="bi bi-pencil-square ms-1 text-primary"></i>
                                         </button>
                                     </td>
-                                    <td><strong>@arac.Marka</strong> <span class="text-muted">@arac.Model</span></td>
+                                    <td><strong>@arac.Marka</strong></td>
+                                    <td><span class="text-muted">@arac.Model</span></td>
                                     <td>
-                                        <span class="badge bg-secondary">@GetTipText(arac.AracTipi)</span>
+                                        <span class="badge @GetTipBadgeClass(arac.AracTipi)">@GetTipText(arac.AracTipi)</span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-primary">@GetSinifText(arac.AracSinifi)</span>
+                                        <span class="badge @GetSinifBadgeClass(arac.AracSinifi)">@GetSinifText(arac.AracSinifi)</span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-info">@GetSahiplikText(arac.SahiplikTipi)</span>
+                                        <span class="badge @GetSahiplikBadgeClass(arac.SahiplikTipi)">@GetSahiplikText(arac.SahiplikTipi)</span>
                                     </td>
                                     <td>
                                         @{
@@ -206,6 +255,7 @@
                                         }
                                     </td>
                                     <td>@arac.ModelYili</td>
+                                    <td>@arac.KoltukSayisi</td>
                                     <td><small>@arac.CreatedAt.ToLocalTime().ToString("MM/yyyy")</small></td>
                                     <td>
                                         @if (arac.MuayeneBitisTarihi.HasValue)
@@ -233,6 +283,63 @@
                             }
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    }
+    @if (!isLoading && filtrelenmisAraclar.Any())
+    {
+        <div class="card mt-3">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Detaylı Araç Raporu (Filtre Sonucu)</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th colspan="2">Araç Tipi Dağılımı</th></tr></thead>
+                            <tbody>
+                                @foreach (AracTipi tip in Enum.GetValues(typeof(AracTipi)))
+                                {
+                                    var adet = filtrelenmisAraclar.Count(a => a.AracTipi == tip);
+                                    if (adet > 0)
+                                    {
+                                        <tr><td>@GetTipText(tip)</td><td class="text-end fw-bold">@adet</td></tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-4">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th colspan="2">Sınıf Dağılımı</th></tr></thead>
+                            <tbody>
+                                @foreach (AracSinifi sinif in Enum.GetValues(typeof(AracSinifi)))
+                                {
+                                    var adet = filtrelenmisAraclar.Count(a => a.AracSinifi == sinif);
+                                    if (adet > 0)
+                                    {
+                                        <tr><td>@GetSinifText(sinif)</td><td class="text-end fw-bold">@adet</td></tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-4">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th colspan="2">Sahiplik Dağılımı</th></tr></thead>
+                            <tbody>
+                                @foreach (AracSahiplikTipi sahiplik in Enum.GetValues(typeof(AracSahiplikTipi)))
+                                {
+                                    var adet = filtrelenmisAraclar.Count(a => a.SahiplikTipi == sahiplik);
+                                    if (adet > 0)
+                                    {
+                                        <tr><td>@GetSahiplikText(sahiplik)</td><td class="text-end fw-bold">@adet</td></tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -516,7 +623,9 @@
     private string filtreDurum = "Tumu";
     private string? filtreSase;
     private string? filtrePlaka;
-    private string? filtreMarkaModel;
+    private string? filtreMarka;
+    private int? filtreModelYili;
+    private int? filtreKoltukSayisi;
     private string filtreSinif = "Tumu";
     private string filtreSahiplikTipi = "Tumu";
     private string filtreSinifTipi = "Tumu";
@@ -572,14 +681,22 @@
                 a.PlakaGecmisi.Any(p => p.Plaka.Contains(filtrePlaka, StringComparison.OrdinalIgnoreCase))
             );
         }
-
-        // Marka Model
-        if (!string.IsNullOrWhiteSpace(filtreMarkaModel))
+        // Marka (tam/parsiyel)
+        if (!string.IsNullOrWhiteSpace(filtreMarka))
         {
-            sorgu = sorgu.Where(a => 
-                (a.Marka != null && a.Marka.Contains(filtreMarkaModel, StringComparison.OrdinalIgnoreCase)) ||
-                (a.Model != null && a.Model.Contains(filtreMarkaModel, StringComparison.OrdinalIgnoreCase))
-            );
+            sorgu = sorgu.Where(a => a.Marka != null && a.Marka.Contains(filtreMarka, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Model Yılı
+        if (filtreModelYili.HasValue)
+        {
+            sorgu = sorgu.Where(a => a.ModelYili == filtreModelYili.Value);
+        }
+
+        // Koltuk Sayısı
+        if (filtreKoltukSayisi.HasValue)
+        {
+            sorgu = sorgu.Where(a => a.KoltukSayisi == filtreKoltukSayisi.Value);
         }
 
         // Sınıf
@@ -620,7 +737,9 @@
         filtreDurum = "Tumu";
         filtreSase = null;
         filtrePlaka = null;
-        filtreMarkaModel = null;
+        filtreMarka = null;
+        filtreModelYili = null;
+        filtreKoltukSayisi = null;
         filtreSinif = "Tumu";
         filtreSahiplikTipi = "Tumu";
         filtreSinifTipi = "Tumu";
@@ -698,6 +817,32 @@
         AracSinifi.PersonelTasiti => "Personel Taşıtı",
         AracSinifi.OkulTasiti => "Okul Taşıtı",
         _ => sinif.ToString()
+    };
+
+    private string GetTipBadgeClass(AracTipi tip) => tip switch
+    {
+        AracTipi.Minibus => "bg-primary",
+        AracTipi.Midibus => "bg-info text-dark",
+        AracTipi.Otobus => "bg-success",
+        AracTipi.Otomobil => "bg-warning text-dark",
+        AracTipi.Panelvan => "bg-secondary",
+        _ => "bg-dark"
+    };
+
+    private string GetSinifBadgeClass(AracSinifi sinif) => sinif switch
+    {
+        AracSinifi.PersonelTasiti => "bg-primary",
+        AracSinifi.OkulTasiti => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private string GetSahiplikBadgeClass(AracSahiplikTipi tip) => tip switch
+    {
+        AracSahiplikTipi.Ozmal => "bg-success",
+        AracSahiplikTipi.Kiralik => "bg-warning text-dark",
+        AracSahiplikTipi.Komisyon => "bg-info text-dark",
+        AracSahiplikTipi.Diger => "bg-secondary",
+        _ => "bg-dark"
     };
 
     private string GetSahiplikText(AracSahiplikTipi tip) => tip switch
