@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Web.Services;
+using KOAFiloServis.Web.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -17,7 +17,7 @@ public class AppErrorBoundary : ErrorBoundary
         Logger.LogError(exception, "AppErrorBoundary yakaladı: {Message}", exception.Message);
 
         // JSException (downloadFile vb.) veya NavigationException ise navigate etme — sadece logla
-        if (exception is JSException || exception is NavigationException)
+        if (exception is JSException || exception is NavigationException || exception is JSDisconnectedException || exception is OperationCanceledException || exception is ObjectDisposedException)
         {
             Recover();
             return Task.CompletedTask;
@@ -32,3 +32,4 @@ public class AppErrorBoundary : ErrorBoundary
         return Task.CompletedTask;
     }
 }
+

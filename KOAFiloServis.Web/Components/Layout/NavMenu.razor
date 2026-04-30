@@ -1,5 +1,4 @@
-@rendermode InteractiveServer
-@using KOAFiloServis.Web.Services
+﻿@using KOAFiloServis.Web.Services
 @using KOAFiloServis.Shared.Entities
 @implements IDisposable
 @inject IKullaniciService KullaniciService
@@ -557,7 +556,7 @@
                                 <span><i class="bi bi-folder2-open me-2"></i>Resmi Evrak / Özlük</span>
                             </div>
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel/ozluk-evrak">
+                                <NavLink class="nav-link" href="/personel/ozluk-evrak">
                                     <i class="bi bi-clipboard-check me-2 text-warning"></i> Özlük Evrak Checklist
                                 </NavLink>
                             </div>
@@ -1332,10 +1331,22 @@
         AuthProvider.AuthenticationStateChanged += OnAuthStateChanged;
     }
 
-    private async void OnAuthStateChanged(Task<AuthenticationState> task)
+    private void OnAuthStateChanged(Task<AuthenticationState> task)
     {
-        await YetkileriYukle();
-        await InvokeAsync(StateHasChanged);
+        _ = HandleAuthStateChangedAsync();
+    }
+
+    private async Task HandleAuthStateChangedAsync()
+    {
+        try
+        {
+            await YetkileriYukle();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Circuit kapanırken gelebilecek hataları yut
+        }
     }
 
     public void Dispose()
@@ -1467,6 +1478,9 @@
         }
     }
 }
+
+
+
 
 
 

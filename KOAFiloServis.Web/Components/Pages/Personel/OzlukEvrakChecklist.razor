@@ -643,7 +643,14 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
+        if (SoforId.HasValue && SoforId.Value > 0)
+        {
+            await DetayAc(SoforId.Value);
+        }
     }
+
+    [SupplyParameterFromQuery(Name = "soforId")]
+    public int? SoforId { get; set; }
 
     private async Task LoadData()
     {

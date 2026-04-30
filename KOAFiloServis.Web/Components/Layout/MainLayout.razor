@@ -149,20 +149,34 @@
             </div>
 
             <KOAFiloServis.Web.Components.Shared.ToastContainer />
-            <KOAFiloServis.Web.Components.Shared.AIAsistanFloating />
+            
             <KOAFiloServis.Web.Components.Shared.KlavyeKisayollari />
         }
     </Authorized>
     <NotAuthorized>
-        @if (_authChecked)
+        @if (!_authChecked)
         {
-            <RedirectToLogin />
-        }
-        <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Yonlendiriliyor...</span>
+            <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Yükleniyor...</span>
+                </div>
             </div>
-        </div>
+        }
+        else
+        {
+            <div class="d-flex justify-content-center align-items-center" style="height: 100vh; background:#f8f9fa;">
+                <div class="card shadow-sm border-0" style="max-width: 520px; width: 100%;">
+                    <div class="card-body text-center p-5">
+                        <div class="spinner-border text-primary mb-3" role="status"></div>
+                        <h5 class="mb-2">Giriş ekranına yönlendiriliyorsunuz...</h5>
+                        <p class="text-muted small mb-3">Otomatik yönlendirme gerçekleşmezse aşağıdaki bağlantıyı kullanın.</p>
+                        <a href="/login" class="btn btn-primary btn-sm">
+                            <i class="bi bi-box-arrow-in-right me-1"></i>Giriş Ekranı
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
     </NotAuthorized>
 </AuthorizeView>
 
@@ -194,13 +208,38 @@
             {
                 var theme = await JS.InvokeAsync<string>("darkMode.init");
                 isDarkMode = theme == "dark";
-                StateHasChanged();
             }
             catch { }
 
-            // Auth state ilk render'da geçici olarak boş gelebilir.
-            // Kısa bir gecikme sonrası authChecked true yapılır — o zaman redirect edilir.
-            await Task.Delay(300);
+            // Circuit yeniden bağlandığında storage'dan kullanıcıyı geri yükle
+            if (!AuthProvider.IsAuthenticated)
+            {
+                var restored = await AuthProvider.TryRestoreFromStorageAsync();
+                if (restored)
+                {
+                    aktifKullanici = AuthProvider.GetAktifKullanici();
+                    try { await LisansKontrol(); } catch { }
+                    if (lisansGecerli)
+                    {
+                        try { await FirmalariYukle(); } catch { }
+                    }
+                }
+                else
+                {
+                    // Restore başarısız: kullanıcıyı doğrudan login'e yönlendir
+                    var currentUri = Navigation.Uri;
+                    if (!currentUri.Contains("/login", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var relativePath = Navigation.ToBaseRelativePath(currentUri);
+                        var hedef = string.IsNullOrWhiteSpace(relativePath)
+                            ? "/login"
+                            : $"/login?returnUrl={Uri.EscapeDataString('/' + relativePath)}";
+                        Navigation.NavigateTo(hedef, forceLoad: false);
+                        return;
+                    }
+                }
+            }
+
             _authChecked = true;
             StateHasChanged();
         }
@@ -318,3 +357,6 @@
         }
     }
 }
+
+
+

@@ -369,7 +369,7 @@ public class BelgeUyariService : IBelgeUyariService
                     EvrakTanimId = tanim.Id,
                     EvrakAdi = tanim.EvrakAdi,
                     DosyaYolu = evrak?.DosyaYolu,
-                    DosyaAdi = evrak?.DosyaYolu != null ? Path.GetFileName(evrak.DosyaYolu) : null
+                    DosyaAdi = BuildIndirmeDosyaAdi(tanim.EvrakAdi, evrak?.DosyaYolu)
                 };
             }).ToList();
 
@@ -412,7 +412,7 @@ public class BelgeUyariService : IBelgeUyariService
                 EvrakTanimId = e.EvrakTanimId,
                 EvrakAdi = e.EvrakAdi,
                 DosyaYolu = e.DosyaYolu,
-                DosyaAdi = e.DosyaYolu != null ? Path.GetFileName(e.DosyaYolu) : null
+                DosyaAdi = BuildIndirmeDosyaAdi(e.EvrakAdi, e.DosyaYolu)
             }).ToList();
 
         return new PersonelBelgeTabloKalemi
@@ -486,7 +486,7 @@ public class BelgeUyariService : IBelgeUyariService
                     var icerik = await _secureFileService.ReadDecryptedAsync(evrak.DosyaYolu);
                     if (icerik == null || icerik.Length == 0) continue;
 
-                    var uzanti = Path.GetExtension(evrak.DosyaYolu);
+                    var uzanti = GetGercekUzanti(evrak.DosyaYolu);
                     var guvenliEvrakAd = string.Join("_", evrak.EvrakAdi.Split(Path.GetInvalidFileNameChars()));
                     var zipYolu = soforIdler.Count > 1
                         ? $"{personelKlasoru}/{guvenliEvrakAd}{uzanti}"
@@ -500,6 +500,29 @@ public class BelgeUyariService : IBelgeUyariService
         }
         zipMs.Position = 0;
         return zipMs.ToArray();
+    }
+
+    /// <summary>
+    /// Saklanan dosya yolundaki '.enc' uzantısını kaldırır, gerçek (ör. .pdf, .jpg) uzantıyı döndürür.
+    /// </summary>
+    private static string GetGercekUzanti(string? dosyaYolu)
+    {
+        if (string.IsNullOrWhiteSpace(dosyaYolu)) return string.Empty;
+        var ad = Path.GetFileName(dosyaYolu);
+        if (ad.EndsWith(".enc", StringComparison.OrdinalIgnoreCase))
+            ad = ad.Substring(0, ad.Length - 4);
+        return Path.GetExtension(ad);
+    }
+
+    /// <summary>
+    /// İndirme için kullanıcı dostu, .enc içermeyen dosya adı üretir.
+    /// </summary>
+    private static string? BuildIndirmeDosyaAdi(string evrakAdi, string? dosyaYolu)
+    {
+        if (string.IsNullOrWhiteSpace(dosyaYolu)) return null;
+        var uzanti = GetGercekUzanti(dosyaYolu);
+        var guvenliAd = string.Join("_", (evrakAdi ?? "belge").Split(Path.GetInvalidFileNameChars()));
+        return string.IsNullOrEmpty(uzanti) ? guvenliAd : $"{guvenliAd}{uzanti}";
     }
 }
 

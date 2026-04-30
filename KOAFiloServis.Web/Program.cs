@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Web.Components;
+using KOAFiloServis.Web.Components;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Helpers;
 using KOAFiloServis.Web.Jobs;
@@ -271,9 +271,7 @@ builder.Services.AddScoped<DatabaseBackupService>(); // Quartz job tarafından t
 builder.Services.AddScoped<BelgeUyariBackgroundService>(); // Quartz job tarafından tetiklenen belge uyarı servisi
 builder.Services.AddHttpClient("OpenAI"); // OpenAI icin HttpClient
 builder.Services.AddHttpClient("Scraper"); // Scraper icin HttpClient
-builder.Services.AddHttpClient("Ollama"); // Ollama Local LLM icin HttpClient
 builder.Services.AddScoped<IOllamaService, OllamaService>(); // Ollama AI Rapor Yorumlama
-builder.Services.AddScoped<IOllamaAIChatService, OllamaAIChatService>(); // Ollama AI Chat Servisi (Microsoft.Extensions.AI)
 builder.Services.AddScoped<IFaturaAIImportService, FaturaAIImportService>(); // AI Fatura Import Servisi
 builder.Services.AddScoped<IIhaleHazirlikService, IhaleHazirlikService>(); // İhale Hazırlık Servisi
 builder.Services.AddScoped<ICariRiskService, CariRiskService>(); // Cari Risk Analizi Servisi
@@ -695,3 +693,4 @@ app.MapControllers(); // API Controller'larini haritalandir
 app.MapHub<AracTakipHub>("/hubs/aractakip"); // SignalR Araç Takip Hub'ı
 
 app.Run();
+
