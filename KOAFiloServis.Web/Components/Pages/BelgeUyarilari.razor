@@ -710,10 +710,8 @@
                                     disabled="@(!ozlukModalItem.EvrakDosyalari.Any(e => e.Secili))">
                                 <i class="bi bi-download me-1"></i>Seçilenleri İndir
                             </button>
-                            <button type="button" class="btn btn-sm btn-primary" @onclick="OzlukTumunuPdfIndir" @onclick:preventDefault="true">
-                                <i class="bi bi-file-earmark-pdf me-1"></i>Tümünü PDF İndir
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OzlukTumunuPdfYazdir" @onclick:preventDefault="true">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OzlukSeciliBelgeleriYazdir" @onclick:preventDefault="true"
+                                    disabled="@(!ozlukModalItem.EvrakDosyalari.Any(e => e.Secili))">
                                 <i class="bi bi-printer me-1"></i>Yazdır
                             </button>
                         }
@@ -1056,34 +1054,53 @@
         }
     }
 
-    private async Task OzlukTumunuPdfIndir()
+    private async Task OzlukSeciliBelgeleriYazdir()
     {
         if (ozlukModalItem == null) return;
-        try
-        {
-            var pdfBytes = await BelgeUyariService.PersonelBelgePdfAsync(ozlukModalItem.SoforId);
-            if (pdfBytes.Length == 0) { ToastService.ShowWarning("PDF oluşturulamadı."); return; }
-            var dosyaAdi = $"{ozlukModalItem.PersonelKodu}_OzlukBelgeler_{DateTime.Now:yyyyMMdd}.pdf";
-            await JS.InvokeVoidAsync("downloadFile", dosyaAdi, Convert.ToBase64String(pdfBytes), "application/pdf");
-            ToastService.ShowSuccess("PDF indirildi.");
-        }
-        catch (Exception ex)
-        {
-            ToastService.ShowError($"PDF hatası: {ex.Message}");
-        }
-    }
+        var seciliDosyalar = ozlukModalItem.EvrakDosyalari
+            .Where(d => d.Secili && d.DosyaVar)
+            .ToList();
 
-    private async Task OzlukTumunuPdfYazdir()
-    {
-        if (ozlukModalItem == null) return;
+        if (!seciliDosyalar.Any())
+        {
+            ToastService.ShowWarning("Lütfen yazdırmak istediğiniz belgeleri seçin.");
+            return;
+        }
+
         try
         {
-            var pdfBytes = await BelgeUyariService.PersonelBelgePdfAsync(ozlukModalItem.SoforId);
-            var base64 = Convert.ToBase64String(pdfBytes);
-            await JS.InvokeVoidAsync("printBase64Pdf", base64);
+            var items = new List<object>();
+            foreach (var dosya in seciliDosyalar)
+            {
+                if (string.IsNullOrEmpty(dosya.DosyaYolu)) continue;
+                var bytes = await SecureFileService.ReadDecryptedAsync(dosya.DosyaYolu);
+                if (bytes == null || bytes.Length == 0) continue;
+
+                var uzanti = GercekUzantiAl(dosya.DosyaYolu);
+                var mime = MimeTipiAl(uzanti);
+                var ad = !string.IsNullOrWhiteSpace(dosya.DosyaAdi)
+                    ? dosya.DosyaAdi!
+                    : $"{dosya.EvrakAdi}{uzanti}";
+
+                items.Add(new
+                {
+                    name = ad,
+                    base64 = Convert.ToBase64String(bytes),
+                    mime = mime
+                });
+            }
+
+            if (items.Count == 0)
+            {
+                ToastService.ShowWarning("Yazdırılabilecek belge bulunamadı.");
+                return;
+            }
+
+            await JS.InvokeVoidAsync("printDocumentFiles", items);
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Belge yazdırma hatası SoforId={SoforId}", ozlukModalItem.SoforId);
             ToastService.ShowError($"Yazdırma hatası: {ex.Message}");
         }
     }
