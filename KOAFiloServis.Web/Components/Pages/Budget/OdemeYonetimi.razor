@@ -5,6 +5,7 @@
 @inject IBudgetService BudgetService
 @inject IBankaHesapService BankaHesapService
 @inject ICariService CariService
+@inject IFirmaService FirmaService
 @inject IDataExportService DataExportService
 @inject IToastService ToastService
 @inject NavigationManager Navigation
@@ -78,6 +79,55 @@
                 <div class="col-md-2">
                     <input type="text" class="form-control form-control-sm" placeholder="Ara..." 
                            @bind="aramaMetni" @onkeypress="@(async (e) => await AramaKeyPress(e))" />
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filtreFirmaId">
+                        <option value="0">Tum Firmalar</option>
+                        @if (firmalar != null)
+                        {
+                            @foreach (var f in firmalar)
+                            {
+                                <option value="@f.Id">@f.FirmaAdi</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3 position-relative">
+                    <button type="button" class="btn btn-outline-secondary btn-sm w-100 d-flex justify-content-between align-items-center"
+                            @onclick="() => showAciklamaSecim = !showAciklamaSecim">
+                        <span>
+                            @if (seciliAciklamalar.Any())
+                            {
+                                <i class="bi bi-chat-square-text me-1"></i>
+                                <span>@seciliAciklamalar.Count seçili açıklama</span>
+                            }
+                            else
+                            {
+                                <span><i class="bi bi-chat-square-text me-1"></i>Açıklama Seç</span>
+                            }
+                        </span>
+                        <i class="bi @(showAciklamaSecim ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    </button>
+                    @if (showAciklamaSecim)
+                    {
+                        <div class="position-absolute bg-white border rounded shadow p-2 mt-1" style="z-index:1050; max-height:300px; overflow-y:auto; width:100%; min-width:260px;">
+                            <input type="text" class="form-control form-control-sm mb-2" placeholder="Filtrele..."
+                                   @bind="aciklamaArama" @bind:event="oninput" />
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <button type="button" class="btn btn-link btn-sm p-0" @onclick="AciklamaTumunuSec">Tümünü Seç</button>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-danger" @onclick="AciklamaTumunuKaldir">Temizle</button>
+                            </div>
+                            @foreach (var a in TumAciklamalar.Where(x => string.IsNullOrEmpty(aciklamaArama) || x.Contains(aciklamaArama, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="acik_@a.GetHashCode()"
+                                           checked="@seciliAciklamalar.Contains(a)"
+                                           @onchange="(e) => AciklamaToggle(a, (bool)(e.Value ?? false))" />
+                                    <label class="form-check-label small" for="acik_@a.GetHashCode()">@a</label>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
                 <div class="col-md-2 d-flex gap-2 justify-content-end">
                     <button class="btn btn-primary btn-sm" @onclick="@(async () => await LoadDataAsync())">
@@ -812,6 +862,37 @@
     private string filtreDurum = "";
     private string filtreTip = "";
     private string aramaMetni = "";
+    private int filtreFirmaId = 0;
+    private List<Firma>? firmalar;
+    private HashSet<string> seciliAciklamalar = new();
+    private bool showAciklamaSecim = false;
+    private string aciklamaArama = string.Empty;
+
+    private List<string> TumAciklamalar => odemeler
+        .Where(o => !string.IsNullOrWhiteSpace(o.Aciklama))
+        .Select(o => o.Aciklama!.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private void AciklamaToggle(string aciklama, bool secili)
+    {
+        if (secili) seciliAciklamalar.Add(aciklama);
+        else seciliAciklamalar.Remove(aciklama);
+        FiltreUygula();
+    }
+
+    private void AciklamaTumunuSec()
+    {
+        foreach (var a in TumAciklamalar) seciliAciklamalar.Add(a);
+        FiltreUygula();
+    }
+
+    private void AciklamaTumunuKaldir()
+    {
+        seciliAciklamalar.Clear();
+        FiltreUygula();
+    }
 
     // Modal degiskenleri
     private bool showOdemeModal = false;
@@ -831,6 +912,7 @@
         bankaHesaplari = await BankaHesapService.GetAllAsync();
         hesapBakiyeleri = await BankaHesapService.GetTumHesapBakiyeleriAsync();
         cariler = (await CariService.GetAllAsync()).Where(c => c.Aktif).OrderBy(c => c.Unvan).ToList();
+        firmalar = (await FirmaService.GetAktifFirmalarAsync()).OrderBy(f => f.FirmaAdi).ToList();
         await LoadDataAsync();
     }
 
@@ -942,6 +1024,17 @@
         else if (filtreTip == "normal")
             query = query.Where(o => !o.TaksitliMi);
 
+        // Firma filtresi
+        if (filtreFirmaId > 0)
+            query = query.Where(o => o.FirmaId == filtreFirmaId);
+
+        // Coklu Aciklama filtresi (OR mantığı: seçilen açıklamalardan herhangi biri)
+        if (seciliAciklamalar.Any())
+        {
+            query = query.Where(o => !string.IsNullOrWhiteSpace(o.Aciklama)
+                && seciliAciklamalar.Contains(o.Aciklama.Trim(), StringComparer.OrdinalIgnoreCase));
+        }
+
         // Arama
         if (!string.IsNullOrWhiteSpace(aramaMetni))
         {
@@ -962,6 +1055,10 @@
         filtreDurum = "";
         filtreTip = "";
         aramaMetni = "";
+        filtreFirmaId = 0;
+        seciliAciklamalar.Clear();
+        aciklamaArama = string.Empty;
+        showAciklamaSecim = false;
         await LoadDataAsync();
     }
 

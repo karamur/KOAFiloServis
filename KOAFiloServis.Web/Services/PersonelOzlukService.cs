@@ -814,13 +814,9 @@ public class PersonelOzlukService : IPersonelOzlukService
 
     private async Task<List<OzlukEvrakTanim>> GetGecerliEvrakTanimlariAsync(ApplicationDbContext context, PersonelGorev gorev)
     {
-        var tanimlar = await GetAktifEvrakTanimlariAsync();
-        var gorevStr = ((int)gorev).ToString();
-
-        return tanimlar.Where(t => 
-            string.IsNullOrEmpty(t.GecerliGorevler) || 
-            t.GecerliGorevler.Split(',').Contains(gorevStr)
-        ).ToList();
+        // Görev ayrımı kaldırıldı: Özlük belgeleri tüm personeller için aynı.
+        // Eski "GecerliGorevler" kısıtlaması bilinçli olarak yok sayılıyor.
+        return await GetAktifEvrakTanimlariAsync();
     }
 
     private static string GetGorevAdi(PersonelGorev gorev) => gorev switch

@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -29,6 +29,7 @@ public class BudgetService : IBudgetService
         await using var context = await _contextFactory.CreateDbContextAsync();
         var query = context.BudgetOdemeler
             .Include(o => o.OdemeYapildigiHesap)
+            .Include(o => o.Firma)
             .Where(o => o.OdemeYil == yil);
 
         if (ay.HasValue)

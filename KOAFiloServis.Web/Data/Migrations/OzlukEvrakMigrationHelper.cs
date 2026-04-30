@@ -66,6 +66,20 @@ CREATE TABLE IF NOT EXISTS ""PersonelOzlukEvraklar"" (
             {
                 Console.WriteLine($"Kimlik fotokopisi tekilleştirme hatası: {ex.Message}");
             }
+
+            // GecerliGorevler kısıtını kaldır: Tüm personeller için aynı belgeler.
+            try
+            {
+                if (context.Database.IsNpgsql() || context.Database.IsSqlite())
+                {
+                    await context.Database.ExecuteSqlRawAsync(
+                        @"UPDATE ""OzlukEvrakTanimlari"" SET ""GecerliGorevler"" = NULL WHERE ""GecerliGorevler"" IS NOT NULL AND ""GecerliGorevler"" <> ''");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"GecerliGorevler temizleme hatası: {ex.Message}");
+            }
         }
         catch (Exception ex)
         {

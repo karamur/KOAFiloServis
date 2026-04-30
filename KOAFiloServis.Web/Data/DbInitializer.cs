@@ -2151,6 +2151,9 @@ WHERE IsDeleted = 0;");
                 Console.WriteLine($"M001 formatındaki {eskiKayitlar.Count} eski masraf kalemi silindi.");
             }
 
+            // ========== Aynı isimde/kodda duplicate kayıtları tekilleştir ==========
+            await TekillestirAracMasrafKalemleriAsync(context);
+
             // Temel masraf kalemleri listesi
             var masrafKalemleri = new List<(string Kod, string Ad, MasrafKategori Kategori)>
             {
@@ -2199,6 +2202,90 @@ WHERE IsDeleted = 0;");
         catch (Exception ex)
         {
             Console.WriteLine($"Araç masraf kalemi seed hatası: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Aynı isim veya kod ile birden fazla araç masraf kalemi varsa, en küçük Id'yi tutar
+    /// ve diğerlerini ona taşıyıp siler. Soft-delete edilmiş kayıtlar dahil.
+    /// </summary>
+    private static async Task TekillestirAracMasrafKalemleriAsync(ApplicationDbContext context)
+    {
+        try
+        {
+            var tumKalemler = await context.MasrafKalemleri
+                .IgnoreQueryFilters()
+                .ToListAsync();
+
+            // 1) Aynı MasrafAdi (Trim+lowercase) ile gruplanan duplicate'ler
+            var adGruplari = tumKalemler
+                .Where(k => !string.IsNullOrWhiteSpace(k.MasrafAdi))
+                .GroupBy(k => (k.MasrafAdi ?? string.Empty).Trim().ToLowerInvariant())
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            foreach (var grup in adGruplari)
+            {
+                // Aktif ve en küçük Id'li olanı asıl yap
+                var asil = grup.OrderByDescending(k => k.Aktif).ThenBy(k => k.Id).First();
+                var diger = grup.Where(k => k.Id != asil.Id).ToList();
+
+                foreach (var dup in diger)
+                {
+                    var baglıMasraflar = await context.AracMasraflari
+                        .IgnoreQueryFilters()
+                        .Where(m => m.MasrafKalemiId == dup.Id)
+                        .ToListAsync();
+
+                    foreach (var m in baglıMasraflar)
+                        m.MasrafKalemiId = asil.Id;
+                }
+
+                await context.SaveChangesAsync();
+
+                context.MasrafKalemleri.RemoveRange(diger);
+                await context.SaveChangesAsync();
+
+                Console.WriteLine($"Araç masraf kalemi tekilleştirildi: '{asil.MasrafAdi}' -> {diger.Count} duplicate silindi.");
+            }
+
+            // 2) Aynı MasrafKodu ile birden fazla varsa
+            var kodGruplari = tumKalemler
+                .Where(k => !string.IsNullOrWhiteSpace(k.MasrafKodu))
+                .GroupBy(k => (k.MasrafKodu ?? string.Empty).Trim().ToUpperInvariant())
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            foreach (var grup in kodGruplari)
+            {
+                var asil = grup.OrderByDescending(k => k.Aktif).ThenBy(k => k.Id).First();
+                // Bu kayıt önceki adımda silinmiş olabilir; tekrar yükle
+                var asilMevcut = await context.MasrafKalemleri.IgnoreQueryFilters().FirstOrDefaultAsync(k => k.Id == asil.Id);
+                if (asilMevcut == null) continue;
+
+                var diger = grup.Where(k => k.Id != asil.Id).ToList();
+                foreach (var dup in diger)
+                {
+                    var dupMevcut = await context.MasrafKalemleri.IgnoreQueryFilters().FirstOrDefaultAsync(k => k.Id == dup.Id);
+                    if (dupMevcut == null) continue;
+
+                    var baglıMasraflar = await context.AracMasraflari
+                        .IgnoreQueryFilters()
+                        .Where(m => m.MasrafKalemiId == dup.Id)
+                        .ToListAsync();
+
+                    foreach (var m in baglıMasraflar)
+                        m.MasrafKalemiId = asil.Id;
+
+                    await context.SaveChangesAsync();
+                    context.MasrafKalemleri.Remove(dupMevcut);
+                    await context.SaveChangesAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Araç masraf kalemi tekilleştirme hatası: {ex.Message}");
         }
     }
 
