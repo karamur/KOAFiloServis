@@ -106,9 +106,6 @@ public class PersonelOzlukService : IPersonelOzlukService
             if (!await TableExistsAsync(context, "OzlukEvrakTanimlari"))
                 return;
 
-            if (await context.OzlukEvrakTanimlari.AnyAsync())
-                return;
-
             var defaultEvraklar = new List<OzlukEvrakTanim>
             {
             // Kimlik Belgeleri
@@ -131,6 +128,7 @@ public class PersonelOzlukService : IPersonelOzlukService
             new() { EvrakAdi = "SRC Belgesi", Kategori = OzlukEvrakKategori.SoforBelgeleri, SiraNo = 2, Zorunlu = true, GecerliGorevler = "1" },
             new() { EvrakAdi = "Psikoteknik Belgesi", Kategori = OzlukEvrakKategori.SoforBelgeleri, SiraNo = 3, Zorunlu = true, GecerliGorevler = "1" },
             new() { EvrakAdi = "ADR Belgesi", Kategori = OzlukEvrakKategori.SoforBelgeleri, SiraNo = 4, Zorunlu = false, GecerliGorevler = "1" },
+            new() { EvrakAdi = "Sürücü Ceza Barkodlu Belge", Kategori = OzlukEvrakKategori.SoforBelgeleri, SiraNo = 5, Zorunlu = true, GecerliGorevler = "1", Aciklama = "Sürücü ceza puanı barkodlu sorgu belgesi" },
 
             // SGK Belgeleri
             new() { EvrakAdi = "SGK İşe Giriş Bildirgesi", Kategori = OzlukEvrakKategori.SGKBelgeleri, SiraNo = 1, Zorunlu = true },
@@ -155,12 +153,26 @@ public class PersonelOzlukService : IPersonelOzlukService
             new() { EvrakAdi = "Engellilik Belgesi", Kategori = OzlukEvrakKategori.Diger, SiraNo = 3, Zorunlu = false },
             };
 
-            foreach (var evrak in defaultEvraklar)
+            // Mevcut tanımları al (silinmiş olanlar dahil değil) ve eksikleri ekle.
+            // Böylece mevcut DB'lere yeni eklenen evrak tanımları otomatik gelir.
+            var mevcutAdlar = await context.OzlukEvrakTanimlari
+                .Where(t => !t.IsDeleted)
+                .Select(t => t.EvrakAdi)
+                .ToListAsync();
+
+            var eklenecekler = defaultEvraklar
+                .Where(e => !mevcutAdlar.Any(m => string.Equals(m, e.EvrakAdi, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            if (eklenecekler.Count == 0)
+                return;
+
+            foreach (var evrak in eklenecekler)
             {
                 evrak.CreatedAt = DateTime.UtcNow;
             }
 
-            context.OzlukEvrakTanimlari.AddRange(defaultEvraklar);
+            context.OzlukEvrakTanimlari.AddRange(eklenecekler);
             await context.SaveChangesAsync();
         }
         catch

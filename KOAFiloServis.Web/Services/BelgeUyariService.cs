@@ -524,6 +524,299 @@ public class BelgeUyariService : IBelgeUyariService
         var guvenliAd = string.Join("_", (evrakAdi ?? "belge").Split(Path.GetInvalidFileNameChars()));
         return string.IsNullOrEmpty(uzanti) ? guvenliAd : $"{guvenliAd}{uzanti}";
     }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Araç Belge Tablosu
+    // ─────────────────────────────────────────────────────────────────
+
+    // Sütun anahtarı → AracEvrak.EvrakKategorisi eşlemesi
+    private static string KategoriEslestir(string belgeAlani) => belgeAlani switch
+    {
+        "Ruhsat" => EvrakKategorileri.Ruhsat,
+        "Sigorta" => EvrakKategorileri.TrafikSigortasi,
+        "Muayene" => EvrakKategorileri.Muayene,
+        "Uygunluk" => EvrakKategorileri.UygunlukBelgesi,
+        "KoltukSigortasi" => EvrakKategorileri.KoltukSigortasi,
+        "Kasko" => EvrakKategorileri.Kasko,
+        _ => belgeAlani
+    };
+
+    public async Task<List<AracBelgeTabloKalemi>> GetAracBelgeTablosuAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var araclar = await context.Araclar
+            .AsNoTracking()
+            .Where(a => !a.IsDeleted)
+            .OrderBy(a => a.AktifPlaka ?? a.SaseNo)
+            .ToListAsync();
+
+        if (!araclar.Any()) return new List<AracBelgeTabloKalemi>();
+
+        var aracIdler = araclar.Select(a => a.Id).ToList();
+
+        var tumEvraklar = await context.AracEvraklari
+            .AsNoTracking()
+            .Include(e => e.Dosyalar.Where(d => !d.IsDeleted))
+            .Where(e => aracIdler.Contains(e.AracId) && !e.IsDeleted && e.Durum != EvrakDurum.Pasif)
+            .ToListAsync();
+
+        var evraklarByArac = tumEvraklar.GroupBy(e => e.AracId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var sutunlar = new[] { "Ruhsat", "Sigorta", "Muayene", "Uygunluk", "KoltukSigortasi", "Kasko" };
+        var result = new List<AracBelgeTabloKalemi>();
+
+        foreach (var a in araclar)
+        {
+            var aracEvraklari = evraklarByArac.TryGetValue(a.Id, out var ae) ? ae : new();
+
+            // Her sütun için en güncel (en geç bitiş tarihli) evrak kaydını bul
+            AracEvrak? Bul(string alan)
+            {
+                var kategori = KategoriEslestir(alan);
+                return aracEvraklari
+                    .Where(e => string.Equals(e.EvrakKategorisi, kategori, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(e => e.BitisTarihi ?? DateTime.MinValue)
+                    .FirstOrDefault();
+            }
+
+            var ruhsatEv = Bul("Ruhsat");
+            var sigortaEv = Bul("Sigorta");
+            var muayeneEv = Bul("Muayene");
+            var uygunlukEv = Bul("Uygunluk");
+            var koltukEv = Bul("KoltukSigortasi");
+            var kaskoEv = Bul("Kasko");
+
+            var dosyalar = new List<AracEvrakDosyaBilgisi>();
+            void DosyaEkle(AracEvrak? evrak, string varsayilanKategori)
+            {
+                if (evrak == null) return;
+                var dosya = evrak.Dosyalar?.OrderByDescending(d => d.CreatedAt).FirstOrDefault(d => !d.IsDeleted);
+                dosyalar.Add(new AracEvrakDosyaBilgisi
+                {
+                    AracEvrakId = evrak.Id,
+                    EvrakKategorisi = string.IsNullOrEmpty(evrak.EvrakKategorisi) ? varsayilanKategori : evrak.EvrakKategorisi,
+                    EvrakAdi = evrak.EvrakAdi,
+                    DosyaYolu = dosya?.DosyaYolu,
+                    DosyaAdi = BuildIndirmeDosyaAdi(evrak.EvrakAdi ?? evrak.EvrakKategorisi, dosya?.DosyaYolu)
+                });
+            }
+
+            DosyaEkle(ruhsatEv, KategoriEslestir("Ruhsat"));
+            DosyaEkle(sigortaEv, KategoriEslestir("Sigorta"));
+            DosyaEkle(muayeneEv, KategoriEslestir("Muayene"));
+            DosyaEkle(uygunlukEv, KategoriEslestir("Uygunluk"));
+            DosyaEkle(koltukEv, KategoriEslestir("KoltukSigortasi"));
+            DosyaEkle(kaskoEv, KategoriEslestir("Kasko"));
+
+            // Sigorta tarihi öncelik: Arac entity > AracEvrak
+            // Muayene/Kasko aynı şekilde fallback
+            DateTime? sigortaTarihi = a.TrafikSigortaBitisTarihi ?? sigortaEv?.BitisTarihi;
+            DateTime? muayeneTarihi = a.MuayeneBitisTarihi ?? muayeneEv?.BitisTarihi;
+            DateTime? kaskoTarihi = a.KaskoBitisTarihi ?? kaskoEv?.BitisTarihi;
+            DateTime? koltukTarihi = a.KoltukSigortasiBitisTarihi ?? koltukEv?.BitisTarihi;
+
+            result.Add(new AracBelgeTabloKalemi
+            {
+                AracId = a.Id,
+                Plaka = a.AktifPlaka ?? string.Empty,
+                SaseNo = a.SaseNo,
+                MarkaModel = $"{a.Marka} {a.Model}".Trim(),
+                AracTipi = a.AracTipi,
+                Aktif = a.Aktif,
+                ToplamEvrakSayisi = sutunlar.Length,
+                YuklenmisEvrakSayisi = dosyalar.Count(d => d.DosyaVar),
+                EvrakDosyalari = dosyalar,
+                RuhsatGecerlilik = ruhsatEv?.BitisTarihi,
+                SigortaGecerlilik = sigortaTarihi,
+                MuayeneGecerlilik = muayeneTarihi,
+                UygunlukGecerlilik = uygunlukEv?.BitisTarihi,
+                KoltukSigortasiGecerlilik = koltukTarihi,
+                KaskoGecerlilik = kaskoTarihi
+            });
+        }
+        return result;
+    }
+
+    public async Task<AracBelgeTabloKalemi?> GetTekAracBelgeAsync(int aracId)
+    {
+        var liste = await GetAracBelgeTablosuAsync();
+        return liste.FirstOrDefault(x => x.AracId == aracId);
+    }
+
+    public async Task<bool> AracBelgeTarihGuncelleAsync(int aracId, string belgeAlani, DateTime? bitisTarihi)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var arac = await context.Araclar.FindAsync(aracId);
+        if (arac == null) return false;
+
+        // Doğrudan Arac entity'de tutulan tarihler
+        switch (belgeAlani)
+        {
+            case "Sigorta":
+                arac.TrafikSigortaBitisTarihi = bitisTarihi.HasValue
+                    ? DateTime.SpecifyKind(bitisTarihi.Value, DateTimeKind.Utc) : null;
+                break;
+            case "Muayene":
+                arac.MuayeneBitisTarihi = bitisTarihi.HasValue
+                    ? DateTime.SpecifyKind(bitisTarihi.Value, DateTimeKind.Utc) : null;
+                break;
+            case "Kasko":
+                arac.KaskoBitisTarihi = bitisTarihi.HasValue
+                    ? DateTime.SpecifyKind(bitisTarihi.Value, DateTimeKind.Utc) : null;
+                break;
+            case "KoltukSigortasi":
+                arac.KoltukSigortasiBitisTarihi = bitisTarihi.HasValue
+                    ? DateTime.SpecifyKind(bitisTarihi.Value, DateTimeKind.Utc) : null;
+                break;
+            case "Ruhsat":
+            case "Uygunluk":
+                // Bu tarihler Arac entity'de yok → AracEvrak üzerine kaydedilir/güncellenir
+                break;
+            default: return false;
+        }
+
+        // AracEvrak güncelle/ekle (her durumda iz olarak; uyarı sayfası için)
+        var kategori = KategoriEslestir(belgeAlani);
+        var evrak = await context.AracEvraklari
+            .Where(e => e.AracId == aracId && !e.IsDeleted && e.EvrakKategorisi == kategori)
+            .OrderByDescending(e => e.BitisTarihi)
+            .FirstOrDefaultAsync();
+
+        if (evrak == null && bitisTarihi.HasValue)
+        {
+            evrak = new AracEvrak
+            {
+                AracId = aracId,
+                EvrakKategorisi = kategori,
+                EvrakAdi = kategori,
+                Durum = EvrakDurum.Aktif,
+                BitisTarihi = DateTime.SpecifyKind(bitisTarihi.Value, DateTimeKind.Utc),
+                CreatedAt = DateTime.UtcNow
+            };
+            context.AracEvraklari.Add(evrak);
+        }
+        else if (evrak != null)
+        {
+            evrak.BitisTarihi = bitisTarihi.HasValue
+                ? DateTime.SpecifyKind(bitisTarihi.Value, DateTimeKind.Utc) : null;
+            evrak.UpdatedAt = DateTime.UtcNow;
+        }
+
+        arac.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> AracBelgeDosyaYukleAsync(int aracId, string belgeAlani, string dosyaAdi, byte[] icerik)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var arac = await context.Araclar.FindAsync(aracId);
+        if (arac == null) return false;
+
+        var kategori = KategoriEslestir(belgeAlani);
+
+        // Aynı kategoride aktif evrak var mı?
+        var evrak = await context.AracEvraklari
+            .Where(e => e.AracId == aracId && !e.IsDeleted && e.EvrakKategorisi == kategori)
+            .OrderByDescending(e => e.BitisTarihi)
+            .FirstOrDefaultAsync();
+
+        if (evrak == null)
+        {
+            evrak = new AracEvrak
+            {
+                AracId = aracId,
+                EvrakKategorisi = kategori,
+                EvrakAdi = kategori,
+                Durum = EvrakDurum.Aktif,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.AracEvraklari.Add(evrak);
+            await context.SaveChangesAsync();
+        }
+
+        var storedPath = await _secureFileService.SaveEncryptedAsync(
+            $"arac-evrak/{arac.Id}",
+            dosyaAdi,
+            icerik);
+
+        var evrakDosya = new AracEvrakDosya
+        {
+            AracEvrakId = evrak.Id,
+            DosyaAdi = dosyaAdi,
+            DosyaYolu = storedPath,
+            DosyaTipi = Path.GetExtension(dosyaAdi).TrimStart('.').ToLowerInvariant(),
+            DosyaBoyutu = icerik.LongLength,
+            CreatedAt = DateTime.UtcNow
+        };
+        context.AracEvrakDosyalari.Add(evrakDosya);
+        await context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<byte[]> SeciliAracBelgelerZipAsync(List<int> aracIdler, List<string>? seciliDosyaYollari = null)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        using var zipMs = new MemoryStream();
+        using (var archive = new ZipArchive(zipMs, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var aracId in aracIdler)
+            {
+                var arac = await context.Araclar.AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.Id == aracId);
+                if (arac == null) continue;
+
+                var aracKlasoru = string.Join("_",
+                    (arac.AktifPlaka ?? arac.SaseNo ?? aracId.ToString())
+                    .Split(Path.GetInvalidFileNameChars()));
+
+                var evraklar = await context.AracEvraklari
+                    .AsNoTracking()
+                    .Include(e => e.Dosyalar.Where(d => !d.IsDeleted))
+                    .Where(e => e.AracId == aracId && !e.IsDeleted)
+                    .ToListAsync();
+
+                foreach (var evrak in evraklar)
+                {
+                    foreach (var dosya in evrak.Dosyalar)
+                    {
+                        if (string.IsNullOrEmpty(dosya.DosyaYolu)) continue;
+                        if (seciliDosyaYollari != null && !seciliDosyaYollari.Contains(dosya.DosyaYolu)) continue;
+
+                        var icerik = await _secureFileService.ReadDecryptedAsync(dosya.DosyaYolu);
+                        if (icerik == null || icerik.Length == 0) continue;
+
+                        var uzanti = GetGercekUzanti(dosya.DosyaYolu);
+                        var temelAd = !string.IsNullOrWhiteSpace(evrak.EvrakAdi) ? evrak.EvrakAdi : evrak.EvrakKategorisi;
+                        var guvenliAd = string.Join("_", (temelAd ?? "belge").Split(Path.GetInvalidFileNameChars()));
+                        var zipYolu = aracIdler.Count > 1
+                            ? $"{aracKlasoru}/{guvenliAd}{uzanti}"
+                            : $"{guvenliAd}{uzanti}";
+
+                        // Aynı isimde dosya çakışmasın
+                        var entryYolu = zipYolu;
+                        var sayac = 1;
+                        while (archive.GetEntry(entryYolu) != null)
+                        {
+                            entryYolu = aracIdler.Count > 1
+                                ? $"{aracKlasoru}/{guvenliAd}_{sayac}{uzanti}"
+                                : $"{guvenliAd}_{sayac}{uzanti}";
+                            sayac++;
+                        }
+
+                        var entry = archive.CreateEntry(entryYolu, CompressionLevel.Optimal);
+                        await using var entryStream = entry.Open();
+                        await entryStream.WriteAsync(icerik);
+                    }
+                }
+            }
+        }
+        zipMs.Position = 0;
+        return zipMs.ToArray();
+    }
 }
 
 

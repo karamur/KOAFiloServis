@@ -1,4 +1,4 @@
-namespace KOAFiloServis.Shared.Entities;
+﻿namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
 /// Arac Evrak/Belge Yonetimi - Ruhsat, Sigorta, Muayene vb.
@@ -75,16 +75,28 @@ public static class EvrakKategorileri
 {
     public const string Ruhsat = "Ruhsat";
     public const string TrafikSigortasi = "Trafik Sigortasi";
+    public const string KoltukSigortasi = "Koltuk Sigortasi";
     public const string Kasko = "Kasko";
     public const string Muayene = "Muayene";
-    public const string YetkiBelgesi = "Yetki Belgesi";
     public const string UygunlukBelgesi = "Uygunluk Belgesi";
     public const string EmisyonBelgesi = "Emisyon Belgesi";
+    public const string YetkiBelgesi = "Yetki Belgesi";
     public const string Diger = "Diger";
 
+    /// <summary>
+    /// Görüntü/sıralama düzeni: Ruhsat, Trafik Sigortası, Koltuk Sigortası, Kasko,
+    /// Muayene, Uygunluk Belgesi, Emisyon Belgesi, Yetki Belgesi, Diğer.
+    /// </summary>
     public static readonly string[] TumKategoriler = new[]
     {
-        Ruhsat, TrafikSigortasi, Kasko, Muayene, 
-        YetkiBelgesi, UygunlukBelgesi, EmisyonBelgesi, Diger
+        Ruhsat, TrafikSigortasi, KoltukSigortasi, Kasko,
+        Muayene, UygunlukBelgesi, EmisyonBelgesi, YetkiBelgesi, Diger
     };
+
+    public static int SiraIndex(string? kategori)
+    {
+        if (string.IsNullOrWhiteSpace(kategori)) return int.MaxValue;
+        var idx = Array.IndexOf(TumKategoriler, kategori);
+        return idx < 0 ? int.MaxValue : idx;
+    }
 }

@@ -56,6 +56,15 @@
                 }
             </button>
         </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link @(aktifSekme == "aractablo" ? "active" : "")" @onclick="SekmeAracTabloAc" @onclick:preventDefault="true">
+                <i class="bi bi-truck me-1"></i>Araç Belge Tablosu
+                @if (aracBelgeTablosu != null)
+                {
+                    <span class="badge bg-secondary ms-1">@aracBelgeTablosu.Count</span>
+                }
+            </button>
+        </li>
     </ul>
 
     <!-- Süre Uyarıları Sekmesi -->
@@ -579,6 +588,321 @@
         }
     } @* /tablo sekmesi *@
 
+    <!-- Araç Belge Tablosu Sekmesi -->
+    @if (aktifSekme == "aractablo")
+    {
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">Araç Ara</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="Plaka, şase, marka/model..."
+                               @bind="aracTabloArama" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1">Araç Tipi</label>
+                        <select class="form-select form-select-sm" @bind="aracTabloTipFiltre">
+                            <option value="">Tümü</option>
+                            @foreach (AracTipi t in Enum.GetValues(typeof(AracTipi)))
+                            {
+                                <option value="@t">@t</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1">Durum</label>
+                        <select class="form-select form-select-sm" @bind="aracTabloAktifFiltre">
+                            <option value="">Tümü</option>
+                            <option value="aktif">Aktif</option>
+                            <option value="pasif">Pasif</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1">Belge Filtresi</label>
+                        <select class="form-select form-select-sm" @bind="aracTabloBelgeFiltre">
+                            <option value="">Tümü</option>
+                            <option value="eksik">Tarihi Girilmemiş</option>
+                            <option value="gecmis">Süresi Geçmiş</option>
+                            <option value="yaklasan">30 Gün İçinde</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex gap-1 align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="AracTabloFiltreleriniTemizle">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="AracTabloYazdir" disabled="@(FiltrelenmisAracBelgeTablosu.Count == 0)">
+                            <i class="bi bi-printer me-1"></i>Yazdır
+                        </button>
+                        <button type="button" class="btn btn-sm btn-success" @onclick="SeciliAraclarinBelgeleriniIndir"
+                                disabled="@(aracBelgeTablosu == null || !aracBelgeTablosu.Any(x => x.Secili))">
+                            <i class="bi bi-download me-1"></i>Seçilenleri İndir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (aracBelgeTablosu != null)
+        {
+            <div class="row mb-3 g-2">
+                <div class="col">
+                    <div class="card border-danger text-center py-2">
+                        <div class="fw-bold text-danger fs-4">@aracBelgeTablosu.SelectMany(GetTumAracBelgeTarihleri).Count(t => t < DateTime.Today)</div>
+                        <small class="text-muted">Süresi Geçmiş</small>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card border-warning text-center py-2">
+                        <div class="fw-bold text-warning fs-4">@aracBelgeTablosu.SelectMany(GetTumAracBelgeTarihleri).Count(t => t >= DateTime.Today && (t - DateTime.Today).Days <= 30)</div>
+                        <small class="text-muted">30 Gün İçinde</small>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card border-secondary text-center py-2">
+                        <div class="fw-bold text-secondary fs-4">@aracBelgeTablosu.Sum(p => GetEksikAracBelgeSayisi(p))</div>
+                        <small class="text-muted">Tarihi Girilmemiş</small>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card border-primary text-center py-2">
+                        <div class="fw-bold text-primary fs-4">@aracBelgeTablosu.Count</div>
+                        <small class="text-muted">Toplam Araç</small>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (isAracTabloyukleniyor)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (aracBelgeTablosu != null)
+        {
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span>
+                        <i class="bi bi-truck me-1"></i>
+                        Araç Belge Takip Tablosu
+                        <span class="badge bg-secondary ms-1">@FiltrelenmisAracBelgeTablosu.Count kayıt</span>
+                    </span>
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="small text-muted">@aracBelgeTablosu.Count(x => x.Secili) araç seçildi</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="AracTumunuSecToggle">
+                            <i class="bi bi-check-all me-1"></i>@(aracBelgeTablosu.All(x => x.Secili) ? "Seçimi Kaldır" : "Tümünü Seç")
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover mb-0 align-middle" id="aracBelgeTablosu" style="font-size:0.82rem;">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th style="width:36px;" class="text-center">
+                                        <input type="checkbox" class="form-check-input"
+                                               checked="@(FiltrelenmisAracBelgeTablosu.Any() && FiltrelenmisAracBelgeTablosu.All(x => x.Secili))"
+                                               @onchange="AracTumunuSecToggle" />
+                                    </th>
+                                    <th>Araç</th>
+                                    <th class="text-center" style="width:90px;">Tip</th>
+                                    <th class="text-center bg-primary bg-opacity-25" style="width:100px;" title="Ruhsat">Ruhsat</th>
+                                    <th class="text-center bg-info bg-opacity-25" style="width:100px;" title="Trafik Sigortası">Sigorta</th>
+                                    <th class="text-center bg-success bg-opacity-25" style="width:100px;" title="Muayene">Muayene</th>
+                                    <th class="text-center bg-warning bg-opacity-25" style="width:100px;" title="Uygunluk Belgesi">Uygunluk</th>
+                                    <th class="text-center bg-danger bg-opacity-25" style="width:110px;" title="Koltuk Sigortası">Koltuk Sig.</th>
+                                    <th class="text-center bg-secondary bg-opacity-25" style="width:100px;" title="Kasko">Kasko</th>
+                                    <th class="text-center" style="width:60px;">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in FiltrelenmisAracBelgeTablosu)
+                                {
+                                    <tr class="@(!item.Aktif ? "table-secondary opacity-75" : "")">
+                                        <td class="text-center">
+                                            <input type="checkbox" class="form-check-input"
+                                                   checked="@item.Secili"
+                                                   @onchange="(e) => item.Secili = (bool)(e.Value ?? false)" />
+                                        </td>
+                                        <td>
+                                            <strong>@(string.IsNullOrEmpty(item.Plaka) ? item.SaseNo : item.Plaka)</strong>
+                                            <br /><small class="text-muted">@item.MarkaModel</small>
+                                        </td>
+                                        <td class="text-center"><span class="badge bg-dark" style="font-size:0.7rem;">@item.AracTipi</span></td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "Ruhsat", item.RuhsatGecerlilik)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "Sigorta", item.SigortaGecerlilik)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "Muayene", item.MuayeneGecerlilik)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "Uygunluk", item.UygunlukGecerlilik)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "KoltukSigortasi", item.KoltukSigortasiGecerlilik)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "Kasko", item.KaskoGecerlilik)</td>
+                                        <td class="text-center p-1" style="min-width:90px;">
+                                            <div class="d-flex flex-column align-items-center gap-1">
+                                                <div class="d-flex gap-1">
+                                                    <button type="button" class="btn btn-xs btn-outline-info" title="Belgeleri Görüntüle / İndir"
+                                                            @onclick="() => AracBelgeIslemAc(item)" @onclick:preventDefault="true">
+                                                        <i class="bi bi-file-earmark-text"></i>
+                                                    </button>
+                                                    <a class="btn btn-xs btn-outline-secondary" href="/araclar/@item.AracId" title="Araç Kartı">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                    </a>
+                                                </div>
+                                                @if (item.ToplamEvrakSayisi > 0)
+                                                {
+                                                    <span class="badge @(item.YuklenmisEvrakSayisi == item.ToplamEvrakSayisi ? "bg-success" : item.YuklenmisEvrakSayisi == 0 ? "bg-secondary" : "bg-warning text-dark")" style="font-size:0.65rem;">
+                                                        @item.YuklenmisEvrakSayisi/@item.ToplamEvrakSayisi
+                                                    </span>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    } @* /aractablo sekmesi *@
+
+    <!-- Araç Tarih Düzenleme Modal -->
+    @if (showAracTarihModal && editAracItem != null)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background-color:rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header py-2">
+                        <h6 class="modal-title"><i class="bi bi-pencil me-2"></i>@editAracBelgeAdi Tarihi</h6>
+                        <button type="button" class="btn-close btn-sm" @onclick="AracModalKapat"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2 small text-muted">@(string.IsNullOrEmpty(editAracItem.Plaka) ? editAracItem.SaseNo : editAracItem.Plaka) – @editAracItem.MarkaModel</p>
+                        <label class="form-label small">Geçerlilik Bitiş Tarihi</label>
+                        <input type="date" class="form-control form-control-sm"
+                               value="@editAracTarih?.ToString("yyyy-MM-dd")"
+                               @onchange="(e) => editAracTarih = e.Value != null && DateTime.TryParse(e.Value.ToString(), out var d) ? d : (DateTime?)null" />
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0" @onclick="() => editAracTarih = null">
+                                <i class="bi bi-x-circle me-1"></i>Tarihi Kaldır
+                            </button>
+                        </div>
+                    </div>
+                    <div class="modal-footer py-2">
+                        <button type="button" class="btn btn-sm btn-secondary" @onclick="AracModalKapat">İptal</button>
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="AracTarihKaydet" disabled="@isAracTarihKaydediliyor">
+                            @if (isAracTarihKaydediliyor) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            Kaydet
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Araç Belge İşlem Modal -->
+    @if (showAracBelgeModal && aracBelgeModalItem != null)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background-color:rgba(0,0,0,0.5);" @onclick="AracBelgeModalKapat">
+            <div class="modal-dialog modal-lg" @onclick:stopPropagation="true">
+                <div class="modal-content">
+                    <div class="modal-header py-2">
+                        <h6 class="modal-title">
+                            <i class="bi bi-truck me-2 text-success"></i>
+                            <strong>@(string.IsNullOrEmpty(aracBelgeModalItem.Plaka) ? aracBelgeModalItem.SaseNo : aracBelgeModalItem.Plaka)</strong>
+                            <small class="text-muted ms-2">@aracBelgeModalItem.MarkaModel</small>
+                        </h6>
+                        <button type="button" class="btn-close btn-sm" @onclick="AracBelgeModalKapat"></button>
+                    </div>
+                    <div class="modal-body">
+                        @{
+                            var aracEvraklar = aracBelgeModalItem.EvrakDosyalari;
+                            var aracToplam = aracEvraklar.Count;
+                            var aracYuklenmis = aracEvraklar.Count(e => e.DosyaVar);
+                        }
+                        <div class="mb-3 d-flex align-items-center gap-2">
+                            <span class="badge bg-primary">@aracYuklenmis / @aracToplam belge yüklü</span>
+                            @if (aracEvraklar.Any(e => e.DosyaVar))
+                            {
+                                <span class="text-muted small">İndirmek istediğiniz belgeleri seçin</span>
+                            }
+                        </div>
+                        @if (!aracEvraklar.Any(e => e.DosyaVar))
+                        {
+                            <div class="alert alert-warning py-2">
+                                <i class="bi bi-exclamation-triangle me-1"></i>Bu araca ait yüklenmiş belge bulunmamaktadır.
+                                <a href="/araclar/@aracBelgeModalItem.AracId" class="alert-link ms-1">Belge yüklemek için araç kartını açın.</a>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:36px;">
+                                                <input type="checkbox" class="form-check-input"
+                                                       checked="@aracEvraklar.Where(e => e.DosyaVar).All(e => e.Secili)"
+                                                       @onchange="AracBelgeModalTumunuSec" />
+                                            </th>
+                                            <th>Belge</th>
+                                            <th style="width:120px;">Dosya</th>
+                                            <th style="width:80px;" class="text-center">İşlem</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var dosya in aracEvraklar)
+                                        {
+                                            <tr class="@(!dosya.DosyaVar ? "text-muted" : "")">
+                                                <td>
+                                                    @if (dosya.DosyaVar)
+                                                    {
+                                                        <input type="checkbox" class="form-check-input"
+                                                               checked="@dosya.Secili"
+                                                               @onchange="(e) => dosya.Secili = (bool)(e.Value ?? false)" />
+                                                    }
+                                                </td>
+                                                <td>@(string.IsNullOrWhiteSpace(dosya.EvrakAdi) ? dosya.EvrakKategorisi : dosya.EvrakAdi)</td>
+                                                <td>
+                                                    @if (dosya.DosyaVar)
+                                                    {
+                                                        <span class="badge bg-success"><i class="bi bi-paperclip me-1"></i>Var</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary">Yok</span>
+                                                    }
+                                                </td>
+                                                <td class="text-center">
+                                                    @if (dosya.DosyaVar)
+                                                    {
+                                                        <button type="button" class="btn btn-xs btn-outline-primary" title="İndir"
+                                                                @onclick="() => AracTekDosyaIndir(dosya)" @onclick:preventDefault="true">
+                                                            <i class="bi bi-download"></i>
+                                                        </button>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer py-2 gap-2">
+                        @if (aracBelgeModalItem.EvrakDosyalari.Any(e => e.DosyaVar))
+                        {
+                            <button type="button" class="btn btn-sm btn-success" @onclick="AracBelgeSecilenleriIndir" @onclick:preventDefault="true"
+                                    disabled="@(!aracBelgeModalItem.EvrakDosyalari.Any(e => e.Secili))">
+                                <i class="bi bi-download me-1"></i>Seçilenleri İndir
+                            </button>
+                        }
+                        <a class="btn btn-sm btn-outline-info" href="/araclar/@aracBelgeModalItem.AracId">
+                            <i class="bi bi-pencil-square me-1"></i>Araç Kartı
+                        </a>
+                        <button type="button" class="btn btn-sm btn-secondary" @onclick="AracBelgeModalKapat">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     <!-- Tarih Düzenleme Modal -->
     @if (showTarihModal && editItem != null)
     {
@@ -634,14 +958,17 @@
                         }
                         else
                         {
+                            var modalEvraklar = TabloyaUygunEvraklar(ozlukModalItem);
+                            var modalToplam = modalEvraklar.Count;
+                            var modalYuklenmis = modalEvraklar.Count(e => e.DosyaVar);
                             <div class="mb-3 d-flex align-items-center gap-2">
-                                <span class="badge bg-primary">@ozlukModalItem.YuklenmisEvrakSayisi / @ozlukModalItem.ToplamEvrakSayisi belge yüklü</span>
-                                @if (ozlukModalItem.EvrakDosyalari.Any(e => e.DosyaVar))
+                                <span class="badge bg-primary">@modalYuklenmis / @modalToplam belge yüklü</span>
+                                @if (modalEvraklar.Any(e => e.DosyaVar))
                                 {
                                     <span class="text-muted small">İndirmek istediğiniz belgeleri seçin</span>
                                 }
                             </div>
-                            @if (!ozlukModalItem.EvrakDosyalari.Any(e => e.DosyaVar))
+                            @if (!modalEvraklar.Any(e => e.DosyaVar))
                             {
                                 <div class="alert alert-warning py-2">
                                     <i class="bi bi-exclamation-triangle me-1"></i>Bu personele ait yüklenmiş belge bulunmamaktadır.
@@ -656,7 +983,7 @@
                                             <tr>
                                                 <th style="width:36px;">
                                                     <input type="checkbox" class="form-check-input"
-                                                           checked="@ozlukModalItem.EvrakDosyalari.Where(e => e.DosyaVar).All(e => e.Secili)"
+                                                           checked="@modalEvraklar.Where(e => e.DosyaVar).All(e => e.Secili)"
                                                            @onchange="OzlukModalTumunuSec" />
                                                 </th>
                                                 <th>Belge Adı</th>
@@ -665,7 +992,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach (var dosya in ozlukModalItem.EvrakDosyalari)
+                                            @foreach (var dosya in modalEvraklar)
                                             {
                                                 <tr class="@(!dosya.DosyaVar ? "text-muted" : "")">
                                                     <td>
@@ -705,14 +1032,17 @@
                         }
                     </div>
                     <div class="modal-footer py-2 gap-2">
-                        @if (!isOzlukYukleniyor && ozlukModalItem.EvrakDosyalari.Any(e => e.DosyaVar))
+                        @{
+                            var modalFooterEvraklar = TabloyaUygunEvraklar(ozlukModalItem);
+                        }
+                        @if (!isOzlukYukleniyor && modalFooterEvraklar.Any(e => e.DosyaVar))
                         {
                             <button type="button" class="btn btn-sm btn-success" @onclick="OzlukSecilenleriIndir" @onclick:preventDefault="true"
-                                    disabled="@(!ozlukModalItem.EvrakDosyalari.Any(e => e.Secili))">
+                                    disabled="@(!modalFooterEvraklar.Any(e => e.Secili))">
                                 <i class="bi bi-download me-1"></i>Seçilenleri İndir
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OzlukSeciliBelgeleriYazdir" @onclick:preventDefault="true"
-                                    disabled="@(!ozlukModalItem.EvrakDosyalari.Any(e => e.Secili))">
+                                    disabled="@(!modalFooterEvraklar.Any(e => e.Secili))">
                                 <i class="bi bi-printer me-1"></i>Yazdır
                             </button>
                         }
@@ -1001,8 +1331,39 @@
     {
         if (ozlukModalItem == null) return;
         var secili = (bool)(e.Value ?? false);
-        foreach (var d in ozlukModalItem.EvrakDosyalari.Where(x => x.DosyaVar))
+        foreach (var d in TabloyaUygunEvraklar(ozlukModalItem).Where(x => x.DosyaVar))
             d.Secili = secili;
+    }
+
+    // Tablodaki sütunlara karşılık gelen belge tanım adları (özlük evrak tanımıyla eşleşmesi gereken).
+    // Personel listesinde görünen 7 belge (Ehliyet, Kimlik, SRC, Psikoteknik, Adli Sicil, Sağlık, Ceza Barkod)
+    // dışındaki tüm özlük evrakları modalda gizlenir.
+    private static readonly string[] TabloBelgeAnahtarlari = new[]
+    {
+        "ehliyet",
+        "kimlik",
+        "src",
+        "psikoteknik",
+        "adli sicil",
+        "sabıka",
+        "saglik",
+        "sağlık",
+        "ceza",
+        "barkod",
+        "sürücü ceza",
+        "surucu ceza"
+    };
+
+    private static List<OzlukEvrakDosyaBilgisi> TabloyaUygunEvraklar(PersonelBelgeTabloKalemi item)
+    {
+        if (item?.EvrakDosyalari == null) return new List<OzlukEvrakDosyaBilgisi>();
+        return item.EvrakDosyalari
+            .Where(e =>
+            {
+                var ad = (e.EvrakAdi ?? string.Empty).ToLowerInvariant();
+                return TabloBelgeAnahtarlari.Any(k => ad.Contains(k));
+            })
+            .ToList();
     }
 
     private async Task TekDosyaIndir(OzlukEvrakDosyaBilgisi dosya)
@@ -1227,6 +1588,305 @@
         "Yonetici" => "bg-warning text-dark",
         "Teknik" => "bg-secondary",
         _ => "bg-dark"
+    };
+
+    // ─── Araç Belge Tablosu ────────────────────────────────────────────
+    private List<AracBelgeTabloKalemi>? aracBelgeTablosu;
+    private bool isAracTabloyukleniyor = false;
+    private string aracTabloArama = string.Empty;
+    private string aracTabloTipFiltre = string.Empty;
+    private string aracTabloAktifFiltre = string.Empty;
+    private string aracTabloBelgeFiltre = string.Empty;
+
+    private bool showAracTarihModal = false;
+    private AracBelgeTabloKalemi? editAracItem;
+    private string editAracBelgeAlani = string.Empty;
+    private string editAracBelgeAdi = string.Empty;
+    private DateTime? editAracTarih;
+    private bool isAracTarihKaydediliyor = false;
+
+    private bool showAracBelgeModal = false;
+    private AracBelgeTabloKalemi? aracBelgeModalItem;
+
+    private List<AracBelgeTabloKalemi> FiltrelenmisAracBelgeTablosu => (aracBelgeTablosu ?? new())
+        .Where(p => string.IsNullOrWhiteSpace(aracTabloArama)
+            || (p.Plaka ?? string.Empty).Contains(aracTabloArama, StringComparison.OrdinalIgnoreCase)
+            || (p.SaseNo ?? string.Empty).Contains(aracTabloArama, StringComparison.OrdinalIgnoreCase)
+            || (p.MarkaModel ?? string.Empty).Contains(aracTabloArama, StringComparison.OrdinalIgnoreCase))
+        .Where(p => string.IsNullOrWhiteSpace(aracTabloTipFiltre) || p.AracTipi.ToString() == aracTabloTipFiltre)
+        .Where(p => aracTabloAktifFiltre switch
+        {
+            "aktif" => p.Aktif,
+            "pasif" => !p.Aktif,
+            _ => true
+        })
+        .Where(p => aracTabloBelgeFiltre switch
+        {
+            "eksik" => GetEksikAracBelgeSayisi(p) > 0,
+            "gecmis" => GetTumAracBelgeTarihleri(p).Any(t => t < DateTime.Today),
+            "yaklasan" => GetTumAracBelgeTarihleri(p).Any(t => t >= DateTime.Today && (t - DateTime.Today).Days <= 30),
+            _ => true
+        })
+        .ToList();
+
+    private async Task SekmeAracTabloAc()
+    {
+        aktifSekme = "aractablo";
+        await AracBelgeTabloyuYukle();
+    }
+
+    private async Task AracBelgeTabloyuYukle(bool zorla = false)
+    {
+        if (aracBelgeTablosu != null && !zorla) return;
+        isAracTabloyukleniyor = true;
+        StateHasChanged();
+        try
+        {
+            aracBelgeTablosu = await BelgeUyariService.GetAracBelgeTablosuAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AracBelgeTabloyuYukle hatası");
+            ToastService.ShowError($"Araç belge tablosu yüklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            isAracTabloyukleniyor = false;
+            StateHasChanged();
+        }
+    }
+
+    private void AracTabloFiltreleriniTemizle()
+    {
+        aracTabloArama = string.Empty;
+        aracTabloTipFiltre = string.Empty;
+        aracTabloAktifFiltre = string.Empty;
+        aracTabloBelgeFiltre = string.Empty;
+    }
+
+    private void AracTumunuSecToggle()
+    {
+        if (aracBelgeTablosu == null) return;
+        var tumSecili = FiltrelenmisAracBelgeTablosu.All(x => x.Secili);
+        foreach (var item in FiltrelenmisAracBelgeTablosu)
+            item.Secili = !tumSecili;
+    }
+
+    private void AracTarihDuzenle(AracBelgeTabloKalemi item, string alan, string adiGoster, DateTime? mevcutTarih)
+    {
+        editAracItem = item;
+        editAracBelgeAlani = alan;
+        editAracBelgeAdi = adiGoster;
+        editAracTarih = mevcutTarih;
+        showAracTarihModal = true;
+    }
+
+    private void AracModalKapat()
+    {
+        showAracTarihModal = false;
+        editAracItem = null;
+    }
+
+    private async Task AracTarihKaydet()
+    {
+        if (editAracItem == null) return;
+        isAracTarihKaydediliyor = true;
+        try
+        {
+            var ok = await BelgeUyariService.AracBelgeTarihGuncelleAsync(editAracItem.AracId, editAracBelgeAlani, editAracTarih);
+            if (ok)
+            {
+                switch (editAracBelgeAlani)
+                {
+                    case "Ruhsat": editAracItem.RuhsatGecerlilik = editAracTarih; break;
+                    case "Sigorta": editAracItem.SigortaGecerlilik = editAracTarih; break;
+                    case "Muayene": editAracItem.MuayeneGecerlilik = editAracTarih; break;
+                    case "Uygunluk": editAracItem.UygunlukGecerlilik = editAracTarih; break;
+                    case "KoltukSigortasi": editAracItem.KoltukSigortasiGecerlilik = editAracTarih; break;
+                    case "Kasko": editAracItem.KaskoGecerlilik = editAracTarih; break;
+                }
+                ToastService.ShowSuccess($"{editAracItem.Plaka} – {editAracBelgeAdi} tarihi güncellendi.");
+                AracModalKapat();
+            }
+            else
+            {
+                ToastService.ShowError("Güncelleme başarısız.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isAracTarihKaydediliyor = false;
+        }
+    }
+
+    private async Task AracBelgeIslemAc(AracBelgeTabloKalemi item)
+    {
+        aracBelgeModalItem = item;
+        showAracBelgeModal = true;
+        try
+        {
+            var guncel = await BelgeUyariService.GetTekAracBelgeAsync(item.AracId);
+            if (guncel != null)
+            {
+                item.EvrakDosyalari = guncel.EvrakDosyalari;
+                item.ToplamEvrakSayisi = guncel.ToplamEvrakSayisi;
+                item.YuklenmisEvrakSayisi = guncel.YuklenmisEvrakSayisi;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AracBelgeIslemAc hatası AracId={AracId}", item.AracId);
+            ToastService.ShowError($"Belge bilgileri alınamadı: {ex.Message}");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private void AracBelgeModalKapat()
+    {
+        showAracBelgeModal = false;
+        aracBelgeModalItem = null;
+    }
+
+    private void AracBelgeModalTumunuSec(ChangeEventArgs e)
+    {
+        if (aracBelgeModalItem == null) return;
+        var secili = (bool)(e.Value ?? false);
+        foreach (var d in aracBelgeModalItem.EvrakDosyalari.Where(x => x.DosyaVar))
+            d.Secili = secili;
+    }
+
+    private async Task AracTekDosyaIndir(AracEvrakDosyaBilgisi dosya)
+    {
+        if (string.IsNullOrEmpty(dosya.DosyaYolu)) return;
+        try
+        {
+            var bytes = await SecureFileService.ReadDecryptedAsync(dosya.DosyaYolu);
+            if (bytes == null || bytes.Length == 0)
+            {
+                ToastService.ShowWarning("Dosya okunamadı veya boş.");
+                return;
+            }
+            var uzanti = GercekUzantiAl(dosya.DosyaYolu);
+            var contentType = MimeTipiAl(uzanti);
+            var ad = !string.IsNullOrWhiteSpace(dosya.DosyaAdi)
+                ? dosya.DosyaAdi!
+                : $"{(string.IsNullOrWhiteSpace(dosya.EvrakAdi) ? dosya.EvrakKategorisi : dosya.EvrakAdi)}{uzanti}";
+            await JS.InvokeVoidAsync("downloadFile", ad, Convert.ToBase64String(bytes), contentType);
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"İndirme hatası: {ex.Message}");
+        }
+    }
+
+    private async Task AracBelgeSecilenleriIndir()
+    {
+        if (aracBelgeModalItem == null) return;
+        var seciliDosyalar = aracBelgeModalItem.EvrakDosyalari.Where(d => d.Secili && d.DosyaVar).ToList();
+        if (!seciliDosyalar.Any()) { ToastService.ShowWarning("Lütfen belge seçin."); return; }
+        try
+        {
+            var seciliYollar = seciliDosyalar.Select(d => d.DosyaYolu!).ToList();
+            var zipBytes = await BelgeUyariService.SeciliAracBelgelerZipAsync(
+                new List<int> { aracBelgeModalItem.AracId }, seciliYollar);
+            if (zipBytes.Length == 0) { ToastService.ShowWarning("İndirilebilecek belge bulunamadı."); return; }
+            var aracKod = string.IsNullOrEmpty(aracBelgeModalItem.Plaka) ? aracBelgeModalItem.SaseNo : aracBelgeModalItem.Plaka;
+            var dosyaAdi = seciliDosyalar.Count == 1
+                ? (seciliDosyalar[0].DosyaAdi ?? $"{seciliDosyalar[0].EvrakKategorisi}{GercekUzantiAl(seciliDosyalar[0].DosyaYolu)}")
+                : $"{aracKod}_Belgeler_{DateTime.Now:yyyyMMdd_HHmm}.zip";
+            var contentType = seciliDosyalar.Count == 1
+                ? MimeTipiAl(GercekUzantiAl(seciliDosyalar[0].DosyaYolu))
+                : "application/zip";
+            await JS.InvokeVoidAsync("downloadFile", dosyaAdi, Convert.ToBase64String(zipBytes), contentType);
+            ToastService.ShowSuccess($"{seciliDosyalar.Count} belge indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"İndirme hatası: {ex.Message}");
+        }
+    }
+
+    private async Task SeciliAraclarinBelgeleriniIndir()
+    {
+        if (aracBelgeTablosu == null) return;
+        var secili = aracBelgeTablosu.Where(x => x.Secili).ToList();
+        if (!secili.Any()) { ToastService.ShowWarning("Lütfen en az bir araç seçin."); return; }
+
+        var dosyasiOlanlar = secili.Where(p => p.YuklenmisEvrakSayisi > 0).ToList();
+        if (!dosyasiOlanlar.Any())
+        {
+            ToastService.ShowWarning("Seçili araçların yüklenmiş belgesi bulunmamaktadır.");
+            return;
+        }
+        try
+        {
+            var idler = dosyasiOlanlar.Select(p => p.AracId).ToList();
+            var zipBytes = await BelgeUyariService.SeciliAracBelgelerZipAsync(idler);
+            if (zipBytes.Length == 0)
+            {
+                ToastService.ShowWarning("İndirilebilecek belge bulunamadı.");
+                return;
+            }
+            var dosyaAdi = $"AracBelgeler_{DateTime.Now:yyyyMMdd_HHmm}.zip";
+            await JS.InvokeVoidAsync("downloadFile", dosyaAdi, Convert.ToBase64String(zipBytes), "application/zip");
+            ToastService.ShowSuccess($"{dosyasiOlanlar.Count} aracın belgeleri ZIP olarak indirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"İndirme hatası: {ex.Message}");
+        }
+    }
+
+    private async Task AracTabloYazdir()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private static IEnumerable<DateTime> GetTumAracBelgeTarihleri(AracBelgeTabloKalemi p)
+    {
+        DateTime?[] list = [p.RuhsatGecerlilik, p.SigortaGecerlilik, p.MuayeneGecerlilik,
+            p.UygunlukGecerlilik, p.KoltukSigortasiGecerlilik, p.KaskoGecerlilik];
+        return list.Where(d => d.HasValue).Select(d => d!.Value);
+    }
+
+    private static int GetEksikAracBelgeSayisi(AracBelgeTabloKalemi p)
+    {
+        DateTime?[] list = [p.RuhsatGecerlilik, p.SigortaGecerlilik, p.MuayeneGecerlilik,
+            p.UygunlukGecerlilik, p.KoltukSigortasiGecerlilik, p.KaskoGecerlilik];
+        return list.Count(d => !d.HasValue);
+    }
+
+    private static string GetAracBelgeAdi(string alan) => alan switch
+    {
+        "Ruhsat" => "Ruhsat",
+        "Sigorta" => "Trafik Sigortası",
+        "Muayene" => "Muayene",
+        "Uygunluk" => "Uygunluk Belgesi",
+        "KoltukSigortasi" => "Koltuk Sigortası",
+        "Kasko" => "Kasko",
+        _ => alan
+    };
+
+    private RenderFragment AracBelgeHucre(AracBelgeTabloKalemi item, string alan, DateTime? tarih) => builder =>
+    {
+        var cls = AracBelgeTabloKalemi.BelgeDurumClass(tarih);
+        var txt = AracBelgeTabloKalemi.BelgeDurumMetin(tarih);
+        builder.OpenElement(0, "button");
+        builder.AddAttribute(1, "class", $"badge {cls} border-0 w-100");
+        builder.AddAttribute(2, "style", "cursor:pointer;font-size:0.75rem;");
+        builder.AddAttribute(3, "title", $"Düzenle: {GetAracBelgeAdi(alan)}");
+        builder.AddAttribute(4, "type", "button");
+        builder.AddAttribute(5, "onclick", EventCallback.Factory.Create(this, () =>
+            AracTarihDuzenle(item, alan, GetAracBelgeAdi(alan), tarih)));
+        builder.AddContent(6, txt);
+        builder.CloseElement();
     };
 
     private RenderFragment BelgeCelHtml(PersonelBelgeTabloKalemi item, string alan, DateTime? tarih) => builder =>

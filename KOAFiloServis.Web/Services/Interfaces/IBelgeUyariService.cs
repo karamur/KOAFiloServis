@@ -10,6 +10,13 @@ public interface IBelgeUyariService
     Task<bool> PersonelBelgeTarihGuncelleAsync(int soforId, string belgeAlani, DateTime? tarih);
     Task<byte[]> SeciliPersonelBelgelerZipAsync(List<int> soforIdler, List<string>? seciliDosyaYollari = null);
     Task<byte[]> PersonelBelgePdfAsync(int soforId);
+
+    // Araç Belge Tablosu
+    Task<List<AracBelgeTabloKalemi>> GetAracBelgeTablosuAsync();
+    Task<AracBelgeTabloKalemi?> GetTekAracBelgeAsync(int aracId);
+    Task<bool> AracBelgeTarihGuncelleAsync(int aracId, string belgeAlani, DateTime? bitisTarihi);
+    Task<bool> AracBelgeDosyaYukleAsync(int aracId, string belgeAlani, string dosyaAdi, byte[] icerik);
+    Task<byte[]> SeciliAracBelgelerZipAsync(List<int> aracIdler, List<string>? seciliDosyaYollari = null);
 }
 
 public class BelgeUyariOzet
@@ -190,6 +197,61 @@ public class OzlukEvrakDosyaBilgisi
 {
     public int EvrakTanimId { get; set; }
     public string EvrakAdi { get; set; } = string.Empty;
+    public string? DosyaYolu { get; set; }
+    public string? DosyaAdi { get; set; }
+    public bool DosyaVar => !string.IsNullOrEmpty(DosyaYolu);
+    public bool Secili { get; set; } = false;
+}
+
+/// <summary>
+/// Araç belge takip tablosu – her satır bir araç, sütunlar belge türleri (Ruhsat, Sigorta, Muayene, Uygunluk, Koltuk Sigortası, Kasko)
+/// </summary>
+public class AracBelgeTabloKalemi
+{
+    public int AracId { get; set; }
+    public string Plaka { get; set; } = string.Empty;
+    public string SaseNo { get; set; } = string.Empty;
+    public string MarkaModel { get; set; } = string.Empty;
+    public AracTipi AracTipi { get; set; }
+    public bool Aktif { get; set; }
+    public bool Secili { get; set; } = false;
+
+    // Belge dosyaları (AracEvrak'tan)
+    public int ToplamEvrakSayisi { get; set; }
+    public int YuklenmisEvrakSayisi { get; set; }
+    public List<AracEvrakDosyaBilgisi> EvrakDosyalari { get; set; } = new();
+
+    // Belge tarihleri
+    public DateTime? RuhsatGecerlilik { get; set; }
+    public DateTime? SigortaGecerlilik { get; set; }   // Trafik Sigortası
+    public DateTime? MuayeneGecerlilik { get; set; }
+    public DateTime? UygunlukGecerlilik { get; set; }
+    public DateTime? KoltukSigortasiGecerlilik { get; set; }
+    public DateTime? KaskoGecerlilik { get; set; }
+
+    public static string BelgeDurumClass(DateTime? tarih) => tarih == null ? "bg-secondary"
+        : (tarih.Value - DateTime.Today).Days switch
+        {
+            < 0 => "bg-danger",
+            <= 7 => "bg-warning text-dark",
+            <= 30 => "bg-info",
+            _ => "bg-success"
+        };
+
+    public static string BelgeDurumMetin(DateTime? tarih) => tarih == null ? "Yok"
+        : (tarih.Value - DateTime.Today).Days switch
+        {
+            var d when d < 0 => $"{Math.Abs(d)}g geçti",
+            var d when d <= 30 => $"{d}g kaldı",
+            _ => tarih.Value.ToString("dd.MM.yy")
+        };
+}
+
+public class AracEvrakDosyaBilgisi
+{
+    public int AracEvrakId { get; set; }
+    public string EvrakKategorisi { get; set; } = string.Empty;
+    public string? EvrakAdi { get; set; }
     public string? DosyaYolu { get; set; }
     public string? DosyaAdi { get; set; }
     public bool DosyaVar => !string.IsNullOrEmpty(DosyaYolu);
