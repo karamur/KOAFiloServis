@@ -11,7 +11,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
 @inject IToastService ToastService
-@rendermode InteractiveServer
+@inject ILogger<KOAFiloServis.Web.Components.Pages.BelgeUyarilari> Logger
 
 <PageTitle>Belge Sure Uyarilari</PageTitle>
 
@@ -1000,6 +1000,7 @@
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "BelgeTabloyuYukle hatası");
             ToastService.ShowError($"Belge tablosu yüklenirken hata: {ex.Message}");
         }
         finally
@@ -1097,6 +1098,7 @@
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "OzlukIslemAc hatası SoforId={SoforId}", item.SoforId);
             ToastService.ShowError($"Evrak bilgileri alınamadı: {ex.Message}");
         }
         finally
@@ -1309,9 +1311,10 @@
         builder.AddAttribute(1, "class", $"badge {cls} border-0 w-100");
         builder.AddAttribute(2, "style", "cursor:pointer;font-size:0.75rem;");
         builder.AddAttribute(3, "title", $"Düzenle: {alan}");
-        builder.AddAttribute(4, "onclick", EventCallback.Factory.Create(this, () =>
+        builder.AddAttribute(4, "type", "button");
+        builder.AddAttribute(5, "onclick", EventCallback.Factory.Create(this, () =>
             TarihDuzenle(item, alan, GetBelgeAdi(alan), tarih)));
-        builder.AddContent(5, txt);
+        builder.AddContent(6, txt);
         builder.CloseElement();
     };
 
