@@ -6,6 +6,7 @@
 @using System.IO
 @inject IBelgeUyariService BelgeUyariService
 @inject ISecureFileService SecureFileService
+@inject IPersonelOzlukService OzlukService
 @inject IExcelService ExcelService
 @inject IPdfService PdfService
 @inject IJSRuntime JS
@@ -523,31 +524,31 @@
                                         </td>
                                         <!-- Ehliyet -->
                                         <td class="text-center p-1">
-                                            @BelgeCelHtml(item, "Ehliyet", item.EhliyetGecerlilik)
+                                            @BelgeHucre(item, "Ehliyet", item.EhliyetGecerlilik)
                                         </td>
                                         <!-- Kimlik -->
                                         <td class="text-center p-1">
-                                            @BelgeCelHtml(item, "Kimlik", item.KimlikGecerlilik)
+                                            @BelgeHucre(item, "Kimlik", item.KimlikGecerlilik)
                                         </td>
                                         <!-- SRC -->
                                         <td class="text-center p-1">
-                                            @BelgeCelHtml(item, "Src", item.SrcGecerlilik)
+                                            @BelgeHucre(item, "Src", item.SrcGecerlilik)
                                         </td>
                                         <!-- Psikoteknik -->
                                         <td class="text-center p-1">
-                                            @BelgeCelHtml(item, "Psikoteknik", item.PsikoteknikGecerlilik)
+                                            @BelgeHucre(item, "Psikoteknik", item.PsikoteknikGecerlilik)
                                         </td>
                                         <!-- Adli Sicil -->
                                         <td class="text-center p-1">
-                                            @BelgeCelHtml(item, "AdliSicil", item.AdliSicilGecerlilik)
+                                            @BelgeHucre(item, "AdliSicil", item.AdliSicilGecerlilik)
                                         </td>
                                         <!-- Sağlık Raporu -->
                                         <td class="text-center p-1">
-                                            @BelgeCelHtml(item, "SaglikRaporu", item.SaglikRaporuGecerlilik)
+                                            @BelgeHucre(item, "SaglikRaporu", item.SaglikRaporuGecerlilik)
                                         </td>
                                         <!-- Sürücü Ceza Barkod -->
                                         <td class="text-center p-1">
-                                            @BelgeCelHtml(item, "SuruculCezaBarkod", item.SuruculCezaBarkodGecerlilik)
+                                            @BelgeHucre(item, "SuruculCezaBarkod", item.SuruculCezaBarkodGecerlilik)
                                         </td>
                                         <td class="text-center p-1" style="min-width:110px;">
                                             <div class="d-flex flex-column align-items-center gap-1">
@@ -1242,6 +1243,166 @@
         builder.AddContent(6, txt);
         builder.CloseElement();
     };
+
+    /// <summary>
+    /// Tarih badge'i + dosya yükleme/indir ikonunu birlikte render eder.
+    /// Personel ID + alan adıyla ilişkili özlük evrak dosyasını bulur.
+    /// </summary>
+    private RenderFragment BelgeHucre(PersonelBelgeTabloKalemi item, string alan, DateTime? tarih) => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "d-flex flex-column align-items-stretch gap-1");
+
+        // 1) Tarih badge (mevcut işlevi koru)
+        builder.AddContent(2, BelgeCelHtml(item, alan, tarih));
+
+        // 2) Dosya satırı: yüklü ise indir + tekrar yükle, değilse yükle butonu
+        var dosyaYolu = BelgeAlaniDosyaYoluAl(item, alan);
+        var inputId = $"upl_{item.SoforId}_{alan}";
+
+        builder.OpenElement(10, "div");
+        builder.AddAttribute(11, "class", "d-flex justify-content-center gap-1");
+
+        if (!string.IsNullOrEmpty(dosyaYolu))
+        {
+            // İndir butonu
+            builder.OpenElement(20, "button");
+            builder.AddAttribute(21, "type", "button");
+            builder.AddAttribute(22, "class", "btn btn-xs btn-outline-success p-0 px-1");
+            builder.AddAttribute(23, "title", $"{GetBelgeAdi(alan)} dosyasını indir");
+            builder.AddAttribute(24, "onclick", EventCallback.Factory.Create(this, () =>
+                BelgeAlaniDosyaIndir(item, alan)));
+            builder.OpenElement(25, "i");
+            builder.AddAttribute(26, "class", "bi bi-download");
+            builder.AddAttribute(27, "style", "font-size:0.7rem;");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
+        // Yükle (her durumda - yüklüyse de değiştirilebilsin)
+        builder.OpenElement(30, "label");
+        builder.AddAttribute(31, "for", inputId);
+        builder.AddAttribute(32, "class", string.IsNullOrEmpty(dosyaYolu)
+            ? "btn btn-xs btn-outline-primary p-0 px-1 mb-0"
+            : "btn btn-xs btn-outline-secondary p-0 px-1 mb-0");
+        builder.AddAttribute(33, "style", "cursor:pointer;");
+        builder.AddAttribute(34, "title", string.IsNullOrEmpty(dosyaYolu) ? "Dosya yükle" : "Dosyayı değiştir");
+        builder.OpenElement(35, "i");
+        builder.AddAttribute(36, "class", string.IsNullOrEmpty(dosyaYolu) ? "bi bi-upload" : "bi bi-arrow-repeat");
+        builder.AddAttribute(37, "style", "font-size:0.7rem;");
+        builder.CloseElement();
+        builder.CloseElement();
+
+        // Gizli InputFile
+        builder.OpenComponent<InputFile>(40);
+        builder.AddAttribute(41, "id", inputId);
+        builder.AddAttribute(42, "class", "d-none");
+        builder.AddAttribute(43, "OnChange", EventCallback.Factory.Create<InputFileChangeEventArgs>(this, e =>
+            BelgeAlaniDosyaYukle(item, alan, e)));
+        builder.CloseComponent();
+
+        builder.CloseElement(); // d-flex
+        builder.CloseElement(); // outer div
+    };
+
+    private static string? BelgeAlaniDosyaYoluAl(PersonelBelgeTabloKalemi item, string alan)
+    {
+        if (item.EvrakDosyalari == null || item.EvrakDosyalari.Count == 0) return null;
+        var keys = alan switch
+        {
+            "Ehliyet" => new[] { "Ehliyet" },
+            "Kimlik" => new[] { "Kimlik Fotokopisi", "Nüfus Cüzdanı" },
+            "Src" => new[] { "SRC" },
+            "Psikoteknik" => new[] { "Psikoteknik" },
+            "AdliSicil" => new[] { "Adli Sicil", "Sabıka" },
+            "SaglikRaporu" => new[] { "Sağlık Rapor", "Saglik Rapor" },
+            "SuruculCezaBarkod" => new[] { "Sürücü Ceza", "Ceza Barkod" },
+            _ => Array.Empty<string>()
+        };
+        var dosya = item.EvrakDosyalari.FirstOrDefault(d =>
+            keys.Any(k => d.EvrakAdi.Contains(k, StringComparison.OrdinalIgnoreCase))
+            && !string.IsNullOrEmpty(d.DosyaYolu));
+        return dosya?.DosyaYolu;
+    }
+
+    private async Task BelgeAlaniDosyaIndir(PersonelBelgeTabloKalemi item, string alan)
+    {
+        var dosyaYolu = BelgeAlaniDosyaYoluAl(item, alan);
+        if (string.IsNullOrEmpty(dosyaYolu))
+        {
+            ToastService.ShowWarning("Dosya bulunamadı.");
+            return;
+        }
+        try
+        {
+            var bytes = await SecureFileService.ReadDecryptedAsync(dosyaYolu);
+            if (bytes == null || bytes.Length == 0)
+            {
+                ToastService.ShowWarning("Dosya okunamadı.");
+                return;
+            }
+            var uzanti = GercekUzantiAl(dosyaYolu);
+            var contentType = MimeTipiAl(uzanti);
+            var safeAd = string.Join("_", $"{item.PersonelKodu}_{GetBelgeAdi(alan)}".Split(Path.GetInvalidFileNameChars()));
+            var ad = $"{safeAd}{uzanti}";
+            await JS.InvokeVoidAsync("downloadFile", ad, Convert.ToBase64String(bytes), contentType);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Belge indirme hatası SoforId={SoforId} Alan={Alan}", item.SoforId, alan);
+            ToastService.ShowError($"İndirme hatası: {ex.Message}");
+        }
+    }
+
+    private async Task BelgeAlaniDosyaYukle(PersonelBelgeTabloKalemi item, string alan, InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        const long maxBoyut = 25 * 1024 * 1024; // 25 MB
+        if (file.Size > maxBoyut)
+        {
+            ToastService.ShowError("Dosya 25 MB'tan büyük olamaz.");
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: maxBoyut);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+
+            var relativePath = await SecureFileService.SaveEncryptedAsync(
+                $"personel-ozluk/{item.SoforId}",
+                file.Name,
+                bytes);
+
+            var sonuc = await OzlukService.BelgeAlaniIleDosyaYukleAsync(item.SoforId, alan, relativePath);
+            if (sonuc == null)
+            {
+                ToastService.ShowError("Belge tanımı eşleştirilemedi.");
+                return;
+            }
+
+            // Yerel modeli güncelle: EvrakDosyalari listesini yenile
+            var guncel = await BelgeUyariService.GetTekPersonelBelgeAsync(item.SoforId);
+            if (guncel != null)
+            {
+                item.EvrakDosyalari = guncel.EvrakDosyalari;
+                item.ToplamEvrakSayisi = guncel.ToplamEvrakSayisi;
+                item.YuklenmisEvrakSayisi = guncel.YuklenmisEvrakSayisi;
+            }
+
+            ToastService.ShowSuccess($"{item.PersonelAdi} – {GetBelgeAdi(alan)} dosyası yüklendi.");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Belge yükleme hatası SoforId={SoforId} Alan={Alan}", item.SoforId, alan);
+            ToastService.ShowError($"Yükleme hatası: {ex.Message}");
+        }
+    }
 
     private static string GetBelgeAdi(string alan) => alan switch
     {

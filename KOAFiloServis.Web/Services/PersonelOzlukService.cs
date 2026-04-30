@@ -112,7 +112,7 @@ public class PersonelOzlukService : IPersonelOzlukService
             var defaultEvraklar = new List<OzlukEvrakTanim>
             {
             // Kimlik Belgeleri
-            new() { EvrakAdi = "Nüfus Cüzdanı Fotokopisi", Kategori = OzlukEvrakKategori.KimlikBelgeleri, SiraNo = 1, Zorunlu = true },
+            new() { EvrakAdi = "Kimlik Fotokopisi", Kategori = OzlukEvrakKategori.KimlikBelgeleri, SiraNo = 1, Zorunlu = true },
             new() { EvrakAdi = "İkametgah Belgesi", Kategori = OzlukEvrakKategori.KimlikBelgeleri, SiraNo = 2, Zorunlu = true },
             new() { EvrakAdi = "Vesikalık Fotoğraf (2 Adet)", Kategori = OzlukEvrakKategori.KimlikBelgeleri, SiraNo = 3, Zorunlu = true },
             new() { EvrakAdi = "Nüfus Kayıt Örneği", Kategori = OzlukEvrakKategori.KimlikBelgeleri, SiraNo = 4, Zorunlu = false },
@@ -354,6 +354,54 @@ public class PersonelOzlukService : IPersonelOzlukService
 
         await context.SaveChangesAsync();
         return existing;
+    }
+
+    /// <summary>
+    /// Belge alan adına göre (Ehliyet, Kimlik, Src, Psikoteknik, AdliSicil, SaglikRaporu, SuruculCezaBarkod)
+    /// ilgili özlük evrak tanımını bulup dosyayı yükler. Tanım yoksa otomatik oluşturur.
+    /// </summary>
+    public async Task<PersonelOzlukEvrak?> BelgeAlaniIleDosyaYukleAsync(int soforId, string belgeAlani, string dosyaYolu)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var (aramaKelimeleri, varsayilanAd, kategori) = belgeAlani switch
+        {
+            "Ehliyet" => (new[] { "Ehliyet" }, "Ehliyet Fotokopisi", OzlukEvrakKategori.SoforBelgeleri),
+            "Kimlik" => (new[] { "Kimlik Fotokopisi", "Nüfus Cüzdanı" }, "Kimlik Fotokopisi", OzlukEvrakKategori.KimlikBelgeleri),
+            "Src" => (new[] { "SRC" }, "SRC Belgesi", OzlukEvrakKategori.SoforBelgeleri),
+            "Psikoteknik" => (new[] { "Psikoteknik" }, "Psikoteknik Belgesi", OzlukEvrakKategori.SoforBelgeleri),
+            "AdliSicil" => (new[] { "Adli Sicil", "Sabıka" }, "Adli Sicil Kaydı", OzlukEvrakKategori.KimlikBelgeleri),
+            "SaglikRaporu" => (new[] { "Sağlık Rapor", "Saglik Rapor" }, "Sağlık Raporu", OzlukEvrakKategori.SaglikBelgeleri),
+            "SuruculCezaBarkod" => (new[] { "Sürücü Ceza", "Ceza Barkod" }, "Sürücü Ceza Barkodlu Belge", OzlukEvrakKategori.SoforBelgeleri),
+            _ => (Array.Empty<string>(), string.Empty, OzlukEvrakKategori.Diger)
+        };
+
+        if (aramaKelimeleri.Length == 0) return null;
+
+        var tanim = await context.OzlukEvrakTanimlari
+            .Where(t => !t.IsDeleted && t.Aktif)
+            .ToListAsync();
+
+        var eslesen = tanim.FirstOrDefault(t =>
+            aramaKelimeleri.Any(k => t.EvrakAdi.Contains(k, StringComparison.OrdinalIgnoreCase)));
+
+        if (eslesen == null)
+        {
+            // Tanım yoksa otomatik oluştur
+            eslesen = new OzlukEvrakTanim
+            {
+                EvrakAdi = varsayilanAd,
+                Kategori = kategori,
+                SiraNo = 99,
+                Zorunlu = true,
+                Aktif = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.OzlukEvrakTanimlari.Add(eslesen);
+            await context.SaveChangesAsync();
+        }
+
+        return await EvrakDosyaYukle(soforId, eslesen.Id, dosyaYolu);
     }
 
     public async Task<PersonelOzlukEvrak> UpdatePersonelEvrakAsync(PersonelOzlukEvrak evrak)

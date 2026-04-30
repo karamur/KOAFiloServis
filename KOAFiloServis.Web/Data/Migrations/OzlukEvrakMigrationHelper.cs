@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace KOAFiloServis.Web.Data.Migrations;
@@ -56,11 +56,82 @@ CREATE TABLE IF NOT EXISTS ""PersonelOzlukEvraklar"" (
                 await context.Database.ExecuteSqlRawAsync(@"CREATE INDEX IF NOT EXISTS ""IX_OzlukEvrakTanimlari_Kategori"" ON ""OzlukEvrakTanimlari"" (""Kategori"")");
             }
             catch { /* Index zaten varsa hata vermesini engelle */ }
+
+            // "Nüfus Cüzdanı Fotokopisi" -> "Kimlik Fotokopisi" tekilleştirmesi
+            try
+            {
+                await ConsolidateKimlikFotokopisiAsync(context);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Kimlik fotokopisi tekilleştirme hatası: {ex.Message}");
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Özlük evrak migration hatası: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// "Nüfus Cüzdanı Fotokopisi" ile "Kimlik Fotokopisi" aynı belgedir.
+    /// Kimlik Fotokopisi varsa, eski "Nüfus Cüzdanı Fotokopisi" kayıtlarını ona taşır ve siler.
+    /// Yoksa "Nüfus Cüzdanı Fotokopisi" tanımını "Kimlik Fotokopisi" olarak günceller.
+    /// </summary>
+    private static async Task ConsolidateKimlikFotokopisiAsync(ApplicationDbContext context)
+    {
+        var nufusTanim = await context.OzlukEvrakTanimlari
+            .FirstOrDefaultAsync(t => t.EvrakAdi == "Nüfus Cüzdanı Fotokopisi");
+        if (nufusTanim == null) return;
+
+        var kimlikTanim = await context.OzlukEvrakTanimlari
+            .FirstOrDefaultAsync(t => t.EvrakAdi == "Kimlik Fotokopisi" && t.Id != nufusTanim.Id);
+
+        if (kimlikTanim == null)
+        {
+            // Sadece adı değiştir.
+            nufusTanim.EvrakAdi = "Kimlik Fotokopisi";
+            nufusTanim.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+            return;
+        }
+
+        // İki tanım da varsa: nüfus altındaki personel evraklarını kimlik tanımına taşı.
+        var nufusEvraklar = await context.PersonelOzlukEvraklar
+            .Where(e => e.EvrakTanimId == nufusTanim.Id)
+            .ToListAsync();
+
+        foreach (var ev in nufusEvraklar)
+        {
+            var mevcutKimlik = await context.PersonelOzlukEvraklar
+                .FirstOrDefaultAsync(x => x.SoforId == ev.SoforId && x.EvrakTanimId == kimlikTanim.Id);
+
+            if (mevcutKimlik == null)
+            {
+                ev.EvrakTanimId = kimlikTanim.Id;
+                ev.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                // Kimlik tanımına ait kayıt boşsa, nüfus kaydındaki bilgileri taşı.
+                if (string.IsNullOrEmpty(mevcutKimlik.DosyaYolu) && !string.IsNullOrEmpty(ev.DosyaYolu))
+                    mevcutKimlik.DosyaYolu = ev.DosyaYolu;
+                if (!mevcutKimlik.Tamamlandi && ev.Tamamlandi)
+                {
+                    mevcutKimlik.Tamamlandi = true;
+                    mevcutKimlik.TamamlanmaTarihi = ev.TamamlanmaTarihi ?? mevcutKimlik.TamamlanmaTarihi;
+                }
+                if (!mevcutKimlik.GecerlilikBitisTarihi.HasValue && ev.GecerlilikBitisTarihi.HasValue)
+                    mevcutKimlik.GecerlilikBitisTarihi = ev.GecerlilikBitisTarihi;
+
+                mevcutKimlik.UpdatedAt = DateTime.UtcNow;
+                context.PersonelOzlukEvraklar.Remove(ev);
+            }
+        }
+
+        // Eski tanımı sil
+        context.OzlukEvrakTanimlari.Remove(nufusTanim);
+        await context.SaveChangesAsync();
     }
 
     private static async Task EnsureSqliteSchemaAsync(ApplicationDbContext context)
