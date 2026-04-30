@@ -154,7 +154,10 @@
         }
     </Authorized>
     <NotAuthorized>
-        <RedirectToLogin />
+        @if (_authChecked)
+        {
+            <RedirectToLogin />
+        }
         <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Yonlendiriliyor...</span>
@@ -176,6 +179,7 @@
     private string lisansHataMesaji = "";
     private string makineKodu = "";
     private int kalanLisansGunu = 0;
+    private bool _authChecked = false;
 
     private List<KOAFiloServis.Shared.Entities.Firma> firmalar = new();
     private int aktifFirmaId;
@@ -193,6 +197,12 @@
                 StateHasChanged();
             }
             catch { }
+
+            // Auth state ilk render'da geçici olarak boş gelebilir.
+            // Kısa bir gecikme sonrası authChecked true yapılır — o zaman redirect edilir.
+            await Task.Delay(300);
+            _authChecked = true;
+            StateHasChanged();
         }
     }
 

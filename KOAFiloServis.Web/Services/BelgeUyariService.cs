@@ -320,6 +320,7 @@ public class BelgeUyariService : IBelgeUyariService
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
 
+        // 1. Tüm aktif personelleri çek
         var soforler = await context.Soforler
             .AsNoTracking()
             .Where(s => !s.IsDeleted)
@@ -327,18 +328,50 @@ public class BelgeUyariService : IBelgeUyariService
             .ThenBy(s => s.Ad)
             .ToListAsync();
 
+        if (!soforler.Any()) return new List<PersonelBelgeTabloKalemi>();
+
+        var soforIdler = soforler.Select(s => s.Id).ToList();
+
+        // 2. Tüm aktif evrak tanımlarını tek sorguda çek
+        var tumTanimlar = await context.OzlukEvrakTanimlari
+            .AsNoTracking()
+            .Where(t => !t.IsDeleted && t.Aktif)
+            .OrderBy(t => t.Kategori)
+            .ThenBy(t => t.SiraNo)
+            .ToListAsync();
+
+        // 3. Tüm personellerin evraklarını tek sorguda çek
+        var tumEvraklar = await context.PersonelOzlukEvraklar
+            .AsNoTracking()
+            .Where(e => soforIdler.Contains(e.SoforId) && !e.IsDeleted)
+            .ToListAsync();
+
+        // Grup: soforId → evraklar
+        var evraklarByPersonel = tumEvraklar.GroupBy(e => e.SoforId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var result = new List<PersonelBelgeTabloKalemi>();
         foreach (var s in soforler)
         {
-            var evrakDurum = await _ozlukService.GetPersonelEvrakDurumuAsync(s.Id);
-            var dosyalar = evrakDurum.Evraklar
-                .Select(e => new OzlukEvrakDosyaBilgisi
+            var gorevStr = ((int)s.Gorev).ToString();
+            var gecerliTanimlar = tumTanimlar
+                .Where(t => string.IsNullOrEmpty(t.GecerliGorevler)
+                    || t.GecerliGorevler.Split(',').Contains(gorevStr))
+                .ToList();
+
+            var personelEvraklar = evraklarByPersonel.TryGetValue(s.Id, out var pe) ? pe : new();
+
+            var dosyalar = gecerliTanimlar.Select(tanim =>
+            {
+                var evrak = personelEvraklar.FirstOrDefault(e => e.EvrakTanimId == tanim.Id);
+                return new OzlukEvrakDosyaBilgisi
                 {
-                    EvrakTanimId = e.EvrakTanimId,
-                    EvrakAdi = e.EvrakAdi,
-                    DosyaYolu = e.DosyaYolu,
-                    DosyaAdi = e.DosyaYolu != null ? Path.GetFileName(e.DosyaYolu) : null
-                }).ToList();
+                    EvrakTanimId = tanim.Id,
+                    EvrakAdi = tanim.EvrakAdi,
+                    DosyaYolu = evrak?.DosyaYolu,
+                    DosyaAdi = evrak?.DosyaYolu != null ? Path.GetFileName(evrak.DosyaYolu) : null
+                };
+            }).ToList();
 
             result.Add(new PersonelBelgeTabloKalemi
             {
@@ -347,8 +380,9 @@ public class BelgeUyariService : IBelgeUyariService
                 PersonelKodu = s.SoforKodu,
                 Gorev = s.Gorev.ToString(),
                 Aktif = s.Aktif,
-                ToplamEvrakSayisi = evrakDurum.ToplamEvrak,
-                YuklenmisEvrakSayisi = evrakDurum.TamamlananEvrak,
+                ToplamEvrakSayisi = gecerliTanimlar.Count,
+                YuklenmisEvrakSayisi = personelEvraklar.Count(e =>
+                    gecerliTanimlar.Any(t => t.Id == e.EvrakTanimId) && !string.IsNullOrEmpty(e.DosyaYolu)),
                 EvrakDosyalari = dosyalar,
                 EhliyetGecerlilik = s.EhliyetGecerlilikTarihi,
                 KimlikGecerlilik = s.KimlikGecerlilikTarihi,
