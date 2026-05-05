@@ -33,6 +33,9 @@ public class MaliAnalizService : IMaliAnalizService
         // Komisyon Analizi
         dashboard.KomisyonAnaliz = await GetKomisyonSegmentAnalizAsync(context, ayBaslangic, ayBitis);
 
+        // Taşıma Tedarikçisi (Alt Yüklenici) Analizi
+        dashboard.TasimaTedarikciAnaliz = await GetTasimaTedarikciSegmentAnalizAsync(context, ayBaslangic, ayBitis);
+
         // Toplam hesaplamalar
         dashboard.ToplamGelir = dashboard.OzmalAracAnaliz.Gelir + 
                                 dashboard.KiralikAracAnaliz.Gelir + 
@@ -55,7 +58,8 @@ public class MaliAnalizService : IMaliAnalizService
         {
             new() { Etiket = "Özmal Araçlar", Deger = dashboard.OzmalAracAnaliz.Gelir, Renk = "#28a745" },
             new() { Etiket = "Kiralık Araçlar", Deger = dashboard.KiralikAracAnaliz.Gelir, Renk = "#ffc107" },
-            new() { Etiket = "Komisyon İşleri", Deger = dashboard.KomisyonAnaliz.Gelir, Renk = "#17a2b8" }
+            new() { Etiket = "Komisyon İşleri", Deger = dashboard.KomisyonAnaliz.Gelir, Renk = "#17a2b8" },
+            new() { Etiket = "Taşıma Tedarikçileri", Deger = dashboard.TasimaTedarikciAnaliz.Gelir, Renk = "#dc3545" }
         };
 
         dashboard.GiderDagilimi = await GetGiderDagilimiAsync(context, ayBaslangic, ayBitis);
@@ -783,6 +787,79 @@ public class MaliAnalizService : IMaliAnalizService
         }
 
         analiz.SeferSayisi = komisyonluCalismalar.Count;
+
+        return analiz;
+    }
+
+    private async Task<SegmentAnaliz> GetTasimaTedarikciSegmentAnalizAsync(ApplicationDbContext context, DateTime baslangic, DateTime bitis)
+    {
+        var analiz = new SegmentAnaliz { SegmentAdi = "Taşıma Tedarikçileri" };
+
+        // TEK KAYNAK: Aktif tedarikçiler + Arac.TasimaTedarikciId üzerinden bağlı araçlar
+        var tedarikciler = await context.TasimaTedarikciler
+            .Where(t => !t.IsDeleted && t.Aktif)
+            .ToListAsync();
+
+        if (tedarikciler.Count == 0)
+            return analiz;
+
+        var tedarikciIdler = tedarikciler.Select(t => t.Id).ToList();
+
+        var araclar = await context.Araclar
+            .Where(a => !a.IsDeleted && a.Aktif &&
+                        a.TasimaTedarikciId.HasValue &&
+                        tedarikciIdler.Contains(a.TasimaTedarikciId.Value))
+            .Select(a => new { a.Id, TedarikciId = a.TasimaTedarikciId!.Value })
+            .ToListAsync();
+
+        analiz.AracSayisi = araclar.Count;
+        if (araclar.Count == 0)
+            return analiz;
+
+        var aracIdSet = araclar.Select(a => a.Id).ToList();
+        var aracTedarikciMap = araclar.ToDictionary(a => a.Id, a => a.TedarikciId);
+
+        var calismalar = await context.ServisCalismalari
+            .Include(s => s.Guzergah)
+            .Where(s => !s.IsDeleted &&
+                        aracIdSet.Contains(s.AracId) &&
+                        s.CalismaTarihi >= baslangic &&
+                        s.CalismaTarihi <= bitis &&
+                        s.Durum == CalismaDurum.Tamamlandi)
+            .ToListAsync();
+
+        // İş atamaları (sözleşme sefer/aylık ücret kaynağı)
+        var isler = await context.TasimaTedarikciIsler
+            .Where(i => !i.IsDeleted &&
+                        tedarikciIdler.Contains(i.TasimaTedarikciId) &&
+                        i.BaslangicTarihi <= bitis &&
+                        (i.BitisTarihi == null || i.BitisTarihi >= baslangic))
+            .ToListAsync();
+
+        var tedarikciVarsayilanUcret = tedarikciler.ToDictionary(t => t.Id, t => t.VarsayilanSeferUcreti ?? 0m);
+
+        // Gelir: müşteriden alınacak (sefer fiyatı veya birim fiyat)
+        foreach (var c in calismalar)
+        {
+            analiz.Gelir += c.Fiyat ?? c.Guzergah.BirimFiyat;
+        }
+
+        // Gider: tedarikçiye ödenecek (iş ataması varsa onun ücreti, yoksa varsayılan)
+        foreach (var c in calismalar)
+        {
+            var tedarikciId = aracTedarikciMap[c.AracId];
+            var isAtama = isler.FirstOrDefault(i => i.TasimaTedarikciId == tedarikciId &&
+                                                     i.GuzergahId == c.GuzergahId &&
+                                                     (i.AracId == null || i.AracId == c.AracId));
+            var seferUcreti = isAtama?.SeferUcreti
+                              ?? tedarikciVarsayilanUcret.GetValueOrDefault(tedarikciId);
+            analiz.Gider += seferUcreti;
+        }
+
+        // Aylık sabit ücretler (ay aralığını kesen iş atamaları için bir kez)
+        analiz.Gider += isler.Where(i => i.AylikUcret.HasValue).Sum(i => i.AylikUcret!.Value);
+
+        analiz.SeferSayisi = calismalar.Count;
 
         return analiz;
     }

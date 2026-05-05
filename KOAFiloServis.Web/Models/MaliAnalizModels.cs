@@ -21,10 +21,11 @@ public class MaliAnalizDashboard
     public decimal GelirDegisimOrani => OncekiAyGelir > 0 ? ((ToplamGelir - OncekiAyGelir) / OncekiAyGelir) * 100 : 0;
     public decimal GiderDegisimOrani => OncekiAyGider > 0 ? ((ToplamGider - OncekiAyGider) / OncekiAyGider) * 100 : 0;
 
-    // Segment Bazl� Analiz
+    // Segment Bazlı Analiz
     public SegmentAnaliz OzmalAracAnaliz { get; set; } = new();
     public SegmentAnaliz KiralikAracAnaliz { get; set; } = new();
     public SegmentAnaliz KomisyonAnaliz { get; set; } = new();
+    public SegmentAnaliz TasimaTedarikciAnaliz { get; set; } = new();
 
     // Grafik Verileri
     public List<GrafikVeri> AylikTrend { get; set; } = new();

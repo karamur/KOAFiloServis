@@ -158,8 +158,8 @@
         </div>
 
         <!-- Segment Analizi -->
-        <div class="row mb-4">
-            <div class="col-md-4">
+        <div class="row mb-4 g-3">
+            <div class="col-lg-3 col-md-6">
                 <div class="card h-100 border-success">
                     <div class="card-header bg-success text-white">
                         <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Özmal Araçlar</h6>
@@ -196,7 +196,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-lg-3 col-md-6">
                 <div class="card h-100 border-warning">
                     <div class="card-header bg-warning text-dark">
                         <h6 class="mb-0"><i class="bi bi-building me-2"></i>Kiralık Araçlar</h6>
@@ -233,7 +233,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-lg-3 col-md-6">
                 <div class="card h-100 border-info">
                     <div class="card-header bg-info text-white">
                         <h6 class="mb-0"><i class="bi bi-percent me-2"></i>Komisyon İşleri</h6>
@@ -265,6 +265,43 @@
                     </div>
                     <div class="card-footer bg-transparent">
                         <a href="/rapor/komisyon" class="btn btn-outline-info btn-sm w-100">
+                            <i class="bi bi-file-earmark-text me-1"></i>Detaylı Rapor
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card h-100 border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h6 class="mb-0"><i class="bi bi-truck-flatbed me-2"></i>Taşıma Tedarikçileri</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center mb-3">
+                            <div class="col-6 border-end">
+                                <small class="text-muted">Müşteriden</small>
+                                <h5 class="text-success mb-0">@FormatPara(dashboard.TasimaTedarikciAnaliz.Gelir)</h5>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Tedarikçiye</small>
+                                <h5 class="text-danger mb-0">@FormatPara(dashboard.TasimaTedarikciAnaliz.Gider)</h5>
+                            </div>
+                        </div>
+                        <hr />
+                        <div class="text-center">
+                            <small class="text-muted">Net Kâr</small>
+                            <h4 class="@(dashboard.TasimaTedarikciAnaliz.Kar >= 0 ? "text-success" : "text-danger") mb-0">
+                                @FormatPara(dashboard.TasimaTedarikciAnaliz.Kar)
+                            </h4>
+                            <small class="text-muted">Karlılık: %@dashboard.TasimaTedarikciAnaliz.KarlilikOrani.ToString("N1")</small>
+                        </div>
+                        <hr />
+                        <div class="d-flex justify-content-between small">
+                            <span><i class="bi bi-truck me-1"></i>@dashboard.TasimaTedarikciAnaliz.AracSayisi araç</span>
+                            <span><i class="bi bi-arrow-repeat me-1"></i>@dashboard.TasimaTedarikciAnaliz.SeferSayisi sefer</span>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="/rapor/tasima-tedarikci" class="btn btn-outline-danger btn-sm w-100">
                             <i class="bi bi-file-earmark-text me-1"></i>Detaylı Rapor
                         </a>
                     </div>
