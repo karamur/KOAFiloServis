@@ -55,6 +55,7 @@ Name: "lisans"; Description: "Lisans Yonetim Aracı"; Types: full
 Name: "datasync"; Description: "Veri Aktarim Araci (PostgreSQL - SQLite)"; Types: full
 
 [Tasks]
+Name: "iisfeatures"; Description: "IIS rolu/Hosting Bundle eksikse otomatik kur (Internet gerekir)"; GroupDescription: "On Hazirlik:"; Flags: unchecked
 Name: "iisconfigure"; Description: "IIS Site ve AppPool'u otomatik yapılandır"; GroupDescription: "IIS:"; Flags: checkedonce
 Name: "firewall"; Description: "Windows Guvenlik Duvarinda port aç (HTTP 5190)"; GroupDescription: "Firewall:"; Flags: checkedonce
 Name: "browser"; Description: "Kurulum sonrası tarayicida aç"; GroupDescription: "Son adım:"; Flags: unchecked
@@ -75,6 +76,7 @@ Source: "payload\DataSync\*"; DestDir: "{app}\DataSync"; Flags: ignoreversion re
 ; IIS yapılandırma script'leri
 Source: "scripts\iis-configure.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "scripts\iis-remove.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\iis-install-features.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "scripts\preinstall-check.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "scripts\backup-db.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 
@@ -93,6 +95,13 @@ Name: "{group}\Kaldır"; Filename: "{uninstallexe}"
 Name: "{commondesktop}\{#MyAppName} Web"; Filename: "http://localhost:5190"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: ; Flags: createonlyiffileexists
 
 [Run]
+; IIS rolu/Hosting Bundle otomatik kurulum (secildiyse)
+Filename: "powershell.exe"; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\iis-install-features.ps1"""; \
+    StatusMsg: "IIS rolu / .NET Hosting Bundle yukleniyor (Internet gerekir)..."; \
+    Flags: waituntilterminated; \
+    Tasks: iisfeatures
+
 ; IIS yapılandırma (seçildiyse)
 Filename: "powershell.exe"; \
     Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\iis-configure.ps1"" -InstallPath ""{app}"" -SiteName ""KOAFiloServis"" -Port 5190"; \
@@ -233,8 +242,30 @@ function InitializeSetup(): Boolean;
 var
   PrevPath: String;
   Msg: String;
+  ResultCode: Integer;
+  ScriptPath: String;
 begin
   Result := True;
+
+  { --- Gereksinim on-kontrolu (IIS + Hosting Bundle) --- }
+  ScriptPath := ExpandConstant('{src}\scripts\preinstall-check.ps1');
+  if FileExists(ScriptPath) then
+  begin
+    Exec('powershell.exe',
+         '-NoProfile -ExecutionPolicy Bypass -File "' + ScriptPath + '" -AllowMissingHostingBundle',
+         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if ResultCode <> 0 then
+    begin
+      Msg := 'Sistem gereksinimleri eksik gorunuyor (IIS / .NET 10 Hosting Bundle).' + #13#10#13#10 +
+             'Sihirbaz devam ettiginde "On Hazirlik" adiminda "IIS rolu/Hosting Bundle eksikse otomatik kur" secenegini isaretleyebilirsiniz.' + #13#10#13#10 +
+             'Devam etmek istiyor musunuz?';
+      if MsgBox(Msg, mbConfirmation, MB_YESNO) = IDNO then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+  end;
 
   { --- Onceki kurulum tespiti --- }
   PrevPath := GetInstallPath();
