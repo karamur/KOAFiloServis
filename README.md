@@ -426,6 +426,18 @@ docker compose logs -f web
 #    → http://localhost:8080
 ```
 
+### 📥 Hazır Image (GHCR — build gerektirmez)
+
+```bash
+# En son sürüm
+docker pull ghcr.io/karamur/koafiloservis:latest
+
+# Belirli sürüm
+docker pull ghcr.io/karamur/koafiloservis:v1.0.8
+```
+
+`docker-compose.yml` içindeki `web.build:` bloğunu `image: ghcr.io/karamur/koafiloservis:latest` ile değiştirerek build adımını atlayabilirsiniz.
+
 ### 🤖 AI Servisi ile (opsiyonel)
 
 ```bash
