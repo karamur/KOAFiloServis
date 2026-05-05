@@ -1307,6 +1307,7 @@
 
         if (MenuRelatedYetkiler.TryGetValue(menuKodu, out var menuYetkileri))
         {
+            // Kullanici yetkileri genelde menuYetkileri'nden buyuk oldugu icin kucuk seti gez
             foreach (var y in menuYetkileri)
             {
                 if (kullaniciYetkileri.Contains(y)) return true;
@@ -1325,28 +1326,28 @@
         return false;
     }
 
-    private static readonly Dictionary<string, string[]> MenuPrefixleri = new()
+    private static readonly Dictionary<string, HashSet<string>> MenuPrefixleri = new()
     {
-        ["menu.crm"] = new[] { "bildirim", "mesaj", "email", "hatirlatici" },
-        ["menu.cari"] = new[] { "cari", "cariler", "kesilenfatura", "gelenfatura" },
-        ["menu.filoservis"] = new[] { "arac", "araclar", "guzergah", "guzergahlar", "serviscalisma", "toplucalisma", "masrafkalem", "aracmasraf", "filo", "hakedis" },
-        ["menu.muhasebe"] = new[] { "muhasebe", "hesapplani", "muhasebefis", "muhaseberapor", "malianaliz" },
-        ["menu.personel"] = new[] { "personel", "maas", "izin" },
-        ["menu.fatura"] = new[] { "fatura", "faturalar", "faturahazirlik", "kesilenfatura", "gelenfatura" },
-        ["menu.bankakasa"] = new[] { "banka", "bankahesap", "bankahareket", "odemeeslestir" },
-        ["menu.butce"] = new[] { "butce", "odemeyonetim", "tekrarlayanodem" },
-        ["menu.checklist"] = new[] { "checklist", "checklistmali" },
-        ["menu.raporlar"] = new[] { "rapor", "raporlar", "raporozmal", "raporkirala", "raporkomisyon", "raporservis", "raporfatura", "rapormasraf", "raporekstre" },
-        ["menu.satis"] = new[] { "satis", "piyasa", "ilan" },
-        ["menu.ayarlar"] = new[] { "firma", "ayarlar", "kullanici", "rol", "veritabani", "sistemdurumu", "aktivitelog", "yedekleme", "guncelleme", "destektalebi", "piyasakaynak" },
-        ["menu.ebys"] = new[] { "ebys", "evrak", "belgeuyari" },
-        ["menu.stok"] = new[] { "stok" },
+        ["menu.crm"] = new() { "bildirim", "mesaj", "email", "hatirlatici" },
+        ["menu.cari"] = new() { "cari", "cariler", "kesilenfatura", "gelenfatura" },
+        ["menu.filoservis"] = new() { "arac", "araclar", "guzergah", "guzergahlar", "serviscalisma", "toplucalisma", "masrafkalem", "aracmasraf", "filo", "hakedis" },
+        ["menu.muhasebe"] = new() { "muhasebe", "hesapplani", "muhasebefis", "muhaseberapor", "malianaliz" },
+        ["menu.personel"] = new() { "personel", "maas", "izin" },
+        ["menu.fatura"] = new() { "fatura", "faturalar", "faturahazirlik", "kesilenfatura", "gelenfatura" },
+        ["menu.bankakasa"] = new() { "banka", "bankahesap", "bankahareket", "odemeeslestir" },
+        ["menu.butce"] = new() { "butce", "odemeyonetim", "tekrarlayanodem" },
+        ["menu.checklist"] = new() { "checklist", "checklistmali" },
+        ["menu.raporlar"] = new() { "rapor", "raporlar", "raporozmal", "raporkirala", "raporkomisyon", "raporservis", "raporfatura", "rapormasraf", "raporekstre" },
+        ["menu.satis"] = new() { "satis", "piyasa", "ilan" },
+        ["menu.ayarlar"] = new() { "firma", "ayarlar", "kullanici", "rol", "veritabani", "sistemdurumu", "aktivitelog", "yedekleme", "guncelleme", "destektalebi", "piyasakaynak" },
+        ["menu.ebys"] = new() { "ebys", "evrak", "belgeuyari" },
+        ["menu.stok"] = new() { "stok" },
     };
 
-    private static readonly Dictionary<string, string[]> MenuRelatedYetkiler = new()
+    private static readonly Dictionary<string, HashSet<string>> MenuRelatedYetkiler = new()
     {
-        ["menu.filoservis"] = new[] { "raporlar.oku" },
-        ["menu.satis"] = new[] { "satis.oku", "piyasa.oku", "raporlar.oku" },
+        ["menu.filoservis"] = new() { "raporlar.oku" },
+        ["menu.satis"] = new() { "satis.oku", "piyasa.oku", "raporlar.oku" },
     };
 
     private void ToggleSection(NavSection section)
