@@ -1188,6 +1188,7 @@
 @code {
     private bool[] expandedSections = new bool[16];
     private HashSet<string> kullaniciYetkileri = new();
+    private HashSet<string> kullaniciYetkiPrefixleri = new();
     private bool yetkilerYuklendi = false;
     private bool isAdmin = false;
 
@@ -1235,8 +1236,15 @@
                     // Kullanici yetkilerini yukle
                     var yetkiler = await KullaniciService.GetKullaniciYetkileriAsync(aktifKullanici.Id);
                     kullaniciYetkileri = yetkiler.ToHashSet();
+                    kullaniciYetkiPrefixleri = kullaniciYetkileri
+                        .Select(y =>
+                        {
+                            var idx = y.IndexOf('.');
+                            return idx > 0 ? y.Substring(0, idx) : y;
+                        })
+                        .ToHashSet();
                 }
-                
+
                 yetkilerYuklendi = true;
             }
         }
@@ -1244,6 +1252,7 @@
         {
             // Hata durumunda bos yetkiler
             kullaniciYetkileri = new HashSet<string>();
+            kullaniciYetkiPrefixleri = new HashSet<string>();
         }
     }
 
@@ -1278,12 +1287,23 @@
 
         if (kullaniciYetkileri.Contains(menuKodu)) return true;
 
-        var menuPrefixleri = GetMenuPrefixes(menuKodu);
         var menuYetkileri = GetMenuRelatedYetkiler(menuKodu);
+        if (menuYetkileri.Count > 0)
+        {
+            foreach (var y in menuYetkileri)
+            {
+                if (kullaniciYetkileri.Contains(y)) return true;
+            }
+        }
 
-        return kullaniciYetkileri.Any(y =>
-            menuYetkileri.Contains(y) ||
-            menuPrefixleri.Any(prefix => !string.IsNullOrWhiteSpace(prefix) && y.StartsWith(prefix + ".")));
+        var menuPrefixleri = GetMenuPrefixes(menuKodu);
+        foreach (var prefix in menuPrefixleri)
+        {
+            if (!string.IsNullOrWhiteSpace(prefix) && kullaniciYetkiPrefixleri.Contains(prefix))
+                return true;
+        }
+
+        return false;
     }
 
     private string[] GetMenuPrefixes(string menuKodu)
