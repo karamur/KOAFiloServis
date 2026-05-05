@@ -1177,6 +1177,7 @@
     private HashSet<string> kullaniciYetkiPrefixleri = new();
     private bool yetkilerYuklendi = false;
     private bool isAdmin = false;
+    private bool isSuperAdmin = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -1214,9 +1215,11 @@
             var aktifKullanici = AuthProvider.GetAktifKullanici();
             if (aktifKullanici != null)
             {
-                // Admin kontrolu
-                isAdmin = aktifKullanici.Rol?.RolAdi == "Admin";
-                
+                // Admin / SuperAdmin kontrolu
+                var rolAdi = aktifKullanici.Rol?.RolAdi;
+                isAdmin = rolAdi == "Admin";
+                isSuperAdmin = rolAdi == "SuperAdmin" || rolAdi == "Admin";
+
                 if (!isAdmin)
                 {
                     // Kullanici yetkilerini yukle
@@ -1253,15 +1256,7 @@
         return kullaniciYetkileri.Contains(yetkiKodu);
     }
 
-    private bool IsSuperAdmin()
-    {
-        // SuperAdmin veya Admin rolü şirket yönetimine erişebilir
-        var aktifKullanici = AuthProvider.GetAktifKullanici();
-        if (aktifKullanici == null) return false;
-
-        var rolAdi = aktifKullanici.Rol?.RolAdi;
-        return rolAdi == "SuperAdmin" || rolAdi == "Admin";
-    }
+    private bool IsSuperAdmin() => isSuperAdmin;
 
     private bool HasMenuYetki(string menuKodu)
     {
