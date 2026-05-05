@@ -88,9 +88,9 @@
                     <select class="form-select form-select-sm" @bind="tedarikciFiltre">
                         <option value="">Tümü</option>
                         <option value="-1">Sadece kendi kaynağımız</option>
-                        @foreach (var t in tedarikciler)
+                        @foreach (var unvan in TedarikciUnvanlari)
                         {
-                            <option value="@t.Id">@t.Unvan</option>
+                            <option value="@unvan">@unvan</option>
                         }
                     </select>
                 </div>
@@ -1096,8 +1096,14 @@
     private string kaynakFiltre = "Tumu";
     private string seviyeFiltre = "Tumu";
     private string aramaMetni = string.Empty;
-    private string tedarikciFiltre = string.Empty; // "" = Tümü, "-1" = sadece kendi, "<id>" = ilgili tedarikçi
+    private string tedarikciFiltre = string.Empty; // "" = Tümü, "-1" = sadece kendi, "<unvan>" = ilgili tedarikçi (Cari veya TasimaTedarikci)
     private List<TasimaTedarikci> tedarikciler = new();
+
+    private IEnumerable<string> TedarikciUnvanlari => (uyarilar?.TumUyarilar ?? new List<BelgeUyari>())
+        .Where(u => !string.IsNullOrWhiteSpace(u.TasimaTedarikciUnvan))
+        .Select(u => u.TasimaTedarikciUnvan!)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(u => u);
     private string aktifSekme = "uyarilar";
 
     // Belge Tablosu
@@ -1204,8 +1210,8 @@
             .Where(u => tedarikciFiltre switch
             {
                 "" => true,
-                "-1" => u.TasimaTedarikciId == null,
-                _ => int.TryParse(tedarikciFiltre, out var tid) && u.TasimaTedarikciId == tid
+                "-1" => string.IsNullOrEmpty(u.TasimaTedarikciUnvan),
+                _ => string.Equals(u.TasimaTedarikciUnvan, tedarikciFiltre, StringComparison.OrdinalIgnoreCase)
             })
             .Where(u => seviyeFiltre switch
             {
