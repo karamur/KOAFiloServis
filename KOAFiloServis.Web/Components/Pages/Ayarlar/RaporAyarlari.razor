@@ -1,4 +1,4 @@
-@page "/ayarlar/raporlar"
+﻿@page "/ayarlar/raporlar"
 @using KOAFiloServis.Web.Services
 @inject IToastService ToastService
 @inject NavigationManager Navigation
@@ -78,7 +78,6 @@
                         <li>Fatura ve odeme raporlari</li>
                         <li>Arac masraf raporlari</li>
                         <li>Cari ekstre raporlari</li>
-                        <li>Komisyon raporlari</li>
                         <li>Mali analiz raporlari</li>
                         <li>Butce ve odeme raporlari</li>
                     </ul>
@@ -141,15 +140,6 @@
                 Url = "/raporlar/cari-ekstre", 
                 Icon = "bi-file-earmark-ruled", 
                 IconColor = "text-primary",
-                Kategori = "Fatura"
-            },
-            new RaporBilgi 
-            { 
-                Baslik = "Komisyon Raporu", 
-                Aciklama = "Komisyon kazanc ve odeme raporu", 
-                Url = "/rapor/komisyon", 
-                Icon = "bi-percent", 
-                IconColor = "text-warning",
                 Kategori = "Fatura"
             },
 

@@ -34,6 +34,11 @@
                 <i class="bi bi-exclamation-triangle me-1"></i>Eksik Sezon Lastiği
             </button>
         </li>
+        <li class="nav-item">
+            <button class="nav-link @(aktifSekme == "kayip" ? "active" : "")" @onclick='() => SekmeDegistir("kayip")'>
+                <i class="bi bi-x-octagon me-1"></i>Kayıp Lastikler
+            </button>
+        </li>
     </ul>
 
     @if (aktifSekme == "liste")
@@ -308,6 +313,61 @@
             </div>
         }
     }
+
+    @if (aktifSekme == "kayip")
+    {
+        <div class="alert alert-warning py-2">
+            <i class="bi bi-info-circle me-1"></i>
+            Lastik değişiminde sökülen ancak depoya teslim edilmediği için <strong>kayıp</strong> sayılan lastikler aşağıda listelenir.
+            Sökülen lastik için <em>Hedef Depo</em> seçilmediğinde sistem otomatik olarak bu listeye ekler.
+        </div>
+        @if (kayipLastikRapor == null)
+        {
+            <div class="text-center"><div class="spinner-border" role="status"></div></div>
+        }
+        else if (!kayipLastikRapor.Any())
+        {
+            <div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Kayıp lastik kaydı bulunmuyor.</div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Kayıp Tarihi</th>
+                                    <th>Plaka (Sökülen Araç)</th>
+                                    <th>Marka / Ebat</th>
+                                    <th class="text-center">Sezon</th>
+                                    <th>Seri No</th>
+                                    <th>Notlar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var k in kayipLastikRapor)
+                                {
+                                    <tr>
+                                        <td>@(k.KayipTarihi?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                        <td><strong>@(k.KaynaklandigiPlaka ?? "-")</strong></td>
+                                        <td>
+                                            @if (!string.IsNullOrWhiteSpace(k.Marka)) { <strong>@k.Marka</strong> }
+                                            <small class="text-muted ms-1">@k.Ebat</small>
+                                        </td>
+                                        <td class="text-center"><span class="badge @GetSezonBadge(k.Sezon)">@GetSezonText(k.Sezon)</span></td>
+                                        <td><small>@k.SeriNo</small></td>
+                                        <td><small class="text-muted">@k.Notlar</small></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-2 text-muted small">Toplam: <strong>@kayipLastikRapor.Count</strong> kayıp lastik.</div>
+                </div>
+            </div>
+        }
+    }
 </div>
 
 <!-- Form Modal -->
@@ -487,6 +547,7 @@
     private List<Arac> filtreliAraclar = new();
     private List<LastikPlakaEnvanteri>? plakaEnvanteri;
     private List<LastikEksikSezonSatiri>? eksikSezonRapor;
+    private List<LastikKayipSatiri>? kayipLastikRapor;
     private string aktifSekme = "liste";
     private LastikStok editStok = new();
     private LastikStok? silinecek;
@@ -523,6 +584,8 @@
             plakaEnvanteri = await LastikService.GetPlakaBazliEnvanterAsync();
         else if (sekme == "eksik" && eksikSezonRapor == null)
             eksikSezonRapor = await LastikService.GetEksikSezonRaporuAsync();
+        else if (sekme == "kayip" && kayipLastikRapor == null)
+            kayipLastikRapor = await LastikService.GetKayipLastikRaporuAsync();
     }
 
     private async Task RaporlariYenile()
@@ -531,6 +594,8 @@
             plakaEnvanteri = await LastikService.GetPlakaBazliEnvanterAsync();
         if (eksikSezonRapor != null)
             eksikSezonRapor = await LastikService.GetEksikSezonRaporuAsync();
+        if (kayipLastikRapor != null)
+            kayipLastikRapor = await LastikService.GetKayipLastikRaporuAsync();
     }
 
     private void FormAracAramaGuncelle(ChangeEventArgs e)
@@ -702,6 +767,7 @@
         LastikDurum.Kullanilabilir => "bg-success",
         LastikDurum.Hasarli => "bg-warning text-dark",
         LastikDurum.Hurda => "bg-danger",
+        LastikDurum.Kayip => "bg-dark",
         _ => "bg-secondary"
     };
     private string GetDurumText(LastikDurum d) => d switch
@@ -709,6 +775,7 @@
         LastikDurum.Kullanilabilir => "Kullanılabilir",
         LastikDurum.Hasarli => "Hasarlı",
         LastikDurum.Hurda => "Hurda",
+        LastikDurum.Kayip => "Kayıp",
         _ => d.ToString()
     };
 }

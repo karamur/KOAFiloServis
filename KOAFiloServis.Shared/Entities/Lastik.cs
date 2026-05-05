@@ -1,4 +1,4 @@
-namespace KOAFiloServis.Shared.Entities;
+﻿namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
 /// Lastik deposu / saklama yeri
@@ -136,7 +136,11 @@ public enum LastikDurum
 {
     Kullanilabilir = 1,
     Hasarli = 2,
-    Hurda = 3
+    Hurda = 3,
+    /// <summary>
+    /// Lastik değişiminde sökülen ancak depoya teslim edilmediği için kayıp/eksik sayılan lastik.
+    /// </summary>
+    Kayip = 4
 }
 
 public enum LastikDegisimTipi

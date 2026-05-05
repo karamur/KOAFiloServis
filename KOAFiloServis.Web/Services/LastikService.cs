@@ -219,6 +219,11 @@ public class LastikService : ILastikService
     {
         await using var ctx = await _contextFactory.CreateDbContextAsync();
         ctx.LastikDegisimler.Add(degisim);
+        await ctx.SaveChangesAsync(); // Id alabilmek için önce kaydet
+
+        var satirlar = SatirlariCikar(degisim);
+        await SenkronizeStoklarAsync(ctx, degisim, satirlar, eskiSatirlar: null);
+
         await ctx.SaveChangesAsync();
         return degisim;
     }
@@ -226,9 +231,22 @@ public class LastikService : ILastikService
     public async Task<LastikDegisim> UpdateDegisimAsync(LastikDegisim degisim)
     {
         await using var ctx = await _contextFactory.CreateDbContextAsync();
+
+        // Eski hâli oku (stok geri alma için)
+        var mevcut = await ctx.LastikDegisimler
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == degisim.Id);
+
+        var eskiSatirlar = mevcut != null ? SatirlariCikar(mevcut) : new List<LastikDegisimNotSatiri>();
+
         degisim.UpdatedAt = DateTime.UtcNow;
         ctx.LastikDegisimler.Update(degisim);
         await ctx.SaveChangesAsync();
+
+        var yeniSatirlar = SatirlariCikar(degisim);
+        await SenkronizeStoklarAsync(ctx, degisim, yeniSatirlar, eskiSatirlar);
+        await ctx.SaveChangesAsync();
+
         return degisim;
     }
 
@@ -238,9 +256,141 @@ public class LastikService : ILastikService
         var degisim = await ctx.LastikDegisimler.FindAsync(id);
         if (degisim != null)
         {
+            // Bu değişimin yarattığı stok hareketlerini geri al
+            var satirlar = SatirlariCikar(degisim);
+            await GeriAlSenkronizasyonAsync(ctx, degisim, satirlar);
+
             degisim.IsDeleted = true;
             degisim.UpdatedAt = DateTime.UtcNow;
             await ctx.SaveChangesAsync();
+        }
+    }
+
+    // ----------------------------------------------------------------
+    //  Stok senkronizasyonu (lastik takip güncellemesi + kayıp üretimi)
+    // ----------------------------------------------------------------
+
+    private static List<LastikDegisimNotSatiri> SatirlariCikar(LastikDegisim degisim)
+    {
+        var payload = ParseDegisimPayload(degisim.Notlar);
+        if (payload?.Satirlar != null && payload.Satirlar.Count > 0)
+            return payload.Satirlar;
+
+        // Eski tek-satır kayıtları için fallback
+        return new List<LastikDegisimNotSatiri>
+        {
+            new()
+            {
+                Pozisyon = degisim.TakilanPozisyon ?? degisim.SokulenPozisyon,
+                TakilanStokId = degisim.TakilanStokId,
+                KaynakDepoId = degisim.KaynakDepoId,
+                SokulenStokId = degisim.SokulenStokId,
+                HedefDepoId = degisim.HedefDepoId
+            }
+        };
+    }
+
+    private async Task SenkronizeStoklarAsync(
+        ApplicationDbContext ctx,
+        LastikDegisim degisim,
+        List<LastikDegisimNotSatiri> yeniSatirlar,
+        List<LastikDegisimNotSatiri>? eskiSatirlar)
+    {
+        // 1) Eski hareketleri geri al (varsa)
+        if (eskiSatirlar != null && eskiSatirlar.Count > 0)
+            await GeriAlSenkronizasyonAsync(ctx, degisim, eskiSatirlar);
+
+        // 2) Yeni hareketleri uygula
+        foreach (var s in yeniSatirlar)
+        {
+            // Sökülen lastik: araçtan çıkar
+            if (s.SokulenStokId.HasValue)
+            {
+                var sokulen = await ctx.LastikStoklar.FindAsync(s.SokulenStokId.Value);
+                if (sokulen != null)
+                {
+                    sokulen.AracId = null;
+                    if (s.HedefDepoId.HasValue)
+                    {
+                        sokulen.DepoId = s.HedefDepoId;
+                    }
+                    else
+                    {
+                        // Sökülen lastik depoya teslim edilmedi → KAYIP
+                        sokulen.DepoId = null;
+                        sokulen.Durum = LastikDurum.Kayip;
+                    }
+                    sokulen.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+            else if (degisim.AracId > 0)
+            {
+                // Sökülen stok seçilmedi → kayıp olarak yeni bir stok kaydı üret
+                var kayip = new LastikStok
+                {
+                    SirketId = degisim.SirketId,
+                    AracId = null,
+                    DepoId = null,
+                    YedekMi = false,
+                    Marka = "(Bilinmeyen)",
+                    Ebat = "-",
+                    Sezon = LastikSezon.YazLastigi,
+                    Durum = LastikDurum.Kayip,
+                    Aktif = true,
+                    Notlar = $"Otomatik kayıp kaydı. Değişim Id={degisim.Id}, Pozisyon={s.Pozisyon}"
+                };
+                ctx.LastikStoklar.Add(kayip);
+            }
+
+            // Takılan lastik: araca bağla, depodan çıkar
+            if (s.TakilanStokId.HasValue)
+            {
+                var takilan = await ctx.LastikStoklar.FindAsync(s.TakilanStokId.Value);
+                if (takilan != null)
+                {
+                    takilan.AracId = degisim.AracId;
+                    takilan.DepoId = null;
+                    takilan.YedekMi = false;
+                    if (takilan.Durum == LastikDurum.Kayip)
+                        takilan.Durum = LastikDurum.Kullanilabilir;
+                    takilan.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
+    }
+
+    private async Task GeriAlSenkronizasyonAsync(
+        ApplicationDbContext ctx,
+        LastikDegisim degisim,
+        List<LastikDegisimNotSatiri> satirlar)
+    {
+        foreach (var s in satirlar)
+        {
+            // Takılan lastiği araçtan çıkar, kaynak depoya geri koy
+            if (s.TakilanStokId.HasValue)
+            {
+                var takilan = await ctx.LastikStoklar.FindAsync(s.TakilanStokId.Value);
+                if (takilan != null && takilan.AracId == degisim.AracId)
+                {
+                    takilan.AracId = null;
+                    takilan.DepoId = s.KaynakDepoId;
+                    takilan.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            // Sökülen lastiği tekrar araca tak (depodan çıkar)
+            if (s.SokulenStokId.HasValue)
+            {
+                var sokulen = await ctx.LastikStoklar.FindAsync(s.SokulenStokId.Value);
+                if (sokulen != null)
+                {
+                    sokulen.AracId = degisim.AracId;
+                    sokulen.DepoId = null;
+                    if (sokulen.Durum == LastikDurum.Kayip)
+                        sokulen.Durum = LastikDurum.Kullanilabilir;
+                    sokulen.UpdatedAt = DateTime.UtcNow;
+                }
+            }
         }
     }
 
@@ -520,6 +670,72 @@ public class LastikService : ILastikService
             }
         }
         return sonuc;
+    }
+
+    public async Task<List<LastikKayipSatiri>> GetKayipLastikRaporuAsync()
+    {
+        await using var ctx = await _contextFactory.CreateDbContextAsync();
+
+        var kayiplar = await ctx.LastikStoklar
+            .AsNoTracking()
+            .Where(s => !s.IsDeleted && s.Aktif && s.Durum == LastikDurum.Kayip)
+            .OrderByDescending(s => s.UpdatedAt ?? s.CreatedAt)
+            .ToListAsync();
+
+        if (kayiplar.Count == 0)
+            return new List<LastikKayipSatiri>();
+
+        // İlişkili son değişim kaydını sökülen stok üzerinden eşle
+        var stokIds = kayiplar.Select(k => k.Id).ToList();
+        var degisimler = await ctx.LastikDegisimler
+            .AsNoTracking()
+            .Include(d => d.Arac)
+            .Where(d => !d.IsDeleted && d.SokulenStokId != null && stokIds.Contains(d.SokulenStokId!.Value))
+            .OrderByDescending(d => d.DegisimTarihi)
+            .ToListAsync();
+
+        var degisimByStok = degisimler
+            .GroupBy(d => d.SokulenStokId!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        // Otomatik üretilen kayıplar için Notlar içinden Değişim Id'sini çek
+        return kayiplar.Select(k =>
+        {
+            degisimByStok.TryGetValue(k.Id, out var deg);
+            int? otoDegisimId = null;
+            if (deg == null && !string.IsNullOrWhiteSpace(k.Notlar))
+            {
+                var idx = k.Notlar.IndexOf("Id=", StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                {
+                    var rest = k.Notlar.Substring(idx + 3);
+                    var num = new string(rest.TakeWhile(char.IsDigit).ToArray());
+                    if (int.TryParse(num, out var parsed))
+                        otoDegisimId = parsed;
+                }
+            }
+
+            LastikDegisim? otoDeg = null;
+            if (otoDegisimId.HasValue)
+                otoDeg = degisimler.FirstOrDefault(d => d.Id == otoDegisimId.Value)
+                         ?? ctx.LastikDegisimler.AsNoTracking().Include(x => x.Arac).FirstOrDefault(d => d.Id == otoDegisimId.Value);
+
+            var kaynakDegisim = deg ?? otoDeg;
+
+            return new LastikKayipSatiri
+            {
+                StokId = k.Id,
+                Marka = k.Marka,
+                Ebat = k.Ebat,
+                Sezon = k.Sezon,
+                SeriNo = k.SeriNo,
+                KayipTarihi = kaynakDegisim?.DegisimTarihi ?? k.UpdatedAt ?? k.CreatedAt,
+                KaynaklandigiAracId = kaynakDegisim?.AracId,
+                KaynaklandigiPlaka = kaynakDegisim?.Arac?.AktifPlaka,
+                DegisimId = kaynakDegisim?.Id,
+                Notlar = k.Notlar
+            };
+        }).ToList();
     }
 
     private static string FormatTakilanHareket(LastikDegisim degisim)

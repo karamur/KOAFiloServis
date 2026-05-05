@@ -29,6 +29,12 @@ public interface ILastikService
     /// <summary>Yaz ve/veya kış lastiği takılı olmayan plakaların listesini döner.</summary>
     Task<List<LastikEksikSezonSatiri>> GetEksikSezonRaporuAsync();
 
+    /// <summary>
+    /// Sökülüp depoya teslim edilmemiş (kayıp) lastiklerin raporu.
+    /// LastikDurum.Kayip olan tüm aktif lastik kayıtlarını döner.
+    /// </summary>
+    Task<List<LastikKayipSatiri>> GetKayipLastikRaporuAsync();
+
     // --- Değişim ---
     Task<List<LastikDegisim>> GetDegisimListAsync(int? aracId = null, DateTime? baslangic = null, DateTime? bitis = null);
     Task<LastikDegisim?> GetDegisimByIdAsync(int id);
@@ -118,4 +124,21 @@ public sealed class LastikEksikSezonSatiri
     public bool YazEksik { get; set; }
     public bool KisEksik { get; set; }
     public int ToplamLastikSayisi { get; set; }
+}
+
+/// <summary>
+/// Sökülüp depoya teslim edilmediği için kayıp sayılan lastik kaydı.
+/// </summary>
+public sealed class LastikKayipSatiri
+{
+    public int StokId { get; set; }
+    public string? Marka { get; set; }
+    public string Ebat { get; set; } = string.Empty;
+    public LastikSezon Sezon { get; set; }
+    public string? SeriNo { get; set; }
+    public DateTime? KayipTarihi { get; set; }
+    public int? KaynaklandigiAracId { get; set; }
+    public string? KaynaklandigiPlaka { get; set; }
+    public int? DegisimId { get; set; }
+    public string? Notlar { get; set; }
 }

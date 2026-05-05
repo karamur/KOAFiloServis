@@ -719,6 +719,7 @@
     private async Task Filtrele()
     {
         degisimler = await LastikService.GetDegisimListAsync(filtreAracId, filtreBaslangic, filtreBitis);
+        stoklar = await LastikService.GetStokListAsync();
         await YukleAracDonemOzeti();
     }
 

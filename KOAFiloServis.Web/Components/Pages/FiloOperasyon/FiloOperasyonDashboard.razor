@@ -1,4 +1,4 @@
-@page "/filo-operasyon"
+﻿@page "/filo-operasyon"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @inject IFiloOperasyonService FiloOperasyonService
@@ -48,8 +48,8 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="text-muted mb-2">Aktif Komisyonculuk İşleri</h6>
-                                <h3 class="mb-0">@_ozet.AktifKomisyonculukIsSayisi</h3>
+                                <h6 class="text-muted mb-2">Komisyon Araç Sayısı</h6>
+                                <h3 class="mb-0">@_ozet.KomisyonAracSayisi</h3>
                             </div>
                             <div class="text-success">
                                 <i class="bi bi-briefcase fs-1"></i>
@@ -106,7 +106,7 @@
                             <div class="col-md-3">
                                 <button class="btn btn-outline-primary w-100 py-3" @onclick="YeniKomisyonculukIs">
                                     <i class="bi bi-plus-circle fs-4 d-block mb-2"></i>
-                                    Yeni Komisyonculuk İşi
+                                    Yeni Taşıma Tedarikçisi
                                 </button>
                             </div>
                             <div class="col-md-3">
@@ -135,25 +135,25 @@
 
         <!-- Modül Kartları -->
         <div class="row g-4">
-            <!-- Komisyonculuk -->
+            <!-- Personel Taşıma Tedarikçileri -->
             <div class="col-md-6">
                 <div class="card h-100">
                     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-briefcase me-2"></i>Komisyonculuk İş Takibi</h5>
-                        <a href="/filo-operasyon/komisyonculuk" class="btn btn-sm btn-light">
+                        <h5 class="mb-0"><i class="bi bi-truck me-2"></i>Personel Taşıma Tedarikçileri</h5>
+                        <a href="/personel-tasima/tedarikciler" class="btn btn-sm btn-light">
                             <i class="bi bi-arrow-right"></i> Tümü
                         </a>
                     </div>
                     <div class="card-body">
                         <p class="text-muted mb-3">
-                            Firmalardan alınan işler, dışarıdan temin edilen araç/şoför atamaları, 
-                            fatura kesimi ve kazanç takibi.
+                            Alt yüklenici (taşıma) firmaları, personel ve araçlarının yönetimi; 
+                            sözleşme, sefer ücretleri ve kazanç takibi.
                         </p>
                         <ul class="list-unstyled">
-                            <li><i class="bi bi-check-circle text-success me-2"></i>İş alma ve müşteri yönetimi</li>
-                            <li><i class="bi bi-check-circle text-success me-2"></i>Özmal/kiralık araç ve şoför atama</li>
-                            <li><i class="bi bi-check-circle text-success me-2"></i>Maliyet ve kar/zarar hesaplama</li>
-                            <li><i class="bi bi-check-circle text-success me-2"></i>Alınan iş - Verilen iş fatura eşleştirme</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>Tedarikçi ve iletişim yönetimi</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>Personel ve araç atama</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>Sözleşme ve sefer ücreti takibi</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>İş / güzergah erişimi</li>
                         </ul>
                     </div>
                 </div>
@@ -223,7 +223,7 @@
                         </p>
                         <ul class="list-unstyled">
                             <li><i class="bi bi-check-circle text-primary me-2"></i>Araç kar/zarar analizi</li>
-                            <li><i class="bi bi-check-circle text-primary me-2"></i>Komisyonculuk kazanç raporu</li>
+                            <li><i class="bi bi-check-circle text-primary me-2"></i>Taşıma tedarikçi kazanç raporu</li>
                             <li><i class="bi bi-check-circle text-primary me-2"></i>Aylık operasyon özeti</li>
                             <li><i class="bi bi-check-circle text-primary me-2"></i>Filo performans karşılaştırma</li>
                         </ul>
@@ -256,7 +256,7 @@
 
     private void YeniKomisyonculukIs()
     {
-        NavigationManager.NavigateTo("/filo-operasyon/komisyonculuk/yeni");
+        NavigationManager.NavigateTo("/personel-tasima/tedarikciler/yeni");
     }
 
     private void YeniAracAlim()

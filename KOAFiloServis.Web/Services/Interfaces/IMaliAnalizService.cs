@@ -14,9 +14,6 @@ public interface IMaliAnalizService
     // Kiral�k Ara� Raporu
     Task<KiralikAracRaporu> GetKiralikAracRaporuAsync(int yil, int ay);
 
-    // Komisyon Raporu
-    Task<KomisyonRaporu> GetKomisyonRaporuAsync(int yil, int ay);
-
     // Taşıma Tedarikçisi (Alt Yüklenici) Raporu
     Task<TasimaTedarikciRaporu> GetTasimaTedarikciRaporuAsync(int yil, int ay);
 

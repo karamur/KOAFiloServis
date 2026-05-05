@@ -195,52 +195,6 @@ public class KiralikGuzergahDetay
 }
 
 /// <summary>
-/// Komisyon Rapor Modeli
-/// </summary>
-public class KomisyonRaporu
-{
-    public int Yil { get; set; }
-    public int Ay { get; set; }
-    public List<KomisyoncuDetay> KomisyoncuDetaylari { get; set; } = new();
-
-    public decimal ToplamGelir => KomisyoncuDetaylari.Sum(x => x.ToplamGelir);
-    public decimal ToplamKomisyon => KomisyoncuDetaylari.Sum(x => x.ToplamKomisyon);
-    public decimal NetGelir => ToplamGelir - ToplamKomisyon;
-    public int ToplamSefer => KomisyoncuDetaylari.Sum(x => x.ToplamSefer);
-}
-
-/// <summary>
-/// Komisyoncu detay�
-/// </summary>
-public class KomisyoncuDetay
-{
-    public int KomisyoncuId { get; set; }
-    public string KomisyoncuUnvan { get; set; } = string.Empty;
-    public decimal KomisyonOrani { get; set; }
-
-    public List<KomisyonIsDetay> IsDetaylari { get; set; } = new();
-
-    public decimal ToplamGelir => IsDetaylari.Sum(x => x.SeferGeliri);
-    public decimal ToplamKomisyon => IsDetaylari.Sum(x => x.KomisyonTutari);
-    public decimal NetGelir => ToplamGelir - ToplamKomisyon;
-    public int ToplamSefer => IsDetaylari.Sum(x => x.SeferSayisi);
-}
-
-/// <summary>
-/// Komisyon i� detay�
-/// </summary>
-public class KomisyonIsDetay
-{
-    public string AracPlaka { get; set; } = string.Empty;
-    public string GuzergahAdi { get; set; } = string.Empty;
-    public string MusteriUnvan { get; set; } = string.Empty;
-    public int SeferSayisi { get; set; }
-    public decimal SeferGeliri { get; set; }
-    public decimal KomisyonTutari { get; set; }
-    public decimal NetGelir => SeferGeliri - KomisyonTutari;
-}
-
-/// <summary>
 /// Checklist �zet modeli
 /// </summary>
 public class ChecklistOzet
