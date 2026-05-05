@@ -1,8 +1,11 @@
-@using KOAFiloServis.Web.Services
+﻿@using KOAFiloServis.Web.Services
 @using KOAFiloServis.Shared.Entities
+@using Microsoft.Extensions.Logging
 @inject IKullaniciService KullaniciService
 @inject AppAuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ILogger<YetkiKontrol> Logger
 
 @* 
     Sayfa seviyesinde yetki kontrolü bileşeni.
@@ -47,7 +50,7 @@ else
     }
     else
     {
-        <!-- Varsayılan yetkisiz mesajı -->
+        <!-- Varsayilan yetkisiz mesaji -->
         <div class="container-fluid">
             <div class="row justify-content-center mt-5">
                 <div class="col-md-6">
@@ -209,8 +212,9 @@ else
                 Navigation.NavigateTo("/dashboard");
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "YetkiKontrol yetki kontrolu sirasinda hata olustu (Yetki={Yetki}, Rol={Rol})", Yetki, Rol);
             yetkiVar = false;
         }
         finally
@@ -219,8 +223,16 @@ else
         }
     }
 
-    private void GeriDon()
+    private async Task GeriDon()
     {
-        Navigation.NavigateTo("javascript:history.back()");
+        try
+        {
+            await JS.InvokeVoidAsync("history.back");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "YetkiKontrol GeriDon sirasinda hata olustu, dashboard'a yonlendiriliyor");
+            Navigation.NavigateTo("/dashboard");
+        }
     }
 }
