@@ -1,4 +1,4 @@
-using KOAFiloServis.Web.Components;
+﻿using KOAFiloServis.Web.Components;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Helpers;
 using KOAFiloServis.Web.Jobs;
@@ -432,7 +432,68 @@ builder.Services.AddAuthentication(options =>
 
 // Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "KOAFiloServis API",
+        Version = "v1",
+        Description = "Kurumsal Filo Yönetimi & ERP Platformu — REST API dokümantasyonu.\n\n" +
+                      "🚚 Araç, sürücü, muhasebe, bordro, EBYS, CRM ve ihale modülleri için uçtan uca endpoint'ler.\n\n" +
+                      "🔐 Korumalı endpoint'leri çağırmak için önce `/api/auth/login` ile token alıp sağ üstteki **Authorize** butonu ile `Bearer {token}` formatında girin.",
+        Contact = new Microsoft.OpenApi.Models.OpenApiContact
+        {
+            Name = "Allbatros Global Teknoloji",
+            Url = new Uri("https://github.com/karamur/KOAFiloServis")
+        },
+        License = new Microsoft.OpenApi.Models.OpenApiLicense
+        {
+            Name = "Ticari Lisans",
+            Url = new Uri("https://github.com/karamur/KOAFiloServis/blob/main/LICENSE")
+        }
+    });
+
+    // JWT Bearer auth UI
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "JWT Authorization header. Örnek: \"Authorization: Bearer {token}\""
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+
+    // XML yorum dosyalarını yükle (varsa)
+    try
+    {
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+        }
+    }
+    catch
+    {
+        // XML dosyası eksikse Swagger açılmaya devam etsin
+    }
+});
 
 var app = builder.Build();
 
@@ -649,12 +710,21 @@ if (!app.Environment.IsDevelopment())
 }
 
 // Swagger UI - tüm ortamlarda aktif (API dokümantasyonu)
-app.UseSwagger();
+app.UseSwagger(c =>
+{
+    c.RouteTemplate = "swagger/{documentName}/swagger.json";
+});
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM Filo Servis API v1");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "KOAFiloServis API v1");
     c.RoutePrefix = "swagger";
-    c.DocumentTitle = "CRM Filo Servis API Dokümantasyonu";
+    c.DocumentTitle = "KOAFiloServis API Dokümantasyonu";
+    c.DefaultModelsExpandDepth(-1); // Models bölümünü kapalı başlat
+    c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+    c.EnableDeepLinking();
+    c.DisplayRequestDuration();
+    c.EnableFilter();
+    c.EnableTryItOutByDefault();
 });
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);

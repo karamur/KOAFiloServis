@@ -65,6 +65,10 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <!-- Swagger/OpenAPI XML dokümantasyon üretimi -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- 1591: 'public X için XML açıklama eksik' uyarısını sustur -->
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
 </Project>

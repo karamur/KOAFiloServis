@@ -372,6 +372,34 @@ Desteklenen değerler: `PostgreSQL` · `MySQL` · `SQLServer` · `SQLite`
 
 ---
 
+---
+
+## 📚 API Dokümantasyonu (Swagger / OpenAPI)
+
+REST API'ler **Swashbuckle** ile otomatik belgelenir ve interaktif **Swagger UI** her ortamda etkindir.
+
+| Adres | Açıklama |
+|---|---|
+| `http://localhost:5190/swagger` | Swagger UI (interaktif test arayüzü) |
+| `http://localhost:5190/swagger/v1/swagger.json` | Ham OpenAPI 3.0 şeması (codegen / Postman import için) |
+
+### 🔐 Korumalı Endpoint'leri Test Etme
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{ "kullaniciAdi": "admin", "sifre": "***" }
+```
+
+1. Dönen **JWT token**'ı kopyalayın.
+2. Swagger UI'da sağ üstteki **Authorize** butonuna tıklayın.
+3. `Bearer {token}` formatında girin → tüm `[Authorize]` endpoint'ler aktifleşir.
+
+> 💡 XML kod yorumları derleme sırasında üretilir (`GenerateDocumentationFile=true`) ve Swagger açıklamalarına otomatik yansır. İstemci üretmek için: `npx @openapitools/openapi-generator-cli generate -i http://localhost:5190/swagger/v1/swagger.json -g typescript-axios -o ./client`
+
+---
+
 ## 🗃️ Veritabanı Migrasyonu
 
 ```bash
