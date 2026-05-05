@@ -1,23 +1,32 @@
 ﻿<div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:1e3a5f,100:2563eb&height=160&section=header&text=KOAFiloServis&fontSize=48&fontColor=ffffff&fontAlignY=38&desc=Kurumsal%20Filo%20Yönetimi%20%26%20ERP%20Platformu&descSize=18&descAlignY=60&descColor=bfdbfe" width="100%" alt="KOAFiloServis" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:1e3a5f,50:2563eb,100:38bdf8&height=200&section=header&text=KOAFiloServis&fontSize=58&fontColor=ffffff&fontAlignY=36&desc=Kurumsal%20Filo%20Y%C3%B6netimi%20%26%20ERP%20Platformu&descSize=20&descAlignY=58&descColor=e0f2fe&animation=fadeIn" width="100%" alt="KOAFiloServis" />
 
 <br/>
 
 [![.NET](https://img.shields.io/badge/.NET_10-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
-[![Blazor](https://img.shields.io/badge/Blazor_Server-512BD4?style=for-the-badge&logo=blazor&logoColor=white)](https://blazor.net/)
+[![Blazor](https://img.shields.io/badge/Blazor_Server-512BD4?style=for-the-badge&logo=blazor&logoColor=white)](https://learn.microsoft.com/aspnet/core/blazor/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_14+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![EF Core](https://img.shields.io/badge/EF_Core_10-68217A?style=for-the-badge)](https://learn.microsoft.com/ef/core/)
-[![Version](https://img.shields.io/badge/Sürüm-1.0.8-22c55e?style=for-the-badge)](#-changelog)
-[![License](https://img.shields.io/badge/Lisans-Ticari-dc2626?style=for-the-badge)](#-lisans)
+[![EF Core](https://img.shields.io/badge/EF_Core_10-68217A?style=for-the-badge&logo=nuget&logoColor=white)](https://learn.microsoft.com/ef/core/)
+[![Bootstrap](https://img.shields.io/badge/Bootstrap_5-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
+[![Ollama](https://img.shields.io/badge/Ollama_AI-000000?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com/)
+
+[![Build](https://img.shields.io/github/actions/workflow/status/karamur/KOAFiloServis/build-release.yml?style=flat-square&label=build&logo=githubactions&logoColor=white)](https://github.com/karamur/KOAFiloServis/actions)
+[![Last Commit](https://img.shields.io/github/last-commit/karamur/KOAFiloServis?style=flat-square&logo=git&logoColor=white&color=22c55e)](https://github.com/karamur/KOAFiloServis/commits/main)
+[![Issues](https://img.shields.io/github/issues/karamur/KOAFiloServis?style=flat-square&logo=github&color=f59e0b)](https://github.com/karamur/KOAFiloServis/issues)
+[![Stars](https://img.shields.io/github/stars/karamur/KOAFiloServis?style=flat-square&logo=github&color=eab308)](https://github.com/karamur/KOAFiloServis/stargazers)
+[![Repo Size](https://img.shields.io/github/repo-size/karamur/KOAFiloServis?style=flat-square&logo=github&color=8b5cf6)](https://github.com/karamur/KOAFiloServis)
+[![Code Size](https://img.shields.io/github/languages/code-size/karamur/KOAFiloServis?style=flat-square&logo=github&color=06b6d4)](https://github.com/karamur/KOAFiloServis)
+[![Top Language](https://img.shields.io/github/languages/top/karamur/KOAFiloServis?style=flat-square&logo=csharp&color=512BD4)](https://github.com/karamur/KOAFiloServis)
+[![License](https://img.shields.io/badge/Lisans-Ticari-dc2626?style=flat-square)](#-lisans)
 
 <br/>
 
-> **Taşımacılık ve lojistik firmaları için** araç, sürücü, muhasebe, bordro, EBYS ve ihale süreçlerini tek platformda birleştiren modüler kurumsal çözüm.
+> 🚚 **Taşımacılık ve lojistik firmaları** için araç, sürücü, muhasebe, bordro, EBYS, CRM ve ihale süreçlerini tek platformda birleştiren **modüler**, **çok firmalı** ve **AI destekli** kurumsal ERP çözümü.
 
 <br/>
 
-[🚀 Kurulum](#-kurulum) &nbsp;|&nbsp; [✨ Özellikler](#-öne-çıkan-özellikler) &nbsp;|&nbsp; [🧩 Mimari](#-mimari) &nbsp;|&nbsp; [⚙️ Yapılandırma](#️-yapılandırma) &nbsp;|&nbsp; [🧪 Test](#-test) &nbsp;|&nbsp; [📦 Yayınlama](#-yayınlama) &nbsp;|&nbsp; [📋 Changelog](CHANGELOG.md)
+**📚 [Kurulum](#-kurulum)** &nbsp;•&nbsp; **✨ [Özellikler](#-öne-çıkan-özellikler)** &nbsp;•&nbsp; **🧩 [Mimari](#-mimari)** &nbsp;•&nbsp; **⚙️ [Yapılandırma](#️-yapılandırma)** &nbsp;•&nbsp; **🧪 [Test](#-test--kalite)** &nbsp;•&nbsp; **📦 [Yayınlama](#-yayınlama)** &nbsp;•&nbsp; **🤝 [Katkı](#-katkı)** &nbsp;•&nbsp; **📋 [Changelog](CHANGELOG.md)**
 
 <br/>
 
@@ -29,26 +38,26 @@
 
 **KOAFiloServis**, filo ve taşımacılık şirketlerinin tüm operasyonlarını tek platformdan yönetebilmesi için geliştirilmiş **modüler** ve **çok firmalı (multi-tenant)** bir kurumsal ERP çözümüdür.
 
-Araç yönetiminden bordro hesaplamaya, ihale süreçlerinden e-fatura entegrasyonuna kadar **200+ ekran** ile tam kapsamlı bir dijital dönüşüm platformu sunar.
+Araç yönetiminden bordro hesaplamaya, ihale süreçlerinden e-fatura entegrasyonuna kadar **200+ ekran** ile uçtan uca dijital dönüşüm sağlar. Tüm uygulama tamamen **açık kaynak ve ücretsiz araçlar** üzerine kurulmuştur — herhangi bir ücretli SaaS bağımlılığı yoktur.
 
 <table>
 <tr>
-<td align="center" width="200">
+<td align="center" width="33%">
 
 ### 🏢 Kimler İçin?
-Filo yönetim firmaları, lojistik şirketleri, taşımacılık operatörleri, servis ve muhasebe ekipleri
+Filo yönetim firmaları, lojistik şirketleri, taşımacılık operatörleri, servis ve muhasebe ekipleri için.
 
 </td>
-<td align="center" width="200">
+<td align="center" width="33%">
 
 ### 🧩 Ne Sunar?
-Araç & sürücü, muhasebe, bordro, EBYS, ihale, raporlama ve AI destekli analiz
+Araç & sürücü, muhasebe, bordro, EBYS, ihale, raporlama ve **AI destekli analiz** modülleri.
 
 </td>
-<td align="center" width="200">
+<td align="center" width="33%">
 
 ### ⚡ Teknoloji
-.NET 10 Blazor Server, PostgreSQL, Quartz.NET, SignalR, Redis, OpenAI/Ollama
+.NET 10 + Blazor Server + EF Core 10 + PostgreSQL/SQLite + Ollama AI — tamamı **ücretsiz**.
 
 </td>
 </tr>
@@ -58,204 +67,229 @@ Araç & sürücü, muhasebe, bordro, EBYS, ihale, raporlama ve AI destekli anali
 
 ## ✨ Öne Çıkan Özellikler
 
-<table>
-<tr>
-<td valign="top" width="50%">
+<details open>
+<summary><b>🚛 Filo & Operasyon Yönetimi</b></summary>
 
-### 🚗 Filo & Araç Yönetimi
-- Araç envanteri ve evrak takibi (ruhsat, sigorta, muayene)
-- Kilometre, yakıt, bakım ve servis geçmişi
-- Araç alım/satım ve plaka dönüşüm süreçleri
-- Canlı GPS takip, Geofence ve alarm altyapısı
-- Komisyonculuk iş atamaları (Özmal / Kiralık / Komisyon)
+- 🚗 Araç envanteri, ruhsat, sigorta, muayene takibi
+- 📍 Güzergah & sefer yönetimi, GPS konum geçmişi
+- 🔧 Bakım/onarım planlaması, masraf takibi
+- ⛽ Yakıt tüketim raporları & verimlilik analizi
+- 👨‍✈️ Sürücü atama, ehliyet/SRC takibi
+- 📦 İlan yayınlama, ihale süreçleri, hak ediş hesabı
 
-### 👥 Personel & Bordro
-- Personel özlük ve evrak merkezi
-- Normal / AR-GE bordro ve hesap pusulası
-- Puantaj, izin, avans/borç ve maaşa mahsup
-- **Tek tek maaş ödemesi:** Elden, Banka, Mahsup, Kredi Kartı seçenekleri
-- **Borç yönetimi:** Kısmi/tam ödeme, düzenleme ve anlık durum takibi
-- Banka ödeme listesi üretimi
+</details>
 
-### 💰 Muhasebe & Finans
-- Cari hesap, ekstre ve mutabakat
-- Fatura, proforma ve e-fatura (GİB) akışları
-- Banka/kasa hareketleri ve ödeme eşleştirme
-- Hesap planı, bütçe takvimi, hedef-gerçekleşen analizi
+<details>
+<summary><b>💰 Muhasebe & Finans</b></summary>
 
-### 🏗️ İhale & Proje Yönetimi
-- Proje bazlı maliyet ve AI destekli teklif tahmini
-- Teklif versiyonlama ve onay akışı
-- Rakip/piyasa benchmark karşılaştırması
-- Kazanılan proje gerçekleşen maliyet takibi
+- 📊 Genel muhasebe, mizan, defter, KDV
+- 🧾 e-Fatura / e-Arşiv entegrasyon altyapısı
+- 🏦 Banka hesabı & hareket eşleşmesi
+- 💵 Cari hesap, tahsilat & ödeme takibi
+- 📈 Bütçe planlaması ve gerçekleşme analizi
+- 📑 Hak ediş, masraf merkezi, proje bazlı raporlama
 
-</td>
-<td valign="top" width="50%">
+</details>
 
-### 🧾 EBYS & Belge Yönetimi
-- Gelen/giden evrak takibi ve atama iş akışı
-- OCR, otomatik sınıflandırma ve özet oluşturma
-- Vektör tabanlı semantik belge arama (Ollama)
-- Versiyon geçmişi, geri yükleme ve karşılaştırma
+<details>
+<summary><b>👥 İK & Bordro</b></summary>
 
-### 📊 Raporlama & BI
-- Araç kârlılık, yakıt verimlilik raporları
-- Cari yaşlandırma ve ödeme raporları
-- Excel (ClosedXML/EPPlus) ve PDF (QuestPDF) export
-- CSV / JSON / Parquet veri dışa aktarım
+- 👤 Personel özlük, izin, vardiya, fazla mesai
+- 💸 Bordro hesaplama, SGK & gelir vergisi tahakkuku
+- 📅 Puantaj ve hak ediş kalemleri
+- 📋 EBYS (Elektronik Belge Yönetim Sistemi) entegrasyonu
 
-### 🤖 AI & Otomasyon
-- Fatura AI içe aktarımı ve sınıflandırma
-- Araç değerleme ve piyasa araştırması
-- OpenAI + Ollama (yerel LLM) entegrasyonu
-- WhatsApp ve e-posta bildirim servisleri
+</details>
 
-### 🔐 Güvenlik & Çoklu Firma
-- ASP.NET Core Identity + JWT Bearer
-- Multi-tenant firma izolasyonu (Global Query Filters)
-- IP beyaz/kara liste ve KVKK uyumluluk araçları
-- Rol tabanlı yetkilendirme (Admin, Muhasebe, Operasyon)
+<details>
+<summary><b>🤖 AI Destekli Akıllı Modüller</b></summary>
 
-</td>
-</tr>
-</table>
+- 💬 **Ollama tabanlı sohbet asistanı** (tamamen yerel, ücretsiz, GPU/CPU)
+- 📄 EBYS belge OCR, otomatik sınıflandırma & özetleme
+- 🔍 Cari/fatura/sözleşme bağlamlı akıllı arama
+- 🧠 `Microsoft.Extensions.AI` ile sağlayıcı bağımsız mimari
+
+</details>
+
+<details>
+<summary><b>🔔 CRM & Bildirim</b></summary>
+
+- 🗂️ Müşteri/cari kart yönetimi, fırsat takibi
+- 📞 Çağrı/görüşme notları, destek talepleri
+- 🔕 Gerçek zamanlı bildirim merkezi (panel + dropdown)
+- ⌨️ Klavye kısayolları & global arama
+
+</details>
+
+<details>
+<summary><b>🔐 Güvenlik & Çok Kullanıcılı Mimari</b></summary>
+
+- 🔑 JWT + cookie tabanlı **iki faktörlü** kimlik doğrulama
+- 👮 Detaylı **rol & yetki** matrisi (200+ izin kalemi)
+- 🏢 **Multi-tenant** firma izolasyonu, dönem bazlı veri ayrımı
+- 🔒 HWID tabanlı offline lisans (donanım parmak izi)
+- 🛡️ ASP.NET Core Data Protection ile şifrelenmiş anahtar yönetimi
+
+</details>
+
+---
+
+## 🛠️ Teknoloji Yığını <sub>(Tamamı Ücretsiz / Açık Kaynak)</sub>
+
+| Katman | Kullanılan Araç | Lisans |
+|---|---|---|
+| **Backend** | .NET 10, ASP.NET Core, Blazor Server | MIT |
+| **ORM** | Entity Framework Core 10 | MIT |
+| **Veritabanı** | PostgreSQL · MySQL · SQLite · SQL Server | PostgreSQL / GPL / Public Domain / EULA |
+| **UI** | Bootstrap 5, Bootstrap Icons | MIT |
+| **Auth** | JWT Bearer, ASP.NET Core Identity, Data Protection | MIT |
+| **Cache** | In-Memory · Redis (StackExchange.Redis) | MIT |
+| **Excel** | ClosedXML · EPPlus (NonCommercial) | MIT / LGPL |
+| **PDF** | QuestPDF | MIT (Community) |
+| **Mail** | MailKit | MIT |
+| **AI** | Microsoft.Extensions.AI · OllamaSharp · **Ollama (local)** | MIT / Apache 2.0 |
+| **Scheduler** | Quartz.NET | Apache 2.0 |
+| **Test** | xUnit · Coverlet · Playwright · Selenium | MIT / Apache 2.0 |
+| **CI/CD** | **GitHub Actions** (ücretsiz tier) | — |
+| **Installer** | **Inno Setup 6** | Free for any use |
+| **IDE** | Visual Studio Community / VS Code + C# Dev Kit | Free |
+
+> 💡 Hiçbir ücretli SaaS, lisanslı bileşen veya kapalı kaynak servis kullanılmaz.
 
 ---
 
 ## 🧩 Mimari
 
+```mermaid
+flowchart LR
+    subgraph Client["🌐 İstemci"]
+        B[Blazor Server UI<br/>Bootstrap 5 + Icons]
+    end
+
+    subgraph Web["🔵 KOAFiloServis.Web (.NET 10)"]
+        API[REST API<br/>+ SignalR]
+        SVC[Service Layer<br/>200+ Servis]
+        EF[EF Core 10<br/>Multi-Provider]
+        AI[AI Layer<br/>Ollama + MEAI]
+        BG[Background Jobs<br/>Quartz.NET]
+    end
+
+    subgraph Data["🗄️ Veri"]
+        PG[(PostgreSQL)]
+        SQL[(SQL Server)]
+        MY[(MySQL)]
+        LITE[(SQLite)]
+        RDS[(Redis Cache)]
+    end
+
+    subgraph Tools["🖥️ Yardımcı Araçlar"]
+        LIS[LisansDesktop<br/>WinForms / HWID]
+        DS[DataSync<br/>PG ↔ SQLite]
+    end
+
+    subgraph External["🌍 Dış Servisler (Opsiyonel)"]
+        OLLA[Ollama Server]
+        SMTP[SMTP / MailKit]
+        EFAT[e-Fatura Sağlayıcı]
+    end
+
+    B <--> API
+    API --> SVC
+    SVC --> EF
+    SVC --> AI
+    SVC --> BG
+    EF --> PG & SQL & MY & LITE
+    SVC --> RDS
+    AI --> OLLA
+    SVC --> SMTP
+    SVC --> EFAT
+    LIS -. lisans.key .-> Web
+    DS -. veri kopyala .-> LITE
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        KOAFiloServis.Web                            │
-│          Blazor Server · REST API · SignalR Hubs · Quartz Jobs      │
-│          Controllers · Services · Middleware · Background Jobs      │
-└───────────┬────────────────────────────────────┬────────────────────┘
-            │                                    │
-            ▼                                    ▼
- ┌─────────────────────┐              ┌──────────────────────────┐
- │  KOAFiloServis.     │              │   KOAFiloServis.Shared   │
- │  LisansDesktop      │              │   Entity · DTO · Common  │
- │  DataSync (WinForms)│              └──────────────────────────┘
- └─────────────────────┘
-            │
-            ▼
- ┌──────────────────────────────────────────────────────────────┐
- │   PostgreSQL · SQLite · MySQL · SQL Server · Redis (Cache)   │
- └──────────────────────────────────────────────────────────────┘
+
+### 📁 Proje Yapısı
+
 ```
-
-### 📁 Çözüm Yapısı
-
-| Proje | Açıklama | Framework |
-|---|---|:---:|
-| **`KOAFiloServis.Web`** | Ana Blazor Server uygulaması · REST API · SignalR · Quartz Jobs | `net10.0` |
-| **`KOAFiloServis.Shared`** | Entity, DTO ve yardımcı sınıflar | `net10.0` |
-| **`KOAFiloServis.Tests`** | xUnit birim ve entegrasyon testleri | `net10.0` |
-| **`KOAFiloServis.LisansDesktop`** | HWID tabanlı lisans üretim/aktivasyon aracı (WinForms) | `net10.0-windows` |
-| **`KOAFiloServis.DataSync`** | PostgreSQL → SQLite veri aktarım aracı (WinForms + CLI) | `net10.0-windows` |
-| **`setup/`** | Inno Setup 6 paketleme betikleri ve IIS otomasyonu | — |
-
----
-                │
-                ▼
-   ┌────────────────────────────────────────┐
-   │  PostgreSQL / SQLite • Redis (opsiyonel)│
-   └────────────────────────────────────────┘
+KOAFiloServis/
+├── 🔵 KOAFiloServis.Web/              # Ana Blazor Server uygulaması
+│   ├── Components/
+│   │   ├── Layout/                    # MainLayout, NavMenu, EmptyLayout
+│   │   ├── Pages/                     # 200+ Blazor sayfası (modül bazlı)
+│   │   └── Shared/                    # Ortak UI (Toast, Search, AI panel...)
+│   ├── Controllers/                   # REST API endpoint'leri
+│   ├── Services/                      # İş mantığı servisleri
+│   ├── Data/                          # DbContext + EF Core konfigürasyonu
+│   ├── Migrations/                    # EF Core migrations
+│   ├── Jobs/                          # Quartz.NET zamanlanmış görevler
+│   └── Deploy/                        # IIS + Setup script'leri
+├── 📦 KOAFiloServis.Shared/           # Modeller, DTO, sabitler
+├── 🖥️ KOAFiloServis.LisansDesktop/   # WinForms — HWID lisans üreteci
+├── 🔄 KOAFiloServis.DataSync/         # WinForms — PG ↔ SQLite veri taşıma
+├── 🧪 KOAFiloServis.Tests/            # xUnit birim & entegrasyon testleri
+├── 🎭 Tests/PlaywrightSmoke/          # E2E smoke testleri
+├── 📜 setup/                          # Inno Setup 6 installer pipeline
+└── ⚙️ .github/workflows/              # GitHub Actions CI/CD
 ```
-
-### 📁 Çözüm Yapısı
-
-| Proje | Açıklama | Hedef Framework |
-|---|---|---|
-| **`KOAFiloServis.Web`** | Ana Blazor Server uygulaması, API, Hub'lar, zamanlanmış işler | `net10.0` |
-| **`KOAFiloServis.Shared`** | Ortak entity, DTO ve yardımcı bileşenler | `net10.0` |
-| **`KOAFiloServis.Tests`** | xUnit birim/integrasyon testleri | `net10.0` |
-| **`KOAFiloServis.LisansDesktop`** | Lisans üretim/aktivasyon aracı (WinForms) | `net10.0-windows` |
-| **`KOAFiloServis.DataSync`** | PostgreSQL → SQLite veri aktarım aracı (WinForms + CLI) | `net10.0-windows` |
-| **`setup/`** | Inno Setup 6 paketleme script'leri ve IIS otomasyonu | — |
-| **`archive/`** | Eski kurulum artıfaktı (referans) | — |
-
----
-
-## 🧰 Teknoloji Yığını
-
-**Platform & Runtime**
-- .NET 10, ASP.NET Core, Blazor Server
-- SignalR (Hubs)
-
-**Veri & Altyapı**
-- Entity Framework Core 10 (Pooled DbContextFactory)
-- PostgreSQL (Npgsql) / SQLite / MySQL / SQL Server (çoklu provider)
-- Redis veya Memory Distributed Cache
-- Quartz.NET zamanlanmış işler
-- ASP.NET Core Data Protection
-
-**Kimlik & Güvenlik**
-- ASP.NET Core Identity
-- JWT Bearer Authentication
-- Multi-tenant firma izolasyonu
-
-**Belge / Rapor / Entegrasyon**
-- ClosedXML, EPPlus (Excel)
-- QuestPDF (PDF)
-- MailKit (SMTP)
-- Parquet.Net (veri dışa aktarım)
-- Microsoft.Extensions.AI + OllamaSharp (AI)
-- Playwright, Selenium (web scraping / UI test)
-
-**Test**
-- xUnit, coverlet, Playwright, Selenium
 
 ---
 
 ## 🚀 Kurulum
 
 ### Gereksinimler
-- ✅ [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- ✅ PostgreSQL 14+ (önerilen) *veya* SQLite
-- ⚙️ (Opsiyonel) Redis 6+
-- ⚙️ (Opsiyonel) Docker Desktop
-- 🧰 Visual Studio 2022/2026 ya da VS Code + C# Dev Kit
-- 🪟 Masaüstü araçlar için Windows 10/11
 
-### Hızlı Başlangıç
+| Bileşen | Sürüm | Not |
+|---|---|---|
+| 🔷 [.NET SDK](https://dotnet.microsoft.com/download) | **10.0+** | Zorunlu |
+| 🐘 [PostgreSQL](https://www.postgresql.org/) | 14+ | Önerilen (SQLite de desteklenir) |
+| 🧠 [Ollama](https://ollama.com/) | son | AI özellikleri için (opsiyonel) |
+| 🔴 [Redis](https://redis.io/) | 6+ | Dağıtık cache için (opsiyonel) |
+| 🐳 [Docker Desktop](https://www.docker.com/products/docker-desktop/) | son | İzole geliştirme (opsiyonel) |
+| 🪟 Windows 10/11 | x64 | Yalnızca masaüstü araçlar için |
+
+### ⚡ Hızlı Başlangıç
 
 ```bash
 # 1) Kaynak kodu al
 git clone https://github.com/karamur/KOAFiloServis.git
 cd KOAFiloServis
 
-# 2) Paketleri geri yükle
+# 2) Bağımlılıkları geri yükle
 dotnet restore
 
-# 3) Derle
-dotnet build -c Release
+# 3) (Opsiyonel) Veritabanını hazırla
+dotnet ef database update --project KOAFiloServis.Web
 
-# 4) Çalıştır
+# 4) Geliştirme sunucusunu başlat
 dotnet run --project KOAFiloServis.Web
 ```
 
-Uygulama başlatıldığında **5190** portundan itibaren boş bir port seçip `http://0.0.0.0:{port}` üzerinde dinlemeye başlar. Farklı bir port için:
+🌐 Uygulama varsayılan olarak **`http://localhost:5190`** üzerinde çalışır. Farklı bir port:
 
 ```bash
 dotnet run --project KOAFiloServis.Web --urls "http://0.0.0.0:8080"
 ```
 
+### 🤖 (Opsiyonel) Yerel AI Asistanı
+
+```bash
+# Ollama'yı kur ve modeli indir (ÜCRETSİZ, internet bağımsız çalışır)
+ollama pull llama3.2
+ollama serve
+```
+
+`appsettings.json` içinde:
+```json
+{ "Ollama": { "BaseUrl": "http://localhost:11434", "Model": "llama3.2" } }
+```
+
 ### 🖥️ Son Kullanıcı Kurulumu (Windows)
 
-1. [Releases](https://github.com/karamur/KOAFiloServis/releases) sayfasından son **`KOAFiloServisKurulum-<sürüm>.exe`** paketini indir.
+1. [Releases](https://github.com/karamur/KOAFiloServis/releases) sayfasından son **`KOAFiloServisKurulum-<sürüm>.exe`** indir.
 2. **Yönetici olarak çalıştır.**
-3. Bileşenleri seç (Web zorunlu, Lisans + DataSync opsiyonel) → IIS ve firewall görevlerini işaretli bırak.
-4. Kurulum biter → tarayıcı: `http://localhost:5190`
+3. Bileşenleri seç (Web zorunlu, Lisans + DataSync opsiyonel) → IIS + firewall görevlerini işaretli bırak.
+4. Kurulum tamamlandığında: `http://localhost:5190`
 
-**Gereksinimler (hedef PC):**
-- Windows 10/11 x64
-- IIS + ASP.NET Core 10 **Hosting Bundle** — [indir](https://dotnet.microsoft.com/download/dotnet/10.0)
-- .NET 10 Desktop Runtime (Lisans + DataSync UI için)
-
-**Güncelleme:** Yeni sürüm EXE'sini aynı PC'de çalıştırmanız yeter. `dbsettings.json`, `data\*.db`, `uploads\`, `logs\`, `Backups\` **korunur**.
-
-Detaylı kurulum adımları için → [`setup/README.md`](setup/README.md)
+> ✅ Güncellemelerde `dbsettings.json`, `data\*.db`, `uploads\`, `logs\`, `Backups\` **korunur**.
 
 ---
 
@@ -263,7 +297,8 @@ Detaylı kurulum adımları için → [`setup/README.md`](setup/README.md)
 
 Temel ayarlar `KOAFiloServis.Web/appsettings.json` içinde bulunur.
 
-### 🔌 Veritabanı Sağlayıcı Seçimi
+<details>
+<summary><b>🔌 Veritabanı Sağlayıcı Seçimi</b></summary>
 
 ```json
 {
@@ -274,11 +309,14 @@ Temel ayarlar `KOAFiloServis.Web/appsettings.json` içinde bulunur.
 }
 ```
 
-Desteklenen değerler: `PostgreSQL`, `MySQL`, `SQLServer`, `SQLite`.
+Desteklenen değerler: `PostgreSQL` · `MySQL` · `SQLServer` · `SQLite`
 
 > 💡 `dbsettings.json` dosyası varsa **öncelikli** olarak o kullanılır. Kurulum aracı bu dosyayı otomatik üretir.
 
-### 🔐 JWT
+</details>
+
+<details>
+<summary><b>🔐 JWT</b></summary>
 
 ```json
 {
@@ -291,7 +329,10 @@ Desteklenen değerler: `PostgreSQL`, `MySQL`, `SQLServer`, `SQLite`.
 }
 ```
 
-### 🗄️ Cache (Memory / Redis)
+</details>
+
+<details>
+<summary><b>🗄️ Cache (Memory / Redis)</b></summary>
 
 ```json
 {
@@ -302,108 +343,10 @@ Desteklenen değerler: `PostgreSQL`, `MySQL`, `SQLServer`, `SQLite`.
 }
 ```
 
-### 🤖 AI (Opsiyonel)
+</details>
 
-```json
-{
-  "OpenAI": { "ApiKey": "", "Model": "gpt-4o-mini" },
-  "Ollama": { "BaseUrl": "http://localhost:11434", "Model": "llama3.2" }
-}
-```
-
-### 💾 Yedekleme
-
-```json
-{
-  "Backup": {
-    "Enabled": true,
-    "Path": "backups",
-    "RetentionDays": 30,
-    "ScheduleHour": 3
-  }
-}
-```
-
-> ⚠️ Üretimde hassas bilgileri (parola, anahtar) **ortam değişkenleri** veya **User Secrets / Azure Key Vault** ile yönetin.
-
----
-
-## 🗃️ Veritabanı Migrasyonu
-
-```bash
-dotnet ef database update --project KOAFiloServis.Web
-```
-
-Yeni migration ekleme:
-
-```bash
-dotnet ef migrations add MigrationAdi --project KOAFiloServis.Web
-```
-
----
-
-## 🧪 Test
-
-```bash
-# Tüm testleri çalıştır
-dotnet test
-
-# Kapsama (coverage) ile
-dotnet test --collect:"XPlat Code Coverage"
-```
-
-- **Birim/Integrasyon:** `KOAFiloServis.Tests` (xUnit)
-- **E2E Smoke:** `KOAFiloServis.PlaywrightSmoke`
-- **UI Regression:** `KOAFiloServis.SeleniumTests`
-
----
-
-## 📦 Yayınlama
-
-### Tek Komutla Installer Üretme
-
-```powershell
-cd setup
-.\build.ps1 -Version 1.0.2 -CopyToPublish
-```
-
-Çıktı:
-- `setup\output\KOAFiloServisKurulum-1.0.2.exe`
-- (opsiyonel) `F:\publish\Installer\KOAFiloServisKurulum-1.0.2.exe`
-
-Pipeline: Web publish → LisansDesktop publish (SingleFile, self-contained) → DataSync publish → **Inno Setup 6** derleme.
-
-### Manuel Web Publish (IIS / Linux)
-```bash
-dotnet publish KOAFiloServis.Web -c Release -o ./publish/web
-```
-
-### Masaüstü Araçları Manuel
-```bash
-dotnet publish KOAFiloServis.LisansDesktop -c Release
-dotnet publish KOAFiloServis.DataSync      -c Release
-```
-
-Her iki araç da `PublishSingleFile + SelfContained (win-x64)` olarak paketlenir.
-
----
-
-## 🔐 Lisans Yönetimi (KOAFiloServis.LisansDesktop)
-
-HWID (donanım parmak izi) bazlı offline lisans aktivasyonu:
-
-- Müşteri PC'sinde **HWID** üretilir → satıcı tarafına gönderilir.
-- Satıcı LisansDesktop ile imzalı `lisans.key` üretir → müşteriye gönderilir.
-- Web uygulaması `lisans.key`'i doğrular; HWID uyuşmazsa reddeder.
-
-Kurulum sonrası Başlat Menüsü: **KOAFiloServis → Lisans Yonetimi**
-
----
-
-## 💾 Veritabanı Yedekleme & Geri Yükleme
-
-### Otomatik Yedek (Quartz Job)
-`appsettings.json` → `Backup` bloğu:
+<details>
+<summary><b>💾 Otomatik Yedekleme</b></summary>
 
 ```json
 {
@@ -416,96 +359,227 @@ Kurulum sonrası Başlat Menüsü: **KOAFiloServis → Lisans Yonetimi**
 }
 ```
 
-- Her gün 03:00'te PostgreSQL/SQLite tam yedek.
-- 30 günden eski yedekler otomatik temizlenir.
-- Varsayılan konum: `C:\KOAFiloServis\Backups\YYYY-MM-DD\`
+- Her gün 03:00'te tam yedek (PostgreSQL / SQLite)
+- 30 günden eski yedekler otomatik temizlenir
 
-### PG → SQLite Veri Aktarımı (KOAFiloServis.DataSync)
+</details>
 
-Offline/test PC'lere canlı PostgreSQL verisini taşımak için:
-
-**UI:** Başlat Menüsü → KOAFiloServis → *Veri Aktarim (PG - SQLite)* → Host/Port/DB/User/Pass gir → **Test** → **Başlat**.
-
-**CLI (otomasyon):**
-```powershell
-& "C:\KOAFiloServis\DataSync\KOAFiloServis.DataSync.exe" export `
-    --pg  "Host=10.0.0.5;Port=5432;Database=koa;Username=postgres;Password=***" `
-    --sqlite "C:\KOAFiloServis\data\koa.db"
-```
-
-Kaynak PostgreSQL'den tüm tabloları (146+ DbSet) ortak şema temelinde hedef SQLite'a kopyalar.
-
-### Manuel Geri Yükleme
-- **PostgreSQL:** `psql -U postgres -d KOAFiloServisDb -f backup.sql`
-- **SQLite:** `Backups\koa-YYYYMMDD.db` → `C:\KOAFiloServis\data\koa.db` (Web durdurulmuşken)
+> ⚠️ Üretimde hassas bilgileri (parola, anahtar) **ortam değişkenleri** veya **User Secrets** ile yönetin.
 
 ---
 
-## 🔌 Modüller & Sayfalar (Kısaca)
+## 🗃️ Veritabanı Migrasyonu
 
-`KOAFiloServis.Web/Components/Pages` altında **200+ Blazor sayfası** organize edilmiştir:
+```bash
+# Mevcut migration'ları uygula
+dotnet ef database update --project KOAFiloServis.Web
 
-- `Araclar`, `AracMasraflari`, `AracTakip`, `Guzergahlar`
-- `Cariler`, `Faturalar`, `EFatura`, `BankaHesaplari`, `BankaHareketleri`
-- `Muhasebe`, `Butce`, `Budget`, `Hakedis`
-- `Personel`, `Bordro`, `EBYS`
-- `FiloOperasyon`, `IlanYayin`, `Ihale`, `Stok`
-- `CRM`, `DestekTalepleri`, `Bildirimler`
-- `Raporlar`, `Ayarlar`
+# Yeni migration ekle
+dotnet ef migrations add MigrationAdi --project KOAFiloServis.Web
+
+# Belirli sağlayıcı için
+dotnet ef migrations add Init --context KOAFiloServisDbContext --project KOAFiloServis.Web
+```
+
+---
+
+## 🧪 Test & Kalite
+
+```bash
+# Tüm testleri çalıştır
+dotnet test
+
+# Kapsama (coverage) ile
+dotnet test --collect:"XPlat Code Coverage"
+
+# Güvenlik açığı taraması (NuGet)
+dotnet list package --vulnerable --include-transitive
+```
+
+| Tür | Proje | Çatı |
+|---|---|---|
+| 🧪 Birim & Entegrasyon | `KOAFiloServis.Tests` | xUnit + Coverlet |
+| 🎭 E2E Smoke | `Tests/PlaywrightSmoke` | Playwright |
+| 🌐 UI Regression | `Tests/SeleniumTests` | Selenium |
+
+---
+
+## 📦 Yayınlama
+
+### 🏗️ Tek Komutla Installer
+
+```powershell
+cd setup
+.\build.ps1 -Version 1.0.8 -CopyToPublish
+```
+
+**Pipeline:** Web publish → LisansDesktop publish (SingleFile, self-contained) → DataSync publish → **Inno Setup 6** ile EXE üretimi.
+
+**Çıktı:** `setup\output\KOAFiloServisKurulum-1.0.8.exe`
+
+### 🐧 Manuel Web Publish
+
+```bash
+dotnet publish KOAFiloServis.Web -c Release -o ./publish/web
+```
+
+### 🤖 GitHub Actions (CI/CD)
+
+Her `main` push'unda `build-release.yml` çalışarak otomatik build, test ve release artifact üretimi yapar — tamamen **ücretsiz GitHub Actions runner**'ları kullanılır.
+
+---
+
+## 🔐 Lisans Yönetimi (HWID Tabanlı)
+
+```mermaid
+sequenceDiagram
+    participant M as 👤 Müşteri PC
+    participant S as 🏢 Satıcı (LisansDesktop)
+    participant W as 🌐 Web Uygulaması
+
+    M->>M: HWID üretilir (donanım parmak izi)
+    M->>S: HWID gönderilir
+    S->>S: lisans.key imzalanır
+    S->>M: lisans.key teslim
+    M->>W: lisans.key yüklenir
+    W->>W: HWID + imza doğrulanır
+    alt Geçerli
+        W-->>M: ✅ Erişim açık
+    else Uyumsuz
+        W-->>M: ❌ Reddedildi
+    end
+```
+
+> Başlat Menüsü → **KOAFiloServis → Lisans Yonetimi**
+
+---
+
+## 💾 Veri Aktarımı (DataSync)
+
+Canlı **PostgreSQL** verisini offline test PC'lere taşımak için:
+
+```powershell
+& "C:\KOAFiloServis\DataSync\KOAFiloServis.DataSync.exe" export `
+    --pg     "Host=10.0.0.5;Port=5432;Database=koa;Username=postgres;Password=***" `
+    --sqlite "C:\KOAFiloServis\data\koa.db"
+```
+
+146+ DbSet ortak şema temelinde hedef SQLite'a kopyalanır.
 
 ---
 
 ## 🛡️ Güvenlik
 
-- 🔒 Hassas yapılandırmayı kaynak kodla **paylaşmayın**.
-- 🔑 JWT `Secret` değeri **en az 32 karakter** olmalı ve çevreye özgü üretilmelidir.
-- 🌐 Üretimde **HTTPS** zorunlu kılın ve güvenli cookie / HSTS ayarlarını etkinleştirin.
-- 🧪 NuGet paketlerini düzenli güncelleyin; güvenlik uyarılarını `dotnet list package --vulnerable` ile izleyin.
-- 🧰 Data Protection anahtarları `AppStoragePaths.GetDataProtectionKeysRoot` altında saklanır; yedekleyin.
+- 🔒 Hassas yapılandırmayı kaynak kodla **paylaşmayın** (`.gitignore` üzerinden korunur).
+- 🔑 JWT `Secret` **en az 32 karakter** ve çevreye özgü üretilmelidir.
+- 🌐 Üretimde **HTTPS** zorunlu, **HSTS** açık olmalı.
+- 🧪 NuGet paketlerini düzenli güncelleyin: `dotnet list package --vulnerable`
+- 🧰 Data Protection anahtarları `AppStoragePaths.GetDataProtectionKeysRoot` altında saklanır — yedekleyin.
+- 📝 Tüm kullanıcı işlemleri audit log altyapısıyla kayıt altına alınır.
+
+Güvenlik açığı bildirmek için lütfen **özel** bir e-posta gönderin (issue açmayın).
 
 ---
 
 ## 🗺️ Yol Haritası
 
-Detaylı yol haritası için [`ROADMAP.md`](ROADMAP.md), kurulum için [`INSTALL.md`](INSTALL.md) ve [`KURULUM_REHBERI.md`](KURULUM_REHBERI.md), geliştirme notları için [`DEVELOPMENT.md`](DEVELOPMENT.md), sürüm geçmişi için [`CHANGELOG.md`](CHANGELOG.md) dosyalarına bakınız.
+| Sürüm | Hedef | Durum |
+|---|---|---|
+| **v1.0.x** | Çekirdek modüller, Blazor UI, EF Core 10 | ✅ Tamamlandı |
+| **v1.1.x** | AI asistan + EBYS OCR genişletme | 🔄 Devam ediyor |
+| **v1.2.x** | Mobil (MAUI) istemci | 📋 Planlandı |
+| **v2.0.x** | Mikroservis ayrımı + gRPC | 💡 Tasarım |
+
+Detaylar: [`ROADMAP.md`](ROADMAP.md) · [`CHANGELOG.md`](CHANGELOG.md) · [`DEVELOPMENT.md`](DEVELOPMENT.md)
 
 ---
 
 ## 🤝 Katkı
 
-1. Projeyi fork'layın
-2. Yeni bir özellik dalı oluşturun: `git checkout -b feature/harika-ozellik`
-3. Değişikliklerinizi commit'leyin: `git commit -m "feat: harika özellik"`
-4. Dalı push'layın: `git push origin feature/harika-ozellik`
-5. Bir **Pull Request** açın
+Katkılarınızı dört gözle bekliyoruz! 🎉
 
-Lütfen PR açmadan önce:
-- `dotnet build` başarılı olmalı
-- Yeni kod için uygun testler eklenmeli
-- Mevcut kod stiline (`.editorconfig`) uyulmalı
+```bash
+# 1) Fork → klonla
+git clone https://github.com/<kullanici-adin>/KOAFiloServis.git
+
+# 2) Yeni dal aç
+git checkout -b feature/harika-ozellik
+
+# 3) Değişiklikleri commit'le (Conventional Commits)
+git commit -m "feat(araclar): yakıt tüketim grafiği eklendi"
+
+# 4) Push & PR aç
+git push origin feature/harika-ozellik
+```
+
+**PR açmadan önce:**
+- ✅ `dotnet build` başarılı olmalı
+- ✅ Yeni kod için test eklenmeli
+- ✅ `.editorconfig` kurallarına uyulmalı
+- ✅ Commit mesajları **[Conventional Commits](https://www.conventionalcommits.org/)** formatında olmalı
+
+---
+
+## 🌟 Star Geçmişi
+
+<a href="https://www.star-history.com/#karamur/KOAFiloServis&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=karamur/KOAFiloServis&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=karamur/KOAFiloServis&type=Date" />
+    <img alt="Star History" src="https://api.star-history.com/svg?repos=karamur/KOAFiloServis&type=Date" width="80%" />
+  </picture>
+</a>
 
 ---
 
 ## 📄 Lisans
 
-Bu proje **Allbatros Global Teknoloji** tarafından geliştirilmekte olup ticari kullanım **yazılı izne** tabidir. Lisans ve iş birliği talepleri için iletişime geçin.
+Bu proje **Allbatros Global Teknoloji** tarafından geliştirilmektedir. Ticari kullanım **yazılı izne** tabidir.
+
+Kullanılan üçüncü parti kütüphanelerin tamamı **MIT / Apache 2.0 / LGPL / BSD** gibi açık kaynak lisanslara sahiptir — herhangi bir ek lisans bedeli **gerekmez**.
+
+> Lisans ve iş birliği talepleri için iletişime geçin.
 
 ---
 
 ## 📬 İletişim
 
-- 🏢 **Allbatros Global Teknoloji**
-- 🌐 [www.allbatros.com](https://www.allbatros.com)
-- 🐙 [github.com/karamur](https://github.com/karamur)
-- 📦 Repo: [github.com/karamur/KOAFiloServis](https://github.com/karamur/KOAFiloServis)
+<table>
+<tr>
+<td>
+
+🏢 **Allbatros Global Teknoloji**  
+🌐 [www.allbatros.com](https://www.allbatros.com)  
+🐙 [github.com/karamur](https://github.com/karamur)  
+📦 Repo: [karamur/KOAFiloServis](https://github.com/karamur/KOAFiloServis)  
+🐛 [Issue açın](https://github.com/karamur/KOAFiloServis/issues/new)  
+
+</td>
+<td>
+
+[![GitHub](https://img.shields.io/badge/GitHub-karamur-181717?style=for-the-badge&logo=github)](https://github.com/karamur)
+[![Web](https://img.shields.io/badge/Web-allbatros.com-2563eb?style=for-the-badge&logo=googlechrome&logoColor=white)](https://www.allbatros.com)
+[![Issues](https://img.shields.io/github/issues/karamur/KOAFiloServis?style=for-the-badge&logo=github&color=f59e0b)](https://github.com/karamur/KOAFiloServis/issues)
+
+</td>
+</tr>
+</table>
 
 ---
 
 <div align="center">
 
-⭐ Beğendiyseniz **star** vermeyi unutmayın!
+### 🙏 Teşekkürler
+
+Bu proje **tamamen ücretsiz ve açık kaynak araçlarla** mümkün kılınmıştır.  
+Microsoft .NET ekibine, EF Core, Blazor, Bootstrap, PostgreSQL, Ollama ve sayısız NuGet katkıcısına minnettarız. ❤️
+
+<br/>
+
+⭐ **Beğendiyseniz star vermeyi unutmayın!**
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:38bdf8,50:2563eb,100:1e3a5f&height=120&section=footer" width="100%" />
 
 <sub>© 2024–2026 Allbatros Global Teknoloji — Tüm hakları saklıdır.</sub>
 
 </div>
-
