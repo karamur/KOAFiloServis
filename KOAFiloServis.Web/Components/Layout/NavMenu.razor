@@ -1198,11 +1198,14 @@
     private bool yetkilerYuklendi = false;
     private bool isAdmin = false;
     private bool isSuperAdmin = false;
+    private readonly SemaphoreSlim yetkiYukleGate = new(1, 1);
 
     protected override async Task OnInitializedAsync()
     {
-        await YetkileriYukle();
+        // Once subscribe ol, sonra ilk yuklemeyi yap. Aksi halde yukleme sirasinda
+        // gerceklesen AuthenticationStateChanged olaylari kacirilir.
         AuthProvider.AuthenticationStateChanged += OnAuthStateChanged;
+        await YetkileriYukle();
     }
 
     private void OnAuthStateChanged(Task<AuthenticationState> task)
@@ -1230,10 +1233,13 @@
     public void Dispose()
     {
         AuthProvider.AuthenticationStateChanged -= OnAuthStateChanged;
+        yetkiYukleGate.Dispose();
     }
 
     private async Task YetkileriYukle()
     {
+        // Es zamanli auth state degisikliklerinde koleksiyonlarda race olusmamasi icin serialize et
+        await yetkiYukleGate.WaitAsync();
         try
         {
             var aktifKullanici = AuthProvider.GetAktifKullanici();
@@ -1248,14 +1254,24 @@
                 {
                     // Kullanici yetkilerini yukle
                     var yetkiler = await KullaniciService.GetKullaniciYetkileriAsync(aktifKullanici.Id);
-                    kullaniciYetkileri = yetkiler.ToHashSet();
-                    kullaniciYetkiPrefixleri = kullaniciYetkileri
+                    var yetkiSet = yetkiler.ToHashSet();
+                    var prefixSet = yetkiSet
                         .Select(y =>
                         {
                             var idx = y.IndexOf('.');
                             return idx > 0 ? y.Substring(0, idx) : y;
                         })
                         .ToHashSet();
+
+                    // Yeni referanslari atomik olarak ata (render sirasinda yarim doldurulmus
+                    // koleksiyon gorunmesin)
+                    kullaniciYetkileri = yetkiSet;
+                    kullaniciYetkiPrefixleri = prefixSet;
+                }
+                else
+                {
+                    kullaniciYetkileri = new HashSet<string>();
+                    kullaniciYetkiPrefixleri = new HashSet<string>();
                 }
 
                 yetkilerYuklendi = true;
@@ -1267,6 +1283,10 @@
             // Hata durumunda bos yetkiler
             kullaniciYetkileri = new HashSet<string>();
             kullaniciYetkiPrefixleri = new HashSet<string>();
+        }
+        finally
+        {
+            yetkiYukleGate.Release();
         }
     }
 
