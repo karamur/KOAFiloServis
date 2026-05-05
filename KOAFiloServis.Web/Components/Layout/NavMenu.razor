@@ -55,9 +55,9 @@
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(15)" style="cursor: pointer;">
                     <span><i class="bi bi-folder2-open me-2"></i>EBYS BELGE YÖNETİMİ</span>
-                    <i class="bi @(expandedSections.Length > 15 && expandedSections[15] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <i class="bi @(expandedSections[15] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
-                @if (expandedSections.Length > 15 && expandedSections[15])
+                @if (expandedSections[15])
                 {
                     <div class="nav-section-content">
                         @if (HasYetki("ebys.oku") || HasYetki("belgeuyari.oku"))
@@ -544,9 +544,9 @@
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(14)" style="cursor: pointer;">
                     <span><i class="bi bi-briefcase me-2"></i>İHALE HAZIRLIK</span>
-                    <i class="bi @(expandedSections.Length > 14 && expandedSections[14] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <i class="bi @(expandedSections[14] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
-                @if (expandedSections.Length > 14 && expandedSections[14])
+                @if (expandedSections[14])
                 {
                     <div class="nav-section-content">
                         <div class="nav-item px-3">
@@ -610,9 +610,9 @@
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(11)" style="cursor: pointer;">
                     <span><i class="bi bi-wallet2 me-2"></i>BÜTÇE MODÜLÜ</span>
-                    <i class="bi @(expandedSections.Length > 11 && expandedSections[11] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <i class="bi @(expandedSections[11] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
-                @if (expandedSections.Length > 11 && expandedSections[11])
+                @if (expandedSections[11])
                 {
                     <div class="nav-section-content">
                         @if (HasYetki("butceanaliz.oku"))
@@ -658,9 +658,9 @@
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(12)" style="cursor: pointer;">
                     <span><i class="bi bi-car-front-fill me-2"></i>SATIŞ / KİRALAMA</span>
-                    <i class="bi @(expandedSections.Length > 12 && expandedSections[12] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <i class="bi @(expandedSections[12] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
-                @if (expandedSections.Length > 12 && expandedSections[12])
+                @if (expandedSections[12])
                 {
                     <div class="nav-section-content">
                         @if (HasYetki("satis.oku"))
@@ -730,9 +730,9 @@
             <div class="nav-section">
                 <div class="nav-section-header" @onclick="() => ToggleSection(13)" style="cursor: pointer;">
                     <span><i class="bi bi-box-seam me-2"></i>STOK / ENVANTER</span>
-                    <i class="bi @(expandedSections.Length > 13 && expandedSections[13] ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <i class="bi @(expandedSections[13] ? "bi-chevron-up" : "bi-chevron-down")"></i>
                 </div>
-                @if (expandedSections.Length > 13 && expandedSections[13])
+                @if (expandedSections[13])
                 {
                     <div class="nav-section-content">
                         @if (HasYetki("stok.oku"))
@@ -1035,7 +1035,7 @@
                                 </NavLink>
                             </div>
                         }
-                        @if (HasYetki("ayarlar"))
+                        @if (HasYetki("ayarlar.oku"))
                         {
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="ayarlar/dosya-migrasyonu">
