@@ -1,0 +1,118 @@
+﻿# ============================================================
+# 🐳 KOAFiloServis — Docker Compose (Production-ready local stack)
+# ------------------------------------------------------------
+# Kullanım:
+#   docker compose up -d --build
+#   docker compose logs -f web
+#   docker compose down
+# ============================================================
+
+name: koafiloservis
+
+services:
+  # ──────────────────────────────────────────────────────────
+  # Blazor Server uygulaması
+  # ──────────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_CONFIGURATION: Release
+    image: koafiloservis/web:latest
+    container_name: koafiloservis-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      TZ: Europe/Istanbul
+      # Bağlantı dizesi — appsettings'te ConnectionStrings__DefaultConnection olarak okunur
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-koafiloservis};Username=${POSTGRES_USER:-koafilo};Password=${POSTGRES_PASSWORD:-ChangeMe!2025}"
+      # JWT — .env'den gelmeli; default sadece local geliştirme için
+      Jwt__Secret: "${JWT_SECRET:-local-dev-secret-please-change-in-production-32chars-minimum}"
+      Jwt__Issuer: "${JWT_ISSUER:-KOAFiloServis}"
+      Jwt__Audience: "${JWT_AUDIENCE:-KOAFiloServis-Users}"
+      # Ollama (opsiyonel AI servisi)
+      Ollama__BaseUrl: "http://ollama:11434"
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    volumes:
+      - web_data:/app/data
+      - web_uploads:/app/uploads
+      - web_logs:/app/logs
+      - web_backups:/app/Backups
+      - web_keys:/app/keys
+    networks:
+      - koafilo-net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # ──────────────────────────────────────────────────────────
+  # PostgreSQL — Ücretsiz, açık kaynak
+  # ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    container_name: koafiloservis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-koafiloservis}
+      POSTGRES_USER: ${POSTGRES_USER:-koafilo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeMe!2025}
+      TZ: Europe/Istanbul
+      PGTZ: Europe/Istanbul
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - koafilo-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-koafilo} -d ${POSTGRES_DB:-koafiloservis}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ──────────────────────────────────────────────────────────
+  # Ollama — Yerel AI modeli (opsiyonel — `--profile ai` ile)
+  # ──────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: koafiloservis-ollama
+    restart: unless-stopped
+    profiles: ["ai"]
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - koafilo-net
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+# ──────────────────────────────────────────────────────────────
+# Networks & Volumes
+# ──────────────────────────────────────────────────────────────
+networks:
+  koafilo-net:
+    driver: bridge
+
+volumes:
+  web_data:
+  web_uploads:
+  web_logs:
+  web_backups:
+  web_keys:
+  postgres_data:
+  ollama_data:

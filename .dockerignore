@@ -1,0 +1,75 @@
+﻿# ───────────────────────────────────────────────────────────────
+# 🚫 .dockerignore — Docker build context'ini küçük tutar
+# ───────────────────────────────────────────────────────────────
+
+# .NET build çıktıları
+**/bin/
+**/obj/
+**/out/
+**/publish/
+**/*.user
+**/*.suo
+
+# Git & GitHub
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# IDE / editör
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Setup / installer / arşiv
+setup/
+archive/
+**/Deploy/
+**/Setup/
+
+# Yardımcı projeler (Web image'a girmesin)
+KOAFiloServis.LisansDesktop/
+KOAFiloServis.DataSync/
+KOAFiloServis.Tests/
+Tests/
+
+# Dokümantasyon (build gereksiz)
+*.md
+!README.md
+docs/
+LICENSE
+
+# Loglar / yedekler / kullanıcı verisi
+**/logs/
+**/Logs/
+**/Backups/
+**/uploads/
+**/data/
+**/*.db
+**/*.db-journal
+**/*.log
+
+# Hassas dosyalar
+**/appsettings.*.json
+**/dbsettings.json
+**/lisans.key
+**/secrets.json
+.env
+.env.*
+
+# Docker'ın kendisi
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# OS
+Thumbs.db
+.DS_Store

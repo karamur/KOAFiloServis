@@ -91,3 +91,9 @@ archive/**/*.exe
 
 archive/
 
+
+# Docker / environment
+.env
+.env.*
+!.env.example
+

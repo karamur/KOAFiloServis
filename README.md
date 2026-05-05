@@ -405,6 +405,57 @@ dotnet list package --vulnerable --include-transitive
 
 ---
 
+## 🐳 Docker ile Çalıştırma
+
+Tek komutla **Web + PostgreSQL** (ve opsiyonel **Ollama AI**) ayağa kalkar — hiçbir ek kurulum gerekmez.
+
+### ⚡ Hızlı Başlangıç
+
+```bash
+# 1) Ortam değişkenlerini hazırla
+cp .env.example .env
+# .env dosyasını açıp POSTGRES_PASSWORD ve JWT_SECRET değerlerini değiştir
+
+# 2) Stack'i başlat
+docker compose up -d --build
+
+# 3) Logları izle
+docker compose logs -f web
+
+# 4) Tarayıcıda aç
+#    → http://localhost:8080
+```
+
+### 🤖 AI Servisi ile (opsiyonel)
+
+```bash
+docker compose --profile ai up -d
+docker exec -it koafiloservis-ollama ollama pull llama3.2
+```
+
+### 🛠️ Yararlı Komutlar
+
+| Komut | Açıklama |
+|-------|----------|
+| `docker compose ps` | Servislerin durumu |
+| `docker compose logs -f web` | Web loglarını izle |
+| `docker compose restart web` | Sadece Web'i yeniden başlat |
+| `docker compose down` | Tüm stack'i durdur |
+| `docker compose down -v` | Stack + volume'ları sil (⚠️ veritabanı silinir) |
+| `docker compose exec postgres psql -U koafilo -d koafiloservis` | DB'ye bağlan |
+
+### 📦 Servis Mimarisi
+
+| Servis | Image | Port | Volume |
+|--------|-------|------|--------|
+| **web** | `koafiloservis/web:latest` (build) | 8080 | `web_data`, `web_uploads`, `web_logs`, `web_backups`, `web_keys` |
+| **postgres** | `postgres:17-alpine` | 5432 | `postgres_data` |
+| **ollama** *(opt)* | `ollama/ollama:latest` | 11434 | `ollama_data` |
+
+> 🔒 `.env` dosyası `.gitignore` ile korunur — sırlarınız asla commit edilmez.
+
+---
+
 ## 📦 Yayınlama
 
 ### 🏗️ Tek Komutla Installer
