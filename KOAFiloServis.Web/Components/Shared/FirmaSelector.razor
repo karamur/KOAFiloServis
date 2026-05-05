@@ -1,7 +1,9 @@
-@using KOAFiloServis.Shared.Entities
+﻿@using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
+@using Microsoft.Extensions.Logging
 @inject IFirmaService FirmaService
 @inject IToastService ToastService
+@inject ILogger<FirmaSelector> Logger
 @rendermode InteractiveServer
 
 <div class="firma-selector d-flex align-items-center gap-2">
@@ -80,15 +82,22 @@
 
     private async Task LoadDataAsync()
     {
-        firmalar = await FirmaService.GetAktifFirmalarAsync();
-        aktifFirma = FirmaService.GetAktifFirma();
-
-        // Hic firma yoksa seed
-        if (!firmalar.Any())
+        try
         {
-            await FirmaService.SeedVarsayilanFirmaAsync();
             firmalar = await FirmaService.GetAktifFirmalarAsync();
             aktifFirma = FirmaService.GetAktifFirma();
+
+            // Hic firma yoksa seed
+            if (!firmalar.Any())
+            {
+                await FirmaService.SeedVarsayilanFirmaAsync();
+                firmalar = await FirmaService.GetAktifFirmalarAsync();
+                aktifFirma = FirmaService.GetAktifFirma();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "FirmaSelector firmalar yuklenirken hata olustu");
         }
     }
 
