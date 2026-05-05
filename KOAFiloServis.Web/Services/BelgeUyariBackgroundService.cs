@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Services.Interfaces;
@@ -239,7 +239,7 @@ public class BelgeUyariBackgroundService : BackgroundService
 
         if (firmaBelgeleri.Any())
         {
-            sb.AppendLine($"🏢 *Firma Belgeleri ({firmaBelgeleri.Count} adet)*");
+            sb.AppendLine($"🏢 *Tedarikçi Sözleşmeleri ({firmaBelgeleri.Count} adet)*");
             foreach (var b in firmaBelgeleri.OrderBy(x => x.KalanGun).Take(5))
             {
                 var gun = b.KalanGun <= 0 ? "SÜRESİ GEÇTİ!" : $"{b.KalanGun} gün kaldı";
@@ -413,9 +413,38 @@ public class BelgeUyariBackgroundService : BackgroundService
 
     private async Task<List<BelgeUyariItem>> GetFirmaBelgeUyarilariAsync(ApplicationDbContext context, DateTime bugun, int[] uyariGunleri)
     {
-        // Firma belgelerini kontrol et (varsa)
-        // Şu an için boş döndür
-        return await Task.FromResult(new List<BelgeUyariItem>());
+        var sonrakiAy = bugun.AddDays(uyariGunleri.Max());
+        var uyarilar = new List<BelgeUyariItem>();
+
+        // Tedarikçi sözleşme bitiş uyarıları – kaynak: Cari (Tedarikci / MusteriTedarikci)
+        var cariTedarikciler = await context.Cariler
+            .AsNoTracking()
+            .Where(c => c.Aktif && !c.IsDeleted
+                && (c.CariTipi == CariTipi.Tedarikci || c.CariTipi == CariTipi.MusteriTedarikci)
+                && c.SozlesmeBitisTarihi.HasValue
+                && c.SozlesmeBitisTarihi.Value <= sonrakiAy)
+            .Select(c => new { c.Unvan, c.SozlesmeNo, Tarih = c.SozlesmeBitisTarihi!.Value })
+            .ToListAsync();
+
+        foreach (var c in cariTedarikciler)
+        {
+            var kalanGun = (c.Tarih - bugun).Days;
+            if (uyariGunleri.Contains(kalanGun) || kalanGun <= 0)
+            {
+                uyarilar.Add(new BelgeUyariItem
+                {
+                    EntityTipi = "Tedarikçi",
+                    EntityAdi = c.Unvan,
+                    BelgeTipi = string.IsNullOrWhiteSpace(c.SozlesmeNo)
+                        ? "Sözleşme Bitiş"
+                        : $"Sözleşme Bitiş ({c.SozlesmeNo})",
+                    BitisTarihi = c.Tarih,
+                    KalanGun = kalanGun
+                });
+            }
+        }
+
+        return uyarilar;
     }
 
     private async Task GonderBelgeUyariEmailAsync(
@@ -438,7 +467,7 @@ public class BelgeUyariBackgroundService : BackgroundService
 {(personelBelgeleri.Any() ? OlusturBelgeTablosu(personelBelgeleri) : "<p>Uyarılacak personel belgesi yok.</p>")}
 
 {(firmaBelgeleri.Any() ? $@"
-<h3 style='color: #ffc107;'>🏢 Firma Belgeleri ({firmaBelgeleri.Count} adet)</h3>
+<h3 style='color: #ffc107;'>🏢 Tedarikçi Sözleşmeleri ({firmaBelgeleri.Count} adet)</h3>
 {OlusturBelgeTablosu(firmaBelgeleri)}" : "")}
 
 <hr>
