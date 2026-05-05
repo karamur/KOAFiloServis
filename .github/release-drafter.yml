@@ -1,0 +1,115 @@
+﻿# 📝 Release Drafter — sürüm notlarını PR'lardan otomatik üretir
+name-template: "v$RESOLVED_VERSION 🚀"
+tag-template: "v$RESOLVED_VERSION"
+
+categories:
+  - title: "💥 Breaking Changes"
+    labels:
+      - "breaking-change"
+  - title: "🛡️ Güvenlik"
+    labels:
+      - "type: security"
+  - title: "✨ Yeni Özellikler"
+    labels:
+      - "type: feature"
+  - title: "🚀 İyileştirmeler"
+    labels:
+      - "type: enhancement"
+      - "type: performance"
+  - title: "🐛 Hata Düzeltmeleri"
+    labels:
+      - "type: bug"
+  - title: "♻️ Refactor"
+    labels:
+      - "type: refactor"
+  - title: "📝 Dokümantasyon"
+    labels:
+      - "type: docs"
+      - "area: docs"
+  - title: "🧪 Testler"
+    labels:
+      - "type: test"
+      - "area: tests"
+  - title: "🔧 Bakım & CI"
+    labels:
+      - "type: chore"
+      - "area: ci"
+  - title: "📦 Bağımlılıklar"
+    labels:
+      - "dependencies"
+      - "nuget"
+      - "github-actions"
+    collapse-after: 5
+
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+change-title-escapes: '\<*_&'
+
+version-resolver:
+  major:
+    labels:
+      - "breaking-change"
+  minor:
+    labels:
+      - "type: feature"
+  patch:
+    labels:
+      - "type: bug"
+      - "type: enhancement"
+      - "type: performance"
+      - "type: refactor"
+      - "type: docs"
+      - "type: test"
+      - "type: chore"
+      - "type: security"
+      - "dependencies"
+  default: patch
+
+exclude-labels:
+  - "stale"
+  - "status: duplicate"
+  - "status: wontfix"
+
+autolabeler:
+  - label: "type: feature"
+    title:
+      - '/^feat(\(.+\))?:/i'
+  - label: "type: bug"
+    title:
+      - '/^fix(\(.+\))?:/i'
+  - label: "type: docs"
+    title:
+      - '/^docs(\(.+\))?:/i'
+  - label: "type: refactor"
+    title:
+      - '/^refactor(\(.+\))?:/i'
+  - label: "type: test"
+    title:
+      - '/^test(\(.+\))?:/i'
+  - label: "type: performance"
+    title:
+      - '/^perf(\(.+\))?:/i'
+  - label: "type: chore"
+    title:
+      - '/^chore(\(.+\))?:/i'
+  - label: "type: security"
+    title:
+      - '/^security(\(.+\))?:/i'
+  - label: "breaking-change"
+    title:
+      - '/!:/'
+      - '/BREAKING CHANGE/i'
+
+template: |
+  ## 🎉 KOAFiloServis $RESOLVED_VERSION
+
+  Bu sürümde aşağıdaki değişiklikler yer almaktadır:
+
+  $CHANGES
+
+  **Tam değişiklik listesi**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+  ---
+
+  📥 **Kurulum:** [Releases sayfası](https://github.com/$OWNER/$REPOSITORY/releases) üzerinden `KOAFiloServisKurulum-$RESOLVED_VERSION.exe` dosyasını indirin.
+  📚 **Dokümantasyon:** [`README.md`](https://github.com/$OWNER/$REPOSITORY/blob/main/README.md)
+  🐛 **Hata bildirimi:** [Yeni issue aç](https://github.com/$OWNER/$REPOSITORY/issues/new/choose)

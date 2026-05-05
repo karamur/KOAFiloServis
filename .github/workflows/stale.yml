@@ -1,0 +1,53 @@
+﻿name: 💤 Stale Issues & PRs
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Eski Issue & PR Temizliği
+    runs-on: ubuntu-latest
+    steps:
+      - name: 💤 Mark Stale
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issue ayarları
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          stale-issue-label: "stale"
+          exempt-issue-labels: "priority: critical,priority: high,status: in-progress,status: blocked,good first issue,help wanted,type: security"
+          stale-issue-message: |
+            👋 Bu issue **60 gündür hareketsiz** durumda.
+
+            Hâlâ geçerliyse lütfen bir yorum bırakın, aksi takdirde **14 gün içinde** otomatik olarak kapatılacaktır.
+
+            Teşekkürler! 🙏
+          close-issue-message: |
+            🔒 Bu issue uzun süreli hareketsizlik nedeniyle otomatik olarak kapatıldı.
+
+            Sorun devam ediyorsa lütfen yeniden açın veya yeni bir issue oluşturun.
+
+          # PR ayarları
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-pr-label: "stale"
+          exempt-pr-labels: "priority: critical,priority: high,status: in-progress,status: blocked,type: security"
+          stale-pr-message: |
+            👋 Bu PR **30 gündür güncellenmedi**.
+
+            Çalışmaya devam ediliyorsa lütfen bir commit veya yorum ekleyin, aksi takdirde **14 gün içinde** kapatılacaktır.
+          close-pr-message: |
+            🔒 Bu PR hareketsizlik nedeniyle otomatik olarak kapatıldı. İhtiyaç olursa yeniden açabilirsiniz.
+
+          # Genel
+          operations-per-run: 100
+          remove-stale-when-updated: true
+          ascending: true

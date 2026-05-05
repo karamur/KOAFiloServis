@@ -1,0 +1,158 @@
+﻿# 🤖 PR Otomatik Etiketleme — actions/labeler@v5
+# Dosya yollarına göre PR'lara otomatik etiket atar
+
+# ──────────────────────────────────────────────────
+# 🌐 Alan
+# ──────────────────────────────────────────────────
+"area: ui":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Components/**/*.razor"
+          - "**/Components/**/*.razor.cs"
+          - "**/wwwroot/**/*.css"
+          - "**/wwwroot/**/*.js"
+
+"area: api":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Controllers/**/*.cs"
+
+"area: database":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Data/**/*.cs"
+          - "**/Migrations/**/*.cs"
+          - "**/*DbContext*.cs"
+
+"area: auth":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Auth/**/*"
+          - "**/Identity/**/*"
+          - "**/*Jwt*.cs"
+          - "**/*Authentication*.cs"
+
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/dependabot.yml"
+
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+"area: tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Tests/**"
+          - "**/*Tests/**"
+          - "**/*.Tests.csproj"
+
+# ──────────────────────────────────────────────────
+# 🧩 Modül
+# ──────────────────────────────────────────────────
+"module: araclar":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Arac*/**"
+          - "**/Pages/Araclar/**"
+          - "**/*Arac*.cs"
+          - "**/*Arac*.razor"
+
+"module: muhasebe":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Pages/Muhasebe/**"
+          - "**/*Muhasebe*.cs"
+          - "**/*Banka*.cs"
+          - "**/*Cari*.cs"
+          - "**/*Fatura*.cs"
+
+"module: bordro":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Pages/Bordro/**"
+          - "**/Pages/Personel*/**"
+          - "**/*Bordro*.cs"
+          - "**/*Maas*.cs"
+          - "**/*Personel*.cs"
+
+"module: ebys":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Pages/Ebys/**"
+          - "**/*Ebys*.cs"
+          - "**/*Ebys*.razor"
+
+"module: ihale":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Pages/Ihale*/**"
+          - "**/*Ihale*.cs"
+          - "**/*Ilan*.cs"
+
+"module: crm":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Pages/Crm/**"
+          - "**/*Crm*.cs"
+          - "**/*Musteri*.cs"
+
+"module: ai":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/AI/**"
+          - "**/*Ollama*.cs"
+          - "**/*AIAsistan*.razor"
+          - "**/*EbysAI*.razor"
+
+"module: lisans":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/LisansDesktop/**"
+          - "**/*Lisans*.cs"
+          - "**/*Hwid*.cs"
+
+"module: datasync":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/DataSync/**"
+
+"module: setup":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "setup/**"
+          - "**/*.iss"
+
+# ──────────────────────────────────────────────────
+# 📋 Tip
+# ──────────────────────────────────────────────────
+"type: docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+"type: test":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/Tests/**"
+          - "**/*Tests/**"
+
+"type: chore":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - ".editorconfig"
+          - ".gitattributes"
+          - ".gitignore"
+
+"dependencies":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.csproj"
+          - "**/packages.lock.json"
+          - "Directory.Packages.props"
