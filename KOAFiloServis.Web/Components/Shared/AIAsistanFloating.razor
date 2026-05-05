@@ -1,10 +1,13 @@
-@using KOAFiloServis.Web.Services
+﻿@using KOAFiloServis.Web.Services
 @using KOAFiloServis.Shared.Entities
 @using Microsoft.Extensions.AI
+@using Microsoft.Extensions.Logging
+@implements IDisposable
 @inject IOllamaAIChatService ChatService
 @inject ICariService CariService
 @inject IFaturaService FaturaService
 @inject IJSRuntime JS
+@inject ILogger<AIAsistanFloating> Logger
 
 <!-- AI Asistan Button -->
 <div class="ai-assistant-container">
@@ -287,7 +290,15 @@
 
     private async Task CheckOllamaConnection()
     {
-        isOllamaAvailable = await ChatService.IsAvailableAsync();
+        try
+        {
+            isOllamaAvailable = await ChatService.IsAvailableAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "AIAsistanFloating Ollama baglantisi kontrol edilirken hata olustu");
+            isOllamaAvailable = false;
+        }
     }
 
     private async Task LoadCariContext()
@@ -315,7 +326,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Cari context yüklenemedi: {ex.Message}");
+            Logger.LogWarning(ex, "AIAsistanFloating cari context yuklenirken hata olustu");
         }
     }
 
@@ -450,7 +461,10 @@ Kısa ve öz yanıt ver. Türkçe konuş.";
         {
             await JS.InvokeVoidAsync("eval", "var el = document.getElementById('aiChatMessages'); if(el) el.scrollTop = el.scrollHeight;");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "AIAsistanFloating scroll JS interop basarisiz");
+        }
     }
 
     private string FormatMessage(string content)
@@ -495,5 +509,19 @@ Kısa ve öz yanıt ver. Türkçe konuş.";
     {
         public string Ad { get; set; } = "";
         public decimal Bakiye { get; set; }
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            streamingCts?.Cancel();
+            streamingCts?.Dispose();
+            streamingCts = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "AIAsistanFloating dispose sirasinda hata");
+        }
     }
 }
