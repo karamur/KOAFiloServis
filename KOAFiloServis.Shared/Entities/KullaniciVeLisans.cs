@@ -1,4 +1,5 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KOAFiloServis.Shared.Entities;
 
@@ -36,8 +37,11 @@ public class Lisans : BaseEntity
     public string? Imza { get; set; }
 
     // Hesaplanan ozellikler
+    [NotMapped]
     public LisansDurumu Durum => DateTime.UtcNow > BitisTarihi ? LisansDurumu.SuresiDolmus : LisansDurumu.Aktif;
+    [NotMapped]
     public int KalanGun => Math.Max(0, (BitisTarihi.Date - DateTime.UtcNow.Date).Days);
+    [NotMapped]
     public bool Gecerli => Durum == LisansDurumu.Aktif && !string.IsNullOrEmpty(LisansAnahtari);
 }
 

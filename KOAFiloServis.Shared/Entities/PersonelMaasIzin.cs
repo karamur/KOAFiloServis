@@ -1,3 +1,5 @@
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
 namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
@@ -32,8 +34,11 @@ public class PersonelMaas : BaseEntity
     public decimal DigerKesintiler { get; set; }
 
     // Hesaplanan
+    [NotMapped]
     public decimal ToplamEklemeler => Prim + Ikramiye + Yemek + Yol + Mesai + DigerEklemeler;
+    [NotMapped]
     public decimal ToplamKesintiler => SGKIsciPayi + GelirVergisi + DamgaVergisi + IssizlikPrimi + Avans + IcraTakibi + DigerKesintiler;
+    [NotMapped]
     public decimal OdenecekTutar => NetMaas + ToplamEklemeler - Avans - IcraTakibi - DigerKesintiler;
 
     // �deme Bilgileri
@@ -62,6 +67,7 @@ public class PersonelIzin : BaseEntity
     public IzinTipi IzinTipi { get; set; }
     public DateTime BaslangicTarihi { get; set; }
     public DateTime BitisTarihi { get; set; }
+    [NotMapped]
     public int ToplamGun => (BitisTarihi - BaslangicTarihi).Days + 1;
 
     public IzinDurum Durum { get; set; } = IzinDurum.Beklemede;
@@ -87,6 +93,7 @@ public class PersonelIzinHakki : BaseEntity
     public int YillikIzinHakki { get; set; } = 14;
     public int KullanilanIzin { get; set; }
     public int DevirenIzin { get; set; }
+    [NotMapped]
     public int KalanIzin => YillikIzinHakki + DevirenIzin - KullanilanIzin;
 
     public string? Notlar { get; set; }

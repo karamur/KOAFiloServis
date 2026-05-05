@@ -1,3 +1,5 @@
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
 namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
@@ -30,7 +32,8 @@ public class LucaPortalSettings
     // Kayit Bilgileri
     public DateTime OlusturmaTarihi { get; set; } = DateTime.UtcNow;
     public DateTime? GuncellemeTarihi { get; set; }
-    
+
+    [NotMapped]
     public bool TokenGecerliMi => !string.IsNullOrEmpty(AccessToken) && 
                                    TokenGecerlilikTarihi.HasValue && 
                                    TokenGecerlilikTarihi > DateTime.UtcNow;

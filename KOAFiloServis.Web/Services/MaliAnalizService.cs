@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -429,11 +429,13 @@ public class MaliAnalizService : IMaliAnalizService
             guzergahChecklist.SeferDurum = "Tamam";
 
             // Ödeme durumu
+            // Not: Fatura.KalanTutar = GenelToplam - OdenenTutar (computed property, DB'ye map'lenmez).
+            // Bu yüzden sorguda doğrudan kolonlar üzerinden ifade ediyoruz.
             var bekleyenFaturalar = await context.Faturalar
-                .Where(f => f.CariId == guzergah.CariId && 
-                           f.KalanTutar > 0 &&
+                .Where(f => f.CariId == guzergah.CariId &&
+                           f.GenelToplam - f.OdenenTutar > 0 &&
                            f.Durum != FaturaDurum.IptalEdildi)
-                .SumAsync(f => f.KalanTutar);
+                .SumAsync(f => f.GenelToplam - f.OdenenTutar);
 
             guzergahChecklist.BekleyenOdeme = bekleyenFaturalar;
             guzergahChecklist.OdemeDurum = bekleyenFaturalar > 0 ? "Uyari" : "Tamam";

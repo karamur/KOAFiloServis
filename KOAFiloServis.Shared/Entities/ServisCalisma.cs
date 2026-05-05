@@ -1,3 +1,5 @@
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
 namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
@@ -23,6 +25,7 @@ public class ServisCalisma : BaseEntity
     public int GuzergahId { get; set; }
 
     // Hesaplanan fiyat
+    [NotMapped]
     public decimal HesaplananFiyat => Fiyat ?? 0;
 
     // Navigation Properties

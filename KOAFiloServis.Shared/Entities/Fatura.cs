@@ -1,3 +1,5 @@
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
 namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
@@ -55,6 +57,7 @@ public class Fatura : BaseEntity
     public decimal KdvTutar { get; set; }
     public decimal GenelToplam { get; set; }
     public decimal OdenenTutar { get; set; } = 0;
+    [NotMapped]
     public decimal KalanTutar => GenelToplam - OdenenTutar;
 
     // Tevkifat
@@ -62,6 +65,7 @@ public class Fatura : BaseEntity
     public decimal TevkifatOrani { get; set; } = 0; // Ör: 5/10 için 50, 9/10 için 90
     public string? TevkifatKodu { get; set; } // GİB tevkifat kodu (601, 602, vb.)
     public decimal TevkifatTutar { get; set; } = 0;
+    [NotMapped]
     public decimal TevkifatliKdvTutar => KdvTutar - TevkifatTutar;
 
     public string? Aciklama { get; set; }

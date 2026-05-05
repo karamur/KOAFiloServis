@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Models;
 using ClosedXML.Excel;
@@ -369,9 +369,10 @@ public class CariHareketTakipService : ICariHareketTakipService
         await using var context = await _contextFactory.CreateDbContextAsync();
         var bugun = DateTime.Today;
 
+        // NOT: KalanTutar hesaplanmış property, EF Core'da (GenelToplam - OdenenTutar) kullanılmalı
         var faturalar = await context.Faturalar
             .AsNoTracking()
-            .Where(f => !f.IsDeleted && f.CariId == cariId && f.KalanTutar > 0)
+            .Where(f => !f.IsDeleted && f.CariId == cariId && (f.GenelToplam - f.OdenenTutar) > 0)
             .OrderBy(f => f.VadeTarihi)
             .ToListAsync();
 
@@ -397,7 +398,7 @@ public class CariHareketTakipService : ICariHareketTakipService
         var sorgu = context.Faturalar
             .AsNoTracking()
             .Include(f => f.Cari)
-            .Where(f => !f.IsDeleted && f.KalanTutar > 0);
+            .Where(f => !f.IsDeleted && (f.GenelToplam - f.OdenenTutar) > 0);
 
         if (cariTipi.HasValue)
             sorgu = sorgu.Where(f => f.Cari.CariTipi == cariTipi.Value);

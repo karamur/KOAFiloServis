@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KOAFiloServis.Shared.Entities;
@@ -88,6 +88,7 @@ public class KomisyonculukIsAtama : BaseEntity
     public decimal YakitMaliyeti { get; set; } = 0;
     public decimal OtoyolMaliyeti { get; set; } = 0;
     public decimal DigerMasraflar { get; set; } = 0;
+    [NotMapped]
     public decimal ToplamMaliyet => AracKiraBedeli + SoforMaliyeti + YakitMaliyeti + OtoyolMaliyeti + DigerMasraflar;
 
     // Verilen İş Faturası
@@ -214,6 +215,7 @@ public class PlakaDonusum : BaseEntity
     public decimal EmnivetHarci { get; set; } = 0;
     public decimal NoterMasrafi { get; set; } = 0;
     public decimal DigerMasraflar { get; set; } = 0;
+    [NotMapped]
     public decimal ToplamMasraf => PlakaBedeliMasrafi + EmnivetHarci + NoterMasrafi + DigerMasraflar;
 
     // Plaka Satışı
@@ -254,6 +256,7 @@ public class AracOperasyonDurum : BaseEntity
     // Gelir
     public decimal BrutGelir { get; set; }
     public decimal KomisyonKesintisi { get; set; } // Komisyoncu payı
+    [NotMapped]
     public decimal NetGelir => BrutGelir - KomisyonKesintisi;
 
     // Giderler
@@ -265,10 +268,12 @@ public class AracOperasyonDurum : BaseEntity
     public decimal VergiGideri { get; set; }
     public decimal OtoyolGideri { get; set; }
     public decimal DigerGiderler { get; set; }
+    [NotMapped]
     public decimal ToplamGider => YakitGideri + SoforMaliyeti + KiraBedeli + BakimOnarimGideri +
                                    SigortaGideri + VergiGideri + OtoyolGideri + DigerGiderler;
 
     // Kar/Zarar
+    [NotMapped]
     public decimal NetKarZarar => NetGelir - ToplamGider;
 
     [StringLength(500)]

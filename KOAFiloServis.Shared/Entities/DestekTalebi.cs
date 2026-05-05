@@ -1,3 +1,5 @@
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
 namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
@@ -186,16 +188,19 @@ public class DestekTalebi : BaseEntity
     /// <summary>
     /// Yanıt sayısı
     /// </summary>
+    [NotMapped]
     public int YanitSayisi => Yanitlar?.Count ?? 0;
-    
+
     /// <summary>
     /// Açık mı?
     /// </summary>
+    [NotMapped]
     public bool Acik => Durum != DestekDurum.Kapali && Durum != DestekDurum.Cozuldu;
-    
+
     /// <summary>
     /// Bekleyen SLA zamanı
     /// </summary>
+    [NotMapped]
     public TimeSpan? KalanSlaSuresi => SlaBitisTarihi.HasValue ? SlaBitisTarihi.Value - DateTime.UtcNow : null;
 }
 

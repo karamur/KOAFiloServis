@@ -1,4 +1,5 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KOAFiloServis.Shared.Entities;
 
@@ -112,6 +113,7 @@ public class StokHareket : BaseEntity
     // Miktar (pozitif: giris, negatif: cikis)
     public decimal Miktar { get; set; }
     public decimal BirimFiyat { get; set; }
+    [NotMapped]
     public decimal ToplamTutar => Math.Abs(Miktar) * BirimFiyat;
 
     // Iliskili kayitlar
@@ -257,6 +259,7 @@ public class ServisParca : BaseEntity
     public string Birim { get; set; } = "Adet";
 
     public decimal BirimFiyat { get; set; }
+    [NotMapped]
     public decimal ToplamTutar => Miktar * BirimFiyat;
 
     public string? Aciklama { get; set; }

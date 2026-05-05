@@ -915,18 +915,18 @@ public class BordroService : IBordroService
         var acikBorclar = await context.PersonelBorclar
             .Where(b => personelIds.Contains(b.PersonelId)
                 && b.OdemeDurum != BorcOdemeDurum.IptalEdildi
-                && b.KalanBorc > 0
+                && (b.Tutar - b.OdenenTutar) > 0
                 && b.BorcTipi != BorcTipi.MaasAlacagi)
             .GroupBy(b => b.PersonelId)
-            .Select(g => new { PersonelId = g.Key, Tutar = g.Sum(x => x.KalanBorc) })
+            .Select(g => new { PersonelId = g.Key, Tutar = g.Sum(x => x.Tutar - x.OdenenTutar) })
             .ToDictionaryAsync(x => x.PersonelId, x => x.Tutar);
 
         var acikAvanslar = await context.PersonelAvanslar
             .Where(a => personelIds.Contains(a.PersonelId)
                 && a.Durum != AvansDurum.IptalEdildi
-                && a.Kalan > 0)
+                && (a.Tutar - a.MahsupEdilen) > 0)
             .GroupBy(a => a.PersonelId)
-            .Select(g => new { PersonelId = g.Key, Tutar = g.Sum(x => x.Kalan) })
+            .Select(g => new { PersonelId = g.Key, Tutar = g.Sum(x => x.Tutar - x.MahsupEdilen) })
             .ToDictionaryAsync(x => x.PersonelId, x => x.Tutar);
 
         var bordroOdemeleri = await context.BordroOdemeler

@@ -1,3 +1,5 @@
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
 namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
@@ -44,7 +46,9 @@ public class FaturaKalem : BaseEntity
     public virtual Fatura Fatura { get; set; } = null!;
 
     // Hesaplanan değerler
+    [NotMapped]
     public decimal NetTutar => (Miktar * BirimFiyat) - IskontoTutar;
+    [NotMapped]
     public decimal TevkifatliKdvTutar => KdvTutar - TevkifatTutar;
 }
 

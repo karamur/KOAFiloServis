@@ -1,4 +1,6 @@
-﻿namespace KOAFiloServis.Shared.Entities;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
 /// Personel bilgileri (Şoför, Ofis Çalışanı, Yönetici vb.)
@@ -64,6 +66,7 @@ public class Sofor : BaseEntity
     public bool ArgePersoneli { get; set; } = false; // Geriye dönük uyumluluk
     public decimal TopluMaas { get; set; } // SGK'ya bildirilen + ekstra ödeme toplamı
     public decimal SgkMaasi { get; set; } // SGK'ya bildirilen maaş
+    [NotMapped]
     public decimal EkOdeme => TopluMaas - SgkMaasi; // Geriye kalan ödeme
 
     // Özel Kesintiler (Aylık Sabit)
@@ -87,9 +90,11 @@ public class Sofor : BaseEntity
     public int? MuhasebeHesapId { get; set; }
     public virtual MuhasebeHesap? MuhasebeHesap { get; set; }
 
+    [NotMapped]
     public string TamAd => $"{Ad} {Soyad}";
-    
+
     // Şoför mü kontrolü
+    [NotMapped]
     public bool IsSofor => Gorev == PersonelGorev.Sofor;
 
     // Navigation Properties

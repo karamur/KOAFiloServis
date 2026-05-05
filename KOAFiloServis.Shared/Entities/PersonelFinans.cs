@@ -1,4 +1,6 @@
-﻿namespace KOAFiloServis.Shared.Entities;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace KOAFiloServis.Shared.Entities;
 
 /// <summary>
 /// Personel Avans İşlemleri
@@ -29,7 +31,9 @@ public class PersonelAvans : BaseEntity
     
     // Mahsup/İade bilgileri
     public decimal MahsupEdilen { get; set; } = 0;
+    [NotMapped]
     public decimal Kalan => Tutar - MahsupEdilen;
+    [NotMapped]
     public bool TamamenMahsupEdildi => Kalan <= 0;
     
     public DateTime? MahsupTarihi { get; set; }
@@ -64,7 +68,9 @@ public class PersonelBorc : BaseEntity
     
     // Ödeme detayları
     public decimal OdenenTutar { get; set; } = 0;
+    [NotMapped]
     public decimal KalanBorc => Tutar - OdenenTutar;
+    [NotMapped]
     public bool TamamenOdendi => KalanBorc <= 0;
     
     public BorcOdemeSekli? OdemeSekli { get; set; }
