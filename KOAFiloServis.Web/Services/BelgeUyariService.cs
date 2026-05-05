@@ -139,27 +139,29 @@ public class BelgeUyariService : IBelgeUyariService
                 ozet.DigerAracEvrakUyarilari.Add(uyari);
         }
 
-        // Taşıma Tedarikçi sözleşme bitiş uyarıları (tek kaynak: TasimaTedarikciler)
-        var tedarikciler = await context.TasimaTedarikciler
+        // Tedarikçi sözleşme bitiş uyarıları – yeni kaynak: Cari (Tedarikci / MusteriTedarikci)
+        var cariTedarikciler = await context.Cariler
             .AsNoTracking()
-            .Where(t => t.Aktif
-                && t.SozlesmeBitisTarihi.HasValue
-                && t.SozlesmeBitisTarihi.Value <= limitTarih)
-            .OrderBy(t => t.SozlesmeBitisTarihi)
+            .Where(c => c.Aktif && !c.IsDeleted
+                && (c.CariTipi == CariTipi.Tedarikci || c.CariTipi == CariTipi.MusteriTedarikci)
+                && c.SozlesmeBitisTarihi.HasValue
+                && c.SozlesmeBitisTarihi.Value <= limitTarih)
+            .OrderBy(c => c.SozlesmeBitisTarihi)
             .ToListAsync();
 
-        foreach (var tedarikci in tedarikciler)
+        foreach (var cari in cariTedarikciler)
         {
             ozet.TedarikciSozlesmeUyarilari.Add(new BelgeUyari
             {
-                Id = tedarikci.Id,
+                Id = cari.Id,
                 Kaynak = "Tedarikçi",
-                Baslik = tedarikci.Unvan,
-                BelgeTuru = "Sözleşme Bitiş",
-                BitisTarihi = tedarikci.SozlesmeBitisTarihi!.Value,
-                DetayUrl = $"/personel-tasima/tedarikciler/{tedarikci.Id}",
-                TasimaTedarikciId = tedarikci.Id,
-                TasimaTedarikciUnvan = tedarikci.Unvan
+                Baslik = cari.Unvan,
+                BelgeTuru = string.IsNullOrWhiteSpace(cari.SozlesmeNo)
+                    ? "Sözleşme Bitiş"
+                    : $"Sözleşme Bitiş ({cari.SozlesmeNo})",
+                BitisTarihi = cari.SozlesmeBitisTarihi!.Value,
+                DetayUrl = $"/cariler/{cari.Id}",
+                TasimaTedarikciUnvan = cari.Unvan
             });
         }
 
