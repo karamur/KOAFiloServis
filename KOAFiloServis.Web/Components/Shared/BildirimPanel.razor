@@ -1,10 +1,12 @@
-@using KOAFiloServis.Shared.Entities
+﻿@using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Services.Interfaces
+@using Microsoft.Extensions.Logging
 @inject IBildirimService BildirimService
 @inject IKullaniciService KullaniciService
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<BildirimPanel> Logger
 @implements IDisposable
 
 <div class="bildirim-panel position-relative">
@@ -203,7 +205,10 @@
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "BildirimPanel kullanici bilgisi yuklenirken hata olustu");
+        }
     }
 
     private async Task Yenile()
@@ -219,7 +224,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Bildirim yükleme hatası: {ex.Message}");
+            Logger.LogWarning(ex, "BildirimPanel bildirimleri yuklerken hata olustu (KullaniciId={KullaniciId})", aktifKullaniciId);
         }
         finally
         {
@@ -240,7 +245,10 @@
                 bildirimler = await BildirimService.GetKullaniciBildirimlerAsync(aktifKullaniciId.Value);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "BildirimPanel sessiz yenilemede hata olustu (KullaniciId={KullaniciId})", aktifKullaniciId);
+        }
     }
 
     private void TogglePanel()
