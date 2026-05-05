@@ -7,6 +7,7 @@
 @inject IMaliAnalizService MaliAnalizService
 @inject IMuhasebeService MuhasebeService
 @inject IBudgetService BudgetService
+@inject IBelgeUyariService BelgeUyariService
 @inject NavigationManager Navigation
 @inject IDataExportService DataExportService
 @inject IToastService ToastService
@@ -367,6 +368,68 @@
                                                             @onclick="() => OdemeYonetimineGit(o.Id)" title="Ödemeye git">
                                                         <i class="bi bi-arrow-right"></i>
                                                     </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Yaklaşan Tedarikçi Sözleşme Bitişleri -->
+        @if (tedarikciSozlesmeUyarilari.Any())
+        {
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-danger">
+                        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="bi bi-file-earmark-medical me-2"></i>Yaklaşan / Süresi Dolmuş Tedarikçi Sözleşmeleri
+                                <span class="badge bg-light text-dark ms-2">@tedarikciSozlesmeUyarilari.Count kayıt</span>
+                            </h6>
+                            <a href="/belge-uyarilari" class="btn btn-sm btn-light" title="Belge Uyarıları">
+                                <i class="bi bi-bell me-1"></i>Tüm Uyarılar
+                            </a>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Tedarikçi</th>
+                                            <th>Belge</th>
+                                            <th>Bitiş Tarihi</th>
+                                            <th class="text-center">Kalan Gün</th>
+                                            <th>Durum</th>
+                                            <th class="text-end"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var u in tedarikciSozlesmeUyarilari.OrderBy(x => x.KalanGun))
+                                        {
+                                            <tr>
+                                                <td><strong>@u.Baslik</strong></td>
+                                                <td><small>@u.BelgeTuru</small></td>
+                                                <td>@u.BitisTarihi.ToString("dd.MM.yyyy")</td>
+                                                <td class="text-center">
+                                                    @if (u.KalanGun < 0)
+                                                    {
+                                                        <span class="badge bg-danger">@Math.Abs(u.KalanGun) gün geçti</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-warning text-dark">@u.KalanGun gün</span>
+                                                    }
+                                                </td>
+                                                <td><span class="badge @u.SeviyeClass"><i class="bi @u.Icon me-1"></i>@u.Seviye</span></td>
+                                                <td class="text-end">
+                                                    <a href="@u.DetayUrl" class="btn btn-sm btn-outline-primary" title="Tedarikçi kartı">
+                                                        <i class="bi bi-arrow-right"></i>
+                                                    </a>
                                                 </td>
                                             </tr>
                                         }
@@ -1199,6 +1262,7 @@
     private List<Models.GrafikVeri> trendOncekiYil = new();
     private List<BudgetOdeme> bekleyenTedarikciHakedisleri = new();
     private List<BudgetOdeme> tumTedarikciHakedisleri = new();
+    private List<BelgeUyari> tedarikciSozlesmeUyarilari = new();
     private const string TasimaTedarikciHakedisKalemi = "Taşıma Tedarikçi Hakediş";
     private bool isLoading = false;
     
@@ -1229,6 +1293,7 @@
             {
                 dashboard = await MaliAnalizService.GetDashboardAsync(secilenYil, secilenAy > 0 ? secilenAy : DateTime.Today.Month);
                 await LoadBekleyenTedarikciHakedisleriAsync();
+                await LoadTedarikciSozlesmeUyarilariAsync();
             }
             if (aktifSekme == "trend")
             {
@@ -1291,6 +1356,19 @@
     private void OdemeYonetimineGit(int odemeId)
     {
         Navigation.NavigateTo($"/butce/odemeler?odemeId={odemeId}");
+    }
+
+    private async Task LoadTedarikciSozlesmeUyarilariAsync()
+    {
+        try
+        {
+            var ozet = await BelgeUyariService.GetBelgeUyarilarAsync(60);
+            tedarikciSozlesmeUyarilari = ozet.TedarikciSozlesmeUyarilari ?? new List<BelgeUyari>();
+        }
+        catch
+        {
+            tedarikciSozlesmeUyarilari = new List<BelgeUyari>();
+        }
     }
 
     private decimal NetKarMarji = 0;
