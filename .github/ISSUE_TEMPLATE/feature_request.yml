@@ -1,0 +1,83 @@
+﻿name: ✨ Yeni Özellik İsteği
+description: Bir özellik önermek mi istiyorsunuz?
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Yeni bir özellik önerdiğiniz için teşekkürler! 🎉
+        Lütfen olabildiğince **somut** ve **gerekçeli** açıklayın.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: ✅ Ön Kontroller
+      options:
+        - label: Mevcut [issue'lar](https://github.com/karamur/KOAFiloServis/issues) ve [Discussions](https://github.com/karamur/KOAFiloServis/discussions) içinde benzer öneri yok.
+          required: true
+        - label: Bu istek genel bir kullanıcı kitlesine fayda sağlayabilir (kişisel kullanım dışı).
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 🎯 Hangi Problemi Çözüyor?
+      description: Bu özellik olmadan kullanıcı/ekip ne sıkıntı yaşıyor?
+      placeholder: "Şu an araç bakım hatırlatıcısı olmadığı için planlı bakımlar manuel takip ediliyor..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 💡 Önerilen Çözüm
+      description: Nasıl çalışmasını istersiniz? Mümkünse **somut** UI/akış örneği verin.
+      placeholder: |
+        - Araç kartına "Bakım Planı" sekmesi eklenmeli
+        - Her aracın kilometre/tarih bazlı bakım kuralı tanımlanabilmeli
+        - Yaklaşan bakımlar bildirim merkezinde gösterilmeli
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Düşünülen Alternatifler
+      description: Başka çözümler değerlendirdiniz mi?
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 📦 Etkilenen Modül
+      options:
+        - Filo / Araç
+        - Muhasebe
+        - Bordro
+        - EBYS
+        - CRM
+        - AI
+        - Raporlama
+        - Yetki / Güvenlik
+        - Genel UI/UX
+        - Yeni modül
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: ⚡ Öncelik (size göre)
+      options:
+        - Düşük — opsiyonel iyileştirme
+        - Orta — verimliliği artırır
+        - Yüksek — operasyonel ihtiyaç
+        - Kritik — engelleyici
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 📎 Ek Bilgi / Mockup / Referans
+      description: Ekran görüntüsü, başka projelerden örnek vs. ekleyebilirsiniz.

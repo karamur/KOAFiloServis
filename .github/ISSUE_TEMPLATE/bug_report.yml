@@ -1,0 +1,137 @@
+﻿name: 🐛 Bug Report
+description: Bir hata mı buldunuz? Bize bildirin!
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hata bildirdiğiniz için teşekkürler! 🙏
+        Lütfen aşağıdaki bilgileri **eksiksiz** doldurun ki sorunu hızlıca çözebilelim.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: ✅ Ön Kontroller
+      options:
+        - label: Mevcut [issue'ları](https://github.com/karamur/KOAFiloServis/issues) aradım, aynı hata bildirilmemiş.
+          required: true
+        - label: Son sürümü kullanıyorum.
+          required: true
+        - label: Bu bir **güvenlik açığı değil** (güvenlik için `SECURITY.md` izlenir).
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 📝 Hata Açıklaması
+      description: Hatayı kısa ve net şekilde açıklayın.
+      placeholder: Login sayfasında yanlış parola girince sayfa donuyor...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 🔄 Yeniden Üretme Adımları
+      description: Hatayı tekrar üretebilmemiz için adımları sırayla yazın.
+      placeholder: |
+        1. `/login` sayfasına git
+        2. Geçersiz parola gir
+        3. "Giriş" butonuna tıkla
+        4. Hata: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: ✅ Beklenen Davranış
+      placeholder: Hata mesajı gösterilmeli ve form yeniden kullanılabilmeli.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: ❌ Gerçekleşen Davranış
+      placeholder: Sayfa donuyor, hiçbir mesaj gösterilmiyor.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 📦 Etkilenen Modül
+      options:
+        - Web (Blazor)
+        - LisansDesktop
+        - DataSync
+        - API
+        - Authentication / JWT
+        - Veritabanı / EF Core
+        - AI (Ollama)
+        - Bilmiyorum
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 🏷️ Sürüm
+      placeholder: "örn: 1.0.8"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: db
+    attributes:
+      label: 🗄️ Veritabanı Sağlayıcı
+      options:
+        - PostgreSQL
+        - SQLite
+        - SQL Server
+        - MySQL
+        - Yok / İlgisiz
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 🖥️ İşletim Sistemi
+      options:
+        - Windows 11
+        - Windows 10
+        - Windows Server 2022
+        - Windows Server 2019
+        - Linux
+        - macOS
+        - Diğer
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: 🌐 Tarayıcı (Web hatası ise)
+      placeholder: "Chrome 130, Edge 130, Firefox 132..."
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 📋 Log / Hata Mesajları
+      description: İlgili log çıktılarını veya hata mesajlarını yapıştırın.
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 📸 Ekran Görüntüleri
+      description: (Opsiyonel) Ekran görüntüsü veya video ekleyebilirsiniz.
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 💬 Ek Bilgi
+      description: Sorunla ilgili eklemek istediğiniz başka bilgi var mı?

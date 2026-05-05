@@ -1,0 +1,59 @@
+﻿version: 2
+updates:
+  # 📦 .NET / NuGet bağımlılıkları
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Istanbul"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "nuget"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      microsoft-extensions:
+        patterns:
+          - "Microsoft.Extensions.*"
+          - "Microsoft.AspNetCore.*"
+      ef-core:
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Npgsql.EntityFrameworkCore*"
+          - "Pomelo.EntityFrameworkCore*"
+      test-libraries:
+        patterns:
+          - "xunit*"
+          - "Moq"
+          - "NSubstitute"
+          - "FluentAssertions"
+          - "coverlet*"
+          - "Microsoft.NET.Test.Sdk"
+      ai-libraries:
+        patterns:
+          - "Microsoft.Extensions.AI*"
+          - "OllamaSharp"
+    ignore:
+      # Major versiyon atlamalarını manuel yönet (breaking change riski)
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # 🤖 GitHub Actions workflow bağımlılıkları
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Istanbul"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
