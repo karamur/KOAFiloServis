@@ -1,8 +1,11 @@
-@page "/muhasebe/cari-mutabakat"
+﻿@page "/muhasebe/cari-mutabakat"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @inject IMuhasebeService MuhasebeService
 @inject ICariService CariService
+@inject ITasimaTedarikciService TasimaTedarikciService
+@inject IBudgetService BudgetService
+@inject NavigationManager Navigation
 @inject IToastService ToastService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -17,6 +20,33 @@
     <!-- Filtreler -->
     <div class="card mb-4">
         <div class="card-body">
+            @if (tedarikciler.Any())
+            {
+                <div class="row g-3 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            <i class="bi bi-truck me-1"></i>Taşıma Tedarikçisi (hızlı seçim)
+                        </label>
+                        <select class="form-select" @bind="seciliTedarikciId" @bind:after="TedarikciSecildi">
+                            <option value="0">-- Tedarikçi seçerek bağlı cariyi otomatik doldur --</option>
+                            @foreach (var t in tedarikciler)
+                            {
+                                <option value="@t.Id">
+                                    @t.Unvan (@t.TedarikciKodu) @(t.CariId.HasValue ? "" : "— cari bağlı değil")
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Tedarikçi seçildiğinde bağlı cari otomatik seçilir. Seçilen cari için altta bekleyen
+                            <strong>Taşıma Tedarikçi Hakediş</strong> ödemeleri listelenir.
+                        </small>
+                    </div>
+                </div>
+                <hr class="my-2" />
+            }
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Cari Seçimi</label>
@@ -60,6 +90,88 @@
 
     @if (mutabakatRapor != null)
     {
+        @if (tedarikciHakedisleri.Any())
+        {
+            <div class="card mb-4 border-warning">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="bi bi-truck me-2"></i>
+                        Bu Cariye Bağlı Taşıma Tedarikçi Hakedişleri
+                        <span class="badge bg-dark ms-2">@tedarikciHakedisleri.Count kayıt</span>
+                    </span>
+                    <span class="fw-bold">
+                        Bekleyen Toplam:
+                        @FormatPara(tedarikciHakedisleri
+                            .Where(o => o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi)
+                            .Sum(o => o.KalanTutar))
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Dönem</th>
+                                    <th>Açıklama</th>
+                                    <th class="text-end">Tutar</th>
+                                    <th class="text-end">Ödenen</th>
+                                    <th class="text-end">Kalan</th>
+                                    <th>Durum</th>
+                                    <th class="text-end"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var o in tedarikciHakedisleri.OrderBy(x => x.OdemeYil).ThenBy(x => x.OdemeAy))
+                                {
+                                    <tr>
+                                        <td>@($"{o.OdemeAy:D2}/{o.OdemeYil}")</td>
+                                        <td><small>@o.Aciklama</small></td>
+                                        <td class="text-end">@FormatPara(o.Miktar)</td>
+                                        <td class="text-end text-success">@FormatPara(o.ToplamKismiOdenen + (o.Durum == OdemeDurum.Odendi ? (o.Miktar - o.ToplamKismiOdenen) : 0))</td>
+                                        <td class="text-end fw-bold @(o.KalanTutar > 0 ? "text-danger" : "text-muted")">@FormatPara(o.KalanTutar)</td>
+                                        <td>
+                                            @switch (o.Durum)
+                                            {
+                                                case OdemeDurum.Odendi:
+                                                    <span class="badge bg-success">Ödendi</span>
+                                                    break;
+                                                case OdemeDurum.KismiOdendi:
+                                                    <span class="badge bg-info">Kısmi (%@o.OdemeYuzdesi.ToString("N0"))</span>
+                                                    break;
+                                                case OdemeDurum.Iptal:
+                                                    <span class="badge bg-secondary">İptal</span>
+                                                    break;
+                                                case OdemeDurum.Ertelendi:
+                                                    <span class="badge bg-dark">Ertelendi</span>
+                                                    break;
+                                                default:
+                                                    <span class="badge bg-warning text-dark">Bekliyor</span>
+                                                    break;
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                                    @onclick="() => OdemeyeGit(o.Id)" title="Ödeme Yönetimi'nde aç">
+                                                <i class="bi bi-arrow-right"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer text-end bg-transparent">
+                    <a href="/butce/odemeler" class="btn btn-sm btn-warning">
+                        <i class="bi bi-wallet2 me-1"></i>Tüm Ödemeleri Yönet
+                    </a>
+                    <a href="/rapor/tasima-tedarikci" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-truck me-1"></i>Tedarikçi Raporu
+                    </a>
+                </div>
+            </div>
+        }
+
         <!-- Mutabakat Özeti -->
         <div class="row mb-4">
             <div class="col-md-3">
@@ -249,7 +361,11 @@
 
 @code {
     private List<Cari> cariler = new();
+    private List<TasimaTedarikci> tedarikciler = new();
+    private List<BudgetOdeme> tedarikciHakedisleri = new();
+    private const string TasimaTedarikciHakedisKalemi = "Taşıma Tedarikçi Hakediş";
     private int seciliCariId = 0;
+    private int seciliTedarikciId = 0;
     private DateTime baslangicTarihi = new DateTime(DateTime.Today.Year, 1, 1);
     private DateTime bitisTarihi = DateTime.Today;
     private MutabakatRapor? mutabakatRapor;
@@ -257,6 +373,61 @@
     protected override async Task OnInitializedAsync()
     {
         cariler = await CariService.GetAllAsync();
+        try
+        {
+            tedarikciler = await TasimaTedarikciService.GetAllAsync(sadeceAktif: true);
+        }
+        catch
+        {
+            tedarikciler = new List<TasimaTedarikci>();
+        }
+    }
+
+    private void TedarikciSecildi()
+    {
+        if (seciliTedarikciId == 0) return;
+        var t = tedarikciler.FirstOrDefault(x => x.Id == seciliTedarikciId);
+        if (t?.CariId is int cariId && cariler.Any(c => c.Id == cariId))
+        {
+            seciliCariId = cariId;
+        }
+        else
+        {
+            ToastService.ShowWarning("Seçilen tedarikçinin cari kaydı tanımlı değil.");
+        }
+    }
+
+    private async Task LoadTedarikciHakedisleriAsync(int cariId)
+    {
+        tedarikciHakedisleri = new();
+        if (cariId == 0) return;
+
+        try
+        {
+            var cari = cariler.FirstOrDefault(c => c.Id == cariId);
+            if (cari?.FirmaId is null) return;
+
+            var tumOdemeler = new List<BudgetOdeme>();
+            for (int yil = baslangicTarihi.Year; yil <= bitisTarihi.Year; yil++)
+            {
+                var yilOdemeleri = await BudgetService.GetOdemelerAsync(yil, null, cari.FirmaId);
+                tumOdemeler.AddRange(yilOdemeleri);
+            }
+
+            tedarikciHakedisleri = tumOdemeler
+                .Where(o => string.Equals(o.MasrafKalemi, TasimaTedarikciHakedisKalemi, StringComparison.OrdinalIgnoreCase))
+                .Where(o => o.OdemeTarihi.Date >= baslangicTarihi.Date && o.OdemeTarihi.Date <= bitisTarihi.Date)
+                .ToList();
+        }
+        catch
+        {
+            tedarikciHakedisleri = new();
+        }
+    }
+
+    private void OdemeyeGit(int odemeId)
+    {
+        Navigation.NavigateTo($"/butce/odemeler?odemeId={odemeId}");
     }
 
     private async Task MutabakatOlustur()
@@ -302,6 +473,7 @@
             };
 
             ToastService.ShowSuccess("Mutabakat raporu oluşturuldu");
+            await LoadTedarikciHakedisleriAsync(seciliCariId);
         }
         catch (Exception ex)
         {
