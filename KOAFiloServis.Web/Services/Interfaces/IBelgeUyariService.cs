@@ -181,6 +181,7 @@ public class PersonelBelgeTabloKalemi
     public DateTime? EhliyetGecerlilik { get; set; }
     public DateTime? KimlikGecerlilik { get; set; }
     public DateTime? MykBelgesiGecerlilik { get; set; }
+    public bool SrcBelgesiVarMi { get; set; }
     public DateTime? YayginEgitimGecerlilik { get; set; }
     public bool YayginEgitimSertifikasiVarMi { get; set; }
     public DateTime? PsikoteknikGecerlilik { get; set; }
@@ -236,6 +237,7 @@ public class AracBelgeTabloKalemi
     public List<AracEvrakDosyaBilgisi> EvrakDosyalari { get; set; } = new();
 
     // Belge tarihleri
+    public bool RuhsatVarMi { get; set; }
     public DateTime? RuhsatGecerlilik { get; set; }
     public DateTime? SigortaGecerlilik { get; set; }   // Trafik Sigortası
     public DateTime? MuayeneGecerlilik { get; set; }

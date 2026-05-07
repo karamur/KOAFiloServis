@@ -203,8 +203,17 @@
                             <div class="mb-3">
                                 <label class="form-label">SRC Belgesi</label>
                                 <div class="form-check mt-2">
-                                    <InputCheckbox @bind-Value="sofor.YayginEgitimSertifikasiVarMi" class="form-check-input" id="srcBelgesiVar" />
+                                    <InputCheckbox @bind-Value="_srcBelgesiVarMi" class="form-check-input" id="srcBelgesiVar" />
                                     <label class="form-check-label" for="srcBelgesiVar">SRC belgesi mevcut</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Yaygın Eğitim Sertifikası</label>
+                                <div class="form-check mt-2">
+                                    <InputCheckbox @bind-Value="sofor.YayginEgitimSertifikasiVarMi" class="form-check-input" id="yayginEgitimVar" />
+                                    <label class="form-check-label" for="yayginEgitimVar">Yaygın eğitim sertifikası mevcut</label>
                                 </div>
                             </div>
                         </div>
@@ -983,6 +992,7 @@
 
     private Sofor sofor = new();
     private bool IsEdit => Id.HasValue;
+    private bool _srcBelgesiVarMi;
     private decimal ToplamNetMaas => sofor.NetMaas;
     private decimal EldenOdenecekOnizleme => YuvarlaPara(Math.Max(0, sofor.NetMaas - sofor.ResmiNetMaas));
     private List<MuhasebeHesap> muhasebeHesaplari = new();
@@ -1038,6 +1048,7 @@
             if (existing != null)
             {
                 sofor = existing;
+                _srcBelgesiVarMi = existing.SrcBelgesiGecerlilikTarihi.HasValue;
                 // Gerçek maaşı hesapla (ResmiNetMaas + DigerMaas)
                 gercekMaas = sofor.ResmiNetMaas + sofor.DigerMaas;
                 personelAvansHesap = await SoforService.GetPersonelAvansHesabiAsync(Id!.Value);
@@ -1056,6 +1067,7 @@
                 Aktif = true,
                 Gorev = PersonelGorev.Sofor
             };
+            _srcBelgesiVarMi = false;
             sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
             gercekMaas = 0;
         }
@@ -1142,7 +1154,7 @@
 
         await BrutMaasHesaplaAsync();
         sofor.NetMaas = YuvarlaPara(sofor.ResmiNetMaas + sofor.DigerMaas);
-        sofor.SrcBelgesiGecerlilikTarihi = null;
+        sofor.SrcBelgesiGecerlilikTarihi = _srcBelgesiVarMi ? DateTime.Today : null;
 
         try
         {

@@ -550,6 +550,7 @@
                                     <th class="text-center bg-info bg-opacity-25" style="width:90px;" title="Kimlik Geçerlilik">Kimlik</th>
                                     <th class="text-center bg-success bg-opacity-25" style="width:90px;" title="MYK Belgesi">MYK</th>
                                     <th class="text-center bg-light" style="width:90px;" title="SRC Belgesi">SRC</th>
+                                    <th class="text-center bg-light" style="width:90px;" title="Yaygın Eğitim Sertifikası">Yaygın Eğt.</th>
                                     <th class="text-center bg-warning bg-opacity-25" style="width:90px;" title="Psikoteknik">Psikoteknik</th>
                                     <th class="text-center bg-danger bg-opacity-25" style="width:90px;" title="Adli Sicil">Adli Sicil</th>
                                     <th class="text-center bg-secondary bg-opacity-25" style="width:90px;" title="Sağlık Raporu">Sağlık</th>
@@ -587,7 +588,11 @@
                                         </td>
                                         <!-- SRC -->
                                         <td class="text-center p-1">
-                                            @BelgeBoolHucre(item, "SrcBelgesi", item.YayginEgitimSertifikasiVarMi || item.YayginEgitimGecerlilik.HasValue)
+                                            @BelgeBoolHucre(item, "SrcBelgesi", item.SrcBelgesiVarMi)
+                                        </td>
+                                        <!-- Yaygın Eğitim Sertifikası -->
+                                        <td class="text-center p-1">
+                                            @BelgeBoolHucre(item, "YayginEgitim", item.YayginEgitimSertifikasiVarMi || item.YayginEgitimGecerlilik.HasValue)
                                         </td>
                                         <!-- Psikoteknik -->
                                         <td class="text-center p-1">
@@ -750,6 +755,7 @@
                                     </th>
                                     <th>Araç</th>
                                     <th class="text-center" style="width:90px;">Tip</th>
+                                    <th class="text-center bg-light" style="width:90px;" title="Ruhsat">Ruhsat</th>
                                     <th class="text-center bg-info bg-opacity-25" style="width:100px;" title="Trafik Sigortası">Sigorta</th>
                                     <th class="text-center bg-success bg-opacity-25" style="width:100px;" title="Muayene">Muayene</th>
                                     <th class="text-center bg-warning bg-opacity-25" style="width:100px;" title="Uygunluk Belgesi">Uygunluk</th>
@@ -772,6 +778,7 @@
                                             <br /><small class="text-muted">@item.MarkaModel</small>
                                         </td>
                                         <td class="text-center"><span class="badge bg-dark" style="font-size:0.7rem;">@item.AracTipi</span></td>
+                                        <td class="text-center p-1">@AracBelgeBoolHucre(item.RuhsatVarMi)</td>
                                         <td class="text-center p-1">@AracBelgeHucre(item, "Sigorta", item.SigortaGecerlilik)</td>
                                         <td class="text-center p-1">@AracBelgeHucre(item, "Muayene", item.MuayeneGecerlilik)</td>
                                         <td class="text-center p-1">@AracBelgeHucre(item, "Uygunluk", item.UygunlukGecerlilik)</td>
@@ -1996,6 +2003,14 @@
         "KoltukSigortasi" => "Koltuk Sigortası",
         "Kasko" => "Kasko",
         _ => alan
+    };
+
+    private RenderFragment AracBelgeBoolHucre(bool deger) => builder =>
+    {
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", deger ? "badge bg-success" : "badge bg-secondary");
+        builder.AddContent(2, deger ? "Var" : "Yok");
+        builder.CloseElement();
     };
 
     private RenderFragment AracBelgeHucre(AracBelgeTabloKalemi item, string alan, DateTime? tarih) => builder =>
