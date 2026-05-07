@@ -220,14 +220,6 @@
                                 <i class="bi bi-journal-check me-2 text-success"></i> Filo Puantaj
                             </NavLink>
                         </div>
-                        @if (HasYetki("masrafkalem.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="masraf-kalemleri">
-                                    <i class="bi bi-list-task me-2"></i> Masraf Kalemleri
-                                </NavLink>
-                            </div>
-                        }
 
 
 
@@ -818,6 +810,31 @@
                 @if (IsExpanded(NavSection.Ayarlar))
                 {
                     <div class="nav-section-content">
+
+                        @* === KİŞİSEL === *@
+                        <div class="nav-item px-3 text-muted small">
+                            <span><i class="bi bi-person-circle me-2"></i>Kişisel</span>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="ayarlar/profil">
+                                <i class="bi bi-person-circle me-2 text-success"></i> Profilim
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="ayarlar/bildirimler">
+                                <i class="bi bi-bell me-2 text-warning"></i> Bildirimlerim
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="kullanici-tercihleri">
+                                <i class="bi bi-person-gear me-2 text-info"></i> Kullanıcı Tercihleri
+                            </NavLink>
+                        </div>
+
+                        @* === TANIMLAR === *@
+                        <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                            <span><i class="bi bi-sliders me-2"></i>Tanımlar</span>
+                        </div>
                         @if (HasYetki("firmayonetim.oku"))
                         {
                             <div class="nav-item px-3">
@@ -839,14 +856,6 @@
                                 </NavLink>
                             </div>
                         }
-                        @if (HasYetki("veritabani.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/veritabani">
-                                    <i class="bi bi-database-gear me-2"></i> Veritabani Ayarlari
-                                </NavLink>
-                            </div>
-                        }
                         @if (HasYetki("ayarlar.oku"))
                         {
                             <div class="nav-item px-3">
@@ -861,33 +870,15 @@
                             </div>
                         }
                         <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="ayarlar/profil">
-                                <i class="bi bi-person-circle me-2 text-success"></i> Profilim
-                            </NavLink>
-                        </div>
-                        <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="ayarlar/bildirimler">
-                                <i class="bi bi-bell me-2 text-warning"></i> Bildirimlerim
-                            </NavLink>
-                        </div>
-                        <div class="nav-item px-3">
                             <NavLink class="nav-link" href="ayarlar/belge-uyari">
                                 <i class="bi bi-shield-exclamation me-2 text-danger"></i> Belge Uyarı Ayarları
                             </NavLink>
                         </div>
-                        @if (HasYetki("kullanici.oku"))
+                        @if (HasYetki("masrafkalem.oku"))
                         {
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/kullanicilar">
-                                    <i class="bi bi-person-badge me-2 text-info"></i> Kullanici Yonetimi
-                                </NavLink>
-                            </div>
-                        }
-                        @if (HasYetki("rol.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/roller">
-                                    <i class="bi bi-shield-check me-2 text-danger"></i> Rol Yonetimi
+                                <NavLink class="nav-link" href="masraf-kalemleri">
+                                    <i class="bi bi-list-task me-2 text-secondary"></i> Masraf Kalemleri
                                 </NavLink>
                             </div>
                         }
@@ -896,6 +887,59 @@
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="ayarlar/piyasa-kaynaklari">
                                     <i class="bi bi-globe me-2 text-primary"></i> Piyasa Kaynaklari
+                                </NavLink>
+                            </div>
+                        }
+                        @if (HasYetki("aracsase.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/arac-sase-yonetimi">
+                                    <i class="bi bi-upc-scan me-2 text-secondary"></i> Araç Şase Yönetimi
+                                </NavLink>
+                            </div>
+                        }
+
+                        @* === KULLANICI & ROL === *@
+                        @if (HasAnyYetki("kullanici.oku", "rol.oku", "ayarlar.oku"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-shield-lock me-2"></i>Kullanıcı & Rol</span>
+                            </div>
+                            @if (HasYetki("kullanici.oku"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="ayarlar/kullanicilar">
+                                        <i class="bi bi-person-badge me-2 text-info"></i> Kullanici Yonetimi
+                                    </NavLink>
+                                </div>
+                            }
+                            @if (HasYetki("rol.oku"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="ayarlar/roller">
+                                        <i class="bi bi-shield-check me-2 text-danger"></i> Rol Yonetimi
+                                    </NavLink>
+                                </div>
+                            }
+                            @if (HasYetki("ayarlar.oku"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="ayarlar/kvkk">
+                                        <i class="bi bi-shield-lock-fill me-2 text-success"></i> KVKK Yönetimi
+                                    </NavLink>
+                                </div>
+                            }
+                        }
+
+                        @* === SİSTEM & BAKIM === *@
+                        <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                            <span><i class="bi bi-cpu me-2"></i>Sistem & Bakım</span>
+                        </div>
+                        @if (HasYetki("veritabani.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/veritabani">
+                                    <i class="bi bi-database-gear me-2"></i> Veritabani Ayarlari
                                 </NavLink>
                             </div>
                         }
@@ -931,14 +975,6 @@
                                 </NavLink>
                             </div>
                         }
-                        @if (HasYetki("aracsase.oku"))
-                        {
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/arac-sase-yonetimi">
-                                    <i class="bi bi-upc-scan me-2 text-secondary"></i> Araç Şase Yönetimi
-                                </NavLink>
-                            </div>
-                        }
                         @if (HasYetki("guncelleme.oku"))
                         {
                             <div class="nav-item px-3">
@@ -952,10 +988,63 @@
                                 </NavLink>
                             </div>
                         }
+                        @if (HasYetki("ayarlar.oku"))
+                        {
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/demo-veri">
+                                    <i class="bi bi-database-fill-gear me-2 text-warning"></i> Demo Veri
+                                </NavLink>
+                            </div>
+                        }
+
+                        @* === ENTEGRASYON === *@
+                        @if (HasYetki("ayarlar.oku"))
+                        {
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-plug-fill me-2"></i>Entegrasyon</span>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="faturalar/luca-portal">
+                                    <i class="bi bi-cloud-download me-2 text-info"></i> Luca Portal
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/luca-portal">
+                                    <i class="bi bi-gear me-2 text-secondary"></i> Luca Ayarları
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/webhooks">
+                                    <i class="bi bi-broadcast me-2 text-primary"></i> Webhook Yönetimi
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/entegrasyon-rehberi">
+                                    <i class="bi bi-diagram-3-fill me-2 text-warning"></i> Entegrasyon Rehberi
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/sms">
+                                    <i class="bi bi-chat-dots me-2 text-success"></i> SMS Ayarları
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/-cihaz">
+                                    <i class="bi bi-broadcast-pin me-2 text-danger"></i> Araç Takip Cihazları
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="ayarlar/gps-simulasyon">
+                                    <i class="bi bi-broadcast me-2 text-success"></i> GPS Simülasyon
+                                </NavLink>
+                            </div>
+                        }
+
+                        @* === DESTEK === *@
                         @if (HasAnyYetki("destektalebi.oku", "destektalebi.yaz"))
                         {
-                            <div class="nav-item px-3 mt-2 pt-2 border-top text-uppercase small text-muted fw-bold">
-                                <i class="bi bi-headset me-2"></i>Destek
+                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                <span><i class="bi bi-headset me-2"></i>Destek</span>
                             </div>
                             @if (HasYetki("destektalebi.oku"))
                             {
@@ -1000,63 +1089,7 @@
                                 </div>
                             }
                         }
-                        @if (HasYetki("ayarlar.oku"))
-                        {
-                            <div class="nav-item px-3 mt-2 pt-2 border-top text-uppercase small text-muted fw-bold">
-                                <i class="bi bi-plug-fill me-2"></i>Entegrasyon
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="faturalar/luca-portal">
-                                    <i class="bi bi-cloud-download me-2 text-info"></i> Luca Portal
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/luca-portal">
-                                    <i class="bi bi-gear me-2 text-secondary"></i> Luca Ayarları
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/webhooks">
-                                    <i class="bi bi-broadcast me-2 text-primary"></i> Webhook Yönetimi
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/entegrasyon-rehberi">
-                                    <i class="bi bi-diagram-3-fill me-2 text-warning"></i> Entegrasyon Rehberi
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/sms">
-                                    <i class="bi bi-chat-dots me-2 text-success"></i> SMS Ayarları
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/demo-veri">
-                                    <i class="bi bi-database-fill-gear me-2 text-warning"></i> Demo Veri
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/-cihaz">
-                                    <i class="bi bi-broadcast-pin me-2 text-danger"></i> Araç Takip Cihazları
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/gps-simulasyon">
-                                    <i class="bi bi-broadcast me-2 text-success"></i> GPS Simülasyon
-                                </NavLink>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="ayarlar/kvkk">
-                                    <i class="bi bi-shield-lock-fill me-2 text-success"></i> KVKK Yönetimi
-                                </NavLink>
-                            </div>
-                        }
-                        <!-- Kullanıcı Tercihleri her kullanıcı için erişilebilir -->
-                        <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="kullanici-tercihleri">
-                                <i class="bi bi-person-gear me-2 text-info"></i> Kullanıcı Tercihleri
-                            </NavLink>
-                        </div>
+
                     </div>
                 }
             </div>

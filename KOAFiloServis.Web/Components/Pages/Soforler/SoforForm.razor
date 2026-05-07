@@ -201,8 +201,11 @@
                         </div>
                         <div class="col-md-3">
                             <div class="mb-3">
-                                <label class="form-label">Yaygın Eğitim Geçerlilik</label>
-                                <InputDate @bind-Value="sofor.SrcBelgesiGecerlilikTarihi" class="form-control" />
+                                <label class="form-label">SRC Belgesi</label>
+                                <div class="form-check mt-2">
+                                    <InputCheckbox @bind-Value="sofor.YayginEgitimSertifikasiVarMi" class="form-check-input" id="srcBelgesiVar" />
+                                    <label class="form-check-label" for="srcBelgesiVar">SRC belgesi mevcut</label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1139,7 +1142,7 @@
 
         await BrutMaasHesaplaAsync();
         sofor.NetMaas = YuvarlaPara(sofor.ResmiNetMaas + sofor.DigerMaas);
-        sofor.YayginEgitimSertifikasiVarMi = sofor.SrcBelgesiGecerlilikTarihi.HasValue;
+        sofor.SrcBelgesiGecerlilikTarihi = null;
 
         try
         {
@@ -1155,7 +1158,7 @@
                     await OzlukService.SoforBelgeTarihleriniSenkronizeEtAsync(
                         sofor.Id,
                         sofor.EhliyetGecerlilikTarihi,
-                        sofor.SrcBelgesiGecerlilikTarihi,
+                        null,
                         sofor.PsikoteknikGecerlilikTarihi,
                         sofor.SaglikRaporuGecerlilikTarihi);
                 }

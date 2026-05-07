@@ -65,12 +65,8 @@ public class BelgeUyariService : IBelgeUyariService
             if (evrakAdi.Contains("Ehliyet", StringComparison.OrdinalIgnoreCase))
                 ozet.EhliyetUyarilari.Add(uyari);
             else if (evrakAdi.Contains("MYK", StringComparison.OrdinalIgnoreCase)
-                || evrakAdi.Contains("Mesleki Yeterlilik", StringComparison.OrdinalIgnoreCase)
-                || evrakAdi.Contains("SRC", StringComparison.OrdinalIgnoreCase))
+                || evrakAdi.Contains("Mesleki Yeterlilik", StringComparison.OrdinalIgnoreCase))
                 ozet.MykBelgesiUyarilari.Add(uyari);
-            else if (evrakAdi.Contains("Yaygın", StringComparison.OrdinalIgnoreCase)
-                || evrakAdi.Contains("Yaygin", StringComparison.OrdinalIgnoreCase))
-                ozet.YayginEgitimUyarilari.Add(uyari);
             else if (evrakAdi.Contains("Psikoteknik", StringComparison.OrdinalIgnoreCase))
                 ozet.PsikoteknikUyarilari.Add(uyari);
             else if (evrakAdi.Contains("Sağlık", StringComparison.OrdinalIgnoreCase) ||
@@ -275,8 +271,8 @@ public class BelgeUyariService : IBelgeUyariService
                 EhliyetGecerlilik = s.EhliyetGecerlilikTarihi,
                 KimlikGecerlilik = s.KimlikGecerlilikTarihi,
                 MykBelgesiGecerlilik = s.MykBelgesiGecerlilikTarihi,
-                YayginEgitimGecerlilik = s.SrcBelgesiGecerlilikTarihi,
-                YayginEgitimSertifikasiVarMi = s.SrcBelgesiGecerlilikTarihi.HasValue || s.YayginEgitimSertifikasiVarMi,
+                YayginEgitimGecerlilik = null,
+                YayginEgitimSertifikasiVarMi = s.YayginEgitimSertifikasiVarMi || s.SrcBelgesiGecerlilikTarihi.HasValue,
                 PsikoteknikGecerlilik = s.PsikoteknikGecerlilikTarihi,
                 AdliSicilGecerlilik = s.AdliSicilGecerlilikTarihi,
                 SaglikRaporuGecerlilik = s.SaglikRaporuGecerlilikTarihi,
@@ -318,8 +314,8 @@ public class BelgeUyariService : IBelgeUyariService
             EhliyetGecerlilik = s.EhliyetGecerlilikTarihi,
             KimlikGecerlilik = s.KimlikGecerlilikTarihi,
             MykBelgesiGecerlilik = s.MykBelgesiGecerlilikTarihi,
-            YayginEgitimGecerlilik = s.SrcBelgesiGecerlilikTarihi,
-            YayginEgitimSertifikasiVarMi = s.SrcBelgesiGecerlilikTarihi.HasValue || s.YayginEgitimSertifikasiVarMi,
+            YayginEgitimGecerlilik = null,
+            YayginEgitimSertifikasiVarMi = s.YayginEgitimSertifikasiVarMi || s.SrcBelgesiGecerlilikTarihi.HasValue,
             PsikoteknikGecerlilik = s.PsikoteknikGecerlilikTarihi,
             AdliSicilGecerlilik = s.AdliSicilGecerlilikTarihi,
             SaglikRaporuGecerlilik = s.SaglikRaporuGecerlilikTarihi,
@@ -428,12 +424,24 @@ public class BelgeUyariService : IBelgeUyariService
     // Sütun anahtarı → AracEvrak.EvrakKategorisi eşlemesi
     private static string KategoriEslestir(string belgeAlani) => belgeAlani switch
     {
+        "Ruhsat" => EvrakKategorileri.Ruhsat,
         "Sigorta" => EvrakKategorileri.TrafikSigortasi,
         "Muayene" => EvrakKategorileri.Muayene,
         "Uygunluk" => EvrakKategorileri.UygunlukBelgesi,
         "KoltukSigortasi" => EvrakKategorileri.KoltukSigortasi,
         "Kasko" => EvrakKategorileri.Kasko,
         _ => belgeAlani
+    };
+
+    private static string KategoriAdi(string alan) => alan switch
+    {
+        "Ruhsat" => "Ruhsat",
+        "Sigorta" => "Trafik Sigortası",
+        "Muayene" => "Muayene",
+        "Uygunluk" => "Uygunluk Belgesi",
+        "KoltukSigortasi" => "Koltuk Sigortası",
+        "Kasko" => "Kasko",
+        _ => alan
     };
 
     public async Task<List<AracBelgeTabloKalemi>> GetAracBelgeTablosuAsync()
@@ -459,7 +467,7 @@ public class BelgeUyariService : IBelgeUyariService
         var evraklarByArac = tumEvraklar.GroupBy(e => e.AracId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        var sutunlar = new[] { "Sigorta", "Muayene", "Uygunluk", "KoltukSigortasi", "Kasko" };
+        var sutunlar = new[] { "Ruhsat", "Sigorta", "Muayene", "Uygunluk", "KoltukSigortasi", "Kasko" };
         var result = new List<AracBelgeTabloKalemi>();
 
         foreach (var a in araclar)
@@ -476,32 +484,34 @@ public class BelgeUyariService : IBelgeUyariService
                     .FirstOrDefault();
             }
 
-                        var sigortaEv = Bul("Sigorta");
+            var ruhsatEv = Bul("Ruhsat");
+            var sigortaEv = Bul("Sigorta");
             var muayeneEv = Bul("Muayene");
             var uygunlukEv = Bul("Uygunluk");
             var koltukEv = Bul("KoltukSigortasi");
             var kaskoEv = Bul("Kasko");
 
             var dosyalar = new List<AracEvrakDosyaBilgisi>();
-            void DosyaEkle(AracEvrak? evrak, string varsayilanKategori)
+            // Her kategoriyi, kayıt olmasa bile her zaman listeye ekle ("Yok" placeholder)
+            void DosyaEkle(AracEvrak? evrak, string kategoriKodu, string goruntulemeAdi)
             {
-                if (evrak == null) return;
-                var dosya = evrak.Dosyalar?.OrderByDescending(d => d.CreatedAt).FirstOrDefault(d => !d.IsDeleted);
+                var dosya = evrak?.Dosyalar?.OrderByDescending(d => d.CreatedAt).FirstOrDefault(d => !d.IsDeleted);
                 dosyalar.Add(new AracEvrakDosyaBilgisi
                 {
-                    AracEvrakId = evrak.Id,
-                    EvrakKategorisi = string.IsNullOrEmpty(evrak.EvrakKategorisi) ? varsayilanKategori : evrak.EvrakKategorisi,
-                    EvrakAdi = evrak.EvrakAdi,
+                    AracEvrakId = evrak?.Id ?? 0,
+                    EvrakKategorisi = evrak != null && !string.IsNullOrEmpty(evrak.EvrakKategorisi) ? evrak.EvrakKategorisi : kategoriKodu,
+                    EvrakAdi = evrak?.EvrakAdi ?? goruntulemeAdi,
                     DosyaYolu = dosya?.DosyaYolu,
-                    DosyaAdi = BuildIndirmeDosyaAdi(evrak.EvrakAdi ?? evrak.EvrakKategorisi, dosya?.DosyaYolu)
+                    DosyaAdi = BuildIndirmeDosyaAdi(evrak?.EvrakAdi ?? goruntulemeAdi, dosya?.DosyaYolu)
                 });
             }
 
-            DosyaEkle(sigortaEv, KategoriEslestir("Sigorta"));
-            DosyaEkle(muayeneEv, KategoriEslestir("Muayene"));
-            DosyaEkle(uygunlukEv, KategoriEslestir("Uygunluk"));
-            DosyaEkle(koltukEv, KategoriEslestir("KoltukSigortasi"));
-            DosyaEkle(kaskoEv, KategoriEslestir("Kasko"));
+            DosyaEkle(ruhsatEv, EvrakKategorileri.Ruhsat, "Ruhsat");
+            DosyaEkle(sigortaEv, EvrakKategorileri.TrafikSigortasi, "Trafik Sigortası");
+            DosyaEkle(muayeneEv, EvrakKategorileri.Muayene, "Muayene");
+            DosyaEkle(uygunlukEv, EvrakKategorileri.UygunlukBelgesi, "Uygunluk Belgesi");
+            DosyaEkle(koltukEv, EvrakKategorileri.KoltukSigortasi, "Koltuk Sigortası");
+            DosyaEkle(kaskoEv, EvrakKategorileri.Kasko, "Kasko");
 
             // Sigorta tarihi öncelik: Arac entity > AracEvrak
             // Muayene/Kasko aynı şekilde fallback

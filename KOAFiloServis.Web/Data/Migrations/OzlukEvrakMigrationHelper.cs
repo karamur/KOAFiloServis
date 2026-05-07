@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using KOAFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace KOAFiloServis.Web.Data.Migrations;
@@ -80,11 +81,58 @@ CREATE TABLE IF NOT EXISTS ""PersonelOzlukEvraklar"" (
             {
                 Console.WriteLine($"GecerliGorevler temizleme hatası: {ex.Message}");
             }
+
+            // "Yaygın Eğitim Sertifikası" tanımını ekle (mevcut değilse)
+            try
+            {
+                await EnsureYayginEgitimTanimAsync(context);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Yaygın Eğitim Sertifikası tanım ekleme hatası: {ex.Message}");
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Özlük evrak migration hatası: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// "Yaygın Eğitim Sertifikası" özlük evrak tanımını, yoksa ekler (idempotent).
+    /// SRC Belgesi'nin hemen ardına eklenir.
+    /// </summary>
+    private static async Task EnsureYayginEgitimTanimAsync(ApplicationDbContext context)
+    {
+        var exists = await context.OzlukEvrakTanimlari
+            .AnyAsync(t => t.EvrakAdi.Contains("Yaygın Eğitim") && !t.IsDeleted);
+        if (exists) return;
+
+        // SRC Belgesi'nin SiraNo'sunu bul; yoksa 2 varsay
+        var srcSiraNo = await context.OzlukEvrakTanimlari
+            .Where(t => t.EvrakAdi == "SRC Belgesi" && !t.IsDeleted)
+            .Select(t => (int?)t.SiraNo)
+            .FirstOrDefaultAsync() ?? 2;
+
+        // SRC'den sonra gelenlerin SiraNo'larını 1 arttır
+        var sonrakiler = await context.OzlukEvrakTanimlari
+            .Where(t => t.Kategori == OzlukEvrakKategori.SoforBelgeleri && t.SiraNo > srcSiraNo && !t.IsDeleted)
+            .ToListAsync();
+        foreach (var t in sonrakiler)
+            t.SiraNo++;
+
+        context.OzlukEvrakTanimlari.Add(new OzlukEvrakTanim
+        {
+            EvrakAdi = "Yaygın Eğitim Sertifikası",
+            Aciklama = "Yaygın eğitim katılım sertifikası",
+            Kategori = OzlukEvrakKategori.SoforBelgeleri,
+            Zorunlu = false,
+            SiraNo = srcSiraNo + 1,
+            Aktif = true,
+            GecerliGorevler = null,
+            CreatedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
     }
 
     /// <summary>

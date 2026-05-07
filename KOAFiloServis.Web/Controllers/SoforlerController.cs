@@ -54,7 +54,7 @@ public class SoforlerController : ControllerBase
             EhliyetNo = s.EhliyetNo,
             EhliyetGecerlilikTarihi = s.EhliyetGecerlilikTarihi,
             MykBelgesiGecerlilikTarihi = s.MykBelgesiGecerlilikTarihi,
-            YayginEgitimGecerlilikTarihi = s.SrcBelgesiGecerlilikTarihi,
+            SrcBelgesiVarMi = s.YayginEgitimSertifikasiVarMi || s.SrcBelgesiGecerlilikTarihi.HasValue,
             PsikoteknikGecerlilikTarihi = s.PsikoteknikGecerlilikTarihi,
             SaglikRaporuGecerlilikTarihi = s.SaglikRaporuGecerlilikTarihi,
             IseBaslamaTarihi = s.IseBaslamaTarihi,
@@ -90,7 +90,7 @@ public class SoforlerController : ControllerBase
             EhliyetNo = sofor.EhliyetNo,
             EhliyetGecerlilikTarihi = sofor.EhliyetGecerlilikTarihi,
             MykBelgesiGecerlilikTarihi = sofor.MykBelgesiGecerlilikTarihi,
-            YayginEgitimGecerlilikTarihi = sofor.SrcBelgesiGecerlilikTarihi,
+            SrcBelgesiVarMi = sofor.YayginEgitimSertifikasiVarMi || sofor.SrcBelgesiGecerlilikTarihi.HasValue,
             PsikoteknikGecerlilikTarihi = sofor.PsikoteknikGecerlilikTarihi,
             SaglikRaporuGecerlilikTarihi = sofor.SaglikRaporuGecerlilikTarihi,
             IseBaslamaTarihi = sofor.IseBaslamaTarihi,
@@ -124,8 +124,8 @@ public class SoforlerController : ControllerBase
             EhliyetNo = dto.EhliyetNo,
             EhliyetGecerlilikTarihi = dto.EhliyetGecerlilikTarihi,
             MykBelgesiGecerlilikTarihi = dto.MykBelgesiGecerlilikTarihi,
-            SrcBelgesiGecerlilikTarihi = dto.YayginEgitimGecerlilikTarihi,
-            YayginEgitimSertifikasiVarMi = dto.YayginEgitimGecerlilikTarihi.HasValue,
+            SrcBelgesiGecerlilikTarihi = null,
+            YayginEgitimSertifikasiVarMi = dto.SrcBelgesiVarMi,
             PsikoteknikGecerlilikTarihi = dto.PsikoteknikGecerlilikTarihi,
             SaglikRaporuGecerlilikTarihi = dto.SaglikRaporuGecerlilikTarihi,
             IseBaslamaTarihi = dto.IseBaslamaTarihi,
@@ -150,7 +150,7 @@ public class SoforlerController : ControllerBase
             EhliyetNo = sofor.EhliyetNo,
             EhliyetGecerlilikTarihi = sofor.EhliyetGecerlilikTarihi,
             MykBelgesiGecerlilikTarihi = sofor.MykBelgesiGecerlilikTarihi,
-            YayginEgitimGecerlilikTarihi = sofor.SrcBelgesiGecerlilikTarihi,
+            SrcBelgesiVarMi = sofor.YayginEgitimSertifikasiVarMi || sofor.SrcBelgesiGecerlilikTarihi.HasValue,
             PsikoteknikGecerlilikTarihi = sofor.PsikoteknikGecerlilikTarihi,
             SaglikRaporuGecerlilikTarihi = sofor.SaglikRaporuGecerlilikTarihi,
             IseBaslamaTarihi = sofor.IseBaslamaTarihi,
@@ -207,11 +207,10 @@ public class SoforlerController : ControllerBase
         if (dto.MykBelgesiGecerlilikTarihi.HasValue)
             sofor.MykBelgesiGecerlilikTarihi = dto.MykBelgesiGecerlilikTarihi;
 
-        if (dto.YayginEgitimGecerlilikTarihi.HasValue)
-        {
-            sofor.SrcBelgesiGecerlilikTarihi = dto.YayginEgitimGecerlilikTarihi;
-            sofor.YayginEgitimSertifikasiVarMi = true;
-        }
+        if (dto.SrcBelgesiVarMi.HasValue)
+            sofor.YayginEgitimSertifikasiVarMi = dto.SrcBelgesiVarMi.Value;
+
+        sofor.SrcBelgesiGecerlilikTarihi = null;
 
         if (dto.PsikoteknikGecerlilikTarihi.HasValue)
             sofor.PsikoteknikGecerlilikTarihi = dto.PsikoteknikGecerlilikTarihi;
@@ -243,7 +242,7 @@ public class SoforlerController : ControllerBase
             EhliyetNo = sofor.EhliyetNo,
             EhliyetGecerlilikTarihi = sofor.EhliyetGecerlilikTarihi,
             MykBelgesiGecerlilikTarihi = sofor.MykBelgesiGecerlilikTarihi,
-            YayginEgitimGecerlilikTarihi = sofor.SrcBelgesiGecerlilikTarihi,
+            SrcBelgesiVarMi = sofor.YayginEgitimSertifikasiVarMi || sofor.SrcBelgesiGecerlilikTarihi.HasValue,
             PsikoteknikGecerlilikTarihi = sofor.PsikoteknikGecerlilikTarihi,
             SaglikRaporuGecerlilikTarihi = sofor.SaglikRaporuGecerlilikTarihi,
             IseBaslamaTarihi = sofor.IseBaslamaTarihi,
@@ -281,7 +280,6 @@ public class SoforlerController : ControllerBase
             {
                 new { Sofor = s, BelgeTipi = "Ehliyet", BitisTarihi = s.EhliyetGecerlilikTarihi },
                 new { Sofor = s, BelgeTipi = "MYK Belgesi", BitisTarihi = s.MykBelgesiGecerlilikTarihi },
-                new { Sofor = s, BelgeTipi = "Yaygın Eğitim Sertifikası", BitisTarihi = s.SrcBelgesiGecerlilikTarihi },
                 new { Sofor = s, BelgeTipi = "Psikoteknik", BitisTarihi = s.PsikoteknikGecerlilikTarihi },
                 new { Sofor = s, BelgeTipi = "Sağlık Raporu", BitisTarihi = s.SaglikRaporuGecerlilikTarihi }
             })
@@ -319,7 +317,7 @@ public class SoforDto
     public string? EhliyetNo { get; set; }
     public DateTime? EhliyetGecerlilikTarihi { get; set; }
     public DateTime? MykBelgesiGecerlilikTarihi { get; set; }
-    public DateTime? YayginEgitimGecerlilikTarihi { get; set; }
+    public bool SrcBelgesiVarMi { get; set; }
     public DateTime? PsikoteknikGecerlilikTarihi { get; set; }
     public DateTime? SaglikRaporuGecerlilikTarihi { get; set; }
     public DateTime? IseBaslamaTarihi { get; set; }
@@ -341,7 +339,7 @@ public class SoforCreateDto
     public string? EhliyetNo { get; set; }
     public DateTime? EhliyetGecerlilikTarihi { get; set; }
     public DateTime? MykBelgesiGecerlilikTarihi { get; set; }
-    public DateTime? YayginEgitimGecerlilikTarihi { get; set; }
+    public bool SrcBelgesiVarMi { get; set; }
     public DateTime? PsikoteknikGecerlilikTarihi { get; set; }
     public DateTime? SaglikRaporuGecerlilikTarihi { get; set; }
     public DateTime? IseBaslamaTarihi { get; set; }
@@ -363,7 +361,7 @@ public class SoforUpdateDto
     public string? EhliyetNo { get; set; }
     public DateTime? EhliyetGecerlilikTarihi { get; set; }
     public DateTime? MykBelgesiGecerlilikTarihi { get; set; }
-    public DateTime? YayginEgitimGecerlilikTarihi { get; set; }
+    public bool? SrcBelgesiVarMi { get; set; }
     public DateTime? PsikoteknikGecerlilikTarihi { get; set; }
     public DateTime? SaglikRaporuGecerlilikTarihi { get; set; }
     public DateTime? IseBaslamaTarihi { get; set; }

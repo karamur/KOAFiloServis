@@ -180,12 +180,10 @@
                                                     <i class="bi bi-award"></i>
                                                 </span>
                                             }
-                                            @* Yaygın eğitim durumu *@
-                                            @if (personel.SrcBelgesiGecerlilikTarihi.HasValue)
+                                            @* SRC belgesi durumu *@
+                                            @if (personel.YayginEgitimSertifikasiVarMi || personel.SrcBelgesiGecerlilikTarihi.HasValue)
                                             {
-                                                var gunKaldi = (personel.SrcBelgesiGecerlilikTarihi.Value - DateTime.Today).Days;
-                                                <span class="badge @(gunKaldi < 30 ? "bg-danger" : gunKaldi < 60 ? "bg-warning text-dark" : "bg-success") ms-1"
-                                                      title="Yaygın Eğitim: @personel.SrcBelgesiGecerlilikTarihi.Value.ToString("dd.MM.yyyy")">
+                                                <span class="badge bg-success ms-1" title="SRC Belgesi: Var">
                                                     <i class="bi bi-mortarboard"></i>
                                                 </span>
                                             }

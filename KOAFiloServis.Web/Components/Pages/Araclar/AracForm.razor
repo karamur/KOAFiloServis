@@ -421,7 +421,7 @@
                                                 <td>@(evrak.BaslangicTarihi?.ToString("dd.MM.yyyy") ?? "-")</td>
                                                 <td class="@durumClass">
                                                     @(evrak.BitisTarihi?.ToString("dd.MM.yyyy") ?? "-")
-                                                    @if (evrak.BitisTarihi.HasValue)
+                                                    @if (evrak.EvrakKategorisi != EvrakKategorileri.Ruhsat && evrak.BitisTarihi.HasValue)
                                                     {
                                                         var gunKaldi = (evrak.BitisTarihi.Value - DateTime.Today).Days;
                                                         if (gunKaldi < 0)
@@ -510,7 +510,11 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Bitiş Tarihi</label>
-                                <input type="date" class="form-control" @bind="yeniEvrak.BitisTarihi" />
+                                <input type="date" class="form-control" @bind="yeniEvrak.BitisTarihi" disabled="@(yeniEvrak.EvrakKategorisi == EvrakKategorileri.Ruhsat)" />
+                                @if (yeniEvrak.EvrakKategorisi == EvrakKategorileri.Ruhsat)
+                                {
+                                    <small class="text-muted">Ruhsat için bitiş tarihi kullanılmaz.</small>
+                                }
                             </div>
                         </div>
                     </div>
@@ -938,6 +942,11 @@
             return;
         }
 
+        if (yeniEvrak.EvrakKategorisi == EvrakKategorileri.Ruhsat)
+        {
+            yeniEvrak.BitisTarihi = null;
+        }
+
         evrakKaydediliyor = true;
         try
         {
@@ -1141,6 +1150,7 @@
 
     private string GetEvrakDurumClass(AracEvrak evrak)
     {
+        if (evrak.EvrakKategorisi == EvrakKategorileri.Ruhsat) return "";
         if (!evrak.BitisTarihi.HasValue) return "";
         var gunKaldi = (evrak.BitisTarihi.Value - DateTime.Today).Days;
         if (gunKaldi < 0) return "text-danger fw-bold";

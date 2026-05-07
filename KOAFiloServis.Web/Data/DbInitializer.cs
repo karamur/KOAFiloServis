@@ -2346,7 +2346,8 @@ WHERE IsDeleted = 0;");
                     // Şoför Belgeleri
                     new() { EvrakAdi = "Ehliyet Fotokopisi", Aciklama = "Sürücü belgesi fotokopisi", Kategori = OzlukEvrakKategori.SoforBelgeleri, Zorunlu = true, SiraNo = 1, Aktif = true, GecerliGorevler = "1", CreatedAt = DateTime.UtcNow },
                     new() { EvrakAdi = "SRC Belgesi", Aciklama = "Mesleki yeterlilik belgesi", Kategori = OzlukEvrakKategori.SoforBelgeleri, Zorunlu = true, SiraNo = 2, Aktif = true, GecerliGorevler = "1", CreatedAt = DateTime.UtcNow },
-                    new() { EvrakAdi = "Psikoteknik Belgesi", Aciklama = "Psikoteknik değerlendirme raporu", Kategori = OzlukEvrakKategori.SoforBelgeleri, Zorunlu = true, SiraNo = 3, Aktif = true, GecerliGorevler = "1", CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "Yaygın Eğitim Sertifikası", Aciklama = "Yaygın eğitim katılım sertifikası", Kategori = OzlukEvrakKategori.SoforBelgeleri, Zorunlu = false, SiraNo = 3, Aktif = true, GecerliGorevler = "1", CreatedAt = DateTime.UtcNow },
+                    new() { EvrakAdi = "Psikoteknik Belgesi", Aciklama = "Psikoteknik değerlendirme raporu", Kategori = OzlukEvrakKategori.SoforBelgeleri, Zorunlu = true, SiraNo = 4, Aktif = true, GecerliGorevler = "1", CreatedAt = DateTime.UtcNow },
 
                     // SGK Belgeleri
                     new() { EvrakAdi = "SGK İşe Giriş Bildirgesi", Aciklama = "SGK'ya işe giriş bildirgesi", Kategori = OzlukEvrakKategori.SGKBelgeleri, Zorunlu = true, SiraNo = 1, Aktif = true, CreatedAt = DateTime.UtcNow },

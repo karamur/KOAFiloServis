@@ -549,7 +549,7 @@
                                     <th class="text-center bg-primary bg-opacity-25" style="width:90px;" title="Ehliyet Geçerlilik">Ehliyet</th>
                                     <th class="text-center bg-info bg-opacity-25" style="width:90px;" title="Kimlik Geçerlilik">Kimlik</th>
                                     <th class="text-center bg-success bg-opacity-25" style="width:90px;" title="MYK Belgesi">MYK</th>
-                                    <th class="text-center bg-light" style="width:90px;" title="Yaygın Eğitim Sertifikası">Yaygın Eğitim</th>
+                                    <th class="text-center bg-light" style="width:90px;" title="SRC Belgesi">SRC</th>
                                     <th class="text-center bg-warning bg-opacity-25" style="width:90px;" title="Psikoteknik">Psikoteknik</th>
                                     <th class="text-center bg-danger bg-opacity-25" style="width:90px;" title="Adli Sicil">Adli Sicil</th>
                                     <th class="text-center bg-secondary bg-opacity-25" style="width:90px;" title="Sağlık Raporu">Sağlık</th>
@@ -585,9 +585,9 @@
                                         <td class="text-center p-1">
                                             @BelgeHucre(item, "MykBelgesi", item.MykBelgesiGecerlilik)
                                         </td>
-                                        <!-- Yaygın Eğitim -->
+                                        <!-- SRC -->
                                         <td class="text-center p-1">
-                                            @BelgeHucre(item, "YayginEgitim", item.YayginEgitimGecerlilik)
+                                            @BelgeBoolHucre(item, "SrcBelgesi", item.YayginEgitimSertifikasiVarMi || item.YayginEgitimGecerlilik.HasValue)
                                         </td>
                                         <!-- Psikoteknik -->
                                         <td class="text-center p-1">
@@ -1466,6 +1466,7 @@
         "ehliyet",
         "kimlik",
         "myk",
+        "src",
         "yaygın",
         "yaygin",
         "psikoteknik",
@@ -1643,14 +1644,14 @@
     private static IEnumerable<DateTime> GetTumBelgeTarihleri(PersonelBelgeTabloKalemi p)
     {
         DateTime?[] list = [p.EhliyetGecerlilik, p.KimlikGecerlilik, p.MykBelgesiGecerlilik,
-            p.YayginEgitimGecerlilik, p.PsikoteknikGecerlilik, p.AdliSicilGecerlilik, p.SaglikRaporuGecerlilik, p.SuruculCezaBarkodGecerlilik];
+            p.PsikoteknikGecerlilik, p.AdliSicilGecerlilik, p.SaglikRaporuGecerlilik, p.SuruculCezaBarkodGecerlilik];
         return list.Where(d => d.HasValue).Select(d => d!.Value);
     }
 
     private static int GetEksikBelgeSayisi(PersonelBelgeTabloKalemi p)
     {
         DateTime?[] list = [p.EhliyetGecerlilik, p.KimlikGecerlilik, p.MykBelgesiGecerlilik,
-            p.YayginEgitimGecerlilik, p.PsikoteknikGecerlilik, p.AdliSicilGecerlilik, p.SaglikRaporuGecerlilik, p.SuruculCezaBarkodGecerlilik];
+            p.PsikoteknikGecerlilik, p.AdliSicilGecerlilik, p.SaglikRaporuGecerlilik, p.SuruculCezaBarkodGecerlilik];
         return list.Count(d => !d.HasValue);
     }
 
@@ -2107,7 +2108,8 @@
             "Ehliyet" => new[] { "Ehliyet" },
             "Kimlik" => new[] { "Kimlik Fotokopisi", "Nüfus Cüzdanı" },
             "MykBelgesi" => new[] { "MYK", "Mesleki Yeterlilik", "SRC" },
-            "YayginEgitim" => new[] { "Yaygın Eğitim", "Yaygin Egitim", "Yaygın Eğitim Sertifikası", "Yaygin Egitim Sertifikasi" },
+            "SrcBelgesi" => new[] { "SRC" },
+            "YayginEgitim" => new[] { "Yaygın Eğitim", "Yaygin Egitim", "Yaygın Eğitim Sertifikası", "Yaygin Egitim Sertifikasi", "SRC" },
             "Psikoteknik" => new[] { "Psikoteknik" },
             "AdliSicil" => new[] { "Adli Sicil", "Sabıka" },
             "SaglikRaporu" => new[] { "Sağlık Rapor", "Saglik Rapor" },
@@ -2204,7 +2206,8 @@
         "Ehliyet" => "Ehliyet",
         "Kimlik" => "Kimlik",
         "MykBelgesi" => "MYK Belgesi",
-        "YayginEgitim" => "Yaygın Eğitim Sertifikası",
+        "SrcBelgesi" => "SRC Belgesi",
+        "YayginEgitim" => "SRC Belgesi",
         "Psikoteknik" => "Psikoteknik",
         "AdliSicil" => "Adli Sicil",
         "SaglikRaporu" => "Sağlık Raporu",
