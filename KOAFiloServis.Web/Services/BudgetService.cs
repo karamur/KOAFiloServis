@@ -36,7 +36,7 @@ public class BudgetService : IBudgetService
             query = query.Where(o => o.OdemeAy == ay.Value);
 
         if (firmaId.HasValue)
-            query = query.Where(o => o.FirmaId == firmaId.Value);
+            query = query.Where(o => o.FirmaId == firmaId.Value || o.FirmaId == null);
 
         var odemeler = await query
             .OrderBy(o => o.OdemeAy)
@@ -2560,7 +2560,7 @@ public class BudgetService : IBudgetService
             query = query.Where(o => o.OdemeAy == ay.Value);
 
         if (firmaId.HasValue)
-            query = query.Where(o => o.FirmaId == firmaId.Value);
+            query = query.Where(o => o.FirmaId == firmaId.Value || o.FirmaId == null);
 
         var odemeler = await query.ToListAsync();
 
@@ -2628,6 +2628,23 @@ public class BudgetService : IBudgetService
                 GecikenKayit = gecikenKategori.Count,
                 RiskSkoru = riskSkoru
             });
+
+            // Kategori bazlı ödeme detayları
+            analiz.KategoriOdemeleri[kategori.Key] = kategori
+                .OrderBy(o => o.OdemeTarihi)
+                .Select(o => new KategoriOdemeItem
+                {
+                    OdemeId = o.Id,
+                    Aciklama = o.Aciklama,
+                    Miktar = o.Miktar,
+                    KalanTutar = o.Miktar - o.ToplamKismiOdenen,
+                    OdemeTarihi = o.OdemeTarihi,
+                    Durum = o.Durum,
+                    TaksitliMi = o.TaksitliMi,
+                    GecikmeGunu = (o.Durum == OdemeDurum.Bekliyor || o.Durum == OdemeDurum.KismiOdendi) && o.OdemeTarihi < bugun
+                        ? (int)(bugun - o.OdemeTarihi).TotalDays
+                        : 0
+                }).ToList();
         }
 
         // Aylık trend

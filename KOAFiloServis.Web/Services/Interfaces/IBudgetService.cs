@@ -316,6 +316,7 @@ public class BudgetRiskAnalizi
     // Detaylar
     public List<RiskliOdeme> RiskliOdemeler { get; set; } = new();
     public List<KategoriRiskOzeti> KategoriRiskleri { get; set; } = new();
+    public Dictionary<string, List<KategoriOdemeItem>> KategoriOdemeleri { get; set; } = new();
     public List<AylikRiskTrendi> AylikTrendler { get; set; } = new();
     public List<string> Uyarilar { get; set; } = new();
     public List<string> Oneriler { get; set; } = new();
@@ -332,6 +333,18 @@ public class RiskliOdeme
     public int GecikmeGunu { get; set; }
     public string RiskSeviyesi { get; set; } = "Normal"; // Normal, Orta, Yüksek, Kritik
     public string? RiskAciklamasi { get; set; }
+}
+
+public class KategoriOdemeItem
+{
+    public int OdemeId { get; set; }
+    public string? Aciklama { get; set; }
+    public decimal Miktar { get; set; }
+    public decimal KalanTutar { get; set; }
+    public DateTime OdemeTarihi { get; set; }
+    public OdemeDurum Durum { get; set; }
+    public bool TaksitliMi { get; set; }
+    public int GecikmeGunu { get; set; }
 }
 
 public class KategoriRiskOzeti

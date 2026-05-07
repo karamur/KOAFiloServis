@@ -489,13 +489,13 @@
                                 <div class="col-6">
                                     <div class="mb-3">
                                         <label class="form-label">Başlangıç Tarihi *</label>
-                                        <input type="date" class="form-control" @bind="taksitRequest.BaslangicTarihi" />
+                                        <input type="date" class="form-control" @bind="taksitRequest.BaslangicTarihi" @bind:after="OnizlemeOlustur" />
                                     </div>
                                 </div>
                                 <div class="col-6">
                                     <div class="mb-3">
                                         <label class="form-label">Taksit Sayısı *</label>
-                                        <input type="number" class="form-control" @bind="taksitRequest.TaksitSayisi" min="1" max="120" />
+                                        <input type="number" class="form-control" @bind="taksitRequest.TaksitSayisi" @bind:after="OnizlemeOlustur" min="1" max="120" />
                                     </div>
                                 </div>
                             </div>
@@ -504,7 +504,7 @@
                                     <div class="mb-3">
                                         <label class="form-label">Toplam Tutar *</label>
                                         <div class="input-group">
-                                            <input type="number" class="form-control" @bind="taksitRequest.ToplamTutar" step="0.01" />
+                                            <input type="number" class="form-control" @bind="taksitRequest.ToplamTutar" @bind:after="OnizlemeOlustur" step="0.01" />
                                             <span class="input-group-text">₺</span>
                                         </div>
                                     </div>
@@ -522,29 +522,62 @@
                         </div>
                         <div class="col-md-6">
                             <div class="alert alert-info py-2">
+                                @{
+                                    var _toplam = onizlemeTaksitler.Any() ? onizlemeTaksitler.Sum(t => t.Tutar) : 0m;
+                                    var _fark   = taksitRequest.ToplamTutar - _toplam;
+                                    var _tamam  = Math.Abs(_fark) < 0.01m;
+                                }
                                 <i class="bi bi-info-circle me-1"></i>
-                                <strong>@taksitRequest.TaksitSayisi taksit</strong> oluşturulacak, 
-                                her biri <strong>@FormatPara(taksitRequest.TaksitSayisi > 0 ? taksitRequest.ToplamTutar / taksitRequest.TaksitSayisi : 0)</strong>
+                                @if (onizlemeTaksitler.Any())
+                                {
+                                    <text><strong>@taksitRequest.TaksitSayisi taksit</strong> &mdash; Toplam: <strong class="@(_tamam ? "text-success" : "text-danger fw-bold")">@FormatPara(_toplam)</strong></text>
+                                    @if (!_tamam)
+                                    {
+                                        <span class="ms-1 text-danger small">(fark: @FormatPara(_fark))</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <text><strong>@taksitRequest.TaksitSayisi taksit</strong> oluşturulacak, her biri <strong>@FormatPara(taksitRequest.TaksitSayisi > 0 ? taksitRequest.ToplamTutar / taksitRequest.TaksitSayisi : 0)</strong></text>
+                                }
                             </div>
                             @if (taksitRequest.TaksitSayisi > 0 && taksitRequest.ToplamTutar > 0)
                             {
-                                <div class="border rounded p-2" style="max-height: 250px; overflow-y: auto;">
-                                    <small class="text-muted d-block mb-2">Önizleme:</small>
-                                    @for (int i = 1; i <= Math.Min(taksitRequest.TaksitSayisi, 12); i++)
-                                    {
-                                        var tarih = taksitRequest.BaslangicTarihi.AddMonths(i - 1);
-                                        <div class="d-flex justify-content-between border-bottom py-1">
-                                            <span><small class="badge bg-secondary">@i</small> @tarih.ToString("dd.MM.yyyy")</span>
-                                            <strong>@FormatPara(taksitRequest.ToplamTutar / taksitRequest.TaksitSayisi)</strong>
-                                        </div>
-                                    }
-                                    @if (taksitRequest.TaksitSayisi > 12)
-                                    {
-                                        <div class="text-center text-muted py-2">
-                                            <small>... ve @(taksitRequest.TaksitSayisi - 12) taksit daha</small>
-                                        </div>
-                                    }
-                                </div>
+                                @if (!onizlemeTaksitler.Any())
+                                {
+                                    <div class="text-center py-3">
+                                        <button class="btn btn-outline-success btn-sm" @onclick="OnizlemeOlustur">
+                                            <i class="bi bi-list-ol me-1"></i>Taksit Listesini Oluştur
+                                        </button>
+                                        <div class="text-muted small mt-1">Tarihleri ve tutarları özelleştirebilirsiniz</div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="text-muted fw-bold">Taksit Planı <span class="text-info">(düzenlenebilir)</span></small>
+                                        <button class="btn btn-sm btn-outline-secondary py-0 px-1" @onclick="OnizlemeOlustur" title="Eşit dağılıma sıfırla">
+                                            <i class="bi bi-arrow-counterclockwise"></i> Sıfırla
+                                        </button>
+                                    </div>
+                                    <div class="border rounded" style="max-height: 230px; overflow-y: auto;">
+                                        @for (int idx = 0; idx < onizlemeTaksitler.Count; idx++)
+                                        {
+                                            var i = idx;
+                                            <div class="d-flex gap-1 align-items-center border-bottom px-1 py-1">
+                                                <span class="badge bg-secondary" style="min-width:24px;font-size:0.7rem;">@onizlemeTaksitler[i].Sira</span>
+                                                <input type="date" class="form-control form-control-sm p-1" style="width:128px;font-size:0.8rem;"
+                                                       value="@onizlemeTaksitler[i].Tarih.ToString("yyyy-MM-dd")"
+                                                       @onchange="e => { if (DateTime.TryParse(e.Value?.ToString(), out var d)) onizlemeTaksitler[i].Tarih = d; }" />
+                                                <input type="number" class="form-control form-control-sm text-end p-1" style="width:100px;font-size:0.8rem;"
+                                                       value="@onizlemeTaksitler[i].Tutar"
+                                                       step="0.01"
+                                                       @onchange="e => { if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v)) onizlemeTaksitler[i].Tutar = v; }" />
+                                                <small class="text-muted">₺</small>
+                                            </div>
+                                        }
+                                    </div>
+                                }
                             }
                         </div>
                     </div>
@@ -953,6 +986,27 @@
     // Taksitli ödeme form
     private TaksitliOdemeRequest taksitRequest = new();
 
+    // Taksit önizleme - düzenlenebilir liste
+    private List<TaksitDetayRequest> onizlemeTaksitler = new();
+
+    private void OnizlemeOlustur()
+    {
+        if (taksitRequest.TaksitSayisi <= 0 || taksitRequest.ToplamTutar <= 0)
+        {
+            onizlemeTaksitler = new();
+            return;
+        }
+        var taksitTutari = Math.Round(taksitRequest.ToplamTutar / taksitRequest.TaksitSayisi, 2);
+        var fark = taksitRequest.ToplamTutar - taksitTutari * taksitRequest.TaksitSayisi;
+        onizlemeTaksitler = Enumerable.Range(0, taksitRequest.TaksitSayisi)
+            .Select(i => new TaksitDetayRequest
+            {
+                Sira = i + 1,
+                Tarih = taksitRequest.BaslangicTarihi.AddMonths(i),
+                Tutar = i == taksitRequest.TaksitSayisi - 1 ? taksitTutari + fark : taksitTutari
+            }).ToList();
+    }
+
     // Tekrarlayan ödeme form
     private TekrarlayanOdeme yeniTekrarlayanOdeme = new();
     private TekrarlayanOdeme? secilenTekrarlayanOdeme = null;
@@ -1162,6 +1216,7 @@
             TaksitSayisi = 12,
             ToplamTutar = 0
         };
+        onizlemeTaksitler = new();
         showTaksitModal = true;
     }
 
@@ -1180,6 +1235,16 @@
         if (taksitRequest.ToplamTutar <= 0)
         {
             ToastService.ShowWarning("Toplam tutar giriniz");
+
+                    if (onizlemeTaksitler.Any())
+                    {
+                        var toplamOnizleme = onizlemeTaksitler.Sum(t => t.Tutar);
+                        if (Math.Abs(toplamOnizleme - taksitRequest.ToplamTutar) >= 0.01m)
+                        {
+                            ToastService.ShowWarning($"Taksit tutarları toplamı ({FormatPara(toplamOnizleme)}) girilen toplam tutardan ({FormatPara(taksitRequest.ToplamTutar)}) farklı. Lütfen düzeltin.");
+                            return;
+                        }
+                    }
             return;
         }
 
@@ -1192,7 +1257,8 @@
                 Aciklama = taksitRequest.Aciklama,
                 BaslangicTarihi = taksitRequest.BaslangicTarihi,
                 TaksitSayisi = taksitRequest.TaksitSayisi,
-                ToplamTutar = taksitRequest.ToplamTutar
+                ToplamTutar = taksitRequest.ToplamTutar,
+                TaksitPlani = onizlemeTaksitler.Any() ? onizlemeTaksitler : new()
             };
             await BudgetService.CreateTaksitliOdemeAsync(request);
             ToastService.ShowSuccess($"{taksitRequest.TaksitSayisi} taksitli ödeme oluşturuldu");

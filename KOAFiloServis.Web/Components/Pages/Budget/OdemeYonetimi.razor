@@ -1117,7 +1117,7 @@
 
         // Firma filtresi
         if (filtreFirmaId > 0)
-            query = query.Where(o => o.FirmaId == filtreFirmaId);
+            query = query.Where(o => o.FirmaId == filtreFirmaId || o.FirmaId == null);
 
         // Masraf Kalemi filtresi
         if (!string.IsNullOrWhiteSpace(filtreMasrafKalemi))

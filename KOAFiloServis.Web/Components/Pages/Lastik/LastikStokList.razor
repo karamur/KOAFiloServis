@@ -207,6 +207,20 @@
         }
         else
         {
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <button type="button" class="btn btn-sm @(plakaKisFiltresiAktif ? "btn-primary" : "btn-outline-primary")"
+                        @onclick="() => plakaKisFiltresiAktif = !plakaKisFiltresiAktif">
+                    <i class="bi bi-snow2 me-1"></i>Sadece Kış Lastiği Olanlar
+                    @if (plakaKisFiltresiAktif)
+                    {
+                        <span class="badge bg-white text-primary ms-1">@plakaEnvanteri.Count(p => p.KisVar)</span>
+                    }
+                </button>
+                @if (plakaKisFiltresiAktif)
+                {
+                    <small class="text-muted"><i class="bi bi-funnel-fill me-1"></i>@plakaEnvanteri.Count(p => p.KisVar) / @plakaEnvanteri.Count plaka</small>
+                }
+            </div>
             <div class="card">
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -219,11 +233,13 @@
                                     <th class="text-center">Yedek</th>
                                     <th class="text-center">Yaz</th>
                                     <th class="text-center">Kış</th>
+                                    <th>Kış Takılı</th>
+                                    <th>Kış Depo</th>
                                     <th>Lastikler</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var p in plakaEnvanteri)
+                                @foreach (var p in (plakaKisFiltresiAktif ? plakaEnvanteri.Where(x => x.KisVar).ToList() : plakaEnvanteri))
                                 {
                                     <tr>
                                         <td><strong>@p.Plaka</strong></td>
@@ -237,6 +253,53 @@
                                         <td class="text-center">
                                             @if (p.KisVar) { <i class="bi bi-check-circle-fill text-success"></i> }
                                             else { <i class="bi bi-x-circle-fill text-danger"></i> }
+                                        </td>
+                                        <td>
+                                            @{
+                                                var kisTakili = GetKisTakiliLastikleri(p);
+                                            }
+                                            @if (kisTakili.Any())
+                                            {
+                                                @foreach (var l in kisTakili)
+                                                {
+                                                    <div class="small">
+                                                        <span class="badge bg-primary me-1"><i class="bi bi-truck"></i> Takılı</span>
+                                                        <strong>@l.Marka</strong> @l.Ebat
+                                                        @if (!string.IsNullOrWhiteSpace(l.SeriNo))
+                                                        {
+                                                            <small class="text-muted ms-1">@l.SeriNo</small>
+                                                        }
+                                                    </div>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @{
+                                                var kisDepo = GetKisDepoLastikleri(p);
+                                            }
+                                            @if (kisDepo.Any())
+                                            {
+                                                @foreach (var l in kisDepo)
+                                                {
+                                                    <div class="small">
+                                                        <span class="badge bg-light text-dark border me-1"><i class="bi bi-archive"></i> Depo</span>
+                                                        <strong>@l.Marka</strong> @l.Ebat
+                                                        <small class="text-muted ms-1">(@(l.DepoAdi ?? "-"))</small>
+                                                        @if (!string.IsNullOrWhiteSpace(l.SeriNo))
+                                                        {
+                                                            <small class="text-muted ms-1">@l.SeriNo</small>
+                                                        }
+                                                    </div>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">-</span>
+                                            }
                                         </td>
                                         <td>
                                             @foreach (var l in p.Lastikler)
@@ -262,7 +325,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="p-2 text-muted small">Toplam: <strong>@plakaEnvanteri.Count</strong> plaka</div>
+                    <div class="p-2 text-muted small">Toplam: <strong>@(plakaKisFiltresiAktif ? plakaEnvanteri.Count(x => x.KisVar) : plakaEnvanteri.Count)</strong> plaka @(plakaKisFiltresiAktif ? $"(filtreli, tümü: {plakaEnvanteri.Count})" : "")</div>
                 </div>
             </div>
         }
@@ -714,6 +777,7 @@
     private int? filtreAracId;
     private string filtreAracArama = string.Empty;
     private bool aracDropAcik = false;
+    private bool plakaKisFiltresiAktif = false;
 
     // Form: adet bazlı kayıt + araç seçimi
     private int yeniAdet = 1;
@@ -1002,6 +1066,20 @@
         LastikDurum.Kayip => "Kayıp",
         _ => d.ToString()
     };
+
+    private static List<LastikPlakaEnvanterSatiri> GetKisTakiliLastikleri(LastikPlakaEnvanteri p)
+    {
+        return p.Lastikler
+            .Where(l => l.Sezon == LastikSezon.KisLastigi && l.Takili)
+            .ToList();
+    }
+
+    private static List<LastikPlakaEnvanterSatiri> GetKisDepoLastikleri(LastikPlakaEnvanteri p)
+    {
+        return p.Lastikler
+            .Where(l => l.Sezon == LastikSezon.KisLastigi && !l.Takili)
+            .ToList();
+    }
 }
 
 
