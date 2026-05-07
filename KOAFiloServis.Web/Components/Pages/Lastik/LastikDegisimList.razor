@@ -5,6 +5,7 @@
 @using System.Text.Json
 @inject ILastikService LastikService
 @inject IAracService AracService
+@inject IBankaHesapService BankaHesapService
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
@@ -162,6 +163,7 @@
                                 <th>Sokulen Lastik</th>
                                 <th>Yapılan Yer</th>
                                 <th class="text-end">Ücret</th>
+                                <th>Alım / Ödeme</th>
                                 <th style="width:100px;">İşlemler</th>
                             </tr>
                         </thead>
@@ -201,6 +203,22 @@
                                     </td>
                                     <td>@d.YapilanYer</td>
                                     <td class="text-end">@(d.Ucret.HasValue ? d.Ucret.Value.ToString("N2") + " ₺" : "-")</td>
+                                    <td>
+                                        @{
+                                            var alimSatirlari = GetAlimOdemeOzetSatirlari(d);
+                                            var masrafId = GetDegisimMasrafId(d);
+                                        }
+                                        @foreach (var satir in alimSatirlari)
+                                        {
+                                            <small class="d-block">@satir</small>
+                                        }
+                                        @if (masrafId.HasValue)
+                                        {
+                                            <a href="/arac-masraflari/@masrafId.Value" class="badge bg-success text-decoration-none mt-1" title="Araç masraf kaydına git">
+                                                <i class="bi bi-receipt me-1"></i>Masraf #@masrafId.Value
+                                            </a>
+                                        }
+                                    </td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(d)"><i class="bi bi-pencil"></i></button>
                                         <button class="btn btn-sm btn-outline-danger" @onclick="() => SilOnay(d)"><i class="bi bi-trash"></i></button>
@@ -277,43 +295,24 @@
                         <div class="card mb-3">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <div>
-                                    <i class="bi bi-grid-3x2-gap me-2"></i>Takılan / Sökülen Lastik Detayı
+                                    <i class="bi bi-grid-3x2-gap me-2"></i>4'lü Lastik Seti
                                 </div>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StandartDortluUygula">
-                                    Standart 4 Pozisyon
+                                    4 Pozisyonu Sıfırla
                                 </button>
                             </div>
                             <div class="card-body">
-                                <div class="row g-2 mb-3">
-                                    <div class="col-md-3">
-                                        <label class="form-label">Giriş Şekli</label>
-                                        <select class="form-select" value="@degisimGirisSekli" @onchange="DegisimSekliDegisti">
-                                            <option value="standart">Standart 4'lü</option>
-                                            <option value="adet">Adet bazlı</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Adet</label>
-                                        <select class="form-select" value="@degisimAdet" @onchange="DegisimAdetDegisti" disabled="@(degisimGirisSekli == "standart")">
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                        </select>
-                                    </div>
-                                </div>
-
                                 <div class="alert alert-light border py-2 mb-3">
                                     <div class="small text-muted mb-2">
                                         <i class="bi bi-info-circle me-1"></i>
-                                        Aşağıdaki ortak alanlar tüm satırlara uygulanır. İstediğiniz satırı tablodan ayrıca özelleştirebilirsiniz.
+                                        Araç 4 pozisyon bazında takip edilir. Değişecek satırları işaretleyin; satır bazında stoktan kullanım veya satın alma seçebilirsiniz.
                                     </div>
                                     <div class="row g-2 align-items-end">
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Ortak Takılan Stok</label>
                                             <select class="form-select form-select-sm" value="@ortakTakilanStokId" @onchange="OrtakTakilanStokDegisti">
                                                 <option value="">-- Seçim yok --</option>
-                                                @foreach (var s in stoklar)
+                                                @foreach (var s in GetTakilabilirStoklar(null))
                                                 {
                                                     <option value="@s.Id">@s.Ebat @s.Marka (@s.Depo?.DepoAdi)</option>
                                                 }
@@ -352,7 +351,9 @@
                                         <thead class="table-light">
                                             <tr>
                                                 <th style="width:140px;">Pozisyon</th>
-                                                <th>Takılan Stok</th>
+                                                <th class="text-center" style="width:90px;">Değişim</th>
+                                                <th style="width:160px;">Temin</th>
+                                                <th>Takılan Lastik</th>
                                                 <th style="width:180px;">Takılan Kaynak Depo</th>
                                                 <th>Sökülen Stok</th>
                                                 <th style="width:180px;">Sökülen Hedef Depo</th>
@@ -366,17 +367,39 @@
                                                     <td>
                                                         <InputText @bind-Value="satir.Pozisyon" class="form-control form-control-sm" />
                                                     </td>
+                                                    <td class="text-center">
+                                                        <InputCheckbox @bind-Value="satir.IslemYapilsin" class="form-check-input" />
+                                                    </td>
                                                     <td>
-                                                        <InputSelect @bind-Value="satir.TakilanStokId" class="form-select form-select-sm">
-                                                            <option value="">-- Stok Seçin --</option>
-                                                            @foreach (var s in stoklar)
-                                                            {
-                                                                <option value="@s.Id">@s.Ebat @s.Marka (@s.Depo?.DepoAdi)</option>
-                                                            }
+                                                        <InputSelect @bind-Value="satir.TeminSekli" class="form-select form-select-sm" disabled="@(!satir.IslemYapilsin)">
+                                                            <option value="stok">Stoktan</option>
+                                                            <option value="satinalma">Satın alma</option>
                                                         </InputSelect>
                                                     </td>
                                                     <td>
-                                                        <InputSelect @bind-Value="satir.KaynakDepoId" class="form-select form-select-sm">
+                                                        @if (!satir.IslemYapilsin)
+                                                        {
+                                                            <span class="text-muted small">Bu pozisyonda lastik değişmeyecek.</span>
+                                                        }
+                                                        else if (satir.TeminSekli == "satinalma")
+                                                        {
+                                                            <div class="small text-primary">
+                                                                <i class="bi bi-cart-check me-1"></i>Ortak satın alma bilgisi kullanılacak
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <InputSelect @bind-Value="satir.TakilanStokId" class="form-select form-select-sm">
+                                                                <option value="">-- Stok Seçin --</option>
+                                                                @foreach (var s in GetTakilabilirStoklar(satir))
+                                                                {
+                                                                    <option value="@s.Id">@s.Ebat @s.Marka (@s.Depo?.DepoAdi)</option>
+                                                                }
+                                                            </InputSelect>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        <InputSelect @bind-Value="satir.KaynakDepoId" class="form-select form-select-sm" disabled="@(!satir.IslemYapilsin)">
                                                             <option value="">-- Depo Seçin --</option>
                                                             @foreach (var d in depolar)
                                                             {
@@ -385,16 +408,16 @@
                                                         </InputSelect>
                                                     </td>
                                                     <td>
-                                                        <InputSelect @bind-Value="satir.SokulenStokId" class="form-select form-select-sm">
+                                                        <InputSelect @bind-Value="satir.SokulenStokId" class="form-select form-select-sm" disabled="@(!satir.IslemYapilsin)">
                                                             <option value="">-- Stok Seçin --</option>
-                                                            @foreach (var s in stoklar)
+                                                            @foreach (var s in GetSokulebilirStoklar(satir))
                                                             {
-                                                                <option value="@s.Id">@s.Ebat @s.Marka (@s.Depo?.DepoAdi)</option>
+                                                                <option value="@s.Id">@s.Ebat @s.Marka (@(s.Arac?.AktifPlaka ?? s.Depo?.DepoAdi))</option>
                                                             }
                                                         </InputSelect>
                                                     </td>
                                                     <td>
-                                                        <InputSelect @bind-Value="satir.HedefDepoId" class="form-select form-select-sm">
+                                                        <InputSelect @bind-Value="satir.HedefDepoId" class="form-select form-select-sm" disabled="@(!satir.IslemYapilsin)">
                                                             <option value="">-- Depo Seçin --</option>
                                                             @foreach (var d in depolar)
                                                             {
@@ -407,6 +430,90 @@
                                         </tbody>
                                     </table>
                                 </div>
+
+                                @if (SatinAlmaAktifMi)
+                                {
+                                    <div class="card mt-3 border-warning">
+                                        <div class="card-header bg-warning bg-opacity-10">
+                                            <i class="bi bi-cart-plus me-2"></i>Satın Alma ve Stok Girişi
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row g-2 mb-2">
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Tedarikçi / Satıcı</label>
+                                                    <InputText @bind-Value="satinAlmaForm.TedarikciAdi" class="form-control form-control-sm" />
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Marka *</label>
+                                                    <InputText @bind-Value="satinAlmaForm.Marka" class="form-control form-control-sm" />
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Ebat *</label>
+                                                    <InputText @bind-Value="satinAlmaForm.Ebat" class="form-control form-control-sm" />
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Sezon *</label>
+                                                    <InputSelect @bind-Value="satinAlmaForm.Sezon" class="form-select form-select-sm">
+                                                        <option value="@LastikSezon.YazLastigi">Yaz</option>
+                                                        <option value="@LastikSezon.KisLastigi">Kış</option>
+                                                        <option value="@LastikSezon.DortMevsim">4 Mevsim</option>
+                                                    </InputSelect>
+                                                </div>
+                                            </div>
+
+                                            <div class="row g-2 mb-2 align-items-end">
+                                                <div class="col-md-2">
+                                                    <div class="form-check mt-4">
+                                                        <InputCheckbox @bind-Value="satinAlmaForm.FaturasizMi" class="form-check-input" id="faturasizAlim" />
+                                                        <label class="form-check-label" for="faturasizAlim">Faturasız alım</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Fatura No</label>
+                                                    <InputText @bind-Value="satinAlmaForm.FaturaNo" class="form-control form-control-sm" disabled="@satinAlmaForm.FaturasizMi" />
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Fatura Tarihi</label>
+                                                    <InputDate @bind-Value="satinAlmaForm.FaturaTarihi" class="form-control form-control-sm" disabled="@satinAlmaForm.FaturasizMi" />
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Alım Tutarı</label>
+                                                    <InputNumber @bind-Value="satinAlmaForm.ToplamTutar" class="form-control form-control-sm" />
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <div class="form-check mt-4">
+                                                        <InputCheckbox @bind-Value="satinAlmaForm.OdemeYapildi" class="form-check-input" id="odemeYapildi" />
+                                                        <label class="form-check-label" for="odemeYapildi">Ödeme yapıldı</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            @if (satinAlmaForm.OdemeYapildi)
+                                            {
+                                                <div class="row g-2">
+                                                    <div class="col-md-4">
+                                                        <label class="form-label">Ödeme Hesabı *</label>
+                                                        <InputSelect @bind-Value="satinAlmaForm.OdemeHesapId" class="form-select form-select-sm">
+                                                            <option value="">-- Hesap Seçin --</option>
+                                                            @foreach (var hesap in bankaHesaplari)
+                                                            {
+                                                                <option value="@hesap.Id">@hesap.HesapAdi (@GetHesapTipiText(hesap.HesapTipi))</option>
+                                                            }
+                                                        </InputSelect>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">Ödeme Tarihi</label>
+                                                        <InputDate @bind-Value="satinAlmaForm.OdemeTarihi" class="form-control form-control-sm" />
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <label class="form-label">Ödeme Notu</label>
+                                                        <InputText @bind-Value="satinAlmaForm.OdemeNotu" class="form-control form-control-sm" placeholder="Nereden veya nasıl ödendi" />
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         </div>
 
@@ -485,6 +592,7 @@
                                         <th>Sezon</th>
                                         <th>Seri No</th>
                                         <th>Durum</th>
+                                        <th style="width:90px;">İşlem</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -496,6 +604,50 @@
                                             <td><span class="badge @GetSezonBadge(s.Sezon)">@GetSezonText(s.Sezon)</span></td>
                                             <td>@s.SeriNo</td>
                                             <td><span class="badge @GetDurumBadge(s.Durum)">@GetDurumText(s.Durum)</span></td>
+                                            <td>
+                                                <button class="btn btn-xs btn-outline-warning py-0 px-1" title="Bu lastiği değiştir"
+                                                        @onclick="() => HizliDegisimAc(s)">
+                                                    <i class="bi bi-arrow-repeat"></i> Değiştir
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    <!-- Depodaki Lastikler -->
+                    <h6 class="mb-2 mt-2">
+                        <i class="bi bi-box-seam me-1"></i>Depodaki Kullanılabilir Lastikler
+                        <span class="badge bg-secondary ms-1">@seciliAracDetay.DepoLastikler.Count(x => x.Durum == LastikDurum.Kullanilabilir)</span>
+                    </h6>
+                    @if (!seciliAracDetay.DepoLastikler.Any(x => x.Durum == LastikDurum.Kullanilabilir))
+                    {
+                        <div class="alert alert-secondary py-2 mb-2">Depoda kullanılabilir lastik bulunmuyor.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Marka</th>
+                                        <th>Ebat</th>
+                                        <th>Sezon</th>
+                                        <th>Seri No</th>
+                                        <th>Depo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var d in seciliAracDetay.DepoLastikler.Where(x => x.Durum == LastikDurum.Kullanilabilir))
+                                    {
+                                        <tr>
+                                            <td>@d.Marka</td>
+                                            <td>@d.Ebat</td>
+                                            <td><span class="badge @GetSezonBadge(d.Sezon)">@GetSezonText(d.Sezon)</span></td>
+                                            <td>@d.SeriNo</td>
+                                            <td><small class="text-muted">@(d.Depo?.DepoAdi ?? "-")</small></td>
                                         </tr>
                                     }
                                 </tbody>
@@ -604,6 +756,114 @@
     </div>
 }
 
+<!-- Hızlı Değişim Modal -->
+@if (showHizliDegisimModal && hizliSokulenStok != null && seciliAracDetay != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.7); z-index: 1060;">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning-subtle">
+                    <h5 class="modal-title">
+                        <i class="bi bi-arrow-repeat me-2"></i>Hızlı Lastik Değişimi
+                        <small class="text-muted ms-2">@seciliAracDetay.Plaka</small>
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="HizliDegisimKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <!-- Sökülen lastik (bilgi) -->
+                        <div class="col-12">
+                            <div class="alert alert-warning py-2 mb-0">
+                                <strong>Sökülecek Lastik:</strong>
+                                @(hizliSokulenStok.Marka ?? "(Bilinmeyen)") — @hizliSokulenStok.Ebat
+                                <span class="badge @GetSezonBadge(hizliSokulenStok.Sezon) ms-1">@GetSezonText(hizliSokulenStok.Sezon)</span>
+                                @if (!string.IsNullOrWhiteSpace(hizliSokulenStok.SeriNo))
+                                {
+                                    <small class="text-muted ms-1">(@hizliSokulenStok.SeriNo)</small>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Takılan lastik seç -->
+                        <div class="col-md-6">
+                            <label class="form-label">Takılacak Lastik <small class="text-muted">(depoda)</small></label>
+                            <select class="form-select form-select-sm" @bind="hizliTakilanStokId">
+                                <option value="">— Seçiniz (takılacak lastik yok) —</option>
+                                @foreach (var d in seciliAracDetay.DepoLastikler.Where(x => x.Durum == LastikDurum.Kullanilabilir))
+                                {
+                                    <option value="@d.Id">@(d.Marka ?? "(Bilinmeyen)") — @d.Ebat [@GetSezonText(d.Sezon)] @(d.Depo != null ? $"({d.Depo.DepoAdi})" : "")</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Sökülenin gideceği depo -->
+                        <div class="col-md-6">
+                            <label class="form-label">Sökülenin Gideceği Depo <small class="text-muted">(boş = kayıp)</small></label>
+                            <select class="form-select form-select-sm" @bind="hizliHedefDepoId">
+                                <option value="">— Kayıp / Belirsiz —</option>
+                                @foreach (var dep in depolar)
+                                {
+                                    <option value="@dep.Id">@dep.DepoAdi</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Değişim türü -->
+                        <div class="col-md-4">
+                            <label class="form-label">Değişim Türü</label>
+                            <select class="form-select form-select-sm" @bind="hizliDegisimTipi">
+                                <option value="@LastikDegisimTipi.Mevsimlik">Mevsimlik</option>
+                                <option value="@LastikDegisimTipi.Periyodik">Periyodik</option>
+                                <option value="@LastikDegisimTipi.Ariza">Arıza</option>
+                                <option value="@LastikDegisimTipi.Diger">Diğer</option>
+                            </select>
+                        </div>
+
+                        <!-- Tarih -->
+                        <div class="col-md-4">
+                            <label class="form-label">Tarih</label>
+                            <input type="date" class="form-control form-control-sm"
+                                   value="@hizliTarih.ToString("yyyy-MM-dd")"
+                                   @onchange="e => hizliTarih = DateTime.TryParse(e.Value?.ToString(), out var d2) ? d2 : DateTime.Today" />
+                        </div>
+
+                        <!-- KM -->
+                        <div class="col-md-4">
+                            <label class="form-label">KM</label>
+                            <input type="number" class="form-control form-control-sm" placeholder="KM durumu"
+                                   @bind="hizliKm" @bind:event="oninput" />
+                        </div>
+
+                        <!-- Yapılan Yer -->
+                        <div class="col-md-6">
+                            <label class="form-label">Yapılan Yer</label>
+                            <input type="text" class="form-control form-control-sm" placeholder="Servis adı / yer"
+                                   @bind="hizliYer" @bind:event="oninput" />
+                        </div>
+
+                        <!-- Neden -->
+                        <div class="col-md-6">
+                            <label class="form-label">Değişim Nedeni <span class="text-danger">*</span></label>
+                            <textarea class="form-control form-control-sm" rows="2" placeholder="Neden değiştiriliyor? (Mevsim geçişi, hasar, vb.)"
+                                      @bind="hizliNeden" @bind:event="oninput"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="HizliDegisimKapat" disabled="@hizliKaydediliyor">İptal</button>
+                    <button class="btn btn-warning btn-sm" @onclick="HizliDegisimKaydet" disabled="@(hizliKaydediliyor || string.IsNullOrWhiteSpace(hizliNeden))">
+                        @if (hizliKaydediliyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-check-lg me-1"></i>Değişimi Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Silme Onayı -->
 @if (showDeleteModal && silinecek != null)
 {
@@ -631,6 +891,7 @@
     private List<Arac> araclar = new();
     private List<LastikDepo> depolar = new();
     private List<LastikStok> stoklar = new();
+    private List<BankaHesap> bankaHesaplari = new();
     private List<LastikAracDonemOzet> aracDonemOzetleri = new();
     private LastikAracDetay? seciliAracDetay;
     private int? seciliAracDetayId;
@@ -641,12 +902,25 @@
     private bool showDeleteModal;
     private bool showAracDetayModal;
     private bool kaydediliyor;
+
+    // Hızlı değişim alanları
+    private bool showHizliDegisimModal;
+    private bool hizliKaydediliyor;
+    private LastikStok? hizliSokulenStok;
+    private int? hizliTakilanStokId;
+    private int? hizliHedefDepoId;
+    private DateTime hizliTarih = DateTime.Today;
+    private int? hizliKm;
+    private string hizliYer = string.Empty;
+    private string hizliNeden = string.Empty;
+    private LastikDegisimTipi hizliDegisimTipi = LastikDegisimTipi.Mevsimlik;
     private int? filtreAracId;
     private DateTime? filtreBaslangic;
     private DateTime? filtreBitis;
     private string degisimGirisSekli = "standart";
     private int degisimAdet = 4;
     private string serbestNot = string.Empty;
+    private LastikDegisimSatinAlmaForm satinAlmaForm = new();
     private List<LastikDegisimSatirForm> degisimSatirlari = new();
     private int? ortakTakilanStokId;
     private int? ortakKaynakDepoId;
@@ -662,6 +936,7 @@
         formFiltreliAraclar = araclar;
         depolar = await LastikService.GetDepoListAsync();
         stoklar = await LastikService.GetStokListAsync();
+        bankaHesaplari = await BankaHesapService.GetActiveAsync();
         degisimler = await LastikService.GetDegisimListAsync();
         HazirlaDegisimSatirlari(degisimAdet);
         await YukleAracDonemOzeti();
@@ -773,12 +1048,74 @@
         degisimGirisSekli = "standart";
         degisimAdet = 4;
         serbestNot = string.Empty;
+        satinAlmaForm = new LastikDegisimSatinAlmaForm();
         ortakTakilanStokId = null;
         ortakKaynakDepoId = null;
         ortakHedefDepoId = null;
         HazirlaDegisimSatirlari(degisimAdet);
         showAracDetayModal = false;
         showForm = true;
+    }
+
+    private void HizliDegisimAc(LastikStok sokulenStok)
+    {
+        hizliSokulenStok = sokulenStok;
+        hizliTakilanStokId = null;
+        hizliHedefDepoId = null;
+        hizliTarih = DateTime.Today;
+        hizliKm = null;
+        hizliYer = string.Empty;
+        hizliNeden = string.Empty;
+        hizliDegisimTipi = LastikDegisimTipi.Mevsimlik;
+        showHizliDegisimModal = true;
+    }
+
+    private void HizliDegisimKapat()
+    {
+        showHizliDegisimModal = false;
+        hizliSokulenStok = null;
+    }
+
+    private async Task HizliDegisimKaydet()
+    {
+        if (string.IsNullOrWhiteSpace(hizliNeden) || seciliAracDetay == null || hizliSokulenStok == null)
+            return;
+
+        hizliKaydediliyor = true;
+        try
+        {
+            var degisim = new LastikDegisim
+            {
+                AracId = seciliAracDetay.AracId,
+                DegisimTarihi = hizliTarih,
+                DegisimTipi = hizliDegisimTipi,
+                KmDurumu = hizliKm,
+                YapilanYer = hizliYer,
+                TakilanStokId = hizliTakilanStokId,
+                SokulenStokId = hizliSokulenStok.Id,
+                HedefDepoId = hizliHedefDepoId,
+                Notlar = hizliNeden
+            };
+
+            await LastikService.CreateDegisimAsync(degisim);
+            ToastService.ShowSuccess("Lastik değişimi kaydedildi.");
+
+            // Detay modalını yenile
+            showHizliDegisimModal = false;
+            hizliSokulenStok = null;
+            seciliAracDetay = await LastikService.GetAracDetayAsync(seciliAracDetay.AracId, null, null);
+            degisimler = await LastikService.GetDegisimListAsync(filtreAracId, filtreBaslangic, filtreBitis);
+            stoklar = await LastikService.GetStokListAsync();
+            await YukleAracDonemOzeti();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            hizliKaydediliyor = false;
+        }
     }
 
     private void SilOnayById(int degisimId)
@@ -830,6 +1167,7 @@
         degisimGirisSekli = "standart";
         degisimAdet = 4;
         serbestNot = string.Empty;
+        satinAlmaForm = new LastikDegisimSatinAlmaForm();
         ortakTakilanStokId = null;
         ortakKaynakDepoId = null;
         ortakHedefDepoId = null;
@@ -858,14 +1196,67 @@
         kaydediliyor = true;
         try
         {
+            if (editDegisim.AracId <= 0)
+            {
+                ToastService.ShowWarning("Araç seçimi zorunludur.");
+                return;
+            }
+
             var gecerliSatirlar = degisimSatirlari
-                .Where(s => s.TakilanStokId.HasValue || s.SokulenStokId.HasValue)
+                .Where(s => s.IslemYapilsin)
                 .ToList();
 
             if (!gecerliSatirlar.Any())
             {
-                ToastService.ShowWarning("En az bir takılan veya sökülen lastik satırı girin.");
+                ToastService.ShowWarning("En az bir pozisyonda değişim işaretlenmelidir.");
                 return;
+            }
+
+            var stoktanSatirlar = gecerliSatirlar
+                .Where(s => s.TeminSekli != "satinalma")
+                .ToList();
+
+            if (stoktanSatirlar.Any(s => !s.TakilanStokId.HasValue))
+            {
+                ToastService.ShowWarning("Stoktan değişim seçilen satırlarda takılan stok zorunludur.");
+                return;
+            }
+
+            if (gecerliSatirlar.Where(s => s.TakilanStokId.HasValue).GroupBy(s => s.TakilanStokId).Any(g => g.Key.HasValue && g.Count() > 1))
+            {
+                ToastService.ShowWarning("Aynı takılan stok birden fazla pozisyonda kullanılamaz.");
+                return;
+            }
+
+            if (gecerliSatirlar.Where(s => s.SokulenStokId.HasValue).GroupBy(s => s.SokulenStokId).Any(g => g.Key.HasValue && g.Count() > 1))
+            {
+                ToastService.ShowWarning("Aynı sökülen stok birden fazla pozisyonda seçilemez.");
+                return;
+            }
+
+            var satinAlmaSatirlari = gecerliSatirlar
+                .Where(s => s.TeminSekli == "satinalma")
+                .ToList();
+
+            if (satinAlmaSatirlari.Any())
+            {
+                if (string.IsNullOrWhiteSpace(satinAlmaForm.Marka) || string.IsNullOrWhiteSpace(satinAlmaForm.Ebat))
+                {
+                    ToastService.ShowWarning("Satın alma seçiliyse marka ve ebat bilgisi zorunludur.");
+                    return;
+                }
+
+                if (satinAlmaSatirlari.Any(s => !s.KaynakDepoId.HasValue))
+                {
+                    ToastService.ShowWarning("Satın alma seçilen her satır için giriş deposu seçilmelidir.");
+                    return;
+                }
+
+                if (satinAlmaForm.OdemeYapildi && !satinAlmaForm.OdemeHesapId.HasValue)
+                {
+                    ToastService.ShowWarning("Ödeme yapıldı seçiliyse ödeme hesabı zorunludur.");
+                    return;
+                }
             }
 
             var ilkSatir = gecerliSatirlar.First();
@@ -879,11 +1270,35 @@
             var payload = new LastikDegisimNotPayload
             {
                 GirisTipi = degisimGirisSekli,
-                Adet = gecerliSatirlar.Count,
+                Adet = degisimSatirlari.Count,
+                SetAdedi = degisimSatirlari.Count,
+                IslemGorenAdet = gecerliSatirlar.Count,
                 UserNot = serbestNot,
-                Satirlar = gecerliSatirlar.Select(s => new LastikDegisimNotSatir
+                SatinAlma = satinAlmaSatirlari.Any()
+                    ? new LastikDegisimSatinAlmaForm
+                    {
+                        TedarikciAdi = satinAlmaForm.TedarikciAdi,
+                        Marka = satinAlmaForm.Marka,
+                        Ebat = satinAlmaForm.Ebat,
+                        Sezon = satinAlmaForm.Sezon,
+                        FaturasizMi = satinAlmaForm.FaturasizMi,
+                        FaturaNo = satinAlmaForm.FaturaNo,
+                        FaturaTarihi = satinAlmaForm.FaturaTarihi,
+                        ToplamTutar = satinAlmaForm.ToplamTutar,
+                        OdemeYapildi = satinAlmaForm.OdemeYapildi,
+                        OdemeTarihi = satinAlmaForm.OdemeTarihi,
+                        OdemeHesapId = satinAlmaForm.OdemeHesapId,
+                        OdemeHesapAdi = GetBankaHesapAdi(satinAlmaForm.OdemeHesapId),
+                        OdemeHesapTipi = GetBankaHesapTipi(satinAlmaForm.OdemeHesapId),
+                        MasrafId = satinAlmaForm.MasrafId,
+                        OdemeNotu = satinAlmaForm.OdemeNotu
+                    }
+                    : null,
+                Satirlar = degisimSatirlari.Select(s => new LastikDegisimNotSatir
                 {
+                    IslemYapildiMi = s.IslemYapilsin,
                     Pozisyon = s.Pozisyon,
+                    TeminSekli = s.TeminSekli,
                     TakilanStokId = s.TakilanStokId,
                     TakilanEtiket = GetStokEtiket(s.TakilanStokId),
                     KaynakDepoId = s.KaynakDepoId,
@@ -891,7 +1306,12 @@
                     SokulenStokId = s.SokulenStokId,
                     SokulenEtiket = GetStokEtiket(s.SokulenStokId),
                     HedefDepoId = s.HedefDepoId,
-                    HedefDepoAdi = GetDepoAdi(s.HedefDepoId)
+                    HedefDepoAdi = GetDepoAdi(s.HedefDepoId),
+                    SatinAlmaTedarikciAdi = s.TeminSekli == "satinalma" ? satinAlmaForm.TedarikciAdi : null,
+                    SatinAlmaMarka = s.TeminSekli == "satinalma" ? satinAlmaForm.Marka : null,
+                    SatinAlmaEbat = s.TeminSekli == "satinalma" ? satinAlmaForm.Ebat : null,
+                    SatinAlmaSezon = s.TeminSekli == "satinalma" ? satinAlmaForm.Sezon : null,
+                    SatinAlmaNotu = s.TeminSekli == "satinalma" ? satinAlmaForm.OdemeNotu : null
                 }).ToList()
             };
 
@@ -951,6 +1371,7 @@
     {
         degisimGirisSekli = "standart";
         degisimAdet = 4;
+        satinAlmaForm = new LastikDegisimSatinAlmaForm();
         HazirlaDegisimSatirlari(degisimAdet);
     }
 
@@ -997,6 +1418,8 @@
                 return new LastikDegisimSatirForm
                 {
                     Pozisyon = mevcut?.Pozisyon ?? StandartPozisyonlar[i],
+                    IslemYapilsin = mevcut?.IslemYapilsin ?? true,
+                    TeminSekli = mevcut?.TeminSekli ?? "stok",
                     TakilanStokId = mevcut?.TakilanStokId,
                     KaynakDepoId = mevcut?.KaynakDepoId,
                     SokulenStokId = mevcut?.SokulenStokId,
@@ -1012,36 +1435,44 @@
         if (payload != null && payload.Satirlar.Any())
         {
             degisimGirisSekli = payload.GirisTipi == "adet" ? "adet" : "standart";
-            degisimAdet = Math.Clamp(payload.Adet > 0 ? payload.Adet : payload.Satirlar.Count, 1, 4);
+            degisimAdet = 4;
             serbestNot = payload.UserNot ?? string.Empty;
+            satinAlmaForm = payload.SatinAlma ?? new LastikDegisimSatinAlmaForm();
             degisimSatirlari = payload.Satirlar
                 .Take(4)
                 .Select((s, i) => new LastikDegisimSatirForm
                 {
                     Pozisyon = string.IsNullOrWhiteSpace(s.Pozisyon) ? StandartPozisyonlar[Math.Min(i, 3)] : s.Pozisyon,
+                    IslemYapilsin = s.IslemYapildiMi != false,
+                    TeminSekli = string.IsNullOrWhiteSpace(s.TeminSekli) ? "stok" : s.TeminSekli,
                     TakilanStokId = s.TakilanStokId,
                     KaynakDepoId = s.KaynakDepoId,
                     SokulenStokId = s.SokulenStokId,
                     HedefDepoId = s.HedefDepoId
                 })
                 .ToList();
+            HazirlaDegisimSatirlari(4);
             return;
         }
 
         degisimGirisSekli = "adet";
-        degisimAdet = 1;
+        degisimAdet = 4;
         serbestNot = degisim.Notlar ?? string.Empty;
+        satinAlmaForm = new LastikDegisimSatinAlmaForm();
         degisimSatirlari = new List<LastikDegisimSatirForm>
         {
             new()
             {
                 Pozisyon = degisim.TakilanPozisyon ?? degisim.SokulenPozisyon ?? StandartPozisyonlar[0],
+                IslemYapilsin = true,
+                TeminSekli = "stok",
                 TakilanStokId = degisim.TakilanStokId,
                 KaynakDepoId = degisim.KaynakDepoId,
                 SokulenStokId = degisim.SokulenStokId,
                 HedefDepoId = degisim.HedefDepoId
             }
         };
+        HazirlaDegisimSatirlari(4);
     }
 
     private List<string> GetTakilanOzetSatirlari(LastikDegisim degisim)
@@ -1119,6 +1550,92 @@
         return depolar.FirstOrDefault(d => d.Id == depoId.Value)?.DepoAdi;
     }
 
+    private string? GetBankaHesapAdi(int? hesapId)
+    {
+        if (!hesapId.HasValue)
+            return null;
+
+        return bankaHesaplari.FirstOrDefault(h => h.Id == hesapId.Value)?.HesapAdi;
+    }
+
+    private HesapTipi? GetBankaHesapTipi(int? hesapId)
+    {
+        if (!hesapId.HasValue)
+            return null;
+
+        return bankaHesaplari.FirstOrDefault(h => h.Id == hesapId.Value)?.HesapTipi;
+    }
+
+    private List<LastikStok> GetTakilabilirStoklar(LastikDegisimSatirForm? satir)
+    {
+        var seciliId = satir?.TakilanStokId;
+        return stoklar
+            .Where(s => s.Aktif && s.Durum == LastikDurum.Kullanilabilir && (s.AracId == null || s.Id == seciliId))
+            .OrderBy(s => s.Depo?.DepoAdi)
+            .ThenBy(s => s.Ebat)
+            .ThenBy(s => s.Marka)
+            .ToList();
+    }
+
+    private List<LastikStok> GetSokulebilirStoklar(LastikDegisimSatirForm? satir)
+    {
+        var seciliId = satir?.SokulenStokId;
+        return stoklar
+            .Where(s => s.Aktif && (s.AracId == editDegisim.AracId || s.Id == seciliId))
+            .OrderBy(s => s.Ebat)
+            .ThenBy(s => s.Marka)
+            .ToList();
+    }
+
+    private bool SatinAlmaAktifMi => degisimSatirlari.Any(s => s.IslemYapilsin && s.TeminSekli == "satinalma");
+
+    private List<string> GetAlimOdemeOzetSatirlari(LastikDegisim degisim)
+    {
+        var payload = ParseDegisimNotPayload(degisim.Notlar);
+        if (payload?.SatinAlma == null)
+            return new List<string> { "Stoktan karşılandı" };
+
+        var sonuc = new List<string>
+        {
+            $"{payload.IslemGorenAdet} / 4 pozisyon, {payload.Satirlar.Count(s => s.IslemYapildiMi != false && s.TeminSekli == "satinalma")} adet satın alma"
+        };
+
+        if (payload.SatinAlma.FaturasizMi)
+            sonuc.Add("Faturasız alım");
+        else if (!string.IsNullOrWhiteSpace(payload.SatinAlma.FaturaNo))
+            sonuc.Add($"Fatura: {payload.SatinAlma.FaturaNo}");
+
+        if (payload.SatinAlma.ToplamTutar.HasValue)
+            sonuc.Add($"Alım: {payload.SatinAlma.ToplamTutar.Value:N2} ₺");
+
+        if (payload.SatinAlma.OdemeYapildi)
+            sonuc.Add($"Ödendi: {payload.SatinAlma.OdemeHesapAdi ?? "Hesap belirtilmedi"}");
+        else if (payload.SatinAlma != null)
+            sonuc.Add("Ödeme bekliyor");
+
+        return sonuc;
+    }
+
+    private int? GetDegisimMasrafId(LastikDegisim degisim)
+    {
+        try
+        {
+            var payload = ParseDegisimNotPayload(degisim.Notlar);
+            return payload?.SatinAlma?.MasrafId;
+        }
+        catch { return null; }
+    }
+
+    private string GetHesapTipiText(HesapTipi tip) => tip switch
+    {
+        HesapTipi.Kasa => "Kasa",
+        HesapTipi.VadesizHesap => "Banka",
+        HesapTipi.VadeliHesap => "Vadeli",
+        HesapTipi.KrediHesabi => "Kredi",
+        HesapTipi.KrediKarti => "Kredi Kartı",
+        _ => tip.ToString()
+    };
+
     private string GetTurBadge(LastikDegisimTipi t) => t switch
     {
         LastikDegisimTipi.Mevsimlik => "bg-primary",
@@ -1169,6 +1686,8 @@
     private sealed class LastikDegisimSatirForm
     {
         public string Pozisyon { get; set; } = string.Empty;
+        public bool IslemYapilsin { get; set; } = true;
+        public string TeminSekli { get; set; } = "stok";
         public int? TakilanStokId { get; set; }
         public int? KaynakDepoId { get; set; }
         public int? SokulenStokId { get; set; }
@@ -1179,13 +1698,18 @@
     {
         public string? GirisTipi { get; set; }
         public int Adet { get; set; }
+        public int SetAdedi { get; set; } = 4;
+        public int IslemGorenAdet { get; set; }
         public string? UserNot { get; set; }
+        public LastikDegisimSatinAlmaForm? SatinAlma { get; set; }
         public List<LastikDegisimNotSatir> Satirlar { get; set; } = new();
     }
 
     private sealed class LastikDegisimNotSatir
     {
+        public bool? IslemYapildiMi { get; set; }
         public string? Pozisyon { get; set; }
+        public string? TeminSekli { get; set; }
 
         public int? TakilanStokId { get; set; }
         public string? TakilanEtiket { get; set; }
@@ -1196,5 +1720,30 @@
         public string? SokulenEtiket { get; set; }
         public int? HedefDepoId { get; set; }
         public string? HedefDepoAdi { get; set; }
+
+        public string? SatinAlmaTedarikciAdi { get; set; }
+        public string? SatinAlmaMarka { get; set; }
+        public string? SatinAlmaEbat { get; set; }
+        public LastikSezon? SatinAlmaSezon { get; set; }
+        public string? SatinAlmaNotu { get; set; }
+    }
+
+    private sealed class LastikDegisimSatinAlmaForm
+    {
+        public int? MasrafId { get; set; }
+        public string? TedarikciAdi { get; set; }
+        public string? Marka { get; set; }
+        public string? Ebat { get; set; }
+        public LastikSezon Sezon { get; set; } = LastikSezon.YazLastigi;
+        public bool FaturasizMi { get; set; }
+        public string? FaturaNo { get; set; }
+        public DateTime? FaturaTarihi { get; set; }
+        public decimal? ToplamTutar { get; set; }
+        public bool OdemeYapildi { get; set; }
+        public DateTime? OdemeTarihi { get; set; }
+        public int? OdemeHesapId { get; set; }
+        public string? OdemeHesapAdi { get; set; }
+        public HesapTipi? OdemeHesapTipi { get; set; }
+        public string? OdemeNotu { get; set; }
     }
 }

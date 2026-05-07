@@ -39,6 +39,11 @@
                 <i class="bi bi-x-octagon me-1"></i>Kayıp Lastikler
             </button>
         </li>
+        <li class="nav-item">
+            <button class="nav-link @(aktifSekme == "copeat" ? "active" : "")" @onclick='() => SekmeDegistir("copeat")'>
+                <i class="bi bi-trash3 me-1"></i>Çöpe Atılanlar
+            </button>
+        </li>
     </ul>
 
     @if (aktifSekme == "liste")
@@ -360,8 +365,11 @@
                                         <td><small>@k.SeriNo</small></td>
                                         <td><small class="text-muted">@k.Notlar</small></td>
                                         <td>
-                                            <button class="btn btn-sm btn-outline-success" @onclick="() => KayipBulunduOnay(k)">
+                                            <button class="btn btn-sm btn-outline-success me-1" @onclick="() => KayipBulunduOnay(k)">
                                                 <i class="bi bi-box-arrow-in-down me-1"></i>Depoya Al
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => KayipCopeyAtOnay(k)">
+                                                <i class="bi bi-trash3 me-1"></i>Çöpe At
                                             </button>
                                         </td>
                                     </tr>
@@ -370,6 +378,60 @@
                         </table>
                     </div>
                     <div class="p-2 text-muted small">Toplam: <strong>@kayipLastikRapor.Count</strong> kayıp lastik.</div>
+                </div>
+            </div>
+        }
+    }    @if (aktifSekme == "copeat")
+    {
+        <div class="alert alert-secondary py-2">
+            <i class="bi bi-trash3 me-1"></i>
+            Kayıp listesinden <strong>çöpe atılan</strong> lastikler. Plaka ve şoför bilgisi, atılma anındaki değerler olarak saklanır — sonradan değişse bile bu kayıtlar korunur.
+        </div>
+        @if (copeyAtilanlar == null)
+        {
+            <div class="text-center"><div class="spinner-border" role="status"></div></div>
+        }
+        else if (!copeyAtilanlar.Any())
+        {
+            <div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Çöpe atılan lastik kaydı bulunmuyor.</div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Atılma Tarihi</th>
+                                    <th>Plaka (Anındaki)</th>
+                                    <th>Şoför (Anındaki)</th>
+                                    <th>Marka / Ebat</th>
+                                    <th class="text-center">Sezon</th>
+                                    <th>Seri No</th>
+                                    <th>Not</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in copeyAtilanlar)
+                                {
+                                    <tr>
+                                        <td>@(c.CopeyAtmaTarihi?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                        <td><strong>@(c.Plaka ?? "-")</strong></td>
+                                        <td>@(c.SoforAdi ?? "-")</td>
+                                        <td>
+                                            @if (!string.IsNullOrWhiteSpace(c.Marka)) { <strong>@c.Marka</strong> }
+                                            <small class="text-muted ms-1">@c.Ebat</small>
+                                        </td>
+                                        <td class="text-center"><span class="badge @GetSezonBadge(c.Sezon)">@GetSezonText(c.Sezon)</span></td>
+                                        <td><small>@c.SeriNo</small></td>
+                                        <td><small class="text-muted">@c.Notlar</small></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-2 text-muted small">Toplam: <strong>@copeyAtilanlar.Count</strong> çöpe atılmış lastik.</div>
                 </div>
             </div>
         }
@@ -406,6 +468,45 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="() => showKayipBulunduModal = false">İptal</button>
                     <button class="btn btn-success" @onclick="KayipBulunduKaydet" disabled="@(kayipBulunduDepoId == null)">Depoya Al</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+<!-- Çöpe At Modal -->
+@if (showCopeyAtModal && copeyAtilacakSatir != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-trash3 me-2"></i>Lastiği Çöpe At (İmha)</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showCopeyAtModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning py-2 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Bu işlem geri alınamaz. Lastik imha listesine taşınır; plaka ve şoför bilgisi bu anki değerlerle saklanır.
+                    </div>
+                    <p class="mb-2"><strong>@copeyAtilacakSatir.Marka @copeyAtilacakSatir.Ebat</strong> lastiğini imha etmek üzeresiniz.</p>
+                    <div class="mb-2">
+                        <label class="form-label small">Araç Plakası (kaydedilecek)</label>
+                        <input type="text" class="form-control form-control-sm" @bind="copeyAtPlaka" placeholder="Plaka bilinmiyorsa boş bırakın" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Şoför Adı (kaydedilecek)</label>
+                        <input type="text" class="form-control form-control-sm" @bind="copeyAtSofor" placeholder="Şoför bilinmiyorsa boş bırakın" />
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label small">İmha Notu</label>
+                        <textarea class="form-control form-control-sm" rows="2" @bind="copeyAtNot"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => showCopeyAtModal = false">İptal</button>
+                    <button class="btn btn-danger" @onclick="CopeyAtKaydet">
+                        <i class="bi bi-trash3 me-1"></i>İmha Et
+                    </button>
                 </div>
             </div>
         </div>
@@ -589,6 +690,7 @@
     private List<LastikPlakaEnvanteri>? plakaEnvanteri;
     private List<LastikEksikSezonSatiri>? eksikSezonRapor;
     private List<LastikKayipSatiri>? kayipLastikRapor;
+    private List<LastikCopeyAtilanSatiri>? copeyAtilanlar;
     private string aktifSekme = "liste";
     private LastikStok editStok = new();
     private LastikStok? silinecek;
@@ -597,6 +699,12 @@
     private bool showKayipBulunduModal;
     private int? kayipBulunduDepoId;
     private string kayipBulunduNot = string.Empty;
+    // Çöpe atma
+    private LastikKayipSatiri? copeyAtilacakSatir;
+    private bool showCopeyAtModal;
+    private string copeyAtPlaka = string.Empty;
+    private string copeyAtSofor = string.Empty;
+    private string copeyAtNot = string.Empty;
     private bool showForm;
     private bool showDeleteModal;
     private bool showPasifModal;
@@ -631,6 +739,8 @@
             eksikSezonRapor = await LastikService.GetEksikSezonRaporuAsync();
         else if (sekme == "kayip" && kayipLastikRapor == null)
             kayipLastikRapor = await LastikService.GetKayipLastikRaporuAsync();
+        else if (sekme == "copeat" && copeyAtilanlar == null)
+            copeyAtilanlar = await LastikService.GetCopeyAtilanLastiklerAsync();
     }
 
     private async Task RaporlariYenile()
@@ -641,6 +751,8 @@
             eksikSezonRapor = await LastikService.GetEksikSezonRaporuAsync();
         if (kayipLastikRapor != null)
             kayipLastikRapor = await LastikService.GetKayipLastikRaporuAsync();
+        if (copeyAtilanlar != null)
+            copeyAtilanlar = await LastikService.GetCopeyAtilanLastiklerAsync();
     }
 
     private void FormAracAramaGuncelle(ChangeEventArgs e)
@@ -779,6 +891,39 @@
         kayipBulunduDepoId = depolar.FirstOrDefault()?.Id;
         kayipBulunduNot = string.Empty;
         showKayipBulunduModal = true;
+    }
+
+    private void KayipCopeyAtOnay(LastikKayipSatiri satir)
+    {
+        copeyAtilacakSatir = satir;
+        copeyAtPlaka = satir.KaynaklandigiPlaka ?? string.Empty;
+        copeyAtSofor = string.Empty;
+        copeyAtNot = string.Empty;
+        showCopeyAtModal = true;
+    }
+
+    private async Task CopeyAtKaydet()
+    {
+        if (copeyAtilacakSatir == null) return;
+        try
+        {
+            await LastikService.KayipLastigiCopeyAtAsync(
+                copeyAtilacakSatir.StokId,
+                copeyAtNot,
+                copeyAtPlaka,
+                copeyAtSofor);
+
+            showCopeyAtModal = false;
+            copeyAtilacakSatir = null;
+            copeyAtilanlar = null; // yeniden yüklensin
+            await YukleStoklar();
+            await RaporlariYenile();
+            ToastService.ShowSuccess("Lastik çöpe atıldı / imha edildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Hata: " + ex.Message);
+        }
     }
 
     private async Task KayipBulunduKaydet()

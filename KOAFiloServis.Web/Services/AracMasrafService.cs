@@ -148,6 +148,11 @@ public class AracMasrafService : IAracMasrafService
         existing.Aciklama = aracMasraf.Aciklama;
         existing.BelgeNo = aracMasraf.BelgeNo;
         existing.ArizaKaynaklimi = aracMasraf.ArizaKaynaklimi;
+        existing.OdemeKaynak = aracMasraf.OdemeKaynak;
+        existing.PersonelCebindenId = aracMasraf.PersonelCebindenId;
+        existing.PersoneleOdendi = aracMasraf.PersoneleOdendi;
+        existing.PersonelOdemeTarihi = aracMasraf.PersonelOdemeTarihi;
+        existing.BankaHesapId = aracMasraf.BankaHesapId;
         existing.AracId = aracMasraf.AracId;
         existing.MasrafKalemiId = aracMasraf.MasrafKalemiId;
         existing.GuzergahId = aracMasraf.GuzergahId;
@@ -342,6 +347,38 @@ public class AracMasrafService : IAracMasrafService
 
         if (aracMasraf.CariId.HasValue)
             return await GetOrCreateCariHesapAsync(context, aracMasraf.CariId.Value);
+
+        if (aracMasraf.OdemeKaynak == MasrafOdemeKaynak.Banka && aracMasraf.BankaHesapId.HasValue)
+        {
+            var bankaHesap = await context.BankaHesaplari
+                .AsNoTracking()
+                .FirstOrDefaultAsync(h => h.Id == aracMasraf.BankaHesapId.Value && !h.IsDeleted);
+
+            var hesapKodu = bankaHesap?.VarsayilanMuhasebeKodu;
+            if (string.IsNullOrWhiteSpace(hesapKodu))
+                hesapKodu = "102";
+
+            return await _muhasebeService.GetHesapByKodAsync(hesapKodu)
+                ?? await _muhasebeService.GetHesapByKodAsync("102")
+                ?? throw new InvalidOperationException("Banka hesabı için muhasebe karşılığı bulunamadı.");
+        }
+
+        if (aracMasraf.OdemeKaynak == MasrafOdemeKaynak.Kasa)
+        {
+            var hesapKodu = "100.01";
+            if (aracMasraf.BankaHesapId.HasValue)
+            {
+                var kasaHesap = await context.BankaHesaplari
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(h => h.Id == aracMasraf.BankaHesapId.Value && !h.IsDeleted);
+                if (!string.IsNullOrWhiteSpace(kasaHesap?.VarsayilanMuhasebeKodu))
+                    hesapKodu = kasaHesap.VarsayilanMuhasebeKodu!;
+            }
+
+            return await _muhasebeService.GetHesapByKodAsync(hesapKodu)
+                ?? await _muhasebeService.GetHesapByKodAsync("100")
+                ?? throw new InvalidOperationException("Kasa hesabı bulunamadı.");
+        }
 
         return await _muhasebeService.GetHesapByKodAsync("100.01")
             ?? await _muhasebeService.GetHesapByKodAsync("100")

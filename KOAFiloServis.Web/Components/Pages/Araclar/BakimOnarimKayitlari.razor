@@ -424,6 +424,7 @@
         public string SaseNo { get; set; } = string.Empty;
         public string MarkaModel { get; set; } = string.Empty;
         public string Kategori { get; set; } = string.Empty;
+        public MasrafKategori? KategoriEnum { get; set; }
         public string Aciklama { get; set; } = string.Empty;
         public string BelgeNo { get; set; } = string.Empty;
         public decimal Tutar { get; set; }
@@ -524,6 +525,7 @@
                     SaseNo = m.Arac?.SaseNo ?? string.Empty,
                     MarkaModel = $"{m.Arac?.Marka} {m.Arac?.Model}".Trim(),
                     Kategori = m.MasrafKalemi?.MasrafAdi ?? string.Empty,
+                    KategoriEnum = m.MasrafKalemi?.Kategori,
                     Aciklama = m.Aciklama ?? string.Empty,
                     BelgeNo = m.BelgeNo ?? string.Empty,
                     Tutar = m.Tutar,
@@ -669,7 +671,14 @@
                                     <td>
                                         @if (h.Kaynak == "Masraf" || h.Kaynak == "PersonelMasraf")
                                         {
-                                            <span class="badge bg-primary"><i class="bi bi-receipt me-1"></i>Masraf</span>
+                                            @if (h.KategoriEnum == MasrafKategori.Lastik)
+                                            {
+                                                <span class="badge bg-success"><i class="bi bi-truck me-1"></i>Lastik</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-primary"><i class="bi bi-receipt me-1"></i>Masraf</span>
+                                            }
                                         }
                                         else
                                         {

@@ -9,10 +9,12 @@ namespace KOAFiloServis.Web.Services;
 public class LastikService : ILastikService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+    private readonly IAracMasrafService _aracMasrafService;
 
-    public LastikService(IDbContextFactory<ApplicationDbContext> contextFactory)
+    public LastikService(IDbContextFactory<ApplicationDbContext> contextFactory, IAracMasrafService aracMasrafService)
     {
         _contextFactory = contextFactory;
+        _aracMasrafService = aracMasrafService;
     }
 
     // ================================================================
@@ -221,10 +223,18 @@ public class LastikService : ILastikService
         ctx.LastikDegisimler.Add(degisim);
         await ctx.SaveChangesAsync(); // Id alabilmek için önce kaydet
 
-        var satirlar = SatirlariCikar(degisim);
+        var payload = ParseDegisimPayload(degisim.Notlar);
+        var satirlar = SatirlariCikar(degisim, payload);
         await SenkronizeStoklarAsync(ctx, degisim, satirlar, eskiSatirlar: null);
 
+        if (payload != null)
+        {
+            degisim.Notlar = JsonSerializer.Serialize(payload);
+            ctx.LastikDegisimler.Update(degisim);
+        }
+
         await ctx.SaveChangesAsync();
+        await SenkronizeLastikMasrafiAsync(degisim, payload);
         return degisim;
     }
 
@@ -237,15 +247,22 @@ public class LastikService : ILastikService
             .AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == degisim.Id);
 
-        var eskiSatirlar = mevcut != null ? SatirlariCikar(mevcut) : new List<LastikDegisimNotSatiri>();
+        var eskiPayload = mevcut != null ? ParseDegisimPayload(mevcut.Notlar) : null;
+        var eskiSatirlar = mevcut != null ? SatirlariCikar(mevcut, eskiPayload) : new List<LastikDegisimNotSatiri>();
 
         degisim.UpdatedAt = DateTime.UtcNow;
         ctx.LastikDegisimler.Update(degisim);
         await ctx.SaveChangesAsync();
 
-        var yeniSatirlar = SatirlariCikar(degisim);
+        var yeniPayload = ParseDegisimPayload(degisim.Notlar);
+        var yeniSatirlar = SatirlariCikar(degisim, yeniPayload);
         await SenkronizeStoklarAsync(ctx, degisim, yeniSatirlar, eskiSatirlar);
+
+        if (yeniPayload != null)
+            degisim.Notlar = JsonSerializer.Serialize(yeniPayload);
+
         await ctx.SaveChangesAsync();
+        await SenkronizeLastikMasrafiAsync(degisim, yeniPayload);
 
         return degisim;
     }
@@ -263,24 +280,105 @@ public class LastikService : ILastikService
             degisim.IsDeleted = true;
             degisim.UpdatedAt = DateTime.UtcNow;
             await ctx.SaveChangesAsync();
+
+            var payload = ParseDegisimPayload(degisim.Notlar);
+            if (payload?.SatinAlma?.MasrafId.HasValue == true)
+                await _aracMasrafService.DeleteAsync(payload.SatinAlma.MasrafId.Value);
         }
+    }
+
+    private async Task SenkronizeLastikMasrafiAsync(LastikDegisim degisim, LastikDegisimNotPayload? payload)
+    {
+        var satinAlma = payload?.SatinAlma;
+        if (satinAlma?.ToplamTutar == null || satinAlma.ToplamTutar <= 0)
+        {
+            if (satinAlma?.MasrafId.HasValue == true)
+            {
+                await _aracMasrafService.DeleteAsync(satinAlma.MasrafId.Value);
+                satinAlma.MasrafId = null;
+                degisim.Notlar = JsonSerializer.Serialize(payload);
+
+                await using var ctx = await _contextFactory.CreateDbContextAsync();
+                ctx.LastikDegisimler.Update(degisim);
+                await ctx.SaveChangesAsync();
+            }
+            return;
+        }
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var masrafKalemi = await context.MasrafKalemleri
+            .AsNoTracking()
+            .Where(m => !m.IsDeleted && m.Aktif && m.Kategori == MasrafKategori.Lastik)
+            .OrderBy(m => m.Id)
+            .FirstOrDefaultAsync();
+
+        if (masrafKalemi == null)
+            throw new InvalidOperationException("Lastik masraf kalemi bulunamadı.");
+
+        var degisenAdet = payload?.Satirlar?.Count(s => s.IslemYapildiMi != false) ?? 0;
+        var satinAlinanAdet = payload?.Satirlar?.Count(s => s.IslemYapildiMi != false && string.Equals(s.TeminSekli, LastikTeminSekilleri.SatinAlma, StringComparison.OrdinalIgnoreCase)) ?? 0;
+        var aciklama = $"Lastik değişimi {degisim.DegisimTarihi:dd.MM.yyyy} - {degisenAdet}/4 pozisyon, satın alma {satinAlinanAdet} adet";
+        if (!string.IsNullOrWhiteSpace(satinAlma.TedarikciAdi))
+            aciklama += $" | Tedarikçi: {satinAlma.TedarikciAdi}";
+
+        var aracMasraf = new AracMasraf
+        {
+            Id = satinAlma.MasrafId ?? 0,
+            AracId = degisim.AracId,
+            MasrafKalemiId = masrafKalemi.Id,
+            MasrafTarihi = satinAlma.FaturaTarihi ?? satinAlma.OdemeTarihi ?? degisim.DegisimTarihi,
+            Tutar = satinAlma.ToplamTutar.Value,
+            Aciklama = aciklama,
+            BelgeNo = satinAlma.FaturasizMi ? "FATURASIZ" : satinAlma.FaturaNo,
+            OdemeKaynak = GetMasrafOdemeKaynak(satinAlma),
+            BankaHesapId = satinAlma.OdemeHesapId,
+            CariId = null,
+            SoforId = null
+        };
+
+        AracMasraf kaydedilenMasraf;
+        if (satinAlma.MasrafId.HasValue)
+            kaydedilenMasraf = await _aracMasrafService.UpdateAsync(aracMasraf, muhasebeFisiOlustur: satinAlma.OdemeYapildi);
+        else
+            kaydedilenMasraf = await _aracMasrafService.CreateAsync(aracMasraf, muhasebeFisiOlustur: satinAlma.OdemeYapildi);
+
+        satinAlma.MasrafId = kaydedilenMasraf.Id;
+        degisim.Notlar = JsonSerializer.Serialize(payload);
+
+        await using var updateContext = await _contextFactory.CreateDbContextAsync();
+        updateContext.LastikDegisimler.Update(degisim);
+        await updateContext.SaveChangesAsync();
+    }
+
+    private static MasrafOdemeKaynak GetMasrafOdemeKaynak(LastikDegisimFinansNotu satinAlma)
+    {
+        if (!satinAlma.OdemeYapildi)
+            return satinAlma.OdemeHesapId.HasValue ? MasrafOdemeKaynak.Banka : MasrafOdemeKaynak.Kasa;
+
+        return satinAlma.OdemeHesapTipi == HesapTipi.Kasa
+            ? MasrafOdemeKaynak.Kasa
+            : MasrafOdemeKaynak.Banka;
     }
 
     // ----------------------------------------------------------------
     //  Stok senkronizasyonu (lastik takip güncellemesi + kayıp üretimi)
     // ----------------------------------------------------------------
 
-    private static List<LastikDegisimNotSatiri> SatirlariCikar(LastikDegisim degisim)
+    private static List<LastikDegisimNotSatiri> SatirlariCikar(LastikDegisim degisim, LastikDegisimNotPayload? payload = null)
     {
-        var payload = ParseDegisimPayload(degisim.Notlar);
+        payload ??= ParseDegisimPayload(degisim.Notlar);
         if (payload?.Satirlar != null && payload.Satirlar.Count > 0)
-            return payload.Satirlar;
+            return payload.Satirlar
+                .Where(SatirIslemGerektirir)
+                .ToList();
 
         // Eski tek-satır kayıtları için fallback
         return new List<LastikDegisimNotSatiri>
         {
             new()
             {
+                DegisimYapildi = true,
+                IslemYapildiMi = true,
                 Pozisyon = degisim.TakilanPozisyon ?? degisim.SokulenPozisyon,
                 TakilanStokId = degisim.TakilanStokId,
                 KaynakDepoId = degisim.KaynakDepoId,
@@ -288,6 +386,17 @@ public class LastikService : ILastikService
                 HedefDepoId = degisim.HedefDepoId
             }
         };
+    }
+
+    private static bool SatirIslemGerektirir(LastikDegisimNotSatiri satir)
+    {
+        if (satir.IslemYapildiMi != false || satir.DegisimYapildi)
+            return true;
+
+        if (satir.TakilanStokId.HasValue || satir.SokulenStokId.HasValue)
+            return true;
+
+        return string.Equals(satir.TeminSekli, LastikTeminSekilleri.SatinAlma, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task SenkronizeStoklarAsync(
@@ -303,6 +412,36 @@ public class LastikService : ILastikService
         // 2) Yeni hareketleri uygula
         foreach (var s in yeniSatirlar)
         {
+            if (!s.TakilanStokId.HasValue && string.Equals(s.TeminSekli, LastikTeminSekilleri.SatinAlma, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!s.KaynakDepoId.HasValue)
+                    throw new InvalidOperationException($"{s.Pozisyon ?? "Pozisyon"} için satın alma deposu seçilmelidir.");
+
+                if (string.IsNullOrWhiteSpace(s.SatinAlmaMarka) || string.IsNullOrWhiteSpace(s.SatinAlmaEbat))
+                    throw new InvalidOperationException($"{s.Pozisyon ?? "Pozisyon"} için satın alma marka ve ebat bilgisi zorunludur.");
+
+                var satinAlinanStok = new LastikStok
+                {
+                    SirketId = degisim.SirketId,
+                    DepoId = s.KaynakDepoId,
+                    AracId = null,
+                    YedekMi = false,
+                    Marka = s.SatinAlmaMarka,
+                    Ebat = s.SatinAlmaEbat,
+                    Sezon = s.SatinAlmaSezon ?? LastikSezon.YazLastigi,
+                    SeriNo = s.SatinAlmaSeriNo,
+                    Durum = LastikDurum.Kullanilabilir,
+                    Aktif = true,
+                    Notlar = BuildSatinAlmaStokNotu(degisim, s)
+                };
+
+                ctx.LastikStoklar.Add(satinAlinanStok);
+                await ctx.SaveChangesAsync();
+
+                s.TakilanStokId = satinAlinanStok.Id;
+                s.TakilanEtiket = $"{satinAlinanStok.Ebat} {satinAlinanStok.Marka}".Trim();
+            }
+
             // Sökülen lastik: araçtan çıkar
             if (s.SokulenStokId.HasValue)
             {
@@ -498,6 +637,15 @@ public class LastikService : ILastikService
             .ThenBy(s => s.Ebat)
             .ToListAsync();
 
+        var depoLastikler = await ctx.LastikStoklar
+            .AsNoTracking()
+            .Include(s => s.Depo)
+            .Where(s => !s.IsDeleted && s.Aktif && s.AracId == null)
+            .OrderBy(s => s.Durum)
+            .ThenBy(s => s.Marka)
+            .ThenBy(s => s.Ebat)
+            .ToListAsync();
+
         var hareketQuery = ctx.LastikDegisimler
             .AsNoTracking()
             .Include(d => d.TakilanStok)
@@ -549,6 +697,7 @@ public class LastikService : ILastikService
             AracBilgisi = $"{arac.Marka} {arac.Model} {arac.ModelYili}".Trim(),
             PlakaGecmisi = plakaGecmisi,
             TakiliLastikler = takiliLastikler,
+            DepoLastikler = depoLastikler,
             Hareketler = hareketler
         };
     }
@@ -772,6 +921,80 @@ public class LastikService : ILastikService
             .Include(s => s.Arac)
             .FirstOrDefaultAsync(s => s.Id == stokId && !s.IsDeleted);
     }
+
+    public async Task KayipLastigiCopeyAtAsync(int stokId, string? not, string? plaka, string? soforAdi)
+    {
+        await using var ctx = await _contextFactory.CreateDbContextAsync();
+
+        var stok = await ctx.LastikStoklar
+            .FirstOrDefaultAsync(s => s.Id == stokId && !s.IsDeleted);
+
+        if (stok == null || stok.Durum != LastikDurum.Kayip)
+            return;
+
+        var tarih = DateTime.UtcNow;
+        // Geçmiş kaydını Notlar'a işle – plaka/şoför değişse bile bu snapshot korunur
+        var gecmis = $"##COPEAT##{tarih:O}|{plaka ?? "-"}|{soforAdi ?? "-"}|{not ?? ""}";
+        stok.Notlar = string.IsNullOrWhiteSpace(stok.Notlar) ? gecmis : $"{stok.Notlar} | {gecmis}";
+        stok.Durum = LastikDurum.Hurda;
+        stok.Aktif = false;
+        stok.AracId = null;
+        stok.UpdatedAt = tarih;
+
+        await ctx.SaveChangesAsync();
+    }
+
+    public async Task<List<LastikCopeyAtilanSatiri>> GetCopeyAtilanLastiklerAsync()
+    {
+        await using var ctx = await _contextFactory.CreateDbContextAsync();
+
+        var hurdalar = await ctx.LastikStoklar
+            .AsNoTracking()
+            .Where(s => !s.IsDeleted && !s.Aktif && s.Durum == LastikDurum.Hurda
+                        && s.Notlar != null && s.Notlar.Contains("##COPEAT##"))
+            .OrderByDescending(s => s.UpdatedAt ?? s.CreatedAt)
+            .ToListAsync();
+
+        return hurdalar.Select(s =>
+        {
+            // ##COPEAT##tarih|plaka|sofor|not
+            DateTime? atilmaTarihi = null;
+            string? plaka = null;
+            string? soforAdi = null;
+            string? ekNot = null;
+            try
+            {
+                var idx = s.Notlar!.IndexOf("##COPEAT##", StringComparison.Ordinal);
+                if (idx >= 0)
+                {
+                    var parca = s.Notlar[(idx + 10)..];
+                    // Sonraki | ayırıcısından önceki blok bu kaydın verisi
+                    var son = parca.IndexOf(" | ##COPEAT##", StringComparison.Ordinal);
+                    if (son > 0) parca = parca[..son];
+                    var bolumler = parca.Split('|');
+                    if (bolumler.Length >= 1) DateTime.TryParse(bolumler[0], out var dt);
+                    if (bolumler.Length >= 1 && DateTime.TryParse(bolumler[0], out var dt2)) atilmaTarihi = dt2;
+                    if (bolumler.Length >= 2) plaka = bolumler[1] == "-" ? null : bolumler[1];
+                    if (bolumler.Length >= 3) soforAdi = bolumler[2] == "-" ? null : bolumler[2];
+                    if (bolumler.Length >= 4) ekNot = bolumler[3];
+                }
+            }
+            catch { /* parse hatası – alanlar boş kalır */ }
+
+            return new LastikCopeyAtilanSatiri
+            {
+                StokId = s.Id,
+                Marka = s.Marka,
+                Ebat = s.Ebat,
+                Sezon = s.Sezon,
+                SeriNo = s.SeriNo,
+                CopeyAtmaTarihi = atilmaTarihi ?? s.UpdatedAt ?? s.CreatedAt,
+                Plaka = plaka,
+                SoforAdi = soforAdi,
+                Notlar = ekNot
+            };
+        }).ToList();
+    }
     private static string FormatTakilanHareket(LastikDegisim degisim)
     {
         var payload = ParseDegisimPayload(degisim.Notlar);
@@ -859,6 +1082,25 @@ public class LastikService : ILastikService
         LastikSezon.DortMevsim => "4 Mevsim",
         _ => sezon.ToString()
     };
+
+    private static string BuildSatinAlmaStokNotu(LastikDegisim degisim, LastikDegisimNotSatiri satir)
+    {
+        var parcalar = new List<string>
+        {
+            $"Lastik değişiminden otomatik oluşturuldu. DegisimId={degisim.Id}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(satir.Pozisyon))
+            parcalar.Add($"Pozisyon={satir.Pozisyon}");
+
+        if (!string.IsNullOrWhiteSpace(satir.SatinAlmaTedarikciAdi))
+            parcalar.Add($"Tedarikci={satir.SatinAlmaTedarikciAdi}");
+
+        if (!string.IsNullOrWhiteSpace(satir.SatinAlmaNotu))
+            parcalar.Add(satir.SatinAlmaNotu);
+
+        return string.Join(" | ", parcalar);
+    }
 }
 
 internal sealed class LastikAracaTakiliSatir
@@ -871,15 +1113,24 @@ internal sealed class LastikAracaTakiliSatir
 
 internal sealed class LastikDegisimNotPayload
 {
+    public bool DortluSetBazli { get; set; } = true;
+    public int BazPozisyonAdedi { get; set; } = 4;
     public string? GirisTipi { get; set; }
     public int Adet { get; set; }
+    public int SetAdedi { get; set; } = 4;
+    public int IslemGorenAdet { get; set; }
     public string? UserNot { get; set; }
+    public LastikDegisimFinansNotu? Finans { get; set; }
+    public LastikDegisimFinansNotu? SatinAlma { get; set; }
     public List<LastikDegisimNotSatiri> Satirlar { get; set; } = new();
 }
 
 internal sealed class LastikDegisimNotSatiri
 {
+    public bool DegisimYapildi { get; set; }
+    public bool? IslemYapildiMi { get; set; }
     public string? Pozisyon { get; set; }
+    public string? TeminSekli { get; set; }
 
     public int? TakilanStokId { get; set; }
     public string? TakilanEtiket { get; set; }
@@ -890,5 +1141,38 @@ internal sealed class LastikDegisimNotSatiri
     public string? SokulenEtiket { get; set; }
     public int? HedefDepoId { get; set; }
     public string? HedefDepoAdi { get; set; }
+
+    public string? SatinAlmaTedarikciAdi { get; set; }
+    public string? SatinAlmaMarka { get; set; }
+    public string? SatinAlmaEbat { get; set; }
+    public LastikSezon? SatinAlmaSezon { get; set; }
+    public string? SatinAlmaSeriNo { get; set; }
+    public string? SatinAlmaNotu { get; set; }
+}
+
+internal sealed class LastikDegisimFinansNotu
+{
+    public int? MasrafId { get; set; }
+    public string? TedarikciAdi { get; set; }
+    public bool SatinAlmaVar { get; set; }
+    public int SatinAlinanAdet { get; set; }
+    public decimal? SatinAlmaToplamTutari { get; set; }
+    public decimal? ToplamTutar { get; set; }
+    public bool FaturasizAlim { get; set; }
+    public bool FaturasizMi { get; set; }
+    public string? FaturaNo { get; set; }
+    public DateTime? FaturaTarihi { get; set; }
+    public bool OdemeYapildi { get; set; }
+    public DateTime? OdemeTarihi { get; set; }
+    public int? OdemeHesapId { get; set; }
+    public string? OdemeHesapAdi { get; set; }
+    public HesapTipi? OdemeHesapTipi { get; set; }
+    public string? OdemeNotu { get; set; }
+}
+
+internal static class LastikTeminSekilleri
+{
+    public const string Stoktan = "stok";
+    public const string SatinAlma = "satin_alma";
 }
 

@@ -40,6 +40,16 @@ public interface ILastikService
     /// </summary>
     Task<LastikStok?> KayipLastigiDepoyaAlAsync(int stokId, int depoId, string? not = null);
 
+    /// <summary>
+    /// Kayıp lastiği çöpe atar (hurda/imha). Plaka ve şoför bilgisi geçmişte saklanır.
+    /// </summary>
+    Task KayipLastigiCopeyAtAsync(int stokId, string? not, string? plaka, string? soforAdi);
+
+    /// <summary>
+    /// Çöpe atılan lastiklerin listesi (plaka/şoför geçmişiyle birlikte).
+    /// </summary>
+    Task<List<LastikCopeyAtilanSatiri>> GetCopeyAtilanLastiklerAsync();
+
     // --- Değişim ---
     Task<List<LastikDegisim>> GetDegisimListAsync(int? aracId = null, DateTime? baslangic = null, DateTime? bitis = null);
     Task<LastikDegisim?> GetDegisimByIdAsync(int id);
@@ -83,6 +93,7 @@ public sealed class LastikAracDetay
     public string AracBilgisi { get; set; } = string.Empty;
     public List<LastikAracPlakaSatiri> PlakaGecmisi { get; set; } = new();
     public List<LastikStok> TakiliLastikler { get; set; } = new();
+    public List<LastikStok> DepoLastikler { get; set; } = new();
     public List<LastikAracHareketSatiri> Hareketler { get; set; } = new();
 }
 
@@ -145,6 +156,25 @@ public sealed class LastikKayipSatiri
     public int? KaynaklandigiAracId { get; set; }
     public string? KaynaklandigiPlaka { get; set; }
     public int? DegisimId { get; set; }
+    public string? Notlar { get; set; }
+}
+
+/// <summary>
+/// Çöpe atılan lastik kaydı; plaka ve şoför bilgisi atılma anındaki geçmişle birlikte tutulur.
+/// </summary>
+public sealed class LastikCopeyAtilanSatiri
+{
+    public int StokId { get; set; }
+    public string? Marka { get; set; }
+    public string Ebat { get; set; } = string.Empty;
+    public LastikSezon Sezon { get; set; }
+    public string? SeriNo { get; set; }
+    /// <summary>Çöpe atılma tarihi</summary>
+    public DateTime? CopeyAtmaTarihi { get; set; }
+    /// <summary>Atılma anındaki araç plakası (araç değişse bile saklanır)</summary>
+    public string? Plaka { get; set; }
+    /// <summary>Atılma anındaki şoför adı (şoför değişse bile saklanır)</summary>
+    public string? SoforAdi { get; set; }
     public string? Notlar { get; set; }
 }
 
