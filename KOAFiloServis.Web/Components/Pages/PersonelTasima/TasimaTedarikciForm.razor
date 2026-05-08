@@ -34,6 +34,7 @@
                 <li class="nav-item"><button class="nav-link @(aktifTab == "personel" ? "active" : "")" @onclick='() => aktifTab = "personel"'>Personel (@(personeller?.Count ?? 0))</button></li>
                 <li class="nav-item"><button class="nav-link @(aktifTab == "arac" ? "active" : "")" @onclick='() => aktifTab = "arac"'>Araçlar (@(araclar?.Count ?? 0))</button></li>
                 <li class="nav-item"><button class="nav-link @(aktifTab == "is" ? "active" : "")" @onclick='() => aktifTab = "is"'>İşler / Güzergahlar (@(isler?.Count ?? 0))</button></li>
+                <li class="nav-item"><a class="nav-link" href="@($"/personel-tasima/tedarikciler/{Id}/evraklar")"><i class="bi bi-folder2-open me-1"></i>Evraklar</a></li>
             }
         </ul>
 

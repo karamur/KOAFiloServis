@@ -17,6 +17,9 @@ public interface IBelgeUyariService
     Task<bool> AracBelgeTarihGuncelleAsync(int aracId, string belgeAlani, DateTime? bitisTarihi);
     Task<bool> AracBelgeDosyaYukleAsync(int aracId, string belgeAlani, string dosyaAdi, byte[] icerik);
     Task<byte[]> SeciliAracBelgelerZipAsync(List<int> aracIdler, List<string>? seciliDosyaYollari = null);
+
+    // Tedarikçi Belge Tabloları
+    Task<List<TedarikciEvrakTabloKalemi>> GetTedarikciEvrakTablosuAsync();
 }
 
 public class BelgeUyariOzet
@@ -189,6 +192,10 @@ public class PersonelBelgeTabloKalemi
     public DateTime? SaglikRaporuGecerlilik { get; set; }
     public DateTime? SuruculCezaBarkodGecerlilik { get; set; }
 
+    // Tedarikçi bilgisi (doldurulursa tedarikçiye ait personel)
+    public int? TasimaTedarikciId { get; set; }
+    public string? TasimaTedarikciUnvan { get; set; }
+
     // Yardımcı: belge durumu rengi
     public static string BelgeDurumClass(DateTime? tarih) => tarih == null ? "bg-secondary"
         : (tarih.Value - DateTime.Today).Days switch
@@ -245,6 +252,10 @@ public class AracBelgeTabloKalemi
     public DateTime? KoltukSigortasiGecerlilik { get; set; }
     public DateTime? KaskoGecerlilik { get; set; }
 
+    // Tedarikçi bilgisi (doldurulursa tedarikçiye ait araç)
+    public int? TasimaTedarikciId { get; set; }
+    public string? TasimaTedarikciUnvan { get; set; }
+
     public static string BelgeDurumClass(DateTime? tarih) => tarih == null ? "bg-secondary"
         : (tarih.Value - DateTime.Today).Days switch
         {
@@ -274,7 +285,34 @@ public class AracEvrakDosyaBilgisi
     public bool Secili { get; set; } = false;
 }
 
+/// <summary>
+/// Tedarikçi firma belge takip tablosu – her satır bir tedarikçi, sütunlar TedarikciEvrakKategorileri
+/// </summary>
+public class TedarikciEvrakTabloKalemi
+{
+    public int TedarikciId { get; set; }
+    public string TedarikciUnvan { get; set; } = string.Empty;
+    public bool Aktif { get; set; }
 
+    /// <summary>Kategori adı → bitiş tarihi eşlemesi (TedarikciEvrakKategorileri sabitleri)</summary>
+    public Dictionary<string, DateTime?> Belgeler { get; set; } = new();
 
+    public static string BelgeDurumClass(DateTime? tarih) => tarih == null ? "bg-secondary"
+        : (tarih.Value - DateTime.Today).Days switch
+        {
+            < 0 => "bg-danger",
+            <= 7 => "bg-warning text-dark",
+            <= 30 => "bg-info",
+            _ => "bg-success"
+        };
+
+    public static string BelgeDurumMetin(DateTime? tarih) => tarih == null ? "Yok"
+        : (tarih.Value - DateTime.Today).Days switch
+        {
+            var d when d < 0 => $"{Math.Abs(d)}g geçti",
+            var d when d <= 30 => $"{d}g kaldı",
+            _ => tarih.Value.ToString("dd.MM.yy")
+        };
+}
 
 

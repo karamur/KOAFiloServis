@@ -72,6 +72,33 @@
                 }
             </button>
         </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link @(aktifSekme == "tedarikci" ? "active" : "")" @onclick="SekmeTedarikciTabloAc" @onclick:preventDefault="true">
+                <i class="bi bi-building me-1"></i>Tedarikçi Belgeleri
+                @if (tedarikciEvrakTablosu != null)
+                {
+                    <span class="badge bg-secondary ms-1">@tedarikciEvrakTablosu.Count</span>
+                }
+            </button>
+        </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link @(aktifSekme == "tedarikci-personel" ? "active" : "")" @onclick="SekmeTedarikciPersonelTabloAc" @onclick:preventDefault="true">
+                <i class="bi bi-person-badge me-1"></i>Ted. Personeli
+                @if (belgeTablosu != null)
+                {
+                    <span class="badge bg-secondary ms-1">@belgeTablosu.Count(x => x.TasimaTedarikciId.HasValue)</span>
+                }
+            </button>
+        </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link @(aktifSekme == "tedarikci-arac" ? "active" : "")" @onclick="SekmeTedarikciAracTabloAc" @onclick:preventDefault="true">
+                <i class="bi bi-truck me-1"></i>Ted. Araçları
+                @if (aracBelgeTablosu != null)
+                {
+                    <span class="badge bg-secondary ms-1">@aracBelgeTablosu.Count(x => x.TasimaTedarikciId.HasValue)</span>
+                }
+            </button>
+        </li>
     </ul>
 
     <!-- Süre Uyarıları Sekmesi -->
@@ -954,6 +981,338 @@
         </div>
     }
 
+    <!-- Tedarikçi Belge Tablosu Sekmesi -->
+    @if (aktifSekme == "tedarikci")
+    {
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1">Tedarikçi Ara</label>
+                        <input type="text" class="form-control form-control-sm" @bind="tedarikciTabloArama" @bind:event="oninput" placeholder="Tedarikçi unvanı..." />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">Durum</label>
+                        <select class="form-select form-select-sm" @bind="tedarikciTabloAktifFiltre">
+                            <option value="">Tümü</option>
+                            <option value="aktif">Aktif</option>
+                            <option value="pasif">Pasif</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">Belge Filtresi</label>
+                        <select class="form-select form-select-sm" @bind="tedarikciTabloBelgeFiltre">
+                            <option value="">Tümü</option>
+                            <option value="eksik">Tarihi Girilmemiş</option>
+                            <option value="gecmis">Süresi Geçmiş</option>
+                            <option value="yaklasan">30 Gün İçinde</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex gap-1 align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="TedarikciTabloFiltreleriniTemizle">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (isTedarikciTabloyukleniyor)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (tedarikciEvrakTablosu != null)
+        {
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span>
+                        <i class="bi bi-building me-1"></i>
+                        Tedarikçi Belge Takip Tablosu
+                        <span class="badge bg-secondary ms-1">@FiltrelenmisTedarikciEvrakTablosu.Count kayıt</span>
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover mb-0 align-middle" style="font-size:0.82rem;">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>Tedarikçi</th>
+                                    <th class="text-center" style="width:50px;">Durum</th>
+                                    @foreach (var kat in TedarikciEvrakKategorileri.TumKategoriler)
+                                    {
+                                        <th class="text-center" style="width:90px;" title="@kat">@KisaKategoriAdi(kat)</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in FiltrelenmisTedarikciEvrakTablosu)
+                                {
+                                    <tr class="@(!item.Aktif ? "table-secondary opacity-75" : "")">
+                                        <td>
+                                            <a href="/personel-tasima/tedarikciler/@item.TedarikciId/evraklar" class="text-decoration-none">
+                                                <strong>@item.TedarikciUnvan</strong>
+                                            </a>
+                                        </td>
+                                        <td class="text-center">
+                                            @if (item.Aktif)
+                                            {
+                                                <span class="badge bg-success">Aktif</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Pasif</span>
+                                            }
+                                        </td>
+                                        @foreach (var kat in TedarikciEvrakKategorileri.TumKategoriler)
+                                        {
+                                            var tarih = item.Belgeler.TryGetValue(kat, out var t) ? t : null;
+                                            var cls = TedarikciEvrakTabloKalemi.BelgeDurumClass(tarih);
+                                            var txt = TedarikciEvrakTabloKalemi.BelgeDurumMetin(tarih);
+                                            <td class="text-center p-1">
+                                                <a href="/personel-tasima/tedarikciler/@item.TedarikciId/evraklar"
+                                                   class="badge @cls text-decoration-none w-100" style="font-size:0.75rem;"
+                                                   title="@kat — @txt">@txt</a>
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Tedarikçi Personel Belge Tablosu Sekmesi -->
+    @if (aktifSekme == "tedarikci-personel")
+    {
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">Tedarikçi Filtresi</label>
+                        <select class="form-select form-select-sm" @bind="tedarikciPersonelTedarikciFiltre">
+                            <option value="">Tümü</option>
+                            @foreach (var td in tedarikciler)
+                            {
+                                <option value="@td.Id">@td.Unvan</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">Personel Ara</label>
+                        <input type="text" class="form-control form-control-sm" @bind="tedarikciPersonelArama" @bind:event="oninput" placeholder="Ad, kod..." />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1">Durum</label>
+                        <select class="form-select form-select-sm" @bind="tedarikciPersonelAktifFiltre">
+                            <option value="">Tümü</option>
+                            <option value="aktif">Aktif</option>
+                            <option value="pasif">Pasif</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1">Belge Filtresi</label>
+                        <select class="form-select form-select-sm" @bind="tedarikciPersonelBelgeFiltre">
+                            <option value="">Tümü</option>
+                            <option value="eksik">Tarihi Girilmemiş</option>
+                            <option value="gecmis">Süresi Geçmiş</option>
+                            <option value="yaklasan">30 Gün İçinde</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex gap-1 align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="TedarikciPersonelFiltreleriniTemizle">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (isTabloyukleniyor)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (belgeTablosu != null)
+        {
+            <div class="card">
+                <div class="card-header py-2">
+                    <span>
+                        <i class="bi bi-person-badge me-1"></i>
+                        Tedarikçi Personel Belge Tablosu
+                        <span class="badge bg-secondary ms-1">@FiltrelenmisTedarikciPersonelTablosu.Count kayıt</span>
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover mb-0 align-middle" style="font-size:0.82rem;">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>Tedarikçi</th>
+                                    <th>Personel</th>
+                                    <th class="text-center" style="width:40px;">Görev</th>
+                                    <th class="text-center bg-primary bg-opacity-25" style="width:90px;" title="Ehliyet Geçerlilik">Ehliyet</th>
+                                    <th class="text-center bg-info bg-opacity-25" style="width:90px;" title="Kimlik Geçerlilik">Kimlik</th>
+                                    <th class="text-center bg-success bg-opacity-25" style="width:90px;" title="MYK Belgesi">MYK</th>
+                                    <th class="text-center bg-light" style="width:90px;" title="SRC Belgesi">SRC</th>
+                                    <th class="text-center bg-warning bg-opacity-25" style="width:90px;" title="Psikoteknik">Psikoteknik</th>
+                                    <th class="text-center bg-danger bg-opacity-25" style="width:90px;" title="Adli Sicil">Adli Sicil</th>
+                                    <th class="text-center bg-secondary bg-opacity-25" style="width:90px;" title="Sağlık Raporu">Sağlık</th>
+                                    <th class="text-center" style="width:60px;">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in FiltrelenmisTedarikciPersonelTablosu)
+                                {
+                                    <tr class="@(!item.Aktif ? "table-secondary opacity-75" : "")">
+                                        <td>
+                                            <small>@(item.TasimaTedarikciUnvan ?? "—")</small>
+                                        </td>
+                                        <td>
+                                            <strong>@item.PersonelAdi</strong>
+                                            <br /><small class="text-muted">@item.PersonelKodu</small>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge @GetGorevBadgeClass(item.Gorev)" style="font-size:0.7rem;">@GetGorevAdi(item.Gorev)</span>
+                                        </td>
+                                        <td class="text-center p-1">@BelgeHucre(item, "Ehliyet", item.EhliyetGecerlilik)</td>
+                                        <td class="text-center p-1">@BelgeHucre(item, "Kimlik", item.KimlikGecerlilik)</td>
+                                        <td class="text-center p-1">@BelgeHucre(item, "MykBelgesi", item.MykBelgesiGecerlilik)</td>
+                                        <td class="text-center p-1">@BelgeBoolHucre(item, "SrcBelgesi", item.SrcBelgesiVarMi)</td>
+                                        <td class="text-center p-1">@BelgeHucre(item, "Psikoteknik", item.PsikoteknikGecerlilik)</td>
+                                        <td class="text-center p-1">@BelgeHucre(item, "AdliSicil", item.AdliSicilGecerlilik)</td>
+                                        <td class="text-center p-1">@BelgeHucre(item, "SaglikRaporu", item.SaglikRaporuGecerlilik)</td>
+                                        <td class="text-center p-1">
+                                            <a class="btn btn-xs btn-outline-secondary" href="/personel/ozluk-evrak?soforId=@item.SoforId" title="Özlük Evrak Sayfası">
+                                                <i class="bi bi-folder2-open"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Tedarikçi Araçlar Belge Tablosu Sekmesi -->
+    @if (aktifSekme == "tedarikci-arac")
+    {
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">Tedarikçi Filtresi</label>
+                        <select class="form-select form-select-sm" @bind="tedarikciAracTedarikciFiltre">
+                            <option value="">Tümü</option>
+                            @foreach (var td in tedarikciler)
+                            {
+                                <option value="@td.Id">@td.Unvan</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">Araç Ara</label>
+                        <input type="text" class="form-control form-control-sm" @bind="tedarikciAracArama" @bind:event="oninput" placeholder="Plaka, şase, marka/model..." />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1">Durum</label>
+                        <select class="form-select form-select-sm" @bind="tedarikciAracAktifFiltre">
+                            <option value="">Tümü</option>
+                            <option value="aktif">Aktif</option>
+                            <option value="pasif">Pasif</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1">Belge Filtresi</label>
+                        <select class="form-select form-select-sm" @bind="tedarikciAracBelgeFiltre">
+                            <option value="">Tümü</option>
+                            <option value="eksik">Tarihi Girilmemiş</option>
+                            <option value="gecmis">Süresi Geçmiş</option>
+                            <option value="yaklasan">30 Gün İçinde</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex gap-1 align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="TedarikciAracFiltreleriniTemizle">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (isAracTabloyukleniyor)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (aracBelgeTablosu != null)
+        {
+            <div class="card">
+                <div class="card-header py-2">
+                    <span>
+                        <i class="bi bi-truck me-1"></i>
+                        Tedarikçi Araçlar Belge Tablosu
+                        <span class="badge bg-secondary ms-1">@FiltrelenmisTedarikciAracTablosu.Count kayıt</span>
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover mb-0 align-middle" style="font-size:0.82rem;">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>Tedarikçi</th>
+                                    <th>Plaka / Araç</th>
+                                    <th class="text-center" style="width:50px;">Durum</th>
+                                    <th class="text-center" style="width:55px;" title="Ruhsat">Ruhsat</th>
+                                    <th class="text-center" style="width:90px;" title="Trafik Sigortası">Sigorta</th>
+                                    <th class="text-center" style="width:90px;" title="Muayene">Muayene</th>
+                                    <th class="text-center" style="width:90px;" title="Uygunluk Belgesi">Uygunluk</th>
+                                    <th class="text-center" style="width:90px;" title="Koltuk Sigortası">Koltuk Sig.</th>
+                                    <th class="text-center" style="width:90px;" title="Kasko">Kasko</th>
+                                    <th class="text-center" style="width:60px;">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in FiltrelenmisTedarikciAracTablosu)
+                                {
+                                    <tr class="@(!item.Aktif ? "table-secondary opacity-75" : "")">
+                                        <td>
+                                            <small>@(item.TasimaTedarikciUnvan ?? "—")</small>
+                                        </td>
+                                        <td>
+                                            <strong>@item.Plaka</strong>
+                                            @if (!string.IsNullOrEmpty(item.MarkaModel))
+                                            {
+                                                <br /><small class="text-muted">@item.MarkaModel</small>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @AracBelgeBoolHucre(item.Aktif)
+                                        </td>
+                                        <td class="text-center p-1">@AracBelgeBoolHucre(item.RuhsatVarMi)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "Sigorta", item.SigortaGecerlilik)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "Muayene", item.MuayeneGecerlilik)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "Uygunluk", item.UygunlukGecerlilik)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "KoltukSigortasi", item.KoltukSigortasiGecerlilik)</td>
+                                        <td class="text-center p-1">@AracBelgeHucre(item, "Kasko", item.KaskoGecerlilik)</td>
+                                        <td class="text-center p-1">
+                                            <a class="btn btn-xs btn-outline-secondary" href="/araclar/@item.AracId" title="Araç Kartı">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
     <!-- Tarih Düzenleme Modal -->
     @if (showTarihModal && editItem != null)
     {
@@ -1176,7 +1535,8 @@
         if (!string.IsNullOrWhiteSpace(TabQuery))
         {
             var t = TabQuery.Trim().ToLowerInvariant();
-            if (t == "uyarilar" || t == "tablo" || t == "aractablo")
+            if (t == "uyarilar" || t == "tablo" || t == "aractablo"
+                || t == "tedarikci" || t == "tedarikci-personel" || t == "tedarikci-arac")
             {
                 aktifSekme = t;
             }
@@ -1197,6 +1557,18 @@
         else if (aktifSekme == "aractablo")
         {
             await SekmeAracTabloAc();
+        }
+        else if (aktifSekme == "tedarikci")
+        {
+            await SekmeTedarikciTabloAc();
+        }
+        else if (aktifSekme == "tedarikci-personel")
+        {
+            await SekmeTedarikciPersonelTabloAc();
+        }
+        else if (aktifSekme == "tedarikci-arac")
+        {
+            await SekmeTedarikciAracTabloAc();
         }
     }
 
@@ -2228,6 +2600,160 @@
         "SaglikRaporu" => "Sağlık Raporu",
         "SuruculCezaBarkod" => "Sürücü Ceza Barkodlu Belge",
         _ => alan
+    };
+
+    // ─── Tedarikçi Belge Tablosu ─────────────────────────────────────
+    private List<TedarikciEvrakTabloKalemi>? tedarikciEvrakTablosu;
+    private bool isTedarikciTabloyukleniyor = false;
+    private string tedarikciTabloArama = string.Empty;
+    private string tedarikciTabloAktifFiltre = string.Empty;
+    private string tedarikciTabloBelgeFiltre = string.Empty;
+
+    // Tedarikçi Personel (belgeTablosu'nun filtreli görünümü)
+    private string tedarikciPersonelTedarikciFiltre = string.Empty;
+    private string tedarikciPersonelArama = string.Empty;
+    private string tedarikciPersonelAktifFiltre = string.Empty;
+    private string tedarikciPersonelBelgeFiltre = string.Empty;
+
+    // Tedarikçi Araçlar (aracBelgeTablosu'nun filtreli görünümü)
+    private string tedarikciAracTedarikciFiltre = string.Empty;
+    private string tedarikciAracArama = string.Empty;
+    private string tedarikciAracAktifFiltre = string.Empty;
+    private string tedarikciAracBelgeFiltre = string.Empty;
+
+    private List<TedarikciEvrakTabloKalemi> FiltrelenmisTedarikciEvrakTablosu => (tedarikciEvrakTablosu ?? new())
+        .Where(p => string.IsNullOrWhiteSpace(tedarikciTabloArama)
+            || p.TedarikciUnvan.Contains(tedarikciTabloArama, StringComparison.OrdinalIgnoreCase))
+        .Where(p => tedarikciTabloAktifFiltre switch
+        {
+            "aktif" => p.Aktif,
+            "pasif" => !p.Aktif,
+            _ => true
+        })
+        .Where(p => tedarikciTabloBelgeFiltre switch
+        {
+            "eksik" => p.Belgeler.Values.Any(t => t == null),
+            "gecmis" => p.Belgeler.Values.Any(t => t.HasValue && t.Value < DateTime.Today),
+            "yaklasan" => p.Belgeler.Values.Any(t => t.HasValue && t.Value >= DateTime.Today && (t.Value - DateTime.Today).Days <= 30),
+            _ => true
+        })
+        .ToList();
+
+    private List<PersonelBelgeTabloKalemi> FiltrelenmisTedarikciPersonelTablosu => (belgeTablosu ?? new())
+        .Where(p => p.TasimaTedarikciId.HasValue)
+        .Where(p => string.IsNullOrWhiteSpace(tedarikciPersonelTedarikciFiltre)
+            || p.TasimaTedarikciId.ToString() == tedarikciPersonelTedarikciFiltre)
+        .Where(p => string.IsNullOrWhiteSpace(tedarikciPersonelArama)
+            || p.PersonelAdi.Contains(tedarikciPersonelArama, StringComparison.OrdinalIgnoreCase)
+            || p.PersonelKodu.Contains(tedarikciPersonelArama, StringComparison.OrdinalIgnoreCase))
+        .Where(p => tedarikciPersonelAktifFiltre switch
+        {
+            "aktif" => p.Aktif,
+            "pasif" => !p.Aktif,
+            _ => true
+        })
+        .Where(p => tedarikciPersonelBelgeFiltre switch
+        {
+            "eksik" => GetEksikBelgeSayisi(p) > 0,
+            "gecmis" => GetTumBelgeTarihleri(p).Any(t => t < DateTime.Today),
+            "yaklasan" => GetTumBelgeTarihleri(p).Any(t => t >= DateTime.Today && (t - DateTime.Today).Days <= 30),
+            _ => true
+        })
+        .ToList();
+
+    private List<AracBelgeTabloKalemi> FiltrelenmisTedarikciAracTablosu => (aracBelgeTablosu ?? new())
+        .Where(p => p.TasimaTedarikciId.HasValue)
+        .Where(p => string.IsNullOrWhiteSpace(tedarikciAracTedarikciFiltre)
+            || p.TasimaTedarikciId.ToString() == tedarikciAracTedarikciFiltre)
+        .Where(p => string.IsNullOrWhiteSpace(tedarikciAracArama)
+            || (p.Plaka ?? string.Empty).Contains(tedarikciAracArama, StringComparison.OrdinalIgnoreCase)
+            || (p.SaseNo ?? string.Empty).Contains(tedarikciAracArama, StringComparison.OrdinalIgnoreCase)
+            || (p.MarkaModel ?? string.Empty).Contains(tedarikciAracArama, StringComparison.OrdinalIgnoreCase))
+        .Where(p => tedarikciAracAktifFiltre switch
+        {
+            "aktif" => p.Aktif,
+            "pasif" => !p.Aktif,
+            _ => true
+        })
+        .Where(p => tedarikciAracBelgeFiltre switch
+        {
+            "eksik" => GetEksikAracBelgeSayisi(p) > 0,
+            "gecmis" => GetTumAracBelgeTarihleri(p).Any(t => t < DateTime.Today),
+            "yaklasan" => GetTumAracBelgeTarihleri(p).Any(t => t >= DateTime.Today && (t - DateTime.Today).Days <= 30),
+            _ => true
+        })
+        .ToList();
+
+    private async Task SekmeTedarikciTabloAc()
+    {
+        aktifSekme = "tedarikci";
+        if (tedarikciEvrakTablosu != null) return;
+        isTedarikciTabloyukleniyor = true;
+        StateHasChanged();
+        try
+        {
+            tedarikciEvrakTablosu = await BelgeUyariService.GetTedarikciEvrakTablosuAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "TedarikciEvrakTablosuYukle hatası");
+            ToastService.ShowError($"Tedarikçi belge tablosu yüklenirken hata: {ex.Message}");
+        }
+        finally
+        {
+            isTedarikciTabloyukleniyor = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SekmeTedarikciPersonelTabloAc()
+    {
+        aktifSekme = "tedarikci-personel";
+        await BelgeTabloyuYukle();
+    }
+
+    private async Task SekmeTedarikciAracTabloAc()
+    {
+        aktifSekme = "tedarikci-arac";
+        await AracBelgeTabloyuYukle();
+    }
+
+    private void TedarikciTabloFiltreleriniTemizle()
+    {
+        tedarikciTabloArama = string.Empty;
+        tedarikciTabloAktifFiltre = string.Empty;
+        tedarikciTabloBelgeFiltre = string.Empty;
+    }
+
+    private void TedarikciPersonelFiltreleriniTemizle()
+    {
+        tedarikciPersonelTedarikciFiltre = string.Empty;
+        tedarikciPersonelArama = string.Empty;
+        tedarikciPersonelAktifFiltre = string.Empty;
+        tedarikciPersonelBelgeFiltre = string.Empty;
+    }
+
+    private void TedarikciAracFiltreleriniTemizle()
+    {
+        tedarikciAracTedarikciFiltre = string.Empty;
+        tedarikciAracArama = string.Empty;
+        tedarikciAracAktifFiltre = string.Empty;
+        tedarikciAracBelgeFiltre = string.Empty;
+    }
+
+    private static string KisaKategoriAdi(string kategori) => kategori switch
+    {
+        "Ticaret Sicil Gazetesi" => "T. Sicil",
+        "Vergi Levhası" => "Vergi Lev.",
+        "İmza Sirküleri" => "İmza Sirküleri",
+        "Yetki Belgesi" => "Yetki Bel.",
+        "Faaliyet Belgesi" => "Faaliyet",
+        "SGK Belgesi" => "SGK",
+        "İş Güvenliği Belgesi" => "İş Güv.",
+        "Sorumluluk Sigortası" => "Sorumluluk Sig.",
+        "Kapasite Raporu" => "Kapasite",
+        "Diğer" => "Diğer",
+        _ => kategori
     };
 }
 

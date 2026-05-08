@@ -273,6 +273,118 @@ public class TasimaTedarikciService : ITasimaTedarikciService
             .ToListAsync();
     }
 
+    #region Tedarikçi Evrak İşlemleri
+
+    public async Task<List<TedarikciEvrak>> GetTedarikciEvraklariAsync(int tedarikciId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.TedarikciEvraklari
+            .Include(e => e.Dosyalar)
+            .Where(e => e.TasimaTedarikciId == tedarikciId)
+            .OrderBy(e => e.EvrakKategorisi)
+            .ThenByDescending(e => e.BitisTarihi)
+            .ToListAsync();
+    }
+
+    public async Task<TedarikciEvrak> CreateTedarikciEvrakAsync(TedarikciEvrak evrak)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        if (evrak.BaslangicTarihi.HasValue)
+            evrak.BaslangicTarihi = DateTime.SpecifyKind(evrak.BaslangicTarihi.Value, DateTimeKind.Utc);
+        if (evrak.BitisTarihi.HasValue)
+            evrak.BitisTarihi = DateTime.SpecifyKind(evrak.BitisTarihi.Value, DateTimeKind.Utc);
+
+        evrak.CreatedAt = DateTime.UtcNow;
+        context.TedarikciEvraklari.Add(evrak);
+        await context.SaveChangesAsync();
+        return evrak;
+    }
+
+    public async Task<TedarikciEvrak> UpdateTedarikciEvrakAsync(TedarikciEvrak evrak)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        if (evrak.BaslangicTarihi.HasValue)
+            evrak.BaslangicTarihi = DateTime.SpecifyKind(evrak.BaslangicTarihi.Value, DateTimeKind.Utc);
+        if (evrak.BitisTarihi.HasValue)
+            evrak.BitisTarihi = DateTime.SpecifyKind(evrak.BitisTarihi.Value, DateTimeKind.Utc);
+
+        evrak.UpdatedAt = DateTime.UtcNow;
+        context.TedarikciEvraklari.Update(evrak);
+        await context.SaveChangesAsync();
+        return evrak;
+    }
+
+    public async Task DeleteTedarikciEvrakAsync(int evrakId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var evrak = await context.TedarikciEvraklari
+            .Include(e => e.Dosyalar)
+            .FirstOrDefaultAsync(e => e.Id == evrakId);
+
+        if (evrak != null)
+        {
+            foreach (var dosya in evrak.Dosyalar)
+                await _secureFileService.DeleteAsync(dosya.DosyaYolu);
+
+            evrak.IsDeleted = true;
+            await context.SaveChangesAsync();
+        }
+    }
+
+    public async Task<TedarikciEvrakDosya> UploadTedarikciEvrakDosyaAsync(int evrakId, IBrowserFile file)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var evrak = await context.TedarikciEvraklari.FindAsync(evrakId)
+            ?? throw new Exception("Evrak bulunamadı");
+
+        await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+
+        var storedPath = await _secureFileService.SaveEncryptedAsync(
+            $"tedarikci-evraklar/{evrakId}",
+            file.Name,
+            ms.ToArray());
+
+        var dosya = new TedarikciEvrakDosya
+        {
+            TedarikciEvrakId = evrakId,
+            DosyaAdi = file.Name,
+            DosyaYolu = storedPath,
+            DosyaTipi = Path.GetExtension(file.Name).TrimStart('.').ToLower(),
+            DosyaBoyutu = file.Size,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.TedarikciEvrakDosyalari.Add(dosya);
+        await context.SaveChangesAsync();
+        return dosya;
+    }
+
+    public async Task<byte[]> GetTedarikciEvrakDosyaAsync(int dosyaId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var dosya = await context.TedarikciEvrakDosyalari.FindAsync(dosyaId)
+            ?? throw new Exception("Dosya bulunamadı");
+
+        return await _secureFileService.ReadDecryptedAsync(dosya.DosyaYolu)
+            ?? throw new Exception("Dosya diskte bulunamadı");
+    }
+
+    public async Task DeleteTedarikciEvrakDosyaAsync(int dosyaId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var dosya = await context.TedarikciEvrakDosyalari.FindAsync(dosyaId);
+        if (dosya != null)
+        {
+            await _secureFileService.DeleteAsync(dosya.DosyaYolu);
+            dosya.IsDeleted = true;
+            await context.SaveChangesAsync();
+        }
+    }
+
+    #endregion
+
     private static void MapFromCari(TasimaTedarikci hedef, Cari kaynak)
     {
         hedef.Unvan = kaynak.Unvan;

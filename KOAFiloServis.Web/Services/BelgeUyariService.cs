@@ -207,6 +207,7 @@ public class BelgeUyariService : IBelgeUyariService
         // 1. Tüm aktif personelleri çek
         var soforler = await context.Soforler
             .AsNoTracking()
+            .Include(s => s.TasimaTedarikci)
             .Where(s => !s.IsDeleted)
             .OrderBy(s => s.SiralamaNo == 0 ? int.MaxValue : s.SiralamaNo)
             .ThenBy(s => s.Ad)
@@ -264,6 +265,8 @@ public class BelgeUyariService : IBelgeUyariService
                 PersonelKodu = s.SoforKodu,
                 Gorev = s.Gorev.ToString(),
                 Aktif = s.Aktif,
+                TasimaTedarikciId = s.TasimaTedarikciId,
+                TasimaTedarikciUnvan = s.TasimaTedarikci?.Unvan,
                 ToplamEvrakSayisi = gecerliTanimlar.Count,
                 YuklenmisEvrakSayisi = personelEvraklar.Count(e =>
                     gecerliTanimlar.Any(t => t.Id == e.EvrakTanimId) && !string.IsNullOrEmpty(e.DosyaYolu)),
@@ -452,6 +455,7 @@ public class BelgeUyariService : IBelgeUyariService
 
         var araclar = await context.Araclar
             .AsNoTracking()
+            .Include(a => a.TasimaTedarikci)
             .Where(a => !a.IsDeleted)
             .OrderBy(a => a.AktifPlaka ?? a.SaseNo)
             .ToListAsync();
@@ -530,6 +534,8 @@ public class BelgeUyariService : IBelgeUyariService
                 MarkaModel = $"{a.Marka} {a.Model}".Trim(),
                 AracTipi = a.AracTipi,
                 Aktif = a.Aktif,
+                TasimaTedarikciId = a.TasimaTedarikciId,
+                TasimaTedarikciUnvan = a.TasimaTedarikci?.Unvan,
                 ToplamEvrakSayisi = sutunlar.Length,
                 YuklenmisEvrakSayisi = dosyalar.Count(d => d.DosyaVar),
                 EvrakDosyalari = dosyalar,
@@ -720,6 +726,62 @@ public class BelgeUyariService : IBelgeUyariService
         }
         zipMs.Position = 0;
         return zipMs.ToArray();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Tedarikçi Evrak Tablosu
+    // ─────────────────────────────────────────────────────────────────
+
+    public async Task<List<TedarikciEvrakTabloKalemi>> GetTedarikciEvrakTablosuAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var tedarikciler = await context.TasimaTedarikciler
+            .AsNoTracking()
+            .Where(t => !t.IsDeleted)
+            .OrderBy(t => t.Unvan)
+            .ToListAsync();
+
+        if (!tedarikciler.Any()) return new List<TedarikciEvrakTabloKalemi>();
+
+        var tedarikciIdler = tedarikciler.Select(t => t.Id).ToList();
+
+        var tumEvraklar = await context.TedarikciEvraklari
+            .AsNoTracking()
+            .Where(e => tedarikciIdler.Contains(e.TasimaTedarikciId) && !e.IsDeleted)
+            .ToListAsync();
+
+        var evraklarByTedarikci = tumEvraklar
+            .GroupBy(e => e.TasimaTedarikciId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = new List<TedarikciEvrakTabloKalemi>();
+
+        foreach (var t in tedarikciler)
+        {
+            var evraklar = evraklarByTedarikci.TryGetValue(t.Id, out var ev) ? ev : new();
+
+            var belgeler = new Dictionary<string, DateTime?>();
+            foreach (var kategori in TedarikciEvrakKategorileri.TumKategoriler)
+            {
+                var enYeniEvrak = evraklar
+                    .Where(e => string.Equals(e.EvrakKategorisi, kategori, StringComparison.OrdinalIgnoreCase)
+                                && e.Durum != EvrakDurum.Pasif)
+                    .OrderByDescending(e => e.BitisTarihi ?? DateTime.MinValue)
+                    .FirstOrDefault();
+                belgeler[kategori] = enYeniEvrak?.BitisTarihi;
+            }
+
+            result.Add(new TedarikciEvrakTabloKalemi
+            {
+                TedarikciId = t.Id,
+                TedarikciUnvan = t.Unvan,
+                Aktif = t.Aktif,
+                Belgeler = belgeler
+            });
+        }
+
+        return result;
     }
 }
 
