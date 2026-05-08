@@ -203,6 +203,30 @@
                                                 <i class="bi bi-wrench-adjustable-circle me-2 text-danger"></i> Bakım-Onarım Kayıtları
                                             </NavLink>
                                         </div>
+
+                                        <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
+                                            <span><i class="bi bi-circle-half me-2"></i>Lastik Takip</span>
+                                        </div>
+                                        <div class="nav-item px-3">
+                                            <NavLink class="nav-link" href="lastik/degisimler">
+                                                <i class="bi bi-arrow-repeat me-2 text-warning"></i> Lastik Değişimleri
+                                            </NavLink>
+                                        </div>
+                                        <div class="nav-item px-3">
+                                            <NavLink class="nav-link" href="lastik/stok">
+                                                <i class="bi bi-stack me-2 text-info"></i> Lastik Stok
+                                            </NavLink>
+                                        </div>
+                                        <div class="nav-item px-3">
+                                            <NavLink class="nav-link" href="lastik/depolar">
+                                                <i class="bi bi-building me-2"></i> Lastik Depoları
+                                            </NavLink>
+                                        </div>
+                                        <div class="nav-item px-3">
+                                            <NavLink class="nav-link" href="lastik/sezon-takip">
+                                                <i class="bi bi-calendar2-range me-2 text-success"></i> Sezon Takibi
+                                            </NavLink>
+                                        </div>
                                     </div>
                                 }
                             </div>
@@ -221,43 +245,54 @@
                             </NavLink>
                         </div>
 
-
-
+                        @if (HasAnyYetki("tedarikciservis.oku", "tedarikciarac.oku", "tedarikcipersonel.oku", "tedarikciaracevrak.oku", "serviscalisma.oku", "araclar.oku", "personel.oku"))
+                        {
                             <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
-                                <span><i class="bi bi-speedometer2 me-2"></i>Filo Yönetimi</span>
+                                <span><i class="bi bi-truck me-2"></i>Tedarikçi Servis Operasyon</span>
                             </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="filo-operasyon">
-                                    <i class="bi bi-gear-wide-connected me-2 text-info"></i> <strong>Filo Operasyon</strong>
-                                </NavLink>
-                            </div>
+                            @if (HasAnyYetki("tedarikciservis.oku", "serviscalisma.oku"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="personel-tasima/tedarikciler">
+                                        <i class="bi bi-truck me-2 text-success"></i> Tedarikçi Servis Operasyon
+                                    </NavLink>
+                                </div>
+                            }
+                            @if (HasAnyYetki("tedarikciarac.oku", "araclar.oku"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="tedarikci-servis/araclar">
+                                        <i class="bi bi-truck-front me-2 text-primary"></i> Tedarikçi Araçları
+                                    </NavLink>
+                                </div>
+                            }
+                            @if (HasAnyYetki("tedarikcipersonel.oku", "personel.oku"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="tedarikci-servis/personel">
+                                        <i class="bi bi-people me-2 text-info"></i> Tedarikçi Personel
+                                    </NavLink>
+                                </div>
+                            }
+                            @if (HasAnyYetki("tedarikciaracevrak.oku", "araclar.oku"))
+                            {
+                                <div class="nav-item px-3">
+                                    <NavLink class="nav-link" href="tedarikci-servis/arac-evraklari">
+                                        <i class="bi bi-folder2-open me-2 text-warning"></i> Tedarikçi Araç Evrakları
+                                    </NavLink>
+                                </div>
+                            }
+                        }
 
-
-
-                        <!-- LASTİK TAKİP -->
                         <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
-                            <span><i class="bi bi-circle-half me-2"></i>Lastik Takip</span>
+                            <span><i class="bi bi-speedometer2 me-2"></i>Filo Yönetimi</span>
                         </div>
                         <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="lastik/degisimler">
-                                <i class="bi bi-arrow-repeat me-2 text-warning"></i> Lastik Değişimleri
+                            <NavLink class="nav-link" href="filo-operasyon">
+                                <i class="bi bi-gear-wide-connected me-2 text-info"></i> <strong>Filo Operasyon</strong>
                             </NavLink>
                         </div>
-                        <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="lastik/stok">
-                                <i class="bi bi-stack me-2 text-info"></i> Lastik Stok
-                            </NavLink>
-                        </div>
-                        <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="lastik/depolar">
-                                <i class="bi bi-building me-2"></i> Lastik Depoları
-                            </NavLink>
-                        </div>
-                        <div class="nav-item px-3">
-                            <NavLink class="nav-link" href="lastik/sezon-takip">
-                                <i class="bi bi-calendar2-range me-2 text-success"></i> Sezon Takibi
-                            </NavLink>
-                        </div>
+
                     </div>
                 }
             </div>
@@ -611,14 +646,6 @@
                                 </NavLink>
                             </div>
 
-                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
-                                <span><i class="bi bi-truck me-2"></i>Personel Taşıma Tedarikçileri</span>
-                            </div>
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="personel-tasima/tedarikciler">
-                                    <i class="bi bi-truck me-2 text-success"></i> Tedarikçi Yönetimi
-                                </NavLink>
-                            </div>
                         }
                         @if (HasYetki("piyasa.oku"))
                         {
@@ -1287,7 +1314,7 @@
     {
         ["menu.crm"] = new() { "bildirim", "mesaj", "email", "hatirlatici" },
         ["menu.cari"] = new() { "cari", "cariler", "kesilenfatura", "gelenfatura" },
-        ["menu.filoservis"] = new() { "arac", "araclar", "guzergah", "guzergahlar", "", "toplucalisma", "aracmasraf", "filo", "hakedis" },
+        ["menu.filoservis"] = new() { "arac", "araclar", "guzergah", "guzergahlar", "serviscalisma", "toplucalisma", "aracmasraf", "filo", "hakedis", "tedarikciservis", "tedarikciarac", "tedarikcipersonel", "tedarikciaracevrak" },
         ["menu.muhasebe"] = new() { "muhasebe", "hesapplani", "muhasebefis", "muhaseberapor" },
         ["menu.personel"] = new() { "personel", "maas", "izin" },
         ["menu.fatura"] = new() { "fatura", "faturalar", "faturahazirlik", "kesilenfatura", "gelenfatura" },
@@ -1303,7 +1330,7 @@
 
     private static readonly Dictionary<string, HashSet<string>> MenuRelatedYetkiler = new()
     {
-        ["menu.filoservis"] = new() { "raporlar.oku" },
+        ["menu.filoservis"] = new() { "raporlar.oku", "serviscalisma.oku", "tedarikciservis.oku", "tedarikciarac.oku", "tedarikcipersonel.oku", "tedarikciaracevrak.oku" },
         ["menu.satis"] = new() { "satis.oku", "piyasa.oku", "raporlar.oku" },
     };
 

@@ -48,11 +48,12 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="text-muted mb-2">Komisyon Araç Sayısı</h6>
-                                <h3 class="mb-0">@_ozet.KomisyonAracSayisi</h3>
+                                <h6 class="text-muted mb-2">Tedarikçi Araçları</h6>
+                                <h3 class="mb-0">@_ozet.TedarikciAraciSayisi</h3>
+                                <small class="text-muted">tedarikçiye bağlı araç</small>
                             </div>
                             <div class="text-success">
-                                <i class="bi bi-briefcase fs-1"></i>
+                                <i class="bi bi-truck-front fs-1"></i>
                             </div>
                         </div>
                     </div>
@@ -135,25 +136,30 @@
 
         <!-- Modül Kartları -->
         <div class="row g-4">
-            <!-- Personel Taşıma Tedarikçileri -->
+            <!-- Tedarikçi Servis Operasyon -->
             <div class="col-md-6">
                 <div class="card h-100">
                     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-truck me-2"></i>Personel Taşıma Tedarikçileri</h5>
+                        <h5 class="mb-0"><i class="bi bi-truck me-2"></i>Tedarikçi Servis Operasyon</h5>
                         <a href="/personel-tasima/tedarikciler" class="btn btn-sm btn-light">
                             <i class="bi bi-arrow-right"></i> Tümü
                         </a>
                     </div>
                     <div class="card-body">
                         <p class="text-muted mb-3">
-                            Alt yüklenici (taşıma) firmaları, personel ve araçlarının yönetimi; 
-                            sözleşme, sefer ücretleri ve kazanç takibi.
+                            Alt yüklenici (taşıma) firmaları ve tedarikçiye bağlı araç/personel yönetimi;
+                            sözleşme, sefer ücretleri ve evrak takibi.
                         </p>
                         <ul class="list-unstyled">
                             <li><i class="bi bi-check-circle text-success me-2"></i>Tedarikçi ve iletişim yönetimi</li>
-                            <li><i class="bi bi-check-circle text-success me-2"></i>Personel ve araç atama</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>
+                                <a href="/tedarikci-servis/araclar">Tedarikçi Araçları</a> &amp;
+                                <a href="/tedarikci-servis/personel">Tedarikçi Personeli</a>
+                            </li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>
+                                <a href="/tedarikci-servis/arac-evraklari">Araç Evrak Takibi</a>
+                            </li>
                             <li><i class="bi bi-check-circle text-success me-2"></i>Sözleşme ve sefer ücreti takibi</li>
-                            <li><i class="bi bi-check-circle text-success me-2"></i>İş / güzergah erişimi</li>
                         </ul>
                     </div>
                 </div>

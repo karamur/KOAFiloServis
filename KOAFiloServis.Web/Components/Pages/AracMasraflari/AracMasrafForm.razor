@@ -4,6 +4,7 @@
 @using KOAFiloServis.Web.Services
 @inject IAracMasrafService AracMasrafService
 @inject IBankaKasaHareketService HareketService
+@inject IBankaHesapService BankaHesapService
 @inject IAracService AracService
 @inject IMasrafKalemiService MasrafKalemiService
 @inject IGuzergahService GuzergahService
@@ -132,6 +133,19 @@
                                     </InputSelect>
                                 </div>
                             </div>
+                            <div class="col-md-6" style="display:@(odemeTipi == "Personel" ? "block" : "none")">
+                                <div class="mb-3">
+                                    <label class="form-label">Geri Ödeme Hesabı</label>
+                                    <InputSelect TValue="int?" @bind-Value="masraf.BankaHesapId" class="form-select">
+                                        <option value="">-- Hesap Seçiniz (opsiyonel) --</option>
+                                        @foreach (var h in hesaplar)
+                                        {
+                                            <option value="@h.Id">@h.HesapAdi (@GetHesapTipText(h.HesapTipi))</option>
+                                        }
+                                    </InputSelect>
+                                    <small class="text-muted">Personele geri ödeme yapılacak banka/kasa hesabı. Seçilirse Banka/Kasa hareketine otomatik aktarılır.</small>
+                                </div>
+                            </div>
                             <div class="col-md-6" style="display:@(odemeTipi == "Cari" ? "block" : "none")">
                                 <div class="mb-3">
                                     <label class="form-label">Cari</label>
@@ -229,6 +243,7 @@
     private List<ServisCalisma> servisCalismalar = new();
     private List<Sofor> soforler = new();
     private List<Cari> cariler = new();
+    private List<BankaHesap> hesaplar = new();
     private string odemeTipi = "Kasa";
     private bool muhasebeFisiOlustur = true;
     private bool IsEdit => Id.HasValue;
@@ -247,6 +262,7 @@
         guzergahlar = await GuzergahService.GetActiveAsync();
         soforler = await SoforService.GetActiveAsync();
         cariler = await CariService.GetAllAsync();
+        hesaplar = await BankaHesapService.GetActiveAsync();
 
         var endDate = DateTime.Today;
         var startDate = endDate.AddDays(-30);
@@ -409,5 +425,15 @@
         MasrafKategori.YedekParca => "Yedek Parça",
         MasrafKategori.Diger => "Diğer",
         _ => kategori.ToString()
+    };
+
+    private string GetHesapTipText(HesapTipi tip) => tip switch
+    {
+        HesapTipi.Kasa => "Kasa",
+        HesapTipi.VadesizHesap => "Vadesiz",
+        HesapTipi.VadeliHesap => "Vadeli",
+        HesapTipi.KrediHesabi => "Kredi",
+        HesapTipi.KrediKarti => "Kredi Kartı",
+        _ => tip.ToString()
     };
 }

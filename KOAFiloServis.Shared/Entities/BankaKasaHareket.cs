@@ -74,6 +74,11 @@ public class BankaKasaHareket : BaseEntity
     public int? CariId { get; set; } // Iliskili cari varsa
     public int? AracId { get; set; } // Iliskili arac varsa (ozellikle personel cebinden arac masraflari icin)
 
+    /// <summary>
+    /// Otomatik oluşturulan hareket: kaynak araç masrafı ID'si (personel cebinden girişler için)
+    /// </summary>
+    public int? AracMasrafId { get; set; }
+
     // Navigation Properties
     public virtual BankaHesap BankaHesap { get; set; } = null!;
     public virtual Cari? Cari { get; set; }

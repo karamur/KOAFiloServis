@@ -1,0 +1,130 @@
+@page "/tedarikci-servis/personel"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@inject ISoforService SoforService
+@inject ITasimaTedarikciService TasimaTedarikciService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Tedarikçi Personel</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-people me-2"></i>Tedarikçi Personel</h3>
+        <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/personel-tasima/tedarikciler")'>
+            <i class="bi bi-truck me-1"></i>Tedarikçi Yönetimi
+        </button>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body bg-light">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small">Ara (Ad, Kod, Telefon)</label>
+                    <input class="form-control form-control-sm" @bind="arama" @bind:event="oninput" placeholder="Arama..." />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Tedarikçi</label>
+                    <select class="form-select form-select-sm" @bind="seciliTedarikciId">
+                        <option value="0">Tümü</option>
+                        @foreach (var t in tedarikciler)
+                        {
+                            <option value="@t.Id">@t.Unvan</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex justify-content-end">
+                    <button class="btn btn-sm btn-primary" @onclick='() => Navigation.NavigateTo("/personel")'>
+                        <i class="bi bi-grid me-1"></i>Tüm Personel Sayfası
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (yukleniyor)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else if (!FiltreliPersonel.Any())
+    {
+        <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Kayıt bulunamadı.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Kod</th>
+                                <th>Ad Soyad</th>
+                                <th>Görev</th>
+                                <th>Telefon</th>
+                                <th>Tedarikçi</th>
+                                <th>Durum</th>
+                                <th class="text-end">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in FiltreliPersonel)
+                            {
+                                <tr>
+                                    <td><strong>@p.SoforKodu</strong></td>
+                                    <td>@p.TamAd</td>
+                                    <td><span class="badge bg-secondary">@p.Gorev</span></td>
+                                    <td>@(p.Telefon ?? "-")</td>
+                                    <td><span class="badge bg-info text-dark">@GetTedarikciUnvan(p.TasimaTedarikciId)</span></td>
+                                    <td>
+                                        <span class="badge @(p.Aktif ? "bg-success" : "bg-danger")">@(p.Aktif ? "Aktif" : "Pasif")</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick='() => Navigation.NavigateTo($"/personel/{p.Id}")'>
+                                            <i class="bi bi-pencil-square me-1"></i>Düzenle
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool yukleniyor = true;
+    private string arama = string.Empty;
+    private int seciliTedarikciId;
+    private List<Sofor> personeller = new();
+    private List<TasimaTedarikci> tedarikciler = new();
+
+    private IEnumerable<Sofor> FiltreliPersonel => personeller
+        .Where(p => p.TasimaTedarikciId.HasValue)
+        .Where(p => seciliTedarikciId == 0 || p.TasimaTedarikciId == seciliTedarikciId)
+        .Where(p => string.IsNullOrWhiteSpace(arama)
+            || (p.SoforKodu?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (p.Ad?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (p.Soyad?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (p.Telefon?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
+            || GetTedarikciUnvan(p.TasimaTedarikciId).Contains(arama, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(p => p.Ad)
+        .ThenBy(p => p.Soyad);
+
+    protected override async Task OnInitializedAsync()
+    {
+        tedarikciler = await TasimaTedarikciService.GetAllAsync(sadeceAktif: false);
+        personeller = await SoforService.GetAllAsync();
+        yukleniyor = false;
+    }
+
+    private string GetTedarikciUnvan(int? id)
+    {
+        if (!id.HasValue) return "-";
+        return tedarikciler.FirstOrDefault(t => t.Id == id.Value)?.Unvan ?? "-";
+    }
+}

@@ -658,6 +658,10 @@ public class KullaniciService : IKullaniciService
 
         // Yeni eklenen sistem yetkilerini mevcut rollere eksikse ekle (mevcut ozellestirmeleri ezmeden)
         await EnsureRolePermissionAsync(context, SistemRolleri.Operasyon, Yetkiler.PersonelBorcSil);
+        await EnsureRolePermissionAsync(context, SistemRolleri.Operasyon, Yetkiler.TedarikciServisOperasyonOku);
+        await EnsureRolePermissionAsync(context, SistemRolleri.Operasyon, Yetkiler.TedarikciAraclariOku);
+        await EnsureRolePermissionAsync(context, SistemRolleri.Operasyon, Yetkiler.TedarikciPersonelOku);
+        await EnsureRolePermissionAsync(context, SistemRolleri.Operasyon, Yetkiler.TedarikciAracEvraklariOku);
 
         // Admin kullanici olustur veya sifresini dogrula
         var adminRol = await context.Roller.FirstOrDefaultAsync(r => r.RolAdi == SistemRolleri.Admin);

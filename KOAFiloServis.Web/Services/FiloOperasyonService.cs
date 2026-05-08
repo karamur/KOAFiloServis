@@ -346,7 +346,7 @@ public class FiloOperasyonService : IFiloOperasyonService
             ToplamAracSayisi = araclar.Count,
             OzmalAracSayisi = araclar.Count(a => a.SahiplikTipi == AracSahiplikTipi.Ozmal),
             KiralikAracSayisi = araclar.Count(a => a.SahiplikTipi == AracSahiplikTipi.Kiralik),
-            KomisyonAracSayisi = araclar.Count(a => a.SahiplikTipi == AracSahiplikTipi.Komisyon),
+            TedarikciAraciSayisi = araclar.Count(a => a.TasimaTedarikciId.HasValue),
             SatisaBekleyenAracSayisi = araclar.Count(a => a.SatisaAcik),
             NoterBekleyenSatisSayisi = satisaBekleyenler,
             DevamEdenPlakaDonusumSayisi = plakaDonusumleri
@@ -378,7 +378,7 @@ public class FiloOzetRaporu
     public int ToplamAracSayisi { get; set; }
     public int OzmalAracSayisi { get; set; }
     public int KiralikAracSayisi { get; set; }
-    public int KomisyonAracSayisi { get; set; }
+    public int TedarikciAraciSayisi { get; set; }
     public int SatisaBekleyenAracSayisi { get; set; }
     public int NoterBekleyenSatisSayisi { get; set; }
     public int DevamEdenPlakaDonusumSayisi { get; set; }

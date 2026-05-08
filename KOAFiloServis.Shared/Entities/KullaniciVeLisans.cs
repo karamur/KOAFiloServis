@@ -240,6 +240,7 @@ public static class SistemRolleri
                 Yetkiler.GuzergahlarOku, Yetkiler.GuzergahlarYaz, Yetkiler.GuzergahlarDuzenle,
                 // Servis Calismalari
                 Yetkiler.ServisCalismalariOku, Yetkiler.ServisCalismalariYaz, Yetkiler.ServisCalismalariDuzenle,
+                Yetkiler.TedarikciServisOperasyonOku, Yetkiler.TedarikciAraclariOku, Yetkiler.TedarikciPersonelOku, Yetkiler.TedarikciAracEvraklariOku,
                 Yetkiler.TopluCalismaOku, Yetkiler.TopluCalismaYaz, Yetkiler.TopluCalismaDuzenle,
                 // Masraf
                 Yetkiler.MasrafKalemleriOku, Yetkiler.MasrafKalemleriYaz,
@@ -426,6 +427,12 @@ public static class Yetkiler
     public const string ServisCalismalariYaz = "serviscalisma.yaz";
     public const string ServisCalismalariDuzenle = "serviscalisma.duzenle";
     public const string ServisCalismalariSil = "serviscalisma.sil";
+
+    // -- Tedarikci Servis Operasyon --
+    public const string TedarikciServisOperasyonOku = "tedarikciservis.oku";
+    public const string TedarikciAraclariOku = "tedarikciarac.oku";
+    public const string TedarikciPersonelOku = "tedarikcipersonel.oku";
+    public const string TedarikciAracEvraklariOku = "tedarikciaracevrak.oku";
 
     // -- Toplu Calisma --
     public const string TopluCalismaOku = "toplucalisma.oku";
@@ -750,6 +757,13 @@ public static class Yetkiler
                     new(ServisCalismalariYaz, "Yazma", "bi-plus"),
                     new(ServisCalismalariDuzenle, "Duzenleme", "bi-pencil"),
                     new(ServisCalismalariSil, "Silme", "bi-trash"),
+                }),
+                new("Tedarikci Servis Operasyon", "bi-truck", new List<YetkiTanim>
+                {
+                    new(TedarikciServisOperasyonOku, "Modul Goruntuleme", "bi-eye"),
+                    new(TedarikciAraclariOku, "Tedarikci Araclari", "bi-truck-front"),
+                    new(TedarikciPersonelOku, "Tedarikci Personel", "bi-people"),
+                    new(TedarikciAracEvraklariOku, "Tedarikci Arac Evraklari", "bi-folder2-open"),
                 }),
                 new("Toplu Calisma Girisi", "bi-list-check", new List<YetkiTanim>
                 {

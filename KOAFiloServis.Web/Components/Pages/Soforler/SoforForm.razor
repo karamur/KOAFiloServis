@@ -15,7 +15,6 @@
 @inject IJSRuntime JS
 @inject IAktiviteLogService AktiviteLog
 @inject IAracService AracService
-@inject ITasimaTedarikciService TasimaTedarikciService
 @inject IDbContextFactory<KOAFiloServis.Web.Data.ApplicationDbContext> DbContextFactory
 @rendermode InteractiveServer
 
@@ -93,19 +92,6 @@
                                 }
                             </InputSelect>
                             <small class="text-muted">Bordro bu firmaya göre hazırlanır</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="mb-3">
-                            <label class="form-label">Taşıma Tedarikçisi</label>
-                            <InputSelect @bind-Value="sofor.TasimaTedarikciId" class="form-select">
-                                <option value="">-- Yok (kendi personelimiz) --</option>
-                                @foreach (var t in tasimaTedarikciler)
-                                {
-                                    <option value="@t.Id">@t.Unvan</option>
-                                }
-                            </InputSelect>
-                            <small class="text-muted">Alt yüklenici personeliyse seçin</small>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -1033,14 +1019,10 @@
     // Firma listesi
     private List<Firma> firmalar = new();
 
-    // Taşıma tedarikçileri (alt yüklenici)
-    private List<TasimaTedarikci> tasimaTedarikciler = new();
-
     protected override async Task OnParametersSetAsync()
     {
         await HesaplariYukle();
         await FirmalariYukle();
-        await TasimaTedarikcileriYukle();
 
         if (IsEdit)
         {
@@ -1092,19 +1074,6 @@
         catch (Exception ex)
         {
             Console.WriteLine($"[FirmalariYukle HATA] {ex.Message}");
-        }
-    }
-
-    private async Task TasimaTedarikcileriYukle()
-    {
-        try
-        {
-            tasimaTedarikciler = await TasimaTedarikciService.GetAllAsync(sadeceAktif: true);
-        }
-        catch (Exception ex)
-        {
-            tasimaTedarikciler = new();
-            Console.WriteLine($"[TasimaTedarikcileriYukle HATA] {ex.Message}");
         }
     }
 

@@ -1,0 +1,131 @@
+@page "/tedarikci-servis/araclar"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@inject IAracService AracService
+@inject ITasimaTedarikciService TasimaTedarikciService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Tedarikçi Araçları</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-truck-front me-2"></i>Tedarikçi Araçları</h3>
+        <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/personel-tasima/tedarikciler")'>
+            <i class="bi bi-truck me-1"></i>Tedarikçi Yönetimi
+        </button>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body bg-light">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small">Ara (Plaka, Şase, Marka, Model)</label>
+                    <input class="form-control form-control-sm" @bind="arama" @bind:event="oninput" placeholder="Arama..." />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Tedarikçi</label>
+                    <select class="form-select form-select-sm" @bind="seciliTedarikciId">
+                        <option value="0">Tümü</option>
+                        @foreach (var t in tedarikciler)
+                        {
+                            <option value="@t.Id">@t.Unvan</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex justify-content-end">
+                    <button class="btn btn-sm btn-primary" @onclick='() => Navigation.NavigateTo("/araclar")'>
+                        <i class="bi bi-grid me-1"></i>Tüm Araçlar Sayfası
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (yukleniyor)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else if (!FiltreliAraclar.Any())
+    {
+        <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Kayıt bulunamadı.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Plaka</th>
+                                <th>Şase No</th>
+                                <th>Marka / Model</th>
+                                <th>Sahiplik</th>
+                                <th>Tedarikçi</th>
+                                <th>Durum</th>
+                                <th class="text-end">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var arac in FiltreliAraclar)
+                            {
+                                <tr>
+                                    <td><strong>@(arac.AktifPlaka ?? "-")</strong></td>
+                                    <td>@arac.SaseNo</td>
+                                    <td>@arac.Marka @arac.Model</td>
+                                    <td><span class="badge bg-secondary">@arac.SahiplikTipi</span></td>
+                                    <td>
+                                        <span class="badge bg-info text-dark">@GetTedarikciUnvan(arac.TasimaTedarikciId)</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(arac.Aktif ? "bg-success" : "bg-danger")">@(arac.Aktif ? "Aktif" : "Pasif")</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick='() => Navigation.NavigateTo($"/araclar/{arac.Id}")'>
+                                            <i class="bi bi-pencil-square me-1"></i>Düzenle
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool yukleniyor = true;
+    private string arama = string.Empty;
+    private int seciliTedarikciId;
+    private List<Arac> araclar = new();
+    private List<TasimaTedarikci> tedarikciler = new();
+
+    private IEnumerable<Arac> FiltreliAraclar => araclar
+        .Where(a => a.TasimaTedarikciId.HasValue)
+        .Where(a => seciliTedarikciId == 0 || a.TasimaTedarikciId == seciliTedarikciId)
+        .Where(a => string.IsNullOrWhiteSpace(arama)
+            || (a.AktifPlaka?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (a.SaseNo?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (a.Marka?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (a.Model?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
+            || GetTedarikciUnvan(a.TasimaTedarikciId).Contains(arama, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(a => a.AktifPlaka);
+
+    protected override async Task OnInitializedAsync()
+    {
+        tedarikciler = await TasimaTedarikciService.GetAllAsync(sadeceAktif: false);
+        araclar = await AracService.GetAllAsync();
+        yukleniyor = false;
+    }
+
+    private string GetTedarikciUnvan(int? id)
+    {
+        if (!id.HasValue) return "-";
+        return tedarikciler.FirstOrDefault(t => t.Id == id.Value)?.Unvan ?? "-";
+    }
+}

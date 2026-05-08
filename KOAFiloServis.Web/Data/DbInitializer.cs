@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Data;
@@ -13,6 +13,7 @@ public static class DbInitializer
     private const string AddPersonelAracAtamaMigrationId = "20260420111658_AddPersonelAracAtama";
     private const string AddLastikTakipModuluMigrationId = "20260421110504_AddLastikTakipModulu";
     private const string LastikStokBireyselTakipMigrationId = "20260421133935_LastikStokBireyselTakip";
+    private const string AddLastikSezonAyarMigrationId = "20260507144644_AddLastikSezonAyar";
 
     public static async Task InitializeAsync(ApplicationDbContext context, IConfiguration configuration)
     {
@@ -134,6 +135,12 @@ public static class DbInitializer
                         && await PostgreSqlColumnExistsAsync(context, configuration, "LastikStoklar", "YedekMi"))
                     {
                         recoverableMigrations.Add(LastikStokBireyselTakipMigrationId);
+                    }
+
+                    if (pendingMigrations.Contains(AddLastikSezonAyarMigrationId)
+                        && await PostgreSqlTableExistsAsync(context, configuration, "LastikSezonAyarlari"))
+                    {
+                        recoverableMigrations.Add(AddLastikSezonAyarMigrationId);
                     }
 
                     if (recoverableMigrations.Any())
@@ -3988,6 +3995,9 @@ WHERE IsDeleted = 0;");
         }
     }
 }
+
+
+
 
 
 

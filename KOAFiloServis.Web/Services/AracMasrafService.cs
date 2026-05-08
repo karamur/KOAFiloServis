@@ -8,11 +8,13 @@ public class AracMasrafService : IAracMasrafService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IMuhasebeService _muhasebeService;
+    private readonly IBankaKasaHareketService _bankaKasaHareketService;
 
-    public AracMasrafService(IDbContextFactory<ApplicationDbContext> contextFactory, IMuhasebeService muhasebeService)
+    public AracMasrafService(IDbContextFactory<ApplicationDbContext> contextFactory, IMuhasebeService muhasebeService, IBankaKasaHareketService bankaKasaHareketService)
     {
         _contextFactory = contextFactory;
         _muhasebeService = muhasebeService;
+        _bankaKasaHareketService = bankaKasaHareketService;
     }
 
     public async Task<List<AracMasraf>> GetAllAsync()
@@ -128,7 +130,10 @@ public class AracMasrafService : IAracMasrafService
         await context.SaveChangesAsync();
 
         await SenkronizeMuhasebeDurumuAsync(context, aracMasraf.Id, muhasebeFisiOlustur);
-        return (await GetByIdAsync(aracMasraf.Id))!;
+
+        var savedMasraf = (await GetByIdAsync(aracMasraf.Id))!;
+        await AutoSyncBankaHareketAsync(savedMasraf, null);
+        return savedMasraf;
     }
 
     public async Task<AracMasraf> UpdateAsync(AracMasraf aracMasraf, bool muhasebeFisiOlustur = true)
@@ -164,7 +169,13 @@ public class AracMasrafService : IAracMasrafService
         await context.SaveChangesAsync();
         await SenkronizeMuhasebeDurumuAsync(context, existing.Id, muhasebeFisiOlustur);
 
-        return (await GetByIdAsync(existing.Id))!;
+        var savedMasraf = (await GetByIdAsync(existing.Id))!;
+
+        // Find existing linked hareket (if any) to update it
+        var linkedHareket = await context.BankaKasaHareketleri
+            .FirstOrDefaultAsync(h => h.AracMasrafId == existing.Id && !h.IsDeleted);
+        await AutoSyncBankaHareketAsync(savedMasraf, linkedHareket?.Id);
+        return savedMasraf;
     }
 
     public async Task DeleteAsync(int id)
@@ -180,6 +191,14 @@ public class AracMasrafService : IAracMasrafService
         {
             await _muhasebeService.DeleteFisAsync(aracMasraf.MuhasebeFisId.Value);
             aracMasraf.MuhasebeFisId = null;
+        }
+
+        // Linked banka hareketi varsa sil
+        var linkedHareket = await context.BankaKasaHareketleri
+            .FirstOrDefaultAsync(h => h.AracMasrafId == id && !h.IsDeleted);
+        if (linkedHareket != null)
+        {
+            await _bankaKasaHareketService.DeleteAsync(linkedHareket.Id);
         }
 
         aracMasraf.IsDeleted = true;
@@ -480,5 +499,59 @@ public class AracMasrafService : IAracMasrafService
     private static string BuildAltHesapKodu(string anaHesapKodu, int id)
     {
         return $"{anaHesapKodu}.{id:D6}";
+    }
+
+    private async Task AutoSyncBankaHareketAsync(AracMasraf masraf, int? existingHareketId)
+    {
+        // Yalnızca "Personel cebinden" + hesap seçili olduğunda otomatik banka/kasa hareketi oluştur/güncelle
+        if (masraf.OdemeKaynak != MasrafOdemeKaynak.PersonelCebinden || !masraf.BankaHesapId.HasValue || !masraf.SoforId.HasValue)
+        {
+            // Önceden linked hareket varsa ve artık koşul sağlanmıyorsa sil
+            if (existingHareketId.HasValue)
+                await _bankaKasaHareketService.DeleteAsync(existingHareketId.Value);
+            return;
+        }
+
+        var personelAd = masraf.Sofor?.TamAd ?? $"Personel#{masraf.SoforId}";
+        var aracPlaka = masraf.Arac?.AktifPlaka ?? $"Araç#{masraf.AracId}";
+        var aciklama = string.IsNullOrWhiteSpace(masraf.Aciklama)
+            ? $"Personel cebinden araç masrafı - {aracPlaka} - {masraf.MasrafKalemi?.MasrafAdi}"
+            : masraf.Aciklama;
+
+        if (existingHareketId.HasValue)
+        {
+            var existing = await _bankaKasaHareketService.GetByIdAsync(existingHareketId.Value);
+            if (existing != null)
+            {
+                existing.IslemTarihi = masraf.MasrafTarihi;
+                existing.Tutar = masraf.Tutar;
+                existing.BelgeNo = masraf.BelgeNo;
+                existing.Aciklama = aciklama;
+                existing.BankaHesapId = masraf.BankaHesapId.Value;
+                existing.PersonelCebindenId = masraf.SoforId;
+                existing.AracId = masraf.AracId;
+                await _bankaKasaHareketService.UpdateAsync(existing);
+                return;
+            }
+        }
+
+        // Yeni hareket oluştur
+        var islemNo = await _bankaKasaHareketService.GenerateNextIslemNoAsync();
+        var hareket = new BankaKasaHareket
+        {
+            IslemNo = islemNo,
+            IslemTarihi = masraf.MasrafTarihi,
+            HareketTipi = HareketTipi.Cikis,
+            Tutar = masraf.Tutar,
+            BelgeNo = masraf.BelgeNo,
+            Aciklama = aciklama,
+            IslemKaynak = IslemKaynak.PersonelCebinden,
+            BankaHesapId = masraf.BankaHesapId.Value,
+            PersonelCebindenId = masraf.SoforId,
+            AracId = masraf.AracId,
+            AracMasrafId = masraf.Id,
+            MuhasebeAciklama = $"Personel cebinden: {personelAd} - {aracPlaka}"
+        };
+        await _bankaKasaHareketService.CreateAsync(hareket);
     }
 }
