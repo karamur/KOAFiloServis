@@ -301,6 +301,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<TasimaTedarikci> TasimaTedarikciler { get; set; }
     public DbSet<TasimaTedarikciIs> TasimaTedarikciIsler { get; set; }
 
+    // Servis Operasyon (Özmal / Kiralık / Tedarikçi Kontrat + Puantaj + Ödeme/Tahsilat)
+    public DbSet<ServisKontrat> ServisKontratlar { get; set; }
+    public DbSet<ServisPuantaj> ServisPuantajlar { get; set; }
+    public DbSet<ServisOdeme> ServisOdemeler { get; set; }
+    public DbSet<ServisTahsilat> ServisTahsilatlar { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -2492,6 +2498,119 @@ public class ApplicationDbContext : DbContext
             .WithMany(t => t.Araclar)
             .HasForeignKey(a => a.TasimaTedarikciId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // ── ServisKontrat ──────────────────────────────────────────────────────
+        modelBuilder.Entity<ServisKontrat>(entity =>
+        {
+            entity.HasIndex(e => e.KontratKodu).IsUnique();
+            entity.Property(e => e.KontratKodu).HasMaxLength(50);
+            entity.Property(e => e.Aciklama).HasMaxLength(500);
+            entity.Property(e => e.Notlar).HasMaxLength(2000);
+            entity.Property(e => e.TahsilatBirimFiyat).HasPrecision(18, 2);
+            entity.Property(e => e.OdemeBirimFiyat).HasPrecision(18, 2);
+
+            entity.HasOne(e => e.KurumCari)
+                .WithMany()
+                .HasForeignKey(e => e.KurumCariId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Guzergah)
+                .WithMany()
+                .HasForeignKey(e => e.GuzergahId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Arac)
+                .WithMany()
+                .HasForeignKey(e => e.AracId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Sofor)
+                .WithMany()
+                .HasForeignKey(e => e.SoforId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.TasimaTedarikci)
+                .WithMany()
+                .HasForeignKey(e => e.TasimaTedarikciId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.TasimaTedarikciIs)
+                .WithMany()
+                .HasForeignKey(e => e.TasimaTedarikciIsId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Sirket)
+                .WithMany()
+                .HasForeignKey(e => e.SirketId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ── ServisPuantaj ──────────────────────────────────────────────────────
+        modelBuilder.Entity<ServisPuantaj>(entity =>
+        {
+            entity.HasIndex(e => new { e.ServisKontratId, e.Yil, e.Ay }).IsUnique();
+            entity.Property(e => e.CalismaSayisi).HasPrecision(18, 2);
+            entity.Property(e => e.TahsilatBirimFiyat).HasPrecision(18, 2);
+            entity.Property(e => e.TahsilatToplam).HasPrecision(18, 2);
+            entity.Property(e => e.OdemeBirimFiyat).HasPrecision(18, 2);
+            entity.Property(e => e.OdemeToplam).HasPrecision(18, 2);
+            entity.Property(e => e.OnayanKisi).HasMaxLength(150);
+            entity.Property(e => e.Notlar).HasMaxLength(2000);
+
+            entity.HasOne(e => e.ServisKontrat)
+                .WithMany(k => k.Puantajlar)
+                .HasForeignKey(e => e.ServisKontratId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Sirket)
+                .WithMany()
+                .HasForeignKey(e => e.SirketId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ── ServisOdeme ────────────────────────────────────────────────────────
+        modelBuilder.Entity<ServisOdeme>(entity =>
+        {
+            entity.Property(e => e.Tutar).HasPrecision(18, 2);
+            entity.Property(e => e.BelgeNo).HasMaxLength(100);
+            entity.Property(e => e.Aciklama).HasMaxLength(500);
+
+            entity.HasOne(e => e.ServisPuantaj)
+                .WithMany(p => p.Odemeler)
+                .HasForeignKey(e => e.ServisPuantajId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Sirket)
+                .WithMany()
+                .HasForeignKey(e => e.SirketId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ── ServisTahsilat ─────────────────────────────────────────────────────
+        modelBuilder.Entity<ServisTahsilat>(entity =>
+        {
+            entity.Property(e => e.Tutar).HasPrecision(18, 2);
+            entity.Property(e => e.BelgeNo).HasMaxLength(100);
+            entity.Property(e => e.Aciklama).HasMaxLength(500);
+
+            entity.HasOne(e => e.ServisPuantaj)
+                .WithMany(p => p.Tahsilatlar)
+                .HasForeignKey(e => e.ServisPuantajId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Sirket)
+                .WithMany()
+                .HasForeignKey(e => e.SirketId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
     }
 
     public override int SaveChanges()

@@ -8,24 +8,25 @@
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
-<PageTitle>Tedarikçi Araçları</PageTitle>
+<PageTitle>Tedarikçi Araç Listesi</PageTitle>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3><i class="bi bi-truck-front me-2"></i>Tedarikçi Araçları</h3>
-        <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/personel-tasima/tedarikciler")'>
-            <i class="bi bi-truck me-1"></i>Tedarikçi Yönetimi
-        </button>
+        <h3><i class="bi bi-truck-front me-2"></i>Tedarikçi Araç Listesi</h3>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/personel-tasima/tedarikciler")'>
+                <i class="bi bi-truck me-1"></i>Tedarikçi Yönetimi
+            </button>
+            <button class="btn btn-outline-primary" @onclick='() => Navigation.NavigateTo("/araclar")'>
+                <i class="bi bi-grid me-1"></i>Tüm Araçlar
+            </button>
+        </div>
     </div>
 
     <div class="card shadow-sm mb-3">
         <div class="card-body bg-light">
             <div class="row g-2 align-items-end">
-                <div class="col-md-4">
-                    <label class="form-label small">Ara (Plaka, Şase, Marka, Model)</label>
-                    <input class="form-control form-control-sm" @bind="arama" @bind:event="oninput" placeholder="Arama..." />
-                </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label small">Tedarikçi</label>
                     <select class="form-select form-select-sm" @bind="seciliTedarikciId">
                         <option value="0">Tümü</option>
@@ -35,63 +36,264 @@
                         }
                     </select>
                 </div>
-                <div class="col-md-4 d-flex justify-content-end">
-                    <button class="btn btn-sm btn-primary" @onclick='() => Navigation.NavigateTo("/araclar")'>
-                        <i class="bi bi-grid me-1"></i>Tüm Araçlar Sayfası
+                <div class="col-md-3">
+                    <label class="form-label small">Ara (Plaka, Şase, Marka, Model)</label>
+                    <input class="form-control form-control-sm" @bind="arama" @bind:event="oninput" placeholder="Arama..." />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Durum</label>
+                    <select class="form-select form-select-sm" @bind="filtreDurum">
+                        <option value="Tumu">Tümü</option>
+                        <option value="Bosta">Boşta</option>
+                        <option value="Operasyon">Operasyon</option>
+                        <option value="Yonetim">Yönetim</option>
+                        <option value="Satis">Satış</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Araç Tipi</label>
+                    <select class="form-select form-select-sm" @bind="filtreAracTipi">
+                        <option value="Tumu">Tümü</option>
+                        @foreach (AracTipi tip in Enum.GetValues(typeof(AracTipi)))
+                        {
+                            <option value="@tip.ToString()">@GetTipText(tip)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Sahiplik</label>
+                    <select class="form-select form-select-sm" @bind="filtreSahiplikTipi">
+                        <option value="Tumu">Tümü</option>
+                        @foreach (AracSahiplikTipi sahiplik in Enum.GetValues(typeof(AracSahiplikTipi)))
+                        {
+                            <option value="@sahiplik.ToString()">@GetSahiplikText(sahiplik)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Sınıf</label>
+                    <select class="form-select form-select-sm" @bind="filtreSinif">
+                        <option value="Tumu">Tümü</option>
+                        @foreach (AracSinifi sinif in Enum.GetValues(typeof(AracSinifi)))
+                        {
+                            <option value="@sinif.ToString()">@GetSinifText(sinif)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Şase No</label>
+                    <input type="text" class="form-control form-control-sm" @bind="filtreSase" placeholder="Şase ara..." />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Marka</label>
+                    <input type="text" class="form-control form-control-sm" @bind="filtreMarka" placeholder="Marka ara..." />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Model Yılı</label>
+                    <input type="number" class="form-control form-control-sm" @bind="filtreModelYili" placeholder="Örn: 2020" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Koltuk</label>
+                    <input type="number" class="form-control form-control-sm" @bind="filtreKoltuk" placeholder="Örn: 27" min="0" />
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button class="btn btn-primary btn-sm w-100" @onclick="Filtrele">
+                        <i class="bi bi-search"></i> Ara
+                    </button>
+                    <button class="btn btn-secondary btn-sm w-100" @onclick="FiltreleriTemizle">
+                        <i class="bi bi-x-circle"></i> Temizle
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
+    @if (!yukleniyor)
+    {
+        <div class="row g-2 mb-3">
+            <div class="col-md-3">
+                <div class="card border-primary">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Filtre Sonucu</small>
+                        <div class="fs-4 fw-bold text-primary">@filtreliAraclar.Count</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-success">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Aktif Araç</small>
+                        <div class="fs-4 fw-bold text-success">@filtreliAraclar.Count(a => a.Aktif)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-info">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Boşta</small>
+                        <div class="fs-4 fw-bold text-info">@filtreliAraclar.Count(a => a.Durumu == AracDurumu.Bosta || (int)a.Durumu == 0)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-warning">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Tedarikçi Sayısı</small>
+                        <div class="fs-4 fw-bold text-warning">@filtreliAraclar.Select(a => a.TasimaTedarikciId).Distinct().Count()</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     @if (yukleniyor)
     {
         <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
     }
-    else if (!FiltreliAraclar.Any())
+    else if (!filtreliAraclar.Any())
     {
         <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Kayıt bulunamadı.</div>
     }
     else
     {
         <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span>
+                    <i class="bi bi-truck-front me-1"></i>Tedarikçi Araçları
+                    <span class="badge bg-secondary ms-1">@filtreliAraclar.Count kayıt</span>
+                </span>
+            </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-striped table-hover mb-0 align-middle">
                         <thead class="table-dark">
                             <tr>
-                                <th>Plaka</th>
                                 <th>Şase No</th>
-                                <th>Marka / Model</th>
+                                <th>Aktif Plaka</th>
+                                <th>Geçmiş Plakalar</th>
+                                <th>Marka</th>
+                                <th>Model</th>
+                                <th>Araç Tipi</th>
+                                <th>Sınıf</th>
                                 <th>Sahiplik</th>
-                                <th>Tedarikçi</th>
                                 <th>Durum</th>
-                                <th class="text-end">İşlem</th>
+                                <th>Model Yılı</th>
+                                <th>Koltuk</th>
+                                <th>Muayene</th>
+                                <th>Tedarikçi</th>
+                                <th>Cari</th>
+                                <th class="text-center">İşlem</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var arac in FiltreliAraclar)
+                            @foreach (var arac in filtreliAraclar)
                             {
                                 <tr>
-                                    <td><strong>@(arac.AktifPlaka ?? "-")</strong></td>
-                                    <td>@arac.SaseNo</td>
-                                    <td>@arac.Marka @arac.Model</td>
-                                    <td><span class="badge bg-secondary">@arac.SahiplikTipi</span></td>
+                                    <td><small class="text-muted">@arac.SaseNo</small></td>
+                                    <td><span class="badge bg-primary fs-6">@(arac.AktifPlaka ?? "PLAKASIZ")</span></td>
                                     <td>
-                                        <span class="badge bg-info text-dark">@GetTedarikciUnvan(arac.TasimaTedarikciId)</span>
+                                        <small class="text-muted">
+                                            @{
+                                                var gecmisPlakalar = arac.PlakaGecmisi.Where(p => p.Plaka != arac.AktifPlaka).Select(p => p.Plaka).Distinct().ToList();
+                                            }
+                                            @(gecmisPlakalar.Any() ? string.Join(", ", gecmisPlakalar) : "-")
+                                        </small>
                                     </td>
+                                    <td><strong>@arac.Marka</strong></td>
+                                    <td><span class="text-muted">@arac.Model</span></td>
+                                    <td><span class="badge @GetTipBadgeClass(arac.AracTipi)">@GetTipText(arac.AracTipi)</span></td>
+                                    <td><span class="badge @GetSinifBadgeClass(arac.AracSinifi)">@GetSinifText(arac.AracSinifi)</span></td>
+                                    <td><span class="badge @GetSahiplikBadgeClass(arac.SahiplikTipi)">@GetSahiplikText(arac.SahiplikTipi)</span></td>
                                     <td>
-                                        <span class="badge @(arac.Aktif ? "bg-success" : "bg-danger")">@(arac.Aktif ? "Aktif" : "Pasif")</span>
+                                        <span class="badge @GetDurumBadgeClass(arac)">@GetAracDurumuText(arac.Durumu)</span>
+                                        @if (!arac.Aktif)
+                                        {
+                                            <span class="badge bg-danger ms-1">Pasif</span>
+                                        }
                                     </td>
-                                    <td class="text-end">
-                                        <button class="btn btn-sm btn-outline-primary" @onclick='() => Navigation.NavigateTo($"/araclar/{arac.Id}")'>
-                                            <i class="bi bi-pencil-square me-1"></i>Düzenle
-                                        </button>
+                                    <td>@arac.ModelYili</td>
+                                    <td>@arac.KoltukSayisi</td>
+                                    <td>
+                                        @if (arac.MuayeneBitisTarihi.HasValue)
+                                        {
+                                            var gunKaldi = (arac.MuayeneBitisTarihi.Value - DateTime.Today).Days;
+                                            <span class="badge @(gunKaldi < 30 ? "bg-danger" : gunKaldi < 60 ? "bg-warning text-dark" : "bg-success")">
+                                                @arac.MuayeneBitisTarihi.Value.ToString("dd.MM.yyyy")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td><span class="badge bg-info text-dark">@GetTedarikciEtiket(arac.TasimaTedarikciId)</span></td>
+                                    <td><small class="text-muted">@GetTedarikciCariEtiket(arac.TasimaTedarikciId)</small></td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" @onclick='() => Navigation.NavigateTo($"/araclar/{arac.Id}/evraklar")' title="Evraklar">
+                                                <i class="bi bi-folder2-open"></i>
+                                            </button>
+                                            <button class="btn btn-outline-primary" @onclick='() => Navigation.NavigateTo($"/araclar/{arac.Id}")' title="Düzenle">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Tedarikçi Araç Raporu</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th colspan="2">Tedarikçi Başına Araç</th></tr></thead>
+                            <tbody>
+                                @foreach (var t in tedarikciler.Where(t => filtreliAraclar.Any(a => a.TasimaTedarikciId == t.Id)))
+                                {
+                                    var adet = filtreliAraclar.Count(a => a.TasimaTedarikciId == t.Id);
+                                    <tr><td>@t.Unvan</td><td class="text-end fw-bold">@adet</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-4">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th colspan="2">Araç Tipi Dağılımı</th></tr></thead>
+                            <tbody>
+                                @foreach (AracTipi tip in Enum.GetValues(typeof(AracTipi)))
+                                {
+                                    var adet = filtreliAraclar.Count(a => a.AracTipi == tip);
+                                    if (adet > 0)
+                                    {
+                                        <tr><td>@GetTipText(tip)</td><td class="text-end fw-bold">@adet</td></tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-4">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th colspan="2">Sahiplik Dağılımı</th></tr></thead>
+                            <tbody>
+                                @foreach (AracSahiplikTipi sahiplik in Enum.GetValues(typeof(AracSahiplikTipi)))
+                                {
+                                    var adet = filtreliAraclar.Count(a => a.SahiplikTipi == sahiplik);
+                                    if (adet > 0)
+                                    {
+                                        <tr><td>@GetSahiplikText(sahiplik)</td><td class="text-end fw-bold">@adet</td></tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -102,25 +304,86 @@
     private bool yukleniyor = true;
     private string arama = string.Empty;
     private int seciliTedarikciId;
-    private List<Arac> araclar = new();
+    private string filtreDurum = "Tumu";
+    private string filtreAracTipi = "Tumu";
+    private string filtreSahiplikTipi = "Tumu";
+    private string filtreSinif = "Tumu";
+    private string? filtreSase;
+    private string? filtreMarka;
+    private int? filtreModelYili;
+    private int? filtreKoltuk;
+    private List<Arac> tumAraclar = new();
+    private List<Arac> filtreliAraclar = new();
     private List<TasimaTedarikci> tedarikciler = new();
-
-    private IEnumerable<Arac> FiltreliAraclar => araclar
-        .Where(a => a.TasimaTedarikciId.HasValue)
-        .Where(a => seciliTedarikciId == 0 || a.TasimaTedarikciId == seciliTedarikciId)
-        .Where(a => string.IsNullOrWhiteSpace(arama)
-            || (a.AktifPlaka?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (a.SaseNo?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (a.Marka?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (a.Model?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false)
-            || GetTedarikciUnvan(a.TasimaTedarikciId).Contains(arama, StringComparison.OrdinalIgnoreCase))
-        .OrderBy(a => a.AktifPlaka);
 
     protected override async Task OnInitializedAsync()
     {
         tedarikciler = await TasimaTedarikciService.GetAllAsync(sadeceAktif: false);
-        araclar = await AracService.GetAllAsync();
+        tumAraclar = await AracService.GetAllAsync();
+        Filtrele();
         yukleniyor = false;
+    }
+
+    private void Filtrele()
+    {
+        var sorgu = tumAraclar.Where(a => a.TasimaTedarikciId.HasValue).AsQueryable();
+
+        if (seciliTedarikciId != 0)
+            sorgu = sorgu.Where(a => a.TasimaTedarikciId == seciliTedarikciId);
+
+        if (filtreDurum == "Bosta")
+            sorgu = sorgu.Where(a => a.Durumu == AracDurumu.Bosta || (int)a.Durumu == 0);
+        else if (filtreDurum != "Tumu" && Enum.TryParse<AracDurumu>(filtreDurum, out var durum))
+            sorgu = sorgu.Where(a => a.Durumu == durum);
+
+        if (filtreAracTipi != "Tumu" && Enum.TryParse<AracTipi>(filtreAracTipi, out var aracTipi))
+            sorgu = sorgu.Where(a => a.AracTipi == aracTipi);
+
+        if (filtreSahiplikTipi != "Tumu" && Enum.TryParse<AracSahiplikTipi>(filtreSahiplikTipi, out var sahiplik))
+            sorgu = sorgu.Where(a => a.SahiplikTipi == sahiplik);
+
+        if (filtreSinif != "Tumu" && Enum.TryParse<AracSinifi>(filtreSinif, out var sinif))
+            sorgu = sorgu.Where(a => a.AracSinifi == sinif);
+
+        if (!string.IsNullOrWhiteSpace(filtreSase))
+            sorgu = sorgu.Where(a => a.SaseNo != null && a.SaseNo.Contains(filtreSase, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(filtreMarka))
+            sorgu = sorgu.Where(a => a.Marka != null && a.Marka.Contains(filtreMarka, StringComparison.OrdinalIgnoreCase));
+
+        if (filtreModelYili.HasValue)
+            sorgu = sorgu.Where(a => a.ModelYili == filtreModelYili.Value);
+
+        if (filtreKoltuk.HasValue)
+            sorgu = sorgu.Where(a => a.KoltukSayisi == filtreKoltuk.Value);
+
+        if (!string.IsNullOrWhiteSpace(arama))
+        {
+            sorgu = sorgu.Where(a =>
+                (a.AktifPlaka?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.SaseNo?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.Marka?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (a.Model?.Contains(arama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                a.PlakaGecmisi.Any(p => p.Plaka.Contains(arama, StringComparison.OrdinalIgnoreCase)) ||
+                GetTedarikciUnvan(a.TasimaTedarikciId).Contains(arama, StringComparison.OrdinalIgnoreCase));
+        }
+
+        filtreliAraclar = sorgu.OrderBy(a => a.AktifPlaka).ToList();
+    }
+
+    private void FiltreleriTemizle()
+    {
+        arama = string.Empty;
+        seciliTedarikciId = 0;
+        filtreDurum = "Tumu";
+        filtreAracTipi = "Tumu";
+        filtreSahiplikTipi = "Tumu";
+        filtreSinif = "Tumu";
+        filtreSase = null;
+        filtreMarka = null;
+        filtreModelYili = null;
+        filtreKoltuk = null;
+        Filtrele();
     }
 
     private string GetTedarikciUnvan(int? id)
@@ -128,4 +391,90 @@
         if (!id.HasValue) return "-";
         return tedarikciler.FirstOrDefault(t => t.Id == id.Value)?.Unvan ?? "-";
     }
+
+    private string GetTedarikciEtiket(int? id)
+    {
+        if (!id.HasValue) return "-";
+        var t = tedarikciler.FirstOrDefault(x => x.Id == id.Value);
+        if (t is null) return "-";
+        return string.IsNullOrWhiteSpace(t.TedarikciKodu) ? t.Unvan : $"{t.TedarikciKodu} - {t.Unvan}";
+    }
+
+    private string GetTedarikciCariEtiket(int? id)
+    {
+        if (!id.HasValue) return "-";
+        var t = tedarikciler.FirstOrDefault(x => x.Id == id.Value);
+        if (t?.Cari is null) return "-";
+        return string.IsNullOrWhiteSpace(t.Cari.CariKodu) ? t.Cari.Unvan : $"{t.Cari.CariKodu} - {t.Cari.Unvan}";
+    }
+
+    private static string GetTipText(AracTipi tip) => tip switch
+    {
+        AracTipi.Minibus => "Minibüs",
+        AracTipi.Midibus => "Midibüs",
+        AracTipi.Otobus => "Otobüs",
+        AracTipi.Otomobil => "Otomobil",
+        AracTipi.Panelvan => "Panelvan",
+        _ => tip.ToString()
+    };
+
+    private static string GetSinifText(AracSinifi sinif) => sinif switch
+    {
+        AracSinifi.PersonelTasiti => "Personel Taşıtı",
+        AracSinifi.OkulTasiti => "Okul Taşıtı",
+        _ => sinif.ToString()
+    };
+
+    private static string GetTipBadgeClass(AracTipi tip) => tip switch
+    {
+        AracTipi.Minibus => "bg-primary",
+        AracTipi.Midibus => "bg-info text-dark",
+        AracTipi.Otobus => "bg-success",
+        AracTipi.Otomobil => "bg-warning text-dark",
+        AracTipi.Panelvan => "bg-secondary",
+        _ => "bg-dark"
+    };
+
+    private static string GetSinifBadgeClass(AracSinifi sinif) => sinif switch
+    {
+        AracSinifi.PersonelTasiti => "bg-primary",
+        AracSinifi.OkulTasiti => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string GetSahiplikText(AracSahiplikTipi sahiplik) => sahiplik switch
+    {
+        AracSahiplikTipi.Ozmal => "Özmal",
+        AracSahiplikTipi.Kiralik => "Kiralık",
+        AracSahiplikTipi.Komisyon => "Komisyon",
+        AracSahiplikTipi.Diger => "Diğer",
+        _ => sahiplik.ToString()
+    };
+
+    private static string GetSahiplikBadgeClass(AracSahiplikTipi sahiplik) => sahiplik switch
+    {
+        AracSahiplikTipi.Ozmal => "bg-success",
+        AracSahiplikTipi.Kiralik => "bg-warning text-dark",
+        AracSahiplikTipi.Komisyon => "bg-info text-dark",
+        AracSahiplikTipi.Diger => "bg-secondary",
+        _ => "bg-dark"
+    };
+
+    private static string GetAracDurumuText(AracDurumu durum) => durum switch
+    {
+        AracDurumu.Bosta => "Boşta",
+        AracDurumu.Operasyon => "Operasyon",
+        AracDurumu.Yonetim => "Yönetim",
+        AracDurumu.Satis => "Satış",
+        _ => "Boşta"
+    };
+
+    private static string GetDurumBadgeClass(Arac arac) => arac.Durumu switch
+    {
+        AracDurumu.Bosta => "bg-secondary",
+        AracDurumu.Operasyon => "bg-primary",
+        AracDurumu.Yonetim => "bg-info",
+        AracDurumu.Satis => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
 }

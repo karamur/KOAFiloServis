@@ -11,6 +11,8 @@ public interface ITasimaTedarikciService
     Task<TasimaTedarikci?> GetAsync(int id);
     Task<TasimaTedarikci> CreateAsync(TasimaTedarikci tedarikci);
     Task<TasimaTedarikci> UpdateAsync(TasimaTedarikci tedarikci);
+    Task<TasimaTedarikci> CreateFromCariAsync(int cariId, bool updateIfExists = true);
+    Task<TasimaTedarikci> CreateFromPersonelAsync(int personelId, bool updateIfExists = true);
     Task DeleteAsync(int id);
     Task<string> GenerateTedarikciKoduAsync();
 
@@ -79,6 +81,92 @@ public class TasimaTedarikciService : ITasimaTedarikciService
         context.TasimaTedarikciler.Update(tedarikci);
         await context.SaveChangesAsync();
         return tedarikci;
+    }
+
+    public async Task<TasimaTedarikci> CreateFromCariAsync(int cariId, bool updateIfExists = true)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var cari = await context.Cariler
+            .FirstOrDefaultAsync(c => c.Id == cariId && !c.IsDeleted);
+
+        if (cari is null)
+            throw new InvalidOperationException("Kopyalanacak cari bulunamadı.");
+
+        var existing = await context.TasimaTedarikciler
+            .FirstOrDefaultAsync(t => t.CariId == cariId && !t.IsDeleted);
+
+        if (existing is not null)
+        {
+            if (updateIfExists)
+            {
+                MapFromCari(existing, cari);
+                existing.UpdatedAt = DateTime.UtcNow;
+                await context.SaveChangesAsync();
+            }
+
+            return existing;
+        }
+
+        var yeniTedarikci = new TasimaTedarikci
+        {
+            TedarikciKodu = await GenerateTedarikciKoduAsync(),
+            Aktif = cari.Aktif,
+            CariId = cari.Id,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        MapFromCari(yeniTedarikci, cari);
+        context.TasimaTedarikciler.Add(yeniTedarikci);
+        await context.SaveChangesAsync();
+
+        return yeniTedarikci;
+    }
+
+    public async Task<TasimaTedarikci> CreateFromPersonelAsync(int personelId, bool updateIfExists = true)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var personel = await context.Soforler
+            .FirstOrDefaultAsync(s => s.Id == personelId && !s.IsDeleted);
+
+        if (personel is null)
+            throw new InvalidOperationException("Kopyalanacak personel bulunamadı.");
+
+        var existing = await context.TasimaTedarikciler
+            .FirstOrDefaultAsync(t => t.Notlar != null && t.Notlar.Contains($"PersonelId:{personelId}") && !t.IsDeleted);
+
+        if (existing is not null)
+        {
+            if (updateIfExists)
+            {
+                MapFromPersonel(existing, personel);
+                existing.UpdatedAt = DateTime.UtcNow;
+                await context.SaveChangesAsync();
+            }
+            return existing;
+        }
+
+        var yeniTedarikci = new TasimaTedarikci
+        {
+            TedarikciKodu = await GenerateTedarikciKoduAsync(),
+            Aktif = personel.Aktif,
+            CreatedAt = DateTime.UtcNow
+        };
+        MapFromPersonel(yeniTedarikci, personel);
+        yeniTedarikci.Notlar = (yeniTedarikci.Notlar ?? "") + $" [PersonelId:{personelId}]";
+        context.TasimaTedarikciler.Add(yeniTedarikci);
+        await context.SaveChangesAsync();
+        return yeniTedarikci;
+    }
+
+    private static void MapFromPersonel(TasimaTedarikci hedef, Sofor kaynak)
+    {
+        hedef.Unvan = $"{kaynak.Ad} {kaynak.Soyad}".Trim();
+        hedef.YetkiliKisi = $"{kaynak.Ad} {kaynak.Soyad}".Trim();
+        hedef.Telefon = kaynak.Telefon;
+        hedef.Email = kaynak.Email;
+        hedef.Adres = kaynak.Adres;
     }
 
     public async Task DeleteAsync(int id)
@@ -169,5 +257,23 @@ public class TasimaTedarikciService : ITasimaTedarikciService
             .Where(a => a.TasimaTedarikciId == tedarikciId)
             .OrderBy(a => a.AktifPlaka)
             .ToListAsync();
+    }
+
+    private static void MapFromCari(TasimaTedarikci hedef, Cari kaynak)
+    {
+        hedef.Unvan = kaynak.Unvan;
+        hedef.YetkiliKisi = kaynak.YetkiliKisi;
+        hedef.Telefon = kaynak.Telefon;
+        hedef.Telefon2 = kaynak.Telefon2;
+        hedef.Email = kaynak.Email;
+        hedef.Adres = kaynak.Adres;
+        hedef.Il = kaynak.Il;
+        hedef.Ilce = kaynak.Ilce;
+        hedef.VergiDairesi = kaynak.VergiDairesi;
+        hedef.VergiNo = kaynak.VergiNo;
+        hedef.Notlar = kaynak.Notlar;
+        hedef.SozlesmeNo = kaynak.SozlesmeNo;
+        hedef.SozlesmeBaslangicTarihi = kaynak.SozlesmeBaslangicTarihi;
+        hedef.SozlesmeBitisTarihi = kaynak.SozlesmeBitisTarihi;
     }
 }

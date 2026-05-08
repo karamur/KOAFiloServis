@@ -50,7 +50,13 @@
                             <div>
                                 <h6 class="text-muted mb-2">Tedarikçi Araçları</h6>
                                 <h3 class="mb-0">@_ozet.TedarikciAraciSayisi</h3>
-                                <small class="text-muted">tedarikçiye bağlı araç</small>
+                                <small class="text-muted">
+                                    tedarikçiye bağlı araç
+                                    @if (_ozet.AktifTedarikciIsSayisi > 0)
+                                    {
+                                        <span class="ms-2 badge bg-success">@_ozet.AktifTedarikciIsSayisi aktif iş</span>
+                                    }
+                                </small>
                             </div>
                             <div class="text-success">
                                 <i class="bi bi-truck-front fs-1"></i>
@@ -159,7 +165,9 @@
                             <li><i class="bi bi-check-circle text-success me-2"></i>
                                 <a href="/tedarikci-servis/arac-evraklari">Araç Evrak Takibi</a>
                             </li>
-                            <li><i class="bi bi-check-circle text-success me-2"></i>Sözleşme ve sefer ücreti takibi</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>
+                                <a href="/tedarikci-servis/isler">Tedarikçi İşler</a> &amp; Sözleşme/Sefer ücreti takibi
+                            </li>
                         </ul>
                     </div>
                 </div>

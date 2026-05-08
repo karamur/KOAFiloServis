@@ -204,29 +204,91 @@
                                             </NavLink>
                                         </div>
 
-                                        <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
-                                            <span><i class="bi bi-circle-half me-2"></i>Lastik Takip</span>
+                                        <div class="nav-subsection mt-2 pt-2 border-top">
+                                            <div class="nav-subsection-header" @onclick="() => ToggleSection(NavSection.LastikTakip)" style="cursor: pointer;">
+                                                <span><i class="bi bi-circle-half me-2"></i>Lastik Takip</span>
+                                                <i class="bi @(IsExpanded(NavSection.LastikTakip) ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                                            </div>
+                                            @if (IsExpanded(NavSection.LastikTakip))
+                                            {
+                                                <div class="nav-subsection-content">
+                                                    <div class="nav-item px-3">
+                                                        <NavLink class="nav-link" href="lastik/degisimler">
+                                                            <i class="bi bi-arrow-repeat me-2 text-warning"></i> Lastik Değişimleri
+                                                        </NavLink>
+                                                    </div>
+                                                    <div class="nav-item px-3">
+                                                        <NavLink class="nav-link" href="lastik/stok">
+                                                            <i class="bi bi-stack me-2 text-info"></i> Lastik Stok
+                                                        </NavLink>
+                                                    </div>
+                                                    <div class="nav-item px-3">
+                                                        <NavLink class="nav-link" href="lastik/depolar">
+                                                            <i class="bi bi-building me-2"></i> Lastik Depoları
+                                                        </NavLink>
+                                                    </div>
+                                                    <div class="nav-item px-3">
+                                                        <NavLink class="nav-link" href="lastik/sezon-takip">
+                                                            <i class="bi bi-calendar2-range me-2 text-success"></i> Sezon Takibi
+                                                        </NavLink>
+                                                    </div>
+                                                </div>
+                                            }
                                         </div>
-                                        <div class="nav-item px-3">
-                                            <NavLink class="nav-link" href="lastik/degisimler">
-                                                <i class="bi bi-arrow-repeat me-2 text-warning"></i> Lastik Değişimleri
-                                            </NavLink>
-                                        </div>
-                                        <div class="nav-item px-3">
-                                            <NavLink class="nav-link" href="lastik/stok">
-                                                <i class="bi bi-stack me-2 text-info"></i> Lastik Stok
-                                            </NavLink>
-                                        </div>
-                                        <div class="nav-item px-3">
-                                            <NavLink class="nav-link" href="lastik/depolar">
-                                                <i class="bi bi-building me-2"></i> Lastik Depoları
-                                            </NavLink>
-                                        </div>
-                                        <div class="nav-item px-3">
-                                            <NavLink class="nav-link" href="lastik/sezon-takip">
-                                                <i class="bi bi-calendar2-range me-2 text-success"></i> Sezon Takibi
-                                            </NavLink>
-                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        @if (HasAnyYetki("tedarikciservis.oku", "tedarikciarac.oku", "tedarikcipersonel.oku", "tedarikciaracevrak.oku", "serviscalisma.oku"))
+                        {
+                            <div class="nav-subsection">
+                                <div class="nav-subsection-header" @onclick="() => ToggleSection(NavSection.TedarikciOperasyon)" style="cursor: pointer;">
+                                    <span><i class="bi bi-truck me-2"></i>Tedarikçi Operasyon</span>
+                                    <i class="bi @(IsExpanded(NavSection.TedarikciOperasyon) ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                                </div>
+                                @if (IsExpanded(NavSection.TedarikciOperasyon))
+                                {
+                                    <div class="nav-subsection-content">
+                                        @if (HasAnyYetki("tedarikciservis.oku", "serviscalisma.oku"))
+                                        {
+                                            <div class="nav-item px-3">
+                                                <NavLink class="nav-link" href="personel-tasima/tedarikciler">
+                                                    <i class="bi bi-truck me-2 text-success"></i> Tedarikçi Servis Operasyon
+                                                </NavLink>
+                                            </div>
+                                        }
+                                        @if (HasAnyYetki("tedarikciarac.oku", "araclar.oku"))
+                                        {
+                                            <div class="nav-item px-3">
+                                                <NavLink class="nav-link" href="tedarikci-servis/araclar">
+                                                    <i class="bi bi-truck-front me-2 text-primary"></i> Tedarikçi Araçlar
+                                                </NavLink>
+                                            </div>
+                                        }
+                                        @if (HasAnyYetki("tedarikcipersonel.oku", "personel.oku"))
+                                        {
+                                            <div class="nav-item px-3">
+                                                <NavLink class="nav-link" href="tedarikci-servis/personel">
+                                                    <i class="bi bi-people me-2 text-info"></i> Tedarikçi Personel
+                                                </NavLink>
+                                            </div>
+                                        }
+                                        @if (HasAnyYetki("tedarikciaracevrak.oku", "araclar.oku"))
+                                        {
+                                            <div class="nav-item px-3">
+                                                <NavLink class="nav-link" href="tedarikci-servis/arac-evraklari">
+                                                    <i class="bi bi-folder2-open me-2 text-warning"></i> Tedarikçi Araç Evrakları
+                                                </NavLink>
+                                            </div>
+                                        }
+                                        @if (HasAnyYetki("tedarikciservis.oku", "serviscalisma.oku"))
+                                        {
+                                            <div class="nav-item px-3">
+                                                <NavLink class="nav-link" href="tedarikci-servis/isler">
+                                                    <i class="bi bi-briefcase me-2 text-secondary"></i> Tedarikçi İşler
+                                                </NavLink>
+                                            </div>
+                                        }
                                     </div>
                                 }
                             </div>
@@ -244,44 +306,13 @@
                                 <i class="bi bi-journal-check me-2 text-success"></i> Filo Puantaj
                             </NavLink>
                         </div>
-
-                        @if (HasAnyYetki("tedarikciservis.oku", "tedarikciarac.oku", "tedarikcipersonel.oku", "tedarikciaracevrak.oku", "serviscalisma.oku", "araclar.oku", "personel.oku"))
+                        @if (HasAnyYetki("serviskontrat.oku", "tedarikciservis.oku"))
                         {
-                            <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
-                                <span><i class="bi bi-truck me-2"></i>Tedarikçi Servis Operasyon</span>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="servis-operasyon/kontratlar">
+                                    <i class="bi bi-clipboard2-data me-2 text-primary"></i> Özmal/Kiralık Kontratlar
+                                </NavLink>
                             </div>
-                            @if (HasAnyYetki("tedarikciservis.oku", "serviscalisma.oku"))
-                            {
-                                <div class="nav-item px-3">
-                                    <NavLink class="nav-link" href="personel-tasima/tedarikciler">
-                                        <i class="bi bi-truck me-2 text-success"></i> Tedarikçi Servis Operasyon
-                                    </NavLink>
-                                </div>
-                            }
-                            @if (HasAnyYetki("tedarikciarac.oku", "araclar.oku"))
-                            {
-                                <div class="nav-item px-3">
-                                    <NavLink class="nav-link" href="tedarikci-servis/araclar">
-                                        <i class="bi bi-truck-front me-2 text-primary"></i> Tedarikçi Araçları
-                                    </NavLink>
-                                </div>
-                            }
-                            @if (HasAnyYetki("tedarikcipersonel.oku", "personel.oku"))
-                            {
-                                <div class="nav-item px-3">
-                                    <NavLink class="nav-link" href="tedarikci-servis/personel">
-                                        <i class="bi bi-people me-2 text-info"></i> Tedarikçi Personel
-                                    </NavLink>
-                                </div>
-                            }
-                            @if (HasAnyYetki("tedarikciaracevrak.oku", "araclar.oku"))
-                            {
-                                <div class="nav-item px-3">
-                                    <NavLink class="nav-link" href="tedarikci-servis/arac-evraklari">
-                                        <i class="bi bi-folder2-open me-2 text-warning"></i> Tedarikçi Araç Evrakları
-                                    </NavLink>
-                                </div>
-                            }
                         }
 
                         <div class="nav-item px-3 mt-2 pt-2 border-top text-muted small">
@@ -1153,7 +1184,9 @@
         Stok,
         Ihale,
         Ebys,
-        Araclar
+        Araclar,
+        TedarikciOperasyon,
+        LastikTakip
     }
 
     private HashSet<NavSection> expandedSections = new();

@@ -1,0 +1,778 @@
+@page "/servis-operasyon/kontratlar/yeni"
+@page "/servis-operasyon/kontratlar/{Id:int}"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Services
+@inject IServisKontratService KontratService
+@inject ICariService CariService
+@inject IGuzergahService GuzergahService
+@inject IAracService AracService
+@inject ISoforService SoforService
+@inject ITasimaTedarikciService TedarikciService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>@(Id is null ? "Yeni Kontrat" : $"Kontrat: {kontrat.KontratKodu}")</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>
+            <i class="bi bi-clipboard2-data me-2"></i>
+            @(Id is null ? "Yeni Servis Kontratı" : $"{kontrat.KontratKodu} — {kontrat.Guzergah?.GuzergahAdi}")
+        </h3>
+        <a class="btn btn-outline-secondary" href="/servis-operasyon/kontratlar">
+            <i class="bi bi-arrow-left me-1"></i>Listeye Dön
+        </a>
+    </div>
+
+    @if (yukleniyor)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else
+    {
+        @* Tab başlıkları *@
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <button class="nav-link @(aktifTab == "bilgi" ? "active" : "")" @onclick='() => aktifTab = "bilgi"'>
+                    <i class="bi bi-info-circle me-1"></i>Bilgiler
+                </button>
+            </li>
+            @if (Id.HasValue)
+            {
+                <li class="nav-item">
+                    <button class="nav-link @(aktifTab == "puantaj" ? "active" : "")" @onclick='() => aktifTab = "puantaj"'>
+                        <i class="bi bi-calendar3 me-1"></i>Puantaj
+                        @if (ozet != null && ozet.ToplamPuantaj > 0)
+                        { <span class="badge bg-secondary ms-1">@ozet.ToplamPuantaj</span> }
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(aktifTab == "ozet" ? "active" : "")" @onclick='() => { aktifTab = "ozet"; }'>
+                        <i class="bi bi-bar-chart me-1"></i>Özet / Mali Durum
+                    </button>
+                </li>
+            }
+        </ul>
+
+        @* ── BİLGİ SEKME ── *@
+        @if (aktifTab == "bilgi")
+        {
+            @if (!string.IsNullOrEmpty(mesaj))
+            {
+                <div class="alert alert-success alert-dismissible py-2">
+                    <i class="bi bi-check-circle me-2"></i>@mesaj
+                    <button type="button" class="btn-close" @onclick='() => mesaj = null'></button>
+                </div>
+            }
+
+            <div class="row g-4">
+                @* Sol: Ana bilgiler *@
+                <div class="col-lg-8">
+                    <div class="card shadow-sm">
+                        <div class="card-header"><i class="bi bi-file-text me-2"></i>Kontrat Bilgileri</div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                @* Kontrat Kodu *@
+                                <div class="col-md-3">
+                                    <label class="form-label small">Kontrat Kodu</label>
+                                    <input class="form-control" @bind="kontrat.KontratKodu" placeholder="Otomatik" />
+                                </div>
+                                @* Tip *@
+                                <div class="col-md-3">
+                                    <label class="form-label small">Tip *</label>
+                                    <select class="form-select" @bind="kontrat.Tip">
+                                        <option value="@ServisKontratTip.Ozmal">Özmal</option>
+                                        <option value="@ServisKontratTip.Kiralik">Kiralık (C Plaka)</option>
+                                        <option value="@ServisKontratTip.Tedarikci">Tedarikçi</option>
+                                    </select>
+                                </div>
+                                @* Durum *@
+                                <div class="col-md-3">
+                                    <label class="form-label small">Durum</label>
+                                    <select class="form-select" @bind="kontrat.Durum">
+                                        <option value="@ServisKontratDurum.Aktif">Aktif</option>
+                                        <option value="@ServisKontratDurum.Tamamlandi">Tamamlandı</option>
+                                        <option value="@ServisKontratDurum.IptalEdildi">İptal Edildi</option>
+                                    </select>
+                                </div>
+                                @* Güzergah *@
+                                <div class="col-md-6">
+                                    <label class="form-label small">Güzergah *</label>
+                                    <select class="form-select" @bind="kontrat.GuzergahId">
+                                        <option value="0">— Seçiniz —</option>
+                                        @foreach (var g in guzergahlar)
+                                        {
+                                            <option value="@g.Id">@g.GuzergahKodu — @g.GuzergahAdi</option>
+                                        }
+                                    </select>
+                                </div>
+                                @* Kurum/Firma *@
+                                <div class="col-md-6">
+                                    <label class="form-label small">Fatura Kesilen Kurum/Firma</label>
+                                    <select class="form-select" @bind="kontrat.KurumCariId">
+                                        <option value="">— Seçiniz —</option>
+                                        @foreach (var c in cariler)
+                                        {
+                                            <option value="@c.Id">@c.CariKodu — @c.Unvan</option>
+                                        }
+                                    </select>
+                                </div>
+                                @* Başlangıç / Bitiş *@
+                                <div class="col-md-3">
+                                    <label class="form-label small">Başlangıç Tarihi *</label>
+                                    <input type="date" class="form-control" @bind="kontrat.BaslangicTarihi" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Bitiş Tarihi</label>
+                                    <input type="date" class="form-control" @bind="kontrat.BitisTarihi" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* Özmal/Kiralık: Araç + Şoför *@
+                    @if (kontrat.Tip == ServisKontratTip.Ozmal || kontrat.Tip == ServisKontratTip.Kiralik)
+                    {
+                        <div class="card shadow-sm mt-3">
+                            <div class="card-header">
+                                <i class="bi bi-truck me-2"></i>
+                                @(kontrat.Tip == ServisKontratTip.Ozmal ? "Özmal Araç / Şoför" : "Kiralık Araç (C Plaka) / Şoför")
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Araç</label>
+                                        <select class="form-select" @bind="kontrat.AracId">
+                                            <option value="">— Seçiniz —</option>
+                                            @foreach (var a in araclar)
+                                            {
+                                                <option value="@a.Id">@a.AktifPlaka @(a.Marka != null ? $"— {a.Marka}" : "")</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Şoför / Personel</label>
+                                        <select class="form-select" @bind="kontrat.SoforId">
+                                            <option value="">— Seçiniz —</option>
+                                            @foreach (var s in soforler)
+                                            {
+                                                <option value="@s.Id">@s.Ad @s.Soyad</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                                @if (kontrat.Tip == ServisKontratTip.Kiralik)
+                                {
+                                    <div class="alert alert-info mt-2 py-2 small">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        <strong>C Plakalı Kiralık:</strong> Araç firmaya ait, şoför kendi personeliniz.
+                                        Araç bakım/sigorta/yakıt firmanın sorumluluğundadır.
+                                        Kuruma belirli güzergah üzerinden personel/öğrenci taşıması yapılır.
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @* Tedarikçi tipi *@
+                    @if (kontrat.Tip == ServisKontratTip.Tedarikci)
+                    {
+                        <div class="card shadow-sm mt-3">
+                            <div class="card-header"><i class="bi bi-diagram-3 me-2"></i>Tedarikçi Bilgileri</div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Tedarikçi Firma *</label>
+                                        <select class="form-select" @bind="kontrat.TasimaTedarikciId">
+                                            <option value="">— Seçiniz —</option>
+                                            @foreach (var t in tedarikciler)
+                                            {
+                                                <option value="@t.Id">@t.TedarikciKodu — @t.Unvan</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Tedarikçi İş Kaydı (opsiyonel)</label>
+                                        <select class="form-select" @bind="kontrat.TasimaTedarikciIsId">
+                                            <option value="">— Yok —</option>
+                                            @foreach (var i in tedarikciIsler)
+                                            {
+                                                <option value="@i.Id">@i.Guzergah?.GuzergahKodu — @i.BaslangicTarihi.ToString("dd.MM.yyyy")</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @* Sağ: Fiyatlandırma *@
+                <div class="col-lg-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header"><i class="bi bi-cash-coin me-2"></i>Fiyatlandırma</div>
+                        <div class="card-body">
+                            <div class="alert alert-light small p-2 mb-3">
+                                <strong>Tahsilat:</strong> Kurumdan/firmadan alınan bedel<br>
+                                <strong>Ödeme:</strong> Tedarikçiye verilen bedel (sadece Tedarikçi tipinde)
+                            </div>
+                            <h6 class="text-primary small">Tahsilat (Kurumdan)</h6>
+                            <div class="row g-2 mb-3">
+                                <div class="col-7">
+                                    <label class="form-label small">Tahsilat Yöntemi</label>
+                                    <select class="form-select form-select-sm" @bind="kontrat.TahsilatTip">
+                                        <option value="@ServisFiyatTip.Aylik">Aylık</option>
+                                        <option value="@ServisFiyatTip.SeferBazi">Sefer Başı</option>
+                                        <option value="@ServisFiyatTip.Gunluk">Günlük</option>
+                                    </select>
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label small">Birim Fiyat (₺)</label>
+                                    <input type="number" step="0.01" class="form-control form-control-sm"
+                                           @bind="kontrat.TahsilatBirimFiyat" />
+                                </div>
+                            </div>
+
+                            @if (kontrat.Tip == ServisKontratTip.Tedarikci)
+                            {
+                                <hr />
+                                <h6 class="text-success small">Ödeme (Tedarikçiye)</h6>
+                                <div class="row g-2">
+                                    <div class="col-7">
+                                        <label class="form-label small">Ödeme Yöntemi</label>
+                                        <select class="form-select form-select-sm" @bind="kontrat.OdemeTip">
+                                            <option value="">— Seçiniz —</option>
+                                            <option value="@ServisFiyatTip.Aylik">Aylık</option>
+                                            <option value="@ServisFiyatTip.SeferBazi">Sefer Başı</option>
+                                            <option value="@ServisFiyatTip.Gunluk">Günlük</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-5">
+                                        <label class="form-label small">Birim Fiyat (₺)</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm"
+                                               @bind="kontrat.OdemeBirimFiyat" />
+                                    </div>
+                                </div>
+                                @if (kontrat.TahsilatBirimFiyat.HasValue && kontrat.OdemeBirimFiyat.HasValue)
+                                {
+                                    var kar = kontrat.TahsilatBirimFiyat.Value - kontrat.OdemeBirimFiyat.Value;
+                                    <div class="mt-2 p-2 rounded @(kar > 0 ? "bg-success" : "bg-danger") bg-opacity-10 small">
+                                        <strong>Brüt Kar:</strong>
+                                        <span class="@(kar > 0 ? "text-success" : "text-danger") fw-bold">
+                                            @kar.ToString("N2") ₺
+                                        </span>
+                                        <div class="text-muted">(@GetFiyatTipText(kontrat.TahsilatTip) bazında)</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm mt-3">
+                        <div class="card-header"><i class="bi bi-journal-text me-2"></i>Notlar</div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <label class="form-label small">Açıklama</label>
+                                <input class="form-control form-control-sm" @bind="kontrat.Aciklama" />
+                            </div>
+                            <div>
+                                <label class="form-label small">Notlar</label>
+                                <textarea class="form-control form-control-sm" rows="3" @bind="kontrat.Notlar"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* Kaydet / Sil butonları *@
+            <div class="mt-3 d-flex justify-content-between">
+                <div>
+                    @if (Id.HasValue)
+                    {
+                        <button class="btn btn-outline-danger" @onclick="Sil">
+                            <i class="bi bi-trash me-1"></i>Sil
+                        </button>
+                    }
+                </div>
+                <button class="btn btn-primary" @onclick="Kaydet" disabled="@kaydetYukleniyor">
+                    @if (kaydetYukleniyor) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <i class="bi bi-check-circle me-1"></i>Kaydet
+                </button>
+            </div>
+        }
+
+        @* ── PUANTAJ SEKME ── *@
+        @if (aktifTab == "puantaj" && Id.HasValue)
+        {
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="text-muted small">
+                    Aylık çalışma kayıtları. Her ay için ayrı puantaj oluşturun.
+                    Puantaj onaylandıktan sonra ödeme/tahsilat işlemleri yapılabilir.
+                </div>
+                <button class="btn btn-sm btn-success" @onclick="YeniPuantajAc">
+                    <i class="bi bi-plus-circle me-1"></i>Yeni Puantaj
+                </button>
+            </div>
+
+            @if (yeniPuantajAcik)
+            {
+                <div class="card shadow-sm mb-3 border-success">
+                    <div class="card-header bg-success text-white d-flex justify-content-between py-2">
+                        <span><i class="bi bi-calendar-plus me-1"></i>Yeni Puantaj</span>
+                        <button class="btn-close btn-close-white btn-sm" @onclick="() => yeniPuantajAcik = false"></button>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(puantajHata))
+                        { <div class="alert alert-danger py-2 small">@puantajHata</div> }
+                        <div class="row g-2">
+                            <div class="col-md-2">
+                                <label class="form-label small">Yıl *</label>
+                                <input type="number" class="form-control form-control-sm" @bind="yeniPuantaj.Yil" min="2020" max="2035" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Ay *</label>
+                                <select class="form-select form-select-sm" @bind="yeniPuantaj.Ay">
+                                    @for (int i = 1; i <= 12; i++)
+                                    {
+                                        var ay = i;
+                                        <option value="@ay">@AyAdi(ay)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Çalışma Sayısı</label>
+                                <input type="number" step="0.5" class="form-control form-control-sm"
+                                       @bind="yeniPuantaj.CalismaSayisi" placeholder="Gün/Sefer" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Tahsilat Fiyat (₺)</label>
+                                <input type="number" step="0.01" class="form-control form-control-sm"
+                                       @bind="yeniPuantaj.TahsilatBirimFiyat" @bind:after="HesaplaTahsilatToplam" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Tahsilat Toplam (₺)</label>
+                                <input type="number" step="0.01" class="form-control form-control-sm"
+                                       @bind="yeniPuantaj.TahsilatToplam" />
+                            </div>
+                            @if (kontrat.Tip == ServisKontratTip.Tedarikci)
+                            {
+                                <div class="col-md-2">
+                                    <label class="form-label small">Ödeme Fiyat (₺)</label>
+                                    <input type="number" step="0.01" class="form-control form-control-sm"
+                                           @bind="yeniPuantaj.OdemeBirimFiyat" @bind:after="HesaplaOdemeToplam" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">Ödeme Toplam (₺)</label>
+                                    <input type="number" step="0.01" class="form-control form-control-sm"
+                                           @bind="yeniPuantaj.OdemeToplam" />
+                                </div>
+                            }
+                            <div class="col-md-4">
+                                <label class="form-label small">Notlar</label>
+                                <input class="form-control form-control-sm" @bind="yeniPuantaj.Notlar" />
+                            </div>
+                        </div>
+                        <div class="mt-2 text-end">
+                            <button class="btn btn-sm btn-secondary me-1" @onclick="() => { yeniPuantajAcik = false; puantajHata = null; }">Vazgeç</button>
+                            <button class="btn btn-sm btn-success" @onclick="PuantajKaydet" disabled="@puantajYukleniyor">
+                                @if (puantajYukleniyor) { <span class="spinner-border spinner-border-sm"></span> }
+                                else { <i class="bi bi-save me-1"></i> }Kaydet
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (!puantajlar.Any())
+            {
+                <div class="alert alert-info">Henüz puantaj kaydı yok.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Dönem</th>
+                                <th class="text-end">Çalışma</th>
+                                <th class="text-end">Tahsilat Birim</th>
+                                <th class="text-end">Tahsilat Toplam</th>
+                                <th class="text-end">Ödeme Toplam</th>
+                                <th class="text-end">Tahsil Edilen</th>
+                                <th class="text-end">Ödenen</th>
+                                <th>Durum</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in puantajlar)
+                            {
+                                var tahsilEdilen = p.Tahsilatlar.Where(t => t.Tahsil).Sum(t => t.Tutar);
+                                var odenen = p.Odemeler.Where(o => o.Odendi).Sum(o => o.Tutar);
+                                <tr>
+                                    <td>
+                                        <strong>@AyAdi(p.Ay) @p.Yil</strong>
+                                        @if (!string.IsNullOrEmpty(p.Notlar))
+                                        { <div class="text-muted" style="font-size:.75rem">@p.Notlar</div> }
+                                    </td>
+                                    <td class="text-end">@p.CalismaSayisi.ToString("N1")</td>
+                                    <td class="text-end small">@p.TahsilatBirimFiyat.ToString("N2")</td>
+                                    <td class="text-end"><strong>@p.TahsilatToplam.ToString("N2") ₺</strong></td>
+                                    <td class="text-end">
+                                        @if (p.OdemeToplam.HasValue)
+                                        { <strong>@p.OdemeToplam.Value.ToString("N2") ₺</strong> }
+                                        else { <span class="text-muted">—</span> }
+                                    </td>
+                                    <td class="text-end">
+                                        @if (tahsilEdilen > 0)
+                                        {
+                                            <span class="text-success fw-semibold">@tahsilEdilen.ToString("N2") ₺</span>
+                                        }
+                                        else { <span class="text-muted small">Yok</span> }
+                                        @if (tahsilEdilen < p.TahsilatToplam)
+                                        { <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem">Bekliyor</span> }
+                                    </td>
+                                    <td class="text-end">
+                                        @if (odenen > 0)
+                                        { <span class="text-danger fw-semibold">@odenen.ToString("N2") ₺</span> }
+                                        else if (p.OdemeToplam.HasValue)
+                                        { <span class="text-muted small">Yok</span> }
+                                        else { <span class="text-muted">—</span> }
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetPuantajDurumBadge(p.Durum)">@GetPuantajDurumText(p.Durum)</span>
+                                    </td>
+                                    <td class="text-end" style="white-space:nowrap">
+                                        <a href="/servis-operasyon/puantaj/@p.Id"
+                                           class="btn btn-sm btn-outline-primary" title="Detay/Düzenle">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        @if (p.Durum == ServisPuantajDurum.Taslak)
+                                        {
+                                            <button class="btn btn-sm btn-outline-success ms-1" title="Onayla"
+                                                    @onclick="() => PuantajOnayla(p.Id)">
+                                                <i class="bi bi-check-circle"></i>
+                                            </button>
+                                        }
+                                        <button class="btn btn-sm btn-outline-danger ms-1" title="Sil"
+                                                @onclick="() => PuantajSil(p.Id)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <td>Toplam (@puantajlar.Count ay)</td>
+                                <td class="text-end">@puantajlar.Sum(p => p.CalismaSayisi).ToString("N1")</td>
+                                <td></td>
+                                <td class="text-end">@puantajlar.Sum(p => p.TahsilatToplam).ToString("N2") ₺</td>
+                                <td class="text-end">@(puantajlar.Sum(p => p.OdemeToplam ?? 0).ToString("N2")) ₺</td>
+                                <td class="text-end text-success">@puantajlar.SelectMany(p => p.Tahsilatlar).Where(t => t.Tahsil).Sum(t => t.Tutar).ToString("N2") ₺</td>
+                                <td class="text-end text-danger">@puantajlar.SelectMany(p => p.Odemeler).Where(o => o.Odendi).Sum(o => o.Tutar).ToString("N2") ₺</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        }
+
+        @* ── ÖZET/MALİ DURUM SEKME ── *@
+        @if (aktifTab == "ozet" && Id.HasValue && ozet != null)
+        {
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-header"><i class="bi bi-cash-stack me-2"></i>Tahsilat Durumu</div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="text-muted small">Toplam Fatura</div>
+                                    <div class="fs-5 fw-bold">@ozet.ToplamTahsilatTutari.ToString("N2") ₺</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-muted small">Tahsil Edildi</div>
+                                    <div class="fs-5 fw-bold text-success">@ozet.GerceklesenTahsilat.ToString("N2") ₺</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-muted small">Bekleyen</div>
+                                    <div class="fs-5 fw-bold @(ozet.BekleyenTahsilat > 0 ? "text-warning" : "text-success")">
+                                        @ozet.BekleyenTahsilat.ToString("N2") ₺
+                                    </div>
+                                </div>
+                            </div>
+                            @if (ozet.ToplamTahsilatTutari > 0)
+                            {
+                                var yuzde = (int)(ozet.GerceklesenTahsilat / ozet.ToplamTahsilatTutari * 100);
+                                <div class="progress mt-3">
+                                    <div class="progress-bar bg-success" style="width:@yuzde%">@yuzde%</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @if (kontrat.Tip == ServisKontratTip.Tedarikci && ozet.ToplamOdemeTutari.HasValue)
+                {
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-header"><i class="bi bi-wallet2 me-2"></i>Ödeme Durumu (Tedarikçiye)</div>
+                            <div class="card-body">
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <div class="text-muted small">Toplam Ödeme</div>
+                                        <div class="fs-5 fw-bold">@ozet.ToplamOdemeTutari.Value.ToString("N2") ₺</div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="text-muted small">Ödendi</div>
+                                        <div class="fs-5 fw-bold text-danger">@(ozet.GerceklesenOdeme?.ToString("N2") ?? "0.00") ₺</div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="text-muted small">Bekleyen</div>
+                                        <div class="fs-5 fw-bold @((ozet.BekleyenOdeme ?? 0) > 0 ? "text-warning" : "text-success")">
+                                            @((ozet.BekleyenOdeme ?? 0).ToString("N2")) ₺
+                                        </div>
+                                    </div>
+                                </div>
+                                @if (ozet.ToplamOdemeTutari > 0)
+                                {
+                                    var yuzde = (int)((ozet.GerceklesenOdeme ?? 0) / ozet.ToplamOdemeTutari.Value * 100);
+                                    <div class="progress mt-3">
+                                        <div class="progress-bar bg-danger" style="width:@yuzde%">@yuzde%</div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    @* Brüt kar *@
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-header"><i class="bi bi-graph-up me-2"></i>Brüt Kar/Zarar</div>
+                            <div class="card-body">
+                                <div class="row text-center">
+                                    <div class="col-3">
+                                        <div class="text-muted small">Tahsilat Toplamı</div>
+                                        <div class="fs-5 fw-bold text-primary">@ozet.ToplamTahsilatTutari.ToString("N2") ₺</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="text-muted small">Ödeme Toplamı</div>
+                                        <div class="fs-5 fw-bold text-danger">@ozet.ToplamOdemeTutari.Value.ToString("N2") ₺</div>
+                                    </div>
+                                    <div class="col-3">
+                                        @{ var kar = ozet.ToplamTahsilatTutari - ozet.ToplamOdemeTutari.Value; }
+                                        <div class="text-muted small">Brüt Kar</div>
+                                        <div class="fs-5 fw-bold @(kar >= 0 ? "text-success" : "text-danger")">
+                                            @kar.ToString("N2") ₺
+                                        </div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="text-muted small">Toplam Puantaj</div>
+                                        <div class="fs-5 fw-bold">@ozet.ToplamPuantaj ay</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private ServisKontrat kontrat = new() { BaslangicTarihi = DateTime.Today, Durum = ServisKontratDurum.Aktif };
+    private List<Cari> cariler = new();
+    private List<Guzergah> guzergahlar = new();
+    private List<Arac> araclar = new();
+    private List<Sofor> soforler = new();
+    private List<TasimaTedarikci> tedarikciler = new();
+    private List<TasimaTedarikciIs> tedarikciIsler = new();
+    private List<ServisPuantaj> puantajlar = new();
+    private ServisKontratOzet? ozet;
+
+    private string aktifTab = "bilgi";
+    private bool yukleniyor = true;
+    private bool kaydetYukleniyor = false;
+    private string? mesaj;
+
+    private bool yeniPuantajAcik = false;
+    private bool puantajYukleniyor = false;
+    private string? puantajHata;
+    private ServisPuantaj yeniPuantaj = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        yukleniyor = true;
+        await Task.WhenAll(
+            YukleCariler(),
+            YukleGuzergahlar(),
+            YukleAraclar(),
+            YukleSoforler(),
+            YukleTedarikciler()
+        );
+
+        if (Id.HasValue)
+        {
+            kontrat = await KontratService.GetAsync(Id.Value) ?? kontrat;
+            await IliskileriYukle();
+        }
+        yukleniyor = false;
+    }
+
+    private async Task YukleCariler()
+    {
+        cariler = await CariService.GetAllAsync();
+    }
+
+    private async Task YukleGuzergahlar()
+    {
+        guzergahlar = await GuzergahService.GetAllAsync();
+    }
+
+    private async Task YukleAraclar()
+    {
+        var tumAraclar = await AracService.GetAllAsync();
+        araclar = tumAraclar;
+    }
+
+    private async Task YukleSoforler()
+    {
+        soforler = await SoforService.GetAllAsync();
+    }
+
+    private async Task YukleTedarikciler()
+    {
+        tedarikciler = await TedarikciService.GetAllAsync();
+        tedarikciIsler = await TedarikciService.GetIslerAsync();
+    }
+
+    private async Task IliskileriYukle()
+    {
+        if (!Id.HasValue) return;
+        puantajlar = await KontratService.GetPuantajlarAsync(Id.Value);
+        ozet = await KontratService.GetOzetAsync(Id.Value);
+    }
+
+    private async Task Kaydet()
+    {
+        if (kontrat.GuzergahId <= 0) { mesaj = null; return; }
+        kaydetYukleniyor = true;
+        try
+        {
+            if (Id.HasValue)
+            {
+                await KontratService.UpdateAsync(kontrat);
+                mesaj = "Kontrat güncellendi.";
+                await IliskileriYukle();
+            }
+            else
+            {
+                var olusan = await KontratService.CreateAsync(kontrat);
+                Nav.NavigateTo($"/servis-operasyon/kontratlar/{olusan.Id}");
+                return;
+            }
+        }
+        finally { kaydetYukleniyor = false; }
+    }
+
+    private async Task Sil()
+    {
+        if (!Id.HasValue) return;
+        await KontratService.DeleteAsync(Id.Value);
+        Nav.NavigateTo("/servis-operasyon/kontratlar");
+    }
+
+    private void YeniPuantajAc()
+    {
+        yeniPuantaj = new ServisPuantaj
+        {
+            ServisKontratId = Id!.Value,
+            Yil = DateTime.Today.Year,
+            Ay = DateTime.Today.Month,
+            TahsilatBirimFiyat = kontrat.TahsilatBirimFiyat ?? 0,
+            OdemeBirimFiyat = kontrat.OdemeBirimFiyat
+        };
+        yeniPuantajAcik = true;
+        puantajHata = null;
+    }
+
+    private void HesaplaTahsilatToplam()
+    {
+        yeniPuantaj.TahsilatToplam = yeniPuantaj.CalismaSayisi * yeniPuantaj.TahsilatBirimFiyat;
+    }
+
+    private void HesaplaOdemeToplam()
+    {
+        if (yeniPuantaj.OdemeBirimFiyat.HasValue)
+            yeniPuantaj.OdemeToplam = yeniPuantaj.CalismaSayisi * yeniPuantaj.OdemeBirimFiyat.Value;
+    }
+
+    private async Task PuantajKaydet()
+    {
+        puantajHata = null;
+        if (yeniPuantaj.Yil < 2000 || yeniPuantaj.Ay < 1 || yeniPuantaj.Ay > 12)
+        { puantajHata = "Geçerli bir dönem seçin."; return; }
+        if (puantajlar.Any(p => p.Yil == yeniPuantaj.Yil && p.Ay == yeniPuantaj.Ay))
+        { puantajHata = $"{AyAdi(yeniPuantaj.Ay)} {yeniPuantaj.Yil} dönemi için zaten puantaj var."; return; }
+
+        puantajYukleniyor = true;
+        try
+        {
+            await KontratService.CreatePuantajAsync(yeniPuantaj);
+            yeniPuantajAcik = false;
+            await IliskileriYukle();
+        }
+        finally { puantajYukleniyor = false; }
+    }
+
+    private async Task PuantajOnayla(int puantajId)
+    {
+        await KontratService.OnaylaAsync(puantajId, "—");
+        await IliskileriYukle();
+    }
+
+    private async Task PuantajSil(int puantajId)
+    {
+        await KontratService.DeletePuantajAsync(puantajId);
+        await IliskileriYukle();
+    }
+
+    private static string AyAdi(int ay) => ay switch
+    {
+        1 => "Ocak", 2 => "Şubat", 3 => "Mart", 4 => "Nisan",
+        5 => "Mayıs", 6 => "Haziran", 7 => "Temmuz", 8 => "Ağustos",
+        9 => "Eylül", 10 => "Ekim", 11 => "Kasım", 12 => "Aralık",
+        _ => ay.ToString()
+    };
+
+    private static string GetPuantajDurumText(ServisPuantajDurum d) => d switch
+    {
+        ServisPuantajDurum.Taslak => "Taslak",
+        ServisPuantajDurum.Onaylandi => "Onaylandı",
+        ServisPuantajDurum.Kapandi => "Kapandı",
+        _ => d.ToString()
+    };
+
+    private static string GetPuantajDurumBadge(ServisPuantajDurum d) => d switch
+    {
+        ServisPuantajDurum.Taslak => "bg-warning text-dark",
+        ServisPuantajDurum.Onaylandi => "bg-success",
+        ServisPuantajDurum.Kapandi => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+
+    private static string GetFiyatTipText(ServisFiyatTip t) => t switch
+    {
+        ServisFiyatTip.Aylik => "aylık",
+        ServisFiyatTip.SeferBazi => "sefer başı",
+        ServisFiyatTip.Gunluk => "günlük",
+        _ => t.ToString()
+    };
+}

@@ -340,6 +340,10 @@ public class FiloOperasyonService : IFiloOperasyonService
             .Where(p => p.Durum != PlakaDonusumDurum.Tamamlandi && p.Durum != PlakaDonusumDurum.IptalEdildi)
             .CountAsync();
 
+        var aktifTedarikciIs = await context.TasimaTedarikciIsler
+            .Where(i => i.Durum == TasimaTedarikciIsDurum.Aktif)
+            .CountAsync();
+
         return new FiloOzetRaporu
         {
             Tarih = bugun,
@@ -349,7 +353,8 @@ public class FiloOperasyonService : IFiloOperasyonService
             TedarikciAraciSayisi = araclar.Count(a => a.TasimaTedarikciId.HasValue),
             SatisaBekleyenAracSayisi = araclar.Count(a => a.SatisaAcik),
             NoterBekleyenSatisSayisi = satisaBekleyenler,
-            DevamEdenPlakaDonusumSayisi = plakaDonusumleri
+            DevamEdenPlakaDonusumSayisi = plakaDonusumleri,
+            AktifTedarikciIsSayisi = aktifTedarikciIs
         };
     }
 
@@ -382,6 +387,7 @@ public class FiloOzetRaporu
     public int SatisaBekleyenAracSayisi { get; set; }
     public int NoterBekleyenSatisSayisi { get; set; }
     public int DevamEdenPlakaDonusumSayisi { get; set; }
+    public int AktifTedarikciIsSayisi { get; set; }
 }
 
 #endregion
