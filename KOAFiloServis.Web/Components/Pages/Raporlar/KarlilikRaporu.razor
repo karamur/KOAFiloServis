@@ -129,6 +129,24 @@
         <!-- Sekme İçerikleri -->
         @if (aktifSekme == "ozet")
         {
+            <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-light"><strong><i class="bi bi-pie-chart-fill me-1"></i>Sahipliğe Göre Gelir</strong></div>
+                        <div class="card-body" style="height:280px;">
+                            <canvas id="karlilikSahiplikChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-light"><strong><i class="bi bi-pie-chart me-1"></i>Sahipliğe Göre Gider/Maliyet</strong></div>
+                        <div class="card-body" style="height:280px;">
+                            <canvas id="karlilikGiderChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="row g-2">
                 <div class="col-md-6">
                     <div class="card">
@@ -181,6 +199,12 @@
         }
         else if (aktifSekme == "aylik")
         {
+            <div class="card mb-3">
+                <div class="card-header bg-light"><strong><i class="bi bi-bar-chart-line me-1"></i>Aylık Trend — Gelir / Gider / Kar-Zarar</strong></div>
+                <div class="card-body" style="height:320px;">
+                    <canvas id="karlilikAylikChart"></canvas>
+                </div>
+            </div>
             <div class="card">
                 <div class="card-header bg-light"><strong>Aylık Karşılaştırma — @filtreYil</strong></div>
                 <div class="card-body p-0">
@@ -230,6 +254,12 @@
         }
         else if (aktifSekme == "kurum")
         {
+            <div class="card mb-3">
+                <div class="card-header bg-light"><strong><i class="bi bi-building me-1"></i>Kurum Bazında Gelir Dağılımı</strong></div>
+                <div class="card-body" style="height:320px;">
+                    <canvas id="karlilikKurumChart"></canvas>
+                </div>
+            </div>
             <div class="card">
                 <div class="card-header bg-light"><strong>Kurum Bazlı Gelir</strong></div>
                 <div class="card-body p-0">
@@ -348,6 +378,52 @@
         tedarikciler = await TedarikciService.GetAllAsync(true);
         araclar = await AracService.GetActiveAsync();
         await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (yukleniyor) return;
+        try
+        {
+            if (aktifSekme == "ozet")
+            {
+                var sahiplik = SahiplikOzeti();
+                if (sahiplik.Any())
+                {
+                    var labels = sahiplik.Select(s => s.Sahiplik.ToString()).ToArray();
+                    var gelir = sahiplik.Select(s => (double)s.Gelir).ToArray();
+                    var gider = sahiplik.Select(s => (double)s.Gider).ToArray();
+                    await JS.InvokeVoidAsync("karlilikCharts.renderSahiplikDonut", "karlilikSahiplikChart", labels, gelir);
+                    await JS.InvokeVoidAsync("karlilikCharts.renderSahiplikDonut", "karlilikGiderChart", labels, gider);
+                }
+            }
+            else if (aktifSekme == "aylik")
+            {
+                var aylik = AylikOzet();
+                if (aylik.Any())
+                {
+                    var labels = aylik.Select(a => AyAdi(a.Ay)).ToArray();
+                    var gelir = aylik.Select(a => (double)a.Gelir).ToArray();
+                    var gider = aylik.Select(a => (double)a.ToplamGider).ToArray();
+                    var kz = aylik.Select(a => (double)a.KarZarar).ToArray();
+                    await JS.InvokeVoidAsync("karlilikCharts.renderAylikTrend", "karlilikAylikChart", labels, gelir, gider, kz);
+                }
+            }
+            else if (aktifSekme == "kurum")
+            {
+                var kurumlar = KurumOzet().OrderByDescending(k => k.Tutar).Take(15).ToList();
+                if (kurumlar.Any())
+                {
+                    var labels = kurumlar.Select(k => k.Ad).ToArray();
+                    var data = kurumlar.Select(k => (double)k.Tutar).ToArray();
+                    await JS.InvokeVoidAsync("karlilikCharts.renderKurumBar", "karlilikKurumChart", labels, data);
+                }
+            }
+        }
+        catch
+        {
+            // grafik render hatası raporu bozmasın
+        }
     }
 
     private async Task LoadAsync()
