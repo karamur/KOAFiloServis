@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -148,6 +148,11 @@ public class ApplicationDbContext : DbContext
     // Filo Komisyon ve Araç Operasyon Puantaj Modülü
     public DbSet<FiloGuzergahEslestirme> FiloGuzergahEslestirmeleri { get; set; }
     public DbSet<FiloGunlukPuantaj> FiloGunlukPuantajlar { get; set; }
+
+    // Hakediş ve Araç Maliyet Modülü
+    public DbSet<Hakedis> Hakedisler { get; set; }
+    public DbSet<HakedisDetay> HakedisDetaylari { get; set; }
+    public DbSet<AracMaliyetSnapshot> AracMaliyetSnapshotlari { get; set; }
 
     // Piyasa Arastirma Modulu
     public DbSet<AracPiyasaArastirma> PiyasaArastirmalar { get; set; }
@@ -1811,6 +1816,55 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<FiloGunlukPuantaj>()
             .HasQueryFilter(e => !e.IsDeleted && (e.Arac == null || !e.Arac.IsDeleted));
+
+        // Hakediş + Hakediş Detay + Araç Maliyet Snapshot (yeni modül)
+        modelBuilder.Entity<Hakedis>()
+            .HasQueryFilter(e => !e.IsDeleted);
+
+        modelBuilder.Entity<Hakedis>()
+            .HasOne(h => h.Fatura)
+            .WithMany()
+            .HasForeignKey(h => h.FaturaId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<HakedisDetay>()
+            .HasQueryFilter(e => !e.IsDeleted);
+
+        modelBuilder.Entity<HakedisDetay>()
+            .HasOne(d => d.Hakedis)
+            .WithMany(h => h.Detaylar)
+            .HasForeignKey(d => d.HakedisId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<HakedisDetay>()
+            .HasOne(d => d.Arac)
+            .WithMany()
+            .HasForeignKey(d => d.AracId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<HakedisDetay>()
+            .HasOne(d => d.FiloGunlukPuantaj)
+            .WithMany()
+            .HasForeignKey(d => d.FiloGunlukPuantajId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<AracMaliyetSnapshot>()
+            .HasQueryFilter(e => !e.IsDeleted && (e.Arac == null || !e.Arac.IsDeleted));
+
+        modelBuilder.Entity<AracMaliyetSnapshot>()
+            .HasOne(s => s.Arac)
+            .WithMany()
+            .HasForeignKey(s => s.AracId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<AracMaliyetSnapshot>()
+            .HasIndex(s => new { s.AracId, s.Yil, s.Ay })
+            .IsUnique()
+            .HasDatabaseName("IX_AracMaliyetSnapshot_Arac_Donem");
+
+        modelBuilder.Entity<Hakedis>()
+            .HasIndex(h => new { h.Tip, h.ReferansId, h.Yil, h.Ay })
+            .HasDatabaseName("IX_Hakedis_Tip_Ref_Donem");
 
         modelBuilder.Entity<KiralamaArac>()
             .HasQueryFilter(e => !e.IsDeleted && (e.Firma == null || !e.Firma.IsDeleted));

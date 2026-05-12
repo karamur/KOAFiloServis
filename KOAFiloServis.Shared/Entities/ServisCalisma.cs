@@ -40,7 +40,8 @@ public enum ServisTuru
     Sabah = 1,
     Aksam = 2,
     SabahAksam = 3,
-    Ozel = 4
+    Ozel = 4,
+    YardaMesai = 5
 }
 
 public enum CalismaDurum

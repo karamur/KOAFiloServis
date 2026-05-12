@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KOAFiloServis.Shared.Entities;
@@ -83,6 +83,16 @@ public class FiloGunlukPuantaj : BaseEntity
     public OperasyonDurumu Durum { get; set; } = OperasyonDurumu.Gitti;
 
     /// <summary>
+    /// O gün gerçekleşen vardiya (Sabah / Akşam / Yarda Mesai / SabahAkşam)
+    /// </summary>
+    public ServisTuru ServisTuru { get; set; } = ServisTuru.SabahAksam;
+
+    /// <summary>
+    /// O gün o vardiyada gerçekleşen sefer sayısı (varsayılan 1.0)
+    /// </summary>
+    public decimal SeferSayisi { get; set; } = 1m;
+
+    /// <summary>
     /// Pazar günleri vs. yarım gün ya da tam gün (Örn: 1.0, 0.5)
     /// </summary>
     public decimal PuantajCarpani { get; set; } = 1.0m;
@@ -111,6 +121,21 @@ public class FiloGunlukPuantaj : BaseEntity
     /// </summary>
     public bool KurumFaturaKesildiMi { get; set; } = false;
     public bool TaseronOdemeYapildiMi { get; set; } = false;
+
+    /// <summary>
+    /// Özmal/Kiralık araçlar için o sefer için hesaplanan birim maliyet snapshot'u
+    /// </summary>
+    public decimal? MaliyetOzmalKiralik { get; set; }
+
+    /// <summary>
+    /// Kuruma kesilen gelir faturasına bağlantı
+    /// </summary>
+    public int? KurumFaturaId { get; set; }
+
+    /// <summary>
+    /// Tedarikçiden gelen / tedarikçiye kesilen gider faturasına bağlantı
+    /// </summary>
+    public int? TedarikciOdemeFaturaId { get; set; }
 
     // Navigation
     [ForeignKey(nameof(KurumFirmaId))]

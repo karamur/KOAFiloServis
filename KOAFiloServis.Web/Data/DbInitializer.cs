@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Data;
@@ -14,6 +14,7 @@ public static class DbInitializer
     private const string AddLastikTakipModuluMigrationId = "20260421110504_AddLastikTakipModulu";
     private const string LastikStokBireyselTakipMigrationId = "20260421133935_LastikStokBireyselTakip";
     private const string AddLastikSezonAyarMigrationId = "20260507144644_AddLastikSezonAyar";
+    private const string AddHakedisVeAracMaliyetSnapshotMigrationId = "20260512072224_AddHakedisVeAracMaliyetSnapshot";
 
     public static async Task InitializeAsync(ApplicationDbContext context, IConfiguration configuration)
     {
@@ -141,6 +142,14 @@ public static class DbInitializer
                         && await PostgreSqlTableExistsAsync(context, configuration, "LastikSezonAyarlari"))
                     {
                         recoverableMigrations.Add(AddLastikSezonAyarMigrationId);
+                    }
+
+                    if (pendingMigrations.Contains(AddHakedisVeAracMaliyetSnapshotMigrationId)
+                        && await PostgreSqlTableExistsAsync(context, configuration, "Hakedisler")
+                        && await PostgreSqlTableExistsAsync(context, configuration, "HakedisDetaylari")
+                        && await PostgreSqlTableExistsAsync(context, configuration, "AracMaliyetSnapshotlari"))
+                    {
+                        recoverableMigrations.Add(AddHakedisVeAracMaliyetSnapshotMigrationId);
                     }
 
                     if (recoverableMigrations.Any())

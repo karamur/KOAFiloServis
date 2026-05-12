@@ -80,6 +80,9 @@ public class Fatura : BaseEntity
     public virtual Arac? Arac { get; set; }
     public bool AracFaturasi { get; set; } = false;
 
+    // Hakediş İlişkisi (Hakedişten üretilen gelir/gider faturası)
+    public int? HakedisId { get; set; }
+
     // Foreign Key
     public int CariId { get; set; }
 
