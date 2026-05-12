@@ -50,7 +50,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small">Tip</label>
-                    <select class="form-select form-select-sm" @bind="filtreTip" @bind:after="LoadAsync">
+                    <select class="form-select form-select-sm" @bind="filtreTip" @bind:after="OnTipChanged">
                         <option value="">Tümü</option>
                         <option value="Kurum">Kurum</option>
                         <option value="Tedarikci">Tedarikçi</option>
@@ -69,7 +69,42 @@
                         <option value="Iptal">İptal</option>
                     </select>
                 </div>
-                <div class="col-md-4 text-end">
+                <div class="col-md-2">
+                    <label class="form-label small">
+                        @(filtreTip switch
+                        {
+                            "Kurum" => "Kurum",
+                            "Tedarikci" => "Tedarikçi",
+                            "Arac" => "Araç",
+                            _ => "Referans"
+                        })
+                    </label>
+                    <select class="form-select form-select-sm" @bind="filtreReferansId" @bind:after="LoadAsync" disabled="@string.IsNullOrEmpty(filtreTip)">
+                        <option value="0">Tümü</option>
+                        @if (filtreTip == "Kurum")
+                        {
+                            @foreach (var f in firmalar)
+                            {
+                                <option value="@f.Id">@f.FirmaAdi</option>
+                            }
+                        }
+                        else if (filtreTip == "Tedarikci")
+                        {
+                            @foreach (var t in tedarikciler)
+                            {
+                                <option value="@t.Id">@t.Unvan</option>
+                            }
+                        }
+                        else if (filtreTip == "Arac")
+                        {
+                            @foreach (var a in araclar)
+                            {
+                                <option value="@a.Id">@a.Plaka</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2 text-end">
                     <button class="btn btn-outline-secondary btn-sm" @onclick="FiltreyiTemizle">
                         <i class="bi bi-x-lg me-1"></i>Filtreyi Temizle
                     </button>
@@ -80,6 +115,18 @@
 
     <!-- Liste -->
     <div class="card">
+        @if (!yukleniyor && hakedisler.Any())
+        {
+            <div class="card-header bg-light py-2 d-flex flex-wrap gap-3 align-items-center small">
+                <span><i class="bi bi-list-ol me-1"></i><strong>@hakedisler.Count</strong> hakediş</span>
+                <span class="text-muted">|</span>
+                <span><i class="bi bi-truck me-1"></i>Toplam Sefer: <strong>@hakedisler.Sum(h => h.ToplamSeferSayisi).ToString("N2")</strong></span>
+                <span class="text-muted">|</span>
+                <span><i class="bi bi-cash me-1"></i>Toplam Tutar: <strong>@hakedisler.Sum(h => h.Tutar).ToString("N2") ₺</strong></span>
+                <span class="text-muted">|</span>
+                <span><i class="bi bi-receipt me-1"></i>Genel Toplam: <strong>@hakedisler.Sum(h => h.GenelToplam).ToString("N2") ₺</strong></span>
+            </div>
+        }
         <div class="card-body p-0">
             @if (yukleniyor)
             {
@@ -334,6 +381,7 @@
     private int filtreAy = DateTime.Now.Month;
     private string filtreTip = "";
     private string filtreDurum = "";
+    private int filtreReferansId = 0;
 
     private int uretYil = DateTime.Now.Year;
     private int uretAy = DateTime.Now.Month;
@@ -365,7 +413,8 @@
         {
             HakedisTipi? tip = string.IsNullOrEmpty(filtreTip) ? null : Enum.Parse<HakedisTipi>(filtreTip);
             HakedisDurum? durum = string.IsNullOrEmpty(filtreDurum) ? null : Enum.Parse<HakedisDurum>(filtreDurum);
-            hakedisler = await HakedisService.GetHakedislerAsync(filtreYil, filtreAy, tip, null, durum);
+            int? refId = filtreReferansId > 0 ? filtreReferansId : null;
+            hakedisler = await HakedisService.GetHakedislerAsync(filtreYil, filtreAy, tip, refId, durum);
             detayCache.Clear();
             acikDetayId = null;
         }
@@ -381,6 +430,14 @@
         filtreAy = DateTime.Now.Month;
         filtreTip = "";
         filtreDurum = "";
+        filtreReferansId = 0;
+        await LoadAsync();
+    }
+
+    private async Task OnTipChanged()
+    {
+        // Tip değişince referans seçimi sıfırlanmalı (yanlış id'lerle filtrelemeyi önle)
+        filtreReferansId = 0;
         await LoadAsync();
     }
 
