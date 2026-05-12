@@ -21,7 +21,10 @@ public class OperasyonelHakedisService : IOperasyonelHakedisService
     public async Task<List<Hakedis>> GetHakedislerAsync(int? yil = null, int? ay = null, HakedisTipi? tip = null, int? referansId = null, HakedisDurum? durum = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var q = context.Hakedisler.Include(h => h.Detaylar).AsQueryable();
+        var q = context.Hakedisler
+            .Include(h => h.Detaylar)
+            .Include(h => h.Fatura)
+            .AsQueryable();
 
         if (yil.HasValue) q = q.Where(h => h.Yil == yil.Value);
         if (ay.HasValue) q = q.Where(h => h.Ay == ay.Value);

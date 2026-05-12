@@ -89,6 +89,14 @@
                     </select>
                 </div>
                 <div class="col-md-2">
+                    <label class="form-label small">Fatura</label>
+                    <select class="form-select form-select-sm" @bind="filtreFatura" @bind:after="OnFaturaFiltreChanged">
+                        <option value="">Tümü</option>
+                        <option value="Var">Faturalanmış</option>
+                        <option value="Yok">Faturalanmamış</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label small">
                         @(filtreTip switch
                         {
@@ -228,6 +236,18 @@
                                     <td class="text-end">@h.KdvTutar.ToString("N2") ₺</td>
                                     <td class="text-end fw-semibold">@h.GenelToplam.ToString("N2") ₺</td>
                                     <td><span class="badge @DurumBadge(h.Durum)">@h.Durum</span></td>
+                                    <td>
+                                        @if (h.FaturaId.HasValue)
+                                        {
+                                            <a href="/faturalar/@h.FaturaId.Value" class="text-decoration-none" title="Faturayı aç">
+                                                <i class="bi bi-receipt me-1"></i>@(h.Fatura?.FaturaNo ?? $"#{h.FaturaId.Value}")
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-outline-secondary" title="Detaylar" @onclick="() => DetayAc(h)">
@@ -269,7 +289,7 @@
                                 @if (acikDetayId == h.Id)
                                 {
                                     <tr>
-                                        <td colspan="10" class="bg-light">
+                                        <td colspan="11" class="bg-light">
                                             <div class="p-2">
                                                 @{
                                                     var aktifH = detayCache.TryGetValue(h.Id, out var dh) ? dh : h;
@@ -769,6 +789,7 @@
     private string filtreTip = "";
     private string filtreDurum = "";
     private int filtreReferansId = 0;
+    private string filtreFatura = ""; // "" = Tümü, "Var" = Faturalanmış, "Yok" = Faturalanmamış
 
     private int uretYil = DateTime.Now.Year;
     private int uretAy = DateTime.Now.Month;
@@ -835,6 +856,7 @@
                 "Kdv" => Sirala(q, h => h.KdvTutar),
                 "GenelToplam" => Sirala(q, h => h.GenelToplam),
                 "Durum" => Sirala(q, h => h.Durum.ToString()),
+                "FaturaNo" => Sirala(q, h => h.Fatura?.FaturaNo ?? string.Empty),
                 _ => q
             };
             return q;
@@ -924,6 +946,10 @@
             HakedisDurum? durum = string.IsNullOrEmpty(filtreDurum) ? null : Enum.Parse<HakedisDurum>(filtreDurum);
             int? refId = filtreReferansId > 0 ? filtreReferansId : null;
             hakedisler = await HakedisService.GetHakedislerAsync(filtreYil, filtreAy, tip, refId, durum);
+            if (filtreFatura == "Var")
+                hakedisler = hakedisler.Where(h => h.FaturaId.HasValue).ToList();
+            else if (filtreFatura == "Yok")
+                hakedisler = hakedisler.Where(h => !h.FaturaId.HasValue).ToList();
             detayCache.Clear();
             acikDetayId = null;
             // listede artık olmayan seçimleri temizle
@@ -944,6 +970,13 @@
         filtreTip = "";
         filtreDurum = "";
         filtreReferansId = 0;
+        filtreFatura = "";
+        await LoadAsync();
+    }
+
+    private async Task OnFaturaFiltreChanged()
+    {
+        aktifSayfa = 1;
         await LoadAsync();
     }
 
@@ -1288,13 +1321,14 @@
 
             var baslik = $"OPERASYONEL HAKEDİŞ LİSTESİ • {filtreYil}/{filtreAy:D2}"
                 + (string.IsNullOrEmpty(filtreTip) ? "" : $" • {filtreTip}")
-                + (string.IsNullOrEmpty(filtreDurum) ? "" : $" • {filtreDurum}");
+                + (string.IsNullOrEmpty(filtreDurum) ? "" : $" • {filtreDurum}")
+                + (filtreFatura switch { "Var" => " • Faturalanmış", "Yok" => " • Faturalanmamış", _ => "" });
             ws.Cell(1, 1).Value = baslik;
             ws.Cell(1, 1).Style.Font.Bold = true;
             ws.Cell(1, 1).Style.Font.FontSize = 13;
-            ws.Range(1, 1, 1, 10).Merge();
+            ws.Range(1, 1, 1, 11).Merge();
 
-            var headers = new[] { "#", "Dönem", "Tip", "Referans", "Sefer", "Tutar ₺", "KDV %", "KDV ₺", "Genel Toplam ₺", "Durum" };
+            var headers = new[] { "#", "Dönem", "Tip", "Referans", "Sefer", "Tutar ₺", "KDV %", "KDV ₺", "Genel Toplam ₺", "Durum", "Fatura No" };
             for (int i = 0; i < headers.Length; i++)
             {
                 ws.Cell(3, i + 1).Value = headers[i];
@@ -1315,6 +1349,7 @@
                 ws.Cell(r, 8).Value = h.KdvTutar;
                 ws.Cell(r, 9).Value = h.GenelToplam;
                 ws.Cell(r, 10).Value = h.Durum.ToString();
+                ws.Cell(r, 11).Value = h.Fatura?.FaturaNo ?? string.Empty;
                 r++;
             }
 
@@ -1324,8 +1359,8 @@
             ws.Cell(r, 6).Value = hakedisler.Sum(h => h.Tutar);
             ws.Cell(r, 8).Value = hakedisler.Sum(h => h.KdvTutar);
             ws.Cell(r, 9).Value = hakedisler.Sum(h => h.GenelToplam);
-            ws.Range(r, 4, r, 10).Style.Font.Bold = true;
-            ws.Range(r, 4, r, 10).Style.Fill.BackgroundColor = XLColor.LightYellow;
+            ws.Range(r, 4, r, 11).Style.Font.Bold = true;
+            ws.Range(r, 4, r, 11).Style.Fill.BackgroundColor = XLColor.LightYellow;
 
             ws.Range(4, 5, r, 9).Style.NumberFormat.Format = "#,##0.00";
             ws.Columns().AdjustToContents();
