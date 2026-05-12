@@ -1,0 +1,557 @@
+﻿@page "/filo-gunluk-puantaj"
+@using KOAFiloServis.Shared.Entities
+@using KOAFiloServis.Web.Data
+@using KOAFiloServis.Web.Services
+@using KOAFiloServis.Web.Services.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+@inject IFirmaService FirmaService
+@inject IAracService AracService
+@inject ISoforService SoforService
+@inject IGuzergahService GuzergahService
+@inject IToastService ToastService
+@inject IJSRuntime JS
+@attribute [Authorize]
+
+<PageTitle>Filo Günlük Puantaj</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-calendar2-check me-2"></i>Filo Günlük Puantaj</h2>
+            <p class="text-muted mb-0">Günlük operasyon kayıtları (Sabah / Akşam / Yarda Mesai). Hakediş ve maliyet snapshot'ları bu kayıtlardan üretilir.</p>
+        </div>
+        <button class="btn btn-primary" @onclick="YeniKayitAc">
+            <i class="bi bi-plus-lg me-1"></i> Yeni Kayıt
+        </button>
+    </div>
+
+    <!-- Filtre -->
+    <div class="card mb-3">
+        <div class="card-body py-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small">Başlangıç</label>
+                    <input type="date" class="form-control form-control-sm" @bind="filtreBaslangic" @bind:after="LoadAsync" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Bitiş</label>
+                    <input type="date" class="form-control form-control-sm" @bind="filtreBitis" @bind:after="LoadAsync" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Kurum</label>
+                    <select class="form-select form-select-sm" @bind="filtreKurumId" @bind:after="LoadAsync">
+                        <option value="0">Tümü</option>
+                        @foreach (var f in firmalar)
+                        {
+                            <option value="@f.Id">@f.FirmaAdi</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Araç</label>
+                    <select class="form-select form-select-sm" @bind="filtreAracId" @bind:after="LoadAsync">
+                        <option value="0">Tümü</option>
+                        @foreach (var a in araclar)
+                        {
+                            <option value="@a.Id">@a.Plaka</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Servis Türü</label>
+                    <select class="form-select form-select-sm" @bind="filtreServisTuru" @bind:after="LoadAsync">
+                        <option value="">Tümü</option>
+                        <option value="Sabah">Sabah</option>
+                        <option value="Aksam">Akşam</option>
+                        <option value="SabahAksam">Sabah+Akşam</option>
+                        <option value="YardaMesai">Yarda Mesai</option>
+                        <option value="Ozel">Özel</option>
+                    </select>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="FiltreyiTemizle">
+                        <i class="bi bi-x-lg me-1"></i> Temizle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Özet -->
+    @if (kayitlar.Any())
+    {
+        <div class="row g-2 mb-3">
+            <div class="col-md-3"><div class="card border-primary"><div class="card-body py-2"><div class="text-muted small">Kayıt</div><div class="fs-5 fw-bold">@kayitlar.Count</div></div></div></div>
+            <div class="col-md-3"><div class="card border-info"><div class="card-body py-2"><div class="text-muted small">Toplam Sefer</div><div class="fs-5 fw-bold">@kayitlar.Sum(k => k.SeferSayisi).ToString("N2")</div></div></div></div>
+            <div class="col-md-3"><div class="card border-success"><div class="card-body py-2"><div class="text-muted small">Tahakkuk Gelir</div><div class="fs-5 fw-bold text-success">@kayitlar.Sum(k => k.TahakkukEdenKurumUcreti).ToString("N2") ₺</div></div></div></div>
+            <div class="col-md-3"><div class="card border-warning"><div class="card-body py-2"><div class="text-muted small">Tahakkuk Gider</div><div class="fs-5 fw-bold text-warning">@kayitlar.Sum(k => k.TahakkukEdenTaseronUcreti + (k.MaliyetOzmalKiralik ?? 0)).ToString("N2") ₺</div></div></div></div>
+        </div>
+    }
+
+    <!-- Liste -->
+    <div class="card">
+        <div class="card-body p-0">
+            @if (yukleniyor)
+            {
+                <div class="p-4 text-center text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Yükleniyor...</div>
+            }
+            else if (!kayitlar.Any())
+            {
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    Bu kriterlere uygun kayıt bulunamadı.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Servis</th>
+                                <th class="text-end">Sefer</th>
+                                <th>Kurum</th>
+                                <th>Araç</th>
+                                <th>Sahiplik</th>
+                                <th>Şoför</th>
+                                <th>Güzergah</th>
+                                <th class="text-end">Gelir</th>
+                                <th class="text-end">Gider/Maliyet</th>
+                                <th>Durum</th>
+                                <th>Faturalama</th>
+                                <th class="text-center" style="width:100px;">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var k in kayitlar)
+                            {
+                                <tr>
+                                    <td>@k.Tarih.ToString("dd.MM.yyyy")</td>
+                                    <td><span class="badge @ServisTuruBadge(k.ServisTuru)">@ServisTuruAdi(k.ServisTuru)</span></td>
+                                    <td class="text-end">@k.SeferSayisi.ToString("N2")</td>
+                                    <td>@(k.KurumFirma?.FirmaAdi ?? "-")</td>
+                                    <td><strong>@(k.Arac?.Plaka ?? "-")</strong></td>
+                                    <td><span class="badge @SahiplikBadge(k.Arac?.SahiplikTipi ?? AracSahiplikTipi.Ozmal)">@(k.Arac?.SahiplikTipi.ToString() ?? "-")</span></td>
+                                    <td>@(k.Sofor?.TamAd ?? "-")</td>
+                                    <td>@(k.Guzergah?.GuzergahAdi ?? "-")</td>
+                                    <td class="text-end text-success">@k.TahakkukEdenKurumUcreti.ToString("N2")</td>
+                                    <td class="text-end text-warning">@((k.Arac?.SahiplikTipi == AracSahiplikTipi.Tedarikci ? k.TahakkukEdenTaseronUcreti : (k.MaliyetOzmalKiralik ?? 0)).ToString("N2"))</td>
+                                    <td><span class="badge @DurumBadge(k.Durum)">@k.Durum</span></td>
+                                    <td>
+                                        @if (k.KurumFaturaKesildiMi) { <span class="badge bg-success me-1" title="Kurum faturası kesildi"><i class="bi bi-receipt"></i> G</span> }
+                                        @if (k.TaseronOdemeYapildiMi) { <span class="badge bg-info text-dark" title="Tedarikçi ödemesi yapıldı"><i class="bi bi-cash"></i> Ö</span> }
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" title="Düzenle" @onclick="() => Duzenle(k)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" title="Sil" @onclick="() => Sil(k)" disabled="@(k.KurumFaturaKesildiMi || k.TaseronOdemeYapildiMi)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Kayıt Modal -->
+@if (kayitModalAcik)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-@(form.Id > 0 ? "pencil" : "plus-lg") me-2"></i>
+                        @(form.Id > 0 ? "Puantaj Düzenle" : "Yeni Puantaj Kaydı")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="() => kayitModalAcik = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small">Tarih *</label>
+                            <input type="date" class="form-control form-control-sm" @bind="form.Tarih" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small">Servis Türü *</label>
+                            <select class="form-select form-select-sm" @bind="form.ServisTuru">
+                                <option value="@ServisTuru.Sabah">Sabah</option>
+                                <option value="@ServisTuru.Aksam">Akşam</option>
+                                <option value="@ServisTuru.SabahAksam">Sabah + Akşam</option>
+                                <option value="@ServisTuru.YardaMesai">Yarda Mesai</option>
+                                <option value="@ServisTuru.Ozel">Özel</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small">Sefer Sayısı *</label>
+                            <input type="number" step="0.5" min="0" class="form-control form-control-sm" @bind="form.SeferSayisi" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small">Kurum (Firma) *</label>
+                            <select class="form-select form-select-sm" @bind="form.KurumFirmaId">
+                                <option value="0">-- Seçiniz --</option>
+                                @foreach (var f in firmalar)
+                                {
+                                    <option value="@f.Id">@f.FirmaAdi</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Güzergah *</label>
+                            <select class="form-select form-select-sm" @bind="form.GuzergahId">
+                                <option value="0">-- Seçiniz --</option>
+                                @foreach (var g in guzergahlar)
+                                {
+                                    <option value="@g.Id">@g.GuzergahAdi</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small">Araç *</label>
+                            <select class="form-select form-select-sm" @bind="form.AracId" @bind:after="AracDegisti">
+                                <option value="0">-- Seçiniz --</option>
+                                @foreach (var a in araclar)
+                                {
+                                    <option value="@a.Id">@a.Plaka — @a.SahiplikTipi</option>
+                                }
+                            </select>
+                            @if (secilenSahiplik != null)
+                            {
+                                <span class="badge mt-1 @SahiplikBadge(secilenSahiplik.Value)">Sahiplik: @secilenSahiplik</span>
+                            }
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Şoför *</label>
+                            <select class="form-select form-select-sm" @bind="form.SoforId">
+                                <option value="0">-- Seçiniz --</option>
+                                @foreach (var s in soforler)
+                                {
+                                    <option value="@s.Id">@s.TamAd</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small">Operasyon Durumu</label>
+                            <select class="form-select form-select-sm" @bind="form.Durum">
+                                <option value="@OperasyonDurumu.Gitti">Gitti</option>
+                                <option value="@OperasyonDurumu.Gitmedi_Mazeretli">Gitmedi (Mazeretli)</option>
+                                <option value="@OperasyonDurumu.Gitmedi_Mazeretsiz">Gitmedi (Mazeretsiz)</option>
+                                <option value="@OperasyonDurumu.Taksiyle_Gidildi">Taksiyle Gidildi</option>
+                                <option value="@OperasyonDurumu.Arizalandi_YoldaKaldi">Arızalandı / Yolda Kaldı</option>
+                                <option value="@OperasyonDurumu.Iptal_KurumTarafindan">İptal (Kurum)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small">Kurum Ücreti (Gelir) ₺</label>
+                            <input type="number" step="0.01" min="0" class="form-control form-control-sm" @bind="form.TahakkukEdenKurumUcreti" />
+                        </div>
+                        <div class="col-md-4">
+                            @if (secilenSahiplik == AracSahiplikTipi.Tedarikci)
+                            {
+                                <label class="form-label small">Tedarikçi Ücreti (Gider) ₺</label>
+                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" @bind="form.TahakkukEdenTaseronUcreti" />
+                            }
+                            else
+                            {
+                                <label class="form-label small">Maliyet Özmal/Kiralık ₺</label>
+                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" @bind="maliyetOzmalKiralikInput" />
+                                <div class="form-text">Boş bırakılırsa snapshot'tan otomatik hesaplanabilir.</div>
+                            }
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="cbTaksi" @bind="form.TaksiKullanildiMi" />
+                                <label class="form-check-label small" for="cbTaksi">Taksi Kullanıldı</label>
+                            </div>
+                        </div>
+                        @if (form.TaksiKullanildiMi)
+                        {
+                            <div class="col-md-4">
+                                <label class="form-label small">Taksi Fiş ₺</label>
+                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" @bind="taksiFisInput" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">Taksi Açıklama</label>
+                                <input type="text" class="form-control form-control-sm" @bind="form.TaksiFisAciklama" />
+                            </div>
+                        }
+
+                        <div class="col-md-4">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="cbAriza" @bind="form.ArizaYaptiMi" />
+                                <label class="form-check-label small" for="cbAriza">Arıza Yaptı</label>
+                            </div>
+                        </div>
+                        @if (form.ArizaYaptiMi)
+                        {
+                            <div class="col-md-8">
+                                <label class="form-label small">Arıza Açıklaması</label>
+                                <input type="text" class="form-control form-control-sm" @bind="form.ArizaAciklamasi" />
+                            </div>
+                        }
+
+                        <div class="col-12">
+                            <label class="form-label small">Notlar</label>
+                            <textarea class="form-control form-control-sm" rows="2" @bind="form.Notlar"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" @onclick="() => kayitModalAcik = false">İptal</button>
+                    <button class="btn btn-primary btn-sm" @onclick="Kaydet" disabled="@(isSaving || !FormGecerli())">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool yukleniyor = true;
+    private bool isSaving = false;
+    private bool kayitModalAcik = false;
+
+    private DateTime filtreBaslangic = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private DateTime filtreBitis = DateTime.Today;
+    private int filtreKurumId = 0;
+    private int filtreAracId = 0;
+    private string filtreServisTuru = "";
+
+    private List<FiloGunlukPuantaj> kayitlar = new();
+    private List<Firma> firmalar = new();
+    private List<Arac> araclar = new();
+    private List<Sofor> soforler = new();
+    private List<Guzergah> guzergahlar = new();
+
+    private FiloGunlukPuantaj form = new();
+    private AracSahiplikTipi? secilenSahiplik = null;
+    private decimal? maliyetOzmalKiralikInput;
+    private decimal? taksiFisInput;
+
+    protected override async Task OnInitializedAsync()
+    {
+        firmalar = await FirmaService.GetAktifFirmalarAsync();
+        araclar = await AracService.GetActiveAsync();
+        soforler = await SoforService.GetActiveAsync();
+        guzergahlar = await GuzergahService.GetAllAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        yukleniyor = true;
+        StateHasChanged();
+        try
+        {
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+            var q = ctx.FiloGunlukPuantajlar
+                .Include(p => p.KurumFirma)
+                .Include(p => p.Arac)
+                .Include(p => p.Sofor)
+                .Include(p => p.Guzergah)
+                .Where(p => p.Tarih >= filtreBaslangic.Date && p.Tarih <= filtreBitis.Date);
+
+            if (filtreKurumId > 0) q = q.Where(p => p.KurumFirmaId == filtreKurumId);
+            if (filtreAracId > 0) q = q.Where(p => p.AracId == filtreAracId);
+            if (!string.IsNullOrEmpty(filtreServisTuru) && Enum.TryParse<ServisTuru>(filtreServisTuru, out var st))
+                q = q.Where(p => p.ServisTuru == st);
+
+            kayitlar = await q.OrderByDescending(p => p.Tarih).ThenBy(p => p.Arac!.Plaka).ToListAsync();
+        }
+        finally { yukleniyor = false; }
+    }
+
+    private async Task FiltreyiTemizle()
+    {
+        filtreBaslangic = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+        filtreBitis = DateTime.Today;
+        filtreKurumId = 0; filtreAracId = 0; filtreServisTuru = "";
+        await LoadAsync();
+    }
+
+    private void YeniKayitAc()
+    {
+        form = new FiloGunlukPuantaj
+        {
+            Tarih = DateTime.Today,
+            ServisTuru = ServisTuru.SabahAksam,
+            SeferSayisi = 1m,
+            Durum = OperasyonDurumu.Gitti
+        };
+        secilenSahiplik = null;
+        maliyetOzmalKiralikInput = null;
+        taksiFisInput = null;
+        kayitModalAcik = true;
+    }
+
+    private void Duzenle(FiloGunlukPuantaj k)
+    {
+        form = new FiloGunlukPuantaj
+        {
+            Id = k.Id,
+            FirmaId = k.FirmaId,
+            Tarih = k.Tarih,
+            KurumFirmaId = k.KurumFirmaId,
+            GuzergahId = k.GuzergahId,
+            AracId = k.AracId,
+            SoforId = k.SoforId,
+            Durum = k.Durum,
+            ServisTuru = k.ServisTuru,
+            SeferSayisi = k.SeferSayisi,
+            PuantajCarpani = k.PuantajCarpani,
+            TahakkukEdenKurumUcreti = k.TahakkukEdenKurumUcreti,
+            TahakkukEdenTaseronUcreti = k.TahakkukEdenTaseronUcreti,
+            TaksiKullanildiMi = k.TaksiKullanildiMi,
+            TaksiFisTutari = k.TaksiFisTutari,
+            TaksiFisAciklama = k.TaksiFisAciklama,
+            ArizaYaptiMi = k.ArizaYaptiMi,
+            ArizaAciklamasi = k.ArizaAciklamasi,
+            Notlar = k.Notlar,
+            KurumFaturaKesildiMi = k.KurumFaturaKesildiMi,
+            TaseronOdemeYapildiMi = k.TaseronOdemeYapildiMi,
+            MaliyetOzmalKiralik = k.MaliyetOzmalKiralik,
+            KurumFaturaId = k.KurumFaturaId,
+            TedarikciOdemeFaturaId = k.TedarikciOdemeFaturaId
+        };
+        secilenSahiplik = k.Arac?.SahiplikTipi;
+        maliyetOzmalKiralikInput = k.MaliyetOzmalKiralik;
+        taksiFisInput = k.TaksiFisTutari;
+        kayitModalAcik = true;
+    }
+
+    private void AracDegisti()
+    {
+        var a = araclar.FirstOrDefault(x => x.Id == form.AracId);
+        secilenSahiplik = a?.SahiplikTipi;
+    }
+
+    private bool FormGecerli() =>
+        form.Tarih != default
+        && form.KurumFirmaId > 0
+        && form.GuzergahId > 0
+        && form.AracId > 0
+        && form.SoforId > 0
+        && form.SeferSayisi > 0;
+
+    private async Task Kaydet()
+    {
+        if (!FormGecerli()) { ToastService.ShowWarning("Zorunlu alanları doldurun."); return; }
+        isSaving = true;
+        try
+        {
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+
+            if (secilenSahiplik == AracSahiplikTipi.Tedarikci)
+            {
+                form.MaliyetOzmalKiralik = null;
+            }
+            else
+            {
+                form.TahakkukEdenTaseronUcreti = 0;
+                form.MaliyetOzmalKiralik = maliyetOzmalKiralikInput;
+            }
+
+            if (form.TaksiKullanildiMi) form.TaksiFisTutari = taksiFisInput;
+            else { form.TaksiFisTutari = null; form.TaksiFisAciklama = null; }
+
+            if (!form.ArizaYaptiMi) form.ArizaAciklamasi = null;
+
+            if (form.Id == 0)
+            {
+                if (form.FirmaId == 0) form.FirmaId = form.KurumFirmaId;
+                ctx.FiloGunlukPuantajlar.Add(form);
+            }
+            else
+            {
+                var existing = await ctx.FiloGunlukPuantajlar.FirstOrDefaultAsync(x => x.Id == form.Id);
+                if (existing == null) { ToastService.ShowError("Kayıt bulunamadı."); return; }
+                ctx.Entry(existing).CurrentValues.SetValues(form);
+            }
+
+            await ctx.SaveChangesAsync();
+            ToastService.ShowSuccess("Kayıt kaydedildi.");
+            kayitModalAcik = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task Sil(FiloGunlukPuantaj k)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"{k.Tarih:dd.MM.yyyy} tarihli kayıt silinsin mi?")) return;
+        try
+        {
+            await using var ctx = await DbContextFactory.CreateDbContextAsync();
+            var entity = await ctx.FiloGunlukPuantajlar.FirstOrDefaultAsync(x => x.Id == k.Id);
+            if (entity == null) return;
+            ctx.FiloGunlukPuantajlar.Remove(entity);
+            await ctx.SaveChangesAsync();
+            ToastService.ShowSuccess("Kayıt silindi.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { ToastService.ShowError(ex.Message); }
+    }
+
+    private static string ServisTuruAdi(ServisTuru t) => t switch
+    {
+        ServisTuru.Sabah => "Sabah",
+        ServisTuru.Aksam => "Akşam",
+        ServisTuru.SabahAksam => "Sabah+Akşam",
+        ServisTuru.YardaMesai => "Yarda Mesai",
+        ServisTuru.Ozel => "Özel",
+        _ => t.ToString()
+    };
+
+    private static string ServisTuruBadge(ServisTuru t) => t switch
+    {
+        ServisTuru.Sabah => "bg-warning text-dark",
+        ServisTuru.Aksam => "bg-info text-dark",
+        ServisTuru.SabahAksam => "bg-primary",
+        ServisTuru.YardaMesai => "bg-danger",
+        ServisTuru.Ozel => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+
+    private static string SahiplikBadge(AracSahiplikTipi t) => t switch
+    {
+        AracSahiplikTipi.Ozmal => "bg-primary",
+        AracSahiplikTipi.Kiralik => "bg-warning text-dark",
+        AracSahiplikTipi.Tedarikci => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+
+    private static string DurumBadge(OperasyonDurumu d) => d switch
+    {
+        OperasyonDurumu.Gitti => "bg-success",
+        OperasyonDurumu.Gitmedi_Mazeretli => "bg-warning text-dark",
+        OperasyonDurumu.Gitmedi_Mazeretsiz => "bg-warning text-dark",
+        OperasyonDurumu.Taksiyle_Gidildi => "bg-info text-dark",
+        OperasyonDurumu.Arizalandi_YoldaKaldi => "bg-danger",
+        OperasyonDurumu.Iptal_KurumTarafindan => "bg-danger",
+        _ => "bg-light text-dark"
+    };
+}

@@ -311,6 +311,11 @@
                                 <i class="bi bi-journal-check me-2 text-success"></i> Filo Puantaj
                             </NavLink>
                         </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="filo-gunluk-puantaj">
+                                <i class="bi bi-calendar2-check me-2 text-success"></i> Günlük Puantaj (Yeni)
+                            </NavLink>
+                        </div>
                         @if (HasAnyYetki("serviskontrat.oku", "tedarikciservis.oku"))
                         {
                             <div class="nav-item px-3">
@@ -1362,7 +1367,7 @@
     {
         ["menu.crm"] = new() { "bildirim", "mesaj", "email", "hatirlatici" },
         ["menu.cari"] = new() { "cari", "cariler", "kesilenfatura", "gelenfatura" },
-        ["menu.filoservis"] = new() { "arac", "araclar", "guzergah", "guzergahlar", "serviscalisma", "toplucalisma", "aracmasraf", "filo", "hakedis", "operasyonel-hakedis", "arac-maliyet-snapshot", "tedarikciservis", "tedarikciarac", "tedarikcipersonel", "tedarikciaracevrak" },
+        ["menu.filoservis"] = new() { "arac", "araclar", "guzergah", "guzergahlar", "serviscalisma", "toplucalisma", "aracmasraf", "filo", "hakedis", "operasyonel-hakedis", "arac-maliyet-snapshot", "filo-gunluk-puantaj", "tedarikciservis", "tedarikciarac", "tedarikcipersonel", "tedarikciaracevrak" },
         ["menu.muhasebe"] = new() { "muhasebe", "hesapplani", "muhasebefis", "muhaseberapor" },
         ["menu.personel"] = new() { "personel", "maas", "izin" },
         ["menu.fatura"] = new() { "fatura", "faturalar", "faturahazirlik", "kesilenfatura", "gelenfatura" },
