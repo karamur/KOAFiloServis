@@ -1,5 +1,6 @@
 ﻿@page "/operasyonel-hakedis"
 @using System.IO
+@using System.IO.Compression
 @using ClosedXML.Excel
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
@@ -142,6 +143,9 @@
                 </button>
                 <button class="btn btn-sm btn-primary" @onclick="TopluFaturalaAc" disabled="@topluIslemCalisiyor">
                     <i class="bi bi-receipt me-1"></i> Toplu Faturala
+                </button>
+                <button class="btn btn-sm btn-outline-danger" @onclick="TopluPdfZipIndir" disabled="@topluIslemCalisiyor">
+                    <i class="bi bi-file-earmark-zip me-1"></i> Toplu PDF (ZIP)
                 </button>
                 <button class="btn btn-sm btn-outline-danger" @onclick="TopluSil" disabled="@topluIslemCalisiyor">
                     <i class="bi bi-trash me-1"></i> Toplu Sil
@@ -1083,6 +1087,70 @@
             }
             catch (Exception ex) { ToastService.ShowError($"Detay yüklenemedi: {ex.Message}"); }
             finally { detayYukleniyorId = null; }
+        }
+    }
+
+    private async Task TopluPdfZipIndir()
+    {
+        if (seciliIds.Count == 0) return;
+        if (!await JS.InvokeAsync<bool>("confirm", $"{seciliIds.Count} hakediş için PDF üretilip ZIP olarak indirilsin mi?"))
+            return;
+
+        topluIslemCalisiyor = true;
+        StateHasChanged();
+        int basarili = 0, hata = 0;
+        try
+        {
+            byte[] zipBytes;
+            using (var ms = new MemoryStream())
+            {
+                using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
+                {
+                    foreach (var id in seciliIds.ToList())
+                    {
+                        try
+                        {
+                            Hakedis? full;
+                            if (!detayCache.TryGetValue(id, out full!))
+                            {
+                                full = await HakedisService.GetByIdAsync(id);
+                                if (full != null) detayCache[id] = full;
+                            }
+                            if (full == null) { hata++; continue; }
+
+                            var pdf = PdfService.GenerateHakedisPdf(full, ReferansAdi(full));
+                            var entryName = $"Hakedis_{full.Tip}_{full.Yil}{full.Ay:D2}_{full.Id}.pdf";
+                            var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
+                            using var es = entry.Open();
+                            await es.WriteAsync(pdf, 0, pdf.Length);
+                            basarili++;
+                        }
+                        catch
+                        {
+                            hata++;
+                        }
+                    }
+                }
+                zipBytes = ms.ToArray();
+            }
+
+            if (basarili == 0)
+            {
+                ToastService.ShowWarning("PDF üretilemedi.");
+                return;
+            }
+
+            var fileName = $"Hakedisler_{filtreYil}_{filtreAy:D2}_{DateTime.Now:yyyyMMddHHmmss}.zip";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, Convert.ToBase64String(zipBytes));
+            ToastService.ShowSuccess($"ZIP indirildi: {basarili} PDF" + (hata > 0 ? $", {hata} hata" : "") + ".");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Toplu PDF hatası: {ex.Message}");
+        }
+        finally
+        {
+            topluIslemCalisiyor = false;
         }
     }
 
