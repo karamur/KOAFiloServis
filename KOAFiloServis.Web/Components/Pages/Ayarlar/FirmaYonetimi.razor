@@ -79,6 +79,38 @@
                                         <td>@firma.Email</td>
                                     </tr>
                                 }
+                                <tr>
+                                    <th><i class="bi bi-link-45deg me-1"></i>Cari:</th>
+                                    <td>
+                                        @{ var bagliCari = firma.CariId.HasValue ? cariler.FirstOrDefault(c => c.Id == firma.CariId.Value) : null; }
+                                        @if (bagliCari != null)
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success" title="@bagliCari.Unvan">
+                                                <i class="bi bi-check-circle"></i> @bagliCari.CariKodu
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning border border-warning" title="Mutabakat için Cari atanmamış">
+                                                <i class="bi bi-exclamation-triangle"></i> Eksik
+                                            </span>
+                                            var oneriF = OneriCariBulFirma(firma);
+                                            if (oneriF != null)
+                                            {
+                                                <button class="btn btn-sm btn-outline-success ms-1 py-0"
+                                                        title="@($"Öneri: {oneriF.CariKodu} - {oneriF.Unvan}")"
+                                                        disabled="@(atamaYukleniyorFirmaId == firma.Id)"
+                                                        @onclick="() => OneriyiAtaFirma(firma, oneriF)">
+                                                    @if (atamaYukleniyorFirmaId == firma.Id)
+                                                    { <span class="spinner-border spinner-border-sm"></span> }
+                                                    else
+                                                    { <i class="bi bi-magic"></i> }
+                                                    <span class="small">Ata: @oneriF.CariKodu</span>
+                                                </button>
+                                            }
+                                        }
+                                    </td>
+                                </tr>
                             </table>
                         </div>
                         <div class="card-footer bg-transparent">
@@ -257,6 +289,41 @@
     private Firma editFirma = new();
     private bool logoYukleniyor = false;
     private string? logoHata;
+    private int? atamaYukleniyorFirmaId;
+
+    private Cari? OneriCariBulFirma(Firma f)
+    {
+        if (cariler.Count == 0) return null;
+        if (!string.IsNullOrWhiteSpace(f.VergiNo))
+        {
+            var v = cariler.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.VergiNo)
+                && string.Equals(c.VergiNo!.Trim(), f.VergiNo!.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (v != null) return v;
+        }
+        var ad = (f.UnvanTam ?? f.FirmaAdi ?? "").Trim();
+        if (string.IsNullOrEmpty(ad)) return null;
+        return cariler.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.Unvan)
+            && string.Equals(c.Unvan!.Trim(), ad, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task OneriyiAtaFirma(Firma f, Cari c)
+    {
+        try
+        {
+            atamaYukleniyorFirmaId = f.Id;
+            f.CariId = c.Id;
+            await FirmaService.UpdateAsync(f);
+            ToastService.ShowSuccess($"{f.FirmaAdi} → {c.CariKodu} ({c.Unvan}) eşleştirildi.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Atama başarısız: " + ex.Message);
+        }
+        finally
+        {
+            atamaYukleniyorFirmaId = null;
+        }
+    }
 
     private Cari? oneriCari => HesaplaOneri();
 
