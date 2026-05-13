@@ -17,6 +17,30 @@
         </button>
     </div>
 
+    @{
+        var firmaOnerileri = firmalar
+            .Where(f => f.Aktif && f.CariId == null)
+            .Select(f => new { Firma = f, Oneri = OneriCariBulFirma(f) })
+            .Where(x => x.Oneri != null)
+            .ToList();
+    }
+    @if (firmaOnerileri.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-1 mb-3 small">
+            <span>
+                <i class="bi bi-magic me-1"></i>
+                <strong>@firmaOnerileri.Count</strong> firma için VKN/Ünvan eşleşmesi bulundu. Tek tıkla mutabakat için Cari bağlantısı kurulabilir.
+            </span>
+            <button class="btn btn-sm btn-success" disabled="@topluAtaYukleniyor" @onclick="TumOnerileriAtaFirma">
+                @if (topluAtaYukleniyor)
+                { <span class="spinner-border spinner-border-sm me-1"></span> }
+                else
+                { <i class="bi bi-check2-all me-1"></i> }
+                Tüm Önerileri Ata (@firmaOnerileri.Count)
+            </button>
+        </div>
+    }
+
     @if (isLoading)
     {
         <div class="text-center py-5">
@@ -290,6 +314,37 @@
     private bool logoYukleniyor = false;
     private string? logoHata;
     private int? atamaYukleniyorFirmaId;
+    private bool topluAtaYukleniyor = false;
+
+    private async Task TumOnerileriAtaFirma()
+    {
+        try
+        {
+            topluAtaYukleniyor = true;
+            var hedefler = firmalar
+                .Where(f => f.Aktif && f.CariId == null)
+                .Select(f => new { Firma = f, Oneri = OneriCariBulFirma(f) })
+                .Where(x => x.Oneri != null)
+                .ToList();
+            int basarili = 0;
+            foreach (var h in hedefler)
+            {
+                h.Firma.CariId = h.Oneri!.Id;
+                await FirmaService.UpdateAsync(h.Firma);
+                basarili++;
+            }
+            ToastService.ShowSuccess($"{basarili} firma için Cari ataması yapıldı.");
+            await YenileAsync();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Toplu atama başarısız: " + ex.Message);
+        }
+        finally
+        {
+            topluAtaYukleniyor = false;
+        }
+    }
 
     private Cari? OneriCariBulFirma(Firma f)
     {

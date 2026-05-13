@@ -165,6 +165,29 @@
                     Toplam: <strong>@FiltrelenmisTedarikciler.Count</strong> tedarikçi
                 </div>
             </div>
+            @{
+                var oneriliEksikler = tedarikciler
+                    .Where(t => t.Aktif && t.CariId == null)
+                    .Select(t => new { Tedarikci = t, Oneri = OneriCariBul(t) })
+                    .Where(x => x.Oneri != null)
+                    .ToList();
+            }
+            @if (oneriliEksikler.Count > 0)
+            {
+                <div class="alert alert-info d-flex justify-content-between align-items-center py-1 mt-2 mb-0 small">
+                    <span>
+                        <i class="bi bi-magic me-1"></i>
+                        <strong>@oneriliEksikler.Count</strong> tedarikçi için VKN/Ünvan eşleşmesi bulundu. Tek tıkla atayabilirsiniz.
+                    </span>
+                    <button class="btn btn-sm btn-success" disabled="@topluAtaYukleniyor" @onclick="TumOnerileriAta">
+                        @if (topluAtaYukleniyor)
+                        { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        else
+                        { <i class="bi bi-check2-all me-1"></i> }
+                        Tüm Önerileri Ata (@oneriliEksikler.Count)
+                    </button>
+                </div>
+            }
         </div>
     </div>
 
@@ -283,6 +306,34 @@
     private string aramaMetni = string.Empty;
     private string durumFiltre = string.Empty;
     private int? atamaYukleniyorId;
+    private bool topluAtaYukleniyor = false;
+
+    private async Task TumOnerileriAta()
+    {
+        try
+        {
+            topluAtaYukleniyor = true;
+            var hedefler = tedarikciler
+                .Where(t => t.Aktif && t.CariId == null)
+                .Select(t => new { Tedarikci = t, Oneri = OneriCariBul(t) })
+                .Where(x => x.Oneri != null)
+                .ToList();
+            int basarili = 0;
+            foreach (var h in hedefler)
+            {
+                h.Tedarikci.CariId = h.Oneri!.Id;
+                h.Tedarikci.Cari = h.Oneri;
+                await TedarikciService.UpdateAsync(h.Tedarikci);
+                basarili++;
+            }
+            // Toast burada yok, basit görsel geri bildirim icin liste yenileme yeterli.
+            await Yukle();
+        }
+        finally
+        {
+            topluAtaYukleniyor = false;
+        }
+    }
 
     private Cari? OneriCariBul(TasimaTedarikci t)
     {
