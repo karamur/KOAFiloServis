@@ -13,6 +13,7 @@
 @inject IToastService ToastService
 @inject IJSRuntime JS
 @inject IPdfService PdfService
+@inject IFaturaService FaturaService
 @inject NavigationManager Nav
 @attribute [Authorize]
 
@@ -154,6 +155,19 @@
                 <span><i class="bi bi-receipt me-1"></i>Genel Toplam: <strong>@hakedisler.Sum(h => h.GenelToplam).ToString("N2") ₺</strong></span>
             </div>
         }
+        @if (!yukleniyor && filtreFatura != "Yok" && FaturasizOnayliSayisi > 0)
+        {
+            <div class="alert alert-warning border-0 rounded-0 mb-0 d-flex flex-wrap align-items-center gap-2 py-2 small">
+                <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+                <span>
+                    Bu dönemde <strong>@FaturasizOnayliSayisi</strong> adet onaylı hakediş henüz faturalanmadı
+                    (toplam <strong>@FaturasizOnayliTutar.ToString("N2") ₺</strong>).
+                </span>
+                <button class="btn btn-sm btn-warning ms-auto" @onclick="FaturasizlariGoster">
+                    <i class="bi bi-funnel me-1"></i> Faturalanmamışları Göster
+                </button>
+            </div>
+        }
         @if (seciliIds.Count > 0)
         {
             <div class="card-body py-2 border-top bg-warning-subtle d-flex flex-wrap gap-2 align-items-center">
@@ -242,6 +256,14 @@
                                             <a href="/faturalar/@h.FaturaId.Value" class="text-decoration-none" title="Faturayı aç">
                                                 <i class="bi bi-receipt me-1"></i>@(h.Fatura?.FaturaNo ?? $"#{h.FaturaId.Value}")
                                             </a>
+                                            @if (h.Fatura != null)
+                                            {
+                                                var (vBadge, vText, vTitle) = VadeDurum(h.Fatura);
+                                                if (!string.IsNullOrEmpty(vText))
+                                                {
+                                                    <span class="badge @vBadge ms-1" title="@vTitle">@vText</span>
+                                                }
+                                            }
                                         }
                                         else
                                         {
@@ -293,6 +315,63 @@
                                             <div class="p-2">
                                                 @{
                                                     var aktifH = detayCache.TryGetValue(h.Id, out var dh) ? dh : h;
+                                                }
+                                                @if (aktifH.FaturaId.HasValue && faturaCache.TryGetValue(aktifH.FaturaId.Value, out var aktifF) && aktifF != null)
+                                                {
+                                                    <div class="card border-info mb-2">
+                                                        <div class="card-header bg-info-subtle py-1 d-flex justify-content-between align-items-center">
+                                                            <div class="small">
+                                                                <i class="bi bi-receipt me-1"></i>
+                                                                <strong>Fatura:</strong>
+                                                                <a href="/faturalar/@aktifF.Id" class="text-decoration-none">@aktifF.FaturaNo</a>
+                                                                <span class="text-muted ms-2">@aktifF.FaturaTarihi.ToString("dd.MM.yyyy")</span>
+                                                                @if (aktifF.VadeTarihi.HasValue)
+                                                                {
+                                                                    <span class="text-muted ms-2">• Vade: @aktifF.VadeTarihi.Value.ToString("dd.MM.yyyy")</span>
+                                                                }
+                                                                <span class="badge bg-secondary ms-2">@aktifF.Durum</span>
+                                                            </div>
+                                                            <div class="small">
+                                                                Genel Toplam: <strong>@aktifF.GenelToplam.ToString("N2") ₺</strong>
+                                                                @if (aktifF.KalanTutar > 0)
+                                                                {
+                                                                    <span class="text-danger ms-2">Kalan: @aktifF.KalanTutar.ToString("N2") ₺</span>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                        @if (aktifF.FaturaKalemleri != null && aktifF.FaturaKalemleri.Any())
+                                                        {
+                                                            <div class="table-responsive">
+                                                                <table class="table table-sm table-borderless mb-0 small">
+                                                                    <thead class="table-light">
+                                                                        <tr>
+                                                                            <th style="width:40px;">#</th>
+                                                                            <th>Açıklama</th>
+                                                                            <th class="text-end">Miktar</th>
+                                                                            <th>Birim</th>
+                                                                            <th class="text-end">Birim ₺</th>
+                                                                            <th class="text-end">KDV %</th>
+                                                                            <th class="text-end">Tutar ₺</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        @foreach (var k in aktifF.FaturaKalemleri.OrderBy(x => x.SiraNo))
+                                                                        {
+                                                                            <tr>
+                                                                                <td>@k.SiraNo</td>
+                                                                                <td>@k.Aciklama</td>
+                                                                                <td class="text-end">@k.Miktar.ToString("N2")</td>
+                                                                                <td>@k.Birim</td>
+                                                                                <td class="text-end">@k.BirimFiyat.ToString("N2")</td>
+                                                                                <td class="text-end">@k.KdvOrani.ToString("N0")</td>
+                                                                                <td class="text-end fw-semibold">@k.ToplamTutar.ToString("N2")</td>
+                                                                            </tr>
+                                                                        }
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        }
+                                                    </div>
                                                 }
                                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                                     <h6 class="mb-0">
@@ -829,6 +908,7 @@
     private int? acikDetayId = null;
     private int? detayYukleniyorId = null;
     private Dictionary<int, Hakedis> detayCache = new();
+    private Dictionary<int, Fatura?> faturaCache = new();
 
     private List<Hakedis> hakedisler = new();
     private List<Firma> firmalar = new();
@@ -951,6 +1031,7 @@
             else if (filtreFatura == "Yok")
                 hakedisler = hakedisler.Where(h => !h.FaturaId.HasValue).ToList();
             detayCache.Clear();
+            faturaCache.Clear();
             acikDetayId = null;
             // listede artık olmayan seçimleri temizle
             var mevcutIds = hakedisler.Select(h => h.Id).ToHashSet();
@@ -978,6 +1059,43 @@
     {
         aktifSayfa = 1;
         await LoadAsync();
+    }
+
+    private int FaturasizOnayliSayisi =>
+        hakedisler.Count(h => h.Durum == HakedisDurum.Onaylandi
+                              && !h.FaturaId.HasValue
+                              && h.Tip != HakedisTipi.Arac);
+
+    private decimal FaturasizOnayliTutar =>
+        hakedisler.Where(h => h.Durum == HakedisDurum.Onaylandi
+                              && !h.FaturaId.HasValue
+                              && h.Tip != HakedisTipi.Arac)
+                  .Sum(h => h.GenelToplam);
+
+    private async Task FaturasizlariGoster()
+    {
+        filtreFatura = "Yok";
+        filtreDurum = "Onaylandi";
+        aktifSayfa = 1;
+        await LoadAsync();
+    }
+
+    private static (string Badge, string Text, string Title) VadeDurum(Fatura f)
+    {
+        if (f.KalanTutar <= 0)
+            return ("bg-success-subtle text-success", "Kapandı", "Fatura tamamen tahsil edildi/ödendi");
+        if (!f.VadeTarihi.HasValue)
+            return ("", "", "");
+
+        var bugun = DateTime.Today;
+        var vade = f.VadeTarihi.Value.Date;
+        var fark = (vade - bugun).Days;
+
+        if (fark < 0)
+            return ("bg-danger", $"Geçmiş {(-fark)}g", $"Vade {vade:dd.MM.yyyy} – {-fark} gün geçti");
+        if (fark <= 7)
+            return ("bg-warning text-dark", $"{fark}g", $"Vadeye {fark} gün kaldı ({vade:dd.MM.yyyy})");
+        return ("bg-light text-dark border", $"{fark}g", $"Vadeye {fark} gün ({vade:dd.MM.yyyy})");
     }
 
     private void OnSatirSecChanged(int id, bool secili)
@@ -1304,6 +1422,16 @@
             }
             catch (Exception ex) { ToastService.ShowError($"Detay yüklenemedi: {ex.Message}"); }
             finally { detayYukleniyorId = null; }
+        }
+
+        if (h.FaturaId.HasValue && !faturaCache.ContainsKey(h.FaturaId.Value))
+        {
+            try
+            {
+                var f = await FaturaService.GetByIdAsync(h.FaturaId.Value);
+                faturaCache[h.FaturaId.Value] = f;
+            }
+            catch (Exception ex) { ToastService.ShowError($"Fatura yüklenemedi: {ex.Message}"); }
         }
     }
 
