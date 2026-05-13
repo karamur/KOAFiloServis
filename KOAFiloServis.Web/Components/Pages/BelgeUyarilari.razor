@@ -68,7 +68,7 @@
                 <i class="bi bi-truck me-1"></i>Araç Belge Tablosu
                 @if (aracBelgeTablosu != null)
                 {
-                    <span class="badge bg-secondary ms-1">@aracBelgeTablosu.Count</span>
+                    <span class="badge bg-secondary ms-1">@aracBelgeTablosu.Count(x => x.SahiplikTipi != AracSahiplikTipi.Tedarikci)</span>
                 }
             </button>
         </li>
@@ -95,7 +95,7 @@
                 <i class="bi bi-truck me-1"></i>Ted. Araçları
                 @if (aracBelgeTablosu != null)
                 {
-                    <span class="badge bg-secondary ms-1">@aracBelgeTablosu.Count(x => x.TasimaTedarikciId.HasValue)</span>
+                    <span class="badge bg-secondary ms-1">@aracBelgeTablosu.Count(x => x.SahiplikTipi == AracSahiplikTipi.Tedarikci)</span>
                 }
             </button>
         </li>
@@ -730,28 +730,29 @@
 
         @if (aracBelgeTablosu != null)
         {
+            var ozmalAraclar = aracBelgeTablosu.Where(x => x.SahiplikTipi != AracSahiplikTipi.Tedarikci).ToList();
             <div class="row mb-3 g-2">
                 <div class="col">
                     <div class="card border-danger text-center py-2">
-                        <div class="fw-bold text-danger fs-4">@aracBelgeTablosu.SelectMany(GetTumAracBelgeTarihleri).Count(t => t < DateTime.Today)</div>
+                        <div class="fw-bold text-danger fs-4">@ozmalAraclar.SelectMany(GetTumAracBelgeTarihleri).Count(t => t < DateTime.Today)</div>
                         <small class="text-muted">Süresi Geçmiş</small>
                     </div>
                 </div>
                 <div class="col">
                     <div class="card border-warning text-center py-2">
-                        <div class="fw-bold text-warning fs-4">@aracBelgeTablosu.SelectMany(GetTumAracBelgeTarihleri).Count(t => t >= DateTime.Today && (t - DateTime.Today).Days <= 30)</div>
+                        <div class="fw-bold text-warning fs-4">@ozmalAraclar.SelectMany(GetTumAracBelgeTarihleri).Count(t => t >= DateTime.Today && (t - DateTime.Today).Days <= 30)</div>
                         <small class="text-muted">30 Gün İçinde</small>
                     </div>
                 </div>
                 <div class="col">
                     <div class="card border-secondary text-center py-2">
-                        <div class="fw-bold text-secondary fs-4">@aracBelgeTablosu.Sum(p => GetEksikAracBelgeSayisi(p))</div>
+                        <div class="fw-bold text-secondary fs-4">@ozmalAraclar.Sum(p => GetEksikAracBelgeSayisi(p))</div>
                         <small class="text-muted">Tarihi Girilmemiş</small>
                     </div>
                 </div>
                 <div class="col">
                     <div class="card border-primary text-center py-2">
-                        <div class="fw-bold text-primary fs-4">@aracBelgeTablosu.Count</div>
+                        <div class="fw-bold text-primary fs-4">@ozmalAraclar.Count</div>
                         <small class="text-muted">Toplam Araç</small>
                     </div>
                 </div>
@@ -2122,6 +2123,7 @@
     private AracBelgeTabloKalemi? aracBelgeModalItem;
 
     private List<AracBelgeTabloKalemi> FiltrelenmisAracBelgeTablosu => (aracBelgeTablosu ?? new())
+        .Where(p => p.SahiplikTipi != AracSahiplikTipi.Tedarikci)
         .Where(p => string.IsNullOrWhiteSpace(aracTabloArama)
             || (p.Plaka ?? string.Empty).Contains(aracTabloArama, StringComparison.OrdinalIgnoreCase)
             || (p.SaseNo ?? string.Empty).Contains(aracTabloArama, StringComparison.OrdinalIgnoreCase)
@@ -2670,7 +2672,7 @@
         .ToList();
 
     private List<AracBelgeTabloKalemi> FiltrelenmisTedarikciAracTablosu => (aracBelgeTablosu ?? new())
-        .Where(p => p.TasimaTedarikciId.HasValue)
+        .Where(p => p.SahiplikTipi == AracSahiplikTipi.Tedarikci)
         .Where(p => string.IsNullOrWhiteSpace(tedarikciAracTedarikciFiltre)
             || p.TasimaTedarikciId.ToString() == tedarikciAracTedarikciFiltre)
         .Where(p => string.IsNullOrWhiteSpace(tedarikciAracArama)

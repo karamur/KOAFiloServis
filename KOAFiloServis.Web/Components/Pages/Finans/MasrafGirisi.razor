@@ -720,24 +720,21 @@
 
     private async Task PersoneleOdeAsync(BankaKasaHareket item)
     {
-        var result = await JS.InvokeAsync<bool>("confirm", 
-            $"{item.PersonelCebinden?.TamAd} kişisine {FormatPara(item.Tutar)} tutarı ödendi olarak işaretlensin mi?");
-        if (!result) return;
-
-        try
+        if (!item.PersonelCebindenId.HasValue)
         {
-            item.PersoneleOdendi = true;
-            item.PersonelOdemeTarihi = DateTime.Today;
-            await HareketService.UpdateAsync(item);
+            ToastService.ShowError("Personel bilgisi bulunamadı.");
+            return;
+        }
 
-            ToastService.ShowSuccess($"Ödeme kaydedildi: {item.PersonelCebinden?.TamAd} - {FormatPara(item.Tutar)}");
-            await LoadPersoneleOdeneceklerAsync();
-            await FiltreleAsync();
-        }
-        catch (Exception ex)
-        {
-            ToastService.ShowError($"Hata: {ex.Message}");
-        }
+        // Hesap seçimi gerektiği için kullanıcıyı tek noktaya (Personele Ödenecekler) yönlendiriyoruz.
+        // Böylece tüm geri ödemeler aynı transaksiyonel akışı kullanır ve kasa/banka çıkışı oluşturulur.
+        var goNow = await JS.InvokeAsync<bool>("confirm",
+            $"{item.PersonelCebinden?.TamAd} için {FormatPara(item.Tutar)} tutarında geri ödeme yapılacak.\n" +
+            "Hesap seçmek üzere 'Personele Ödenecekler' sayfasına gidilsin mi?");
+        if (!goNow) return;
+
+        Navigation.NavigateTo($"/finans/personel-odenecekler?personel={item.PersonelCebindenId.Value}");
+        await Task.CompletedTask;
     }
 
     private async Task OlusturMuhasebeFisiAsync()

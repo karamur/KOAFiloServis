@@ -782,6 +782,12 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PersonelCebindenId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            // Personel geri ödeme ilişkisi (self-reference)
+            entity.HasOne(e => e.PersonelGeriOdemeHareket)
+                .WithMany()
+                .HasForeignKey(e => e.PersonelGeriOdemeHareketId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // Muhasebe fişi ilişkisi
             entity.HasOne(e => e.MuhasebeFis)
                 .WithMany()

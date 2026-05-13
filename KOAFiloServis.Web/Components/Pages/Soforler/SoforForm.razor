@@ -1,4 +1,4 @@
-@page "/soforler/yeni"
+﻿@page "/soforler/yeni"
 @page "/soforler/{Id:int}"
 @page "/personel/yeni"
 @page "/personel/{Id:int}"
@@ -15,6 +15,7 @@
 @inject IJSRuntime JS
 @inject IAktiviteLogService AktiviteLog
 @inject IAracService AracService
+@inject ITasimaTedarikciService TasimaTedarikciService
 @inject IDbContextFactory<KOAFiloServis.Web.Data.ApplicationDbContext> DbContextFactory
 @rendermode InteractiveServer
 
@@ -92,6 +93,19 @@
                                 }
                             </InputSelect>
                             <small class="text-muted">Bordro bu firmaya göre hazırlanır</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Taşıma Tedarikçisi</label>
+                            <InputSelect @bind-Value="sofor.TasimaTedarikciId" class="form-select">
+                                <option value="">-- Tedarikçi Yok (Kendi Personeli) --</option>
+                                @foreach (var t in tasimaTedarikciler)
+                                {
+                                    <option value="@t.Id">@(string.IsNullOrWhiteSpace(t.TedarikciKodu) ? t.Unvan : $"{t.TedarikciKodu} - {t.Unvan}")</option>
+                                }
+                            </InputSelect>
+                            <small class="text-muted">Alt yüklenici (taşıma) tedarikçisi seçilirse personel o tedarikçiye bağlanır</small>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -1019,10 +1033,17 @@
     // Firma listesi
     private List<Firma> firmalar = new();
 
+    // Taşıma Tedarikçileri
+    private List<TasimaTedarikci> tasimaTedarikciler = new();
+
+    [SupplyParameterFromQuery(Name = "tedarikciId")]
+    public int? TedarikciIdQuery { get; set; }
+
     protected override async Task OnParametersSetAsync()
     {
         await HesaplariYukle();
         await FirmalariYukle();
+        await TasimaTedarikcileriYukle();
 
         if (IsEdit)
         {
@@ -1047,11 +1068,25 @@
             sofor = new Sofor
             {
                 Aktif = true,
-                Gorev = PersonelGorev.Sofor
+                Gorev = PersonelGorev.Sofor,
+                TasimaTedarikciId = TedarikciIdQuery
             };
             _srcBelgesiVarMi = false;
             sofor.SoforKodu = await SoforService.GenerateNextKodAsync(sofor.Gorev);
             gercekMaas = 0;
+        }
+    }
+
+    private async Task TasimaTedarikcileriYukle()
+    {
+        try
+        {
+            tasimaTedarikciler = await TasimaTedarikciService.GetAllAsync(sadeceAktif: true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TasimaTedarikcileriYukle HATA] {ex.Message}");
+            tasimaTedarikciler = new();
         }
     }
 

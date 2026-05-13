@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Models;
 
 namespace KOAFiloServis.Web.Services;
@@ -48,6 +48,10 @@ public interface IBankaKasaHareketService
     Task<decimal> GetHesapBakiyeAsync(int hesapId);
     Task<Dictionary<int, decimal>> GetTumHesapBakiyeleriAsync();
 
+    // Personel cebinden geri ödeme (kesin çözüm: tek noktadan kapanış)
+    Task<PersonelGeriOdemeSonuc> PersonelGeriOdemeYapAsync(int personelId, IEnumerable<int> cebindenHareketIds, int? hesapId, DateTime odemeTarihi, string? aciklama = null);
+    Task PersonelGeriOdemeIptalAsync(int cebindenHareketId);
+
     // Dashboard optimized methods
     Task<DashboardBankaStats> GetDashboardStatsAsync();
 }
@@ -65,4 +69,13 @@ public class MahsupSonuc
     public Guid? MahsupGrupId { get; set; }
     public BankaKasaHareket? KaynakHareket { get; set; }
     public BankaKasaHareket? HedefHareket { get; set; }
+}
+
+public class PersonelGeriOdemeSonuc
+{
+    public bool Basarili { get; set; }
+    public string? Hata { get; set; }
+    public BankaKasaHareket? OdemeHareketi { get; set; }
+    public int KapatilanKayitSayisi { get; set; }
+    public decimal ToplamTutar { get; set; }
 }

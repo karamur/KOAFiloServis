@@ -1,4 +1,4 @@
-@page "/finans/personel-odenecekler"
+﻿@page "/finans/personel-odenecekler"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @inject IBankaKasaHareketService HareketService
@@ -352,6 +352,57 @@
     </div>
 }
 
+@if (odemeModalGoster)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-cash-coin me-2"></i>Personele Geri Ödeme</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="OdemeModalKapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 mb-3">
+                        <strong>@odemePersonelAd</strong> — @odemeKayitlari.Count kayıt,
+                        toplam <strong>@FormatPara(odemeKayitlari.Sum(x => x.Tutar))</strong>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Ödeme Hesabı (Kasa/Banka) *</label>
+                        <select class="form-select" @bind="odemeHesapId">
+                            <option value="0">-- Hesap seçiniz (boş = sadece kapat) --</option>
+                            @foreach (var h in odemeHesaplari)
+                            {
+                                <option value="@h.Id">@h.HesapAdi (@h.HesapTipi)</option>
+                            }
+                        </select>
+                        <small class="text-muted">Seçilen hesaptan @FormatPara(odemeKayitlari.Sum(x => x.Tutar)) çıkış hareketi oluşturulur ve kayıtlar kapatılır.</small>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small">Ödeme Tarihi *</label>
+                            <input type="date" class="form-control" @bind="odemeTarihi" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Açıklama</label>
+                            <input type="text" class="form-control" @bind="odemeAciklama" placeholder="(opsiyonel)" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="OdemeModalKapat" disabled="@isOdemeYapiliyor">İptal</button>
+                    <button type="button" class="btn btn-success" @onclick="OdemeKaydetAsync" disabled="@isOdemeYapiliyor">
+                        @if (isOdemeYapiliyor)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-check-lg me-1"></i>Ödemeyi Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<BankaKasaHareket> tumKayitlar = new();
     private List<BankaKasaHareket> odenecekler = new();
@@ -378,10 +429,30 @@
     private int odenenAdet = 0;
     private int personelSayisi = 0;
 
+    // Geri ödeme modalı
+    private bool odemeModalGoster = false;
+    private List<BankaHesap> odemeHesaplari = new();
+    private int odemeHesapId = 0;
+    private DateTime odemeTarihi = DateTime.Today;
+    private string? odemeAciklama;
+    private List<BankaKasaHareket> odemeKayitlari = new();
+    private string odemePersonelAd = string.Empty;
+    private bool isOdemeYapiliyor = false;
+
     protected override async Task OnInitializedAsync()
     {
         personeller = (await SoforService.GetAllAsync()).Where(s => s.Aktif).ToList();
         araclar = (await AracService.GetActiveAsync()).OrderBy(a => a.AktifPlaka).ToList();
+        odemeHesaplari = (await BankaHesapService.GetActiveAsync()).OrderBy(h => h.HesapAdi).ToList();
+
+        // Query string'ten personel filtresini uygula
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var qs = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (qs.TryGetValue("personel", out var pVal) && int.TryParse(pVal, out var pid) && pid > 0)
+        {
+            filtrePersonelId = pid;
+        }
+
         await LoadDataAsync();
     }
 
@@ -489,102 +560,100 @@
         }
     }
 
-    private async Task TekOdeAsync(BankaKasaHareket item)
+    private void TekOdeAsync(BankaKasaHareket item)
     {
-        var result = await JS.InvokeAsync<bool>("confirm", 
-            $"{item.PersonelCebinden?.TamAd} kişisine {FormatPara(item.Tutar)} tutarı ödendi olarak işaretlensin mi?");
-        if (!result) return;
-
-        try
-        {
-            item.PersoneleOdendi = true;
-            item.PersonelOdemeTarihi = DateTime.Today;
-            await HareketService.UpdateAsync(item);
-
-            ToastService.ShowSuccess($"Ödeme kaydedildi: {item.PersonelCebinden?.TamAd}");
-            HesaplaOzetler();
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            ToastService.ShowError($"Hata: {ex.Message}");
-        }
+        OdemeModalAc(new List<BankaKasaHareket> { item }, item.PersonelCebinden?.TamAd ?? "Personel");
     }
 
-    private async Task TopluOdeAsync()
+    private void TopluOdeAsync()
     {
         if (!secilenler.Any()) return;
-
-        var toplamTutar = secilenler.Sum(x => x.Tutar);
-        var result = await JS.InvokeAsync<bool>("confirm", 
-            $"{secilenler.Count} kayıt için toplam {FormatPara(toplamTutar)} ödendi olarak işaretlensin mi?");
-        if (!result) return;
-
-        try
+        // Tüm seçilenlerin aynı personele ait olduğunu doğrula
+        var personelIdleri = secilenler.Select(x => x.PersonelCebindenId).Distinct().ToList();
+        if (personelIdleri.Count > 1)
         {
-            foreach (var item in secilenler)
-            {
-                item.PersoneleOdendi = true;
-                item.PersonelOdemeTarihi = DateTime.Today;
-                await HareketService.UpdateAsync(item);
-            }
-
-            ToastService.ShowSuccess($"{secilenler.Count} ödeme kaydedildi: {FormatPara(toplamTutar)}");
-            secilenler.Clear();
-            HesaplaOzetler();
-            StateHasChanged();
+            ToastService.ShowWarning("Toplu ödeme için aynı personele ait kayıtları seçiniz.");
+            return;
         }
-        catch (Exception ex)
-        {
-            ToastService.ShowError($"Hata: {ex.Message}");
-        }
+        var ad = secilenler.First().PersonelCebinden?.TamAd ?? "Personel";
+        OdemeModalAc(secilenler.ToList(), ad);
     }
 
-    private async Task PersonelTopluOdeAsync(int personelId)
+    private void PersonelTopluOdeAsync(int personelId)
     {
         var personelKayitlari = tumKayitlar.Where(x => x.PersonelCebindenId == personelId && !x.PersoneleOdendi).ToList();
         if (!personelKayitlari.Any()) return;
+        var personelAd = personelKayitlari.First().PersonelCebinden?.TamAd ?? "Personel";
+        OdemeModalAc(personelKayitlari, personelAd);
+    }
 
-        var personelAd = personelKayitlari.First().PersonelCebinden?.TamAd;
-        var toplamTutar = personelKayitlari.Sum(x => x.Tutar);
+    private void OdemeModalAc(List<BankaKasaHareket> kayitlar, string personelAd)
+    {
+        odemeKayitlari = kayitlar;
+        odemePersonelAd = personelAd;
+        odemeHesapId = odemeHesaplari.FirstOrDefault()?.Id ?? 0;
+        odemeTarihi = DateTime.Today;
+        odemeAciklama = null;
+        odemeModalGoster = true;
+    }
 
-        var result = await JS.InvokeAsync<bool>("confirm", 
-            $"{personelAd} için {personelKayitlari.Count} kayıt, toplam {FormatPara(toplamTutar)} ödendi olarak işaretlensin mi?");
-        if (!result) return;
+    private void OdemeModalKapat()
+    {
+        odemeModalGoster = false;
+        odemeKayitlari = new List<BankaKasaHareket>();
+    }
+
+    private async Task OdemeKaydetAsync()
+    {
+        if (!odemeKayitlari.Any()) return;
+        var personelId = odemeKayitlari.First().PersonelCebindenId ?? 0;
+        if (personelId <= 0)
+        {
+            ToastService.ShowError("Personel bilgisi bulunamadı.");
+            return;
+        }
 
         try
         {
-            foreach (var item in personelKayitlari)
+            isOdemeYapiliyor = true;
+            var sonuc = await HareketService.PersonelGeriOdemeYapAsync(
+                personelId,
+                odemeKayitlari.Select(x => x.Id),
+                odemeHesapId > 0 ? odemeHesapId : null,
+                odemeTarihi,
+                odemeAciklama);
+
+            if (!sonuc.Basarili)
             {
-                item.PersoneleOdendi = true;
-                item.PersonelOdemeTarihi = DateTime.Today;
-                await HareketService.UpdateAsync(item);
+                ToastService.ShowError(sonuc.Hata ?? "Ödeme yapılamadı.");
+                return;
             }
 
-            ToastService.ShowSuccess($"{personelAd} için {personelKayitlari.Count} ödeme kaydedildi");
-            HesaplaOzetler();
-            await FiltreleAsync();
+            ToastService.ShowSuccess($"{odemePersonelAd}: {sonuc.KapatilanKayitSayisi} kayıt kapatıldı, toplam {FormatPara(sonuc.ToplamTutar)} ödendi.");
+            odemeModalGoster = false;
+            secilenler.Clear();
+            await LoadDataAsync();
         }
         catch (Exception ex)
         {
             ToastService.ShowError($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isOdemeYapiliyor = false;
         }
     }
 
     private async Task OdemeIptalAsync(BankaKasaHareket item)
     {
-        var result = await JS.InvokeAsync<bool>("confirm", "Ödeme iptal edilsin mi? (Tekrar bekleyenlere eklenecek)");
+        var result = await JS.InvokeAsync<bool>("confirm", "Ödeme iptal edilsin mi? (Karşı kasa/banka hareketi de geri alınacaktır)");
         if (!result) return;
 
         try
         {
-            item.PersoneleOdendi = false;
-            item.PersonelOdemeTarihi = null;
-            await HareketService.UpdateAsync(item);
-
+            await HareketService.PersonelGeriOdemeIptalAsync(item.Id);
             ToastService.ShowInfo("Ödeme iptal edildi.");
-            HesaplaOzetler();
-            StateHasChanged();
+            await LoadDataAsync();
         }
         catch (Exception ex)
         {

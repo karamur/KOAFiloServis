@@ -631,8 +631,10 @@
     private int? filtreModelYili;
     private int? filtreKoltukSayisi;
     private string filtreSinif = "Tumu";
-    private string filtreSahiplikTipi = "Tumu";
-    private bool filtreSahiplikHaric;
+    // Varsayılan: Sahiplik = Tedarikçi, Hariç tut = işaretli
+    // (Tedarikçi araçları araç listesinden gizlenmiş gelir; kullanıcı isterse filtreyi değiştirebilir.)
+    private string filtreSahiplikTipi = nameof(AracSahiplikTipi.Tedarikci);
+    private bool filtreSahiplikHaric = true;
     private string filtreSinifTipi = "Tumu";
     private int? filtreYil;
     private int? filtreAy;
@@ -748,8 +750,8 @@
         filtreModelYili = null;
         filtreKoltukSayisi = null;
         filtreSinif = "Tumu";
-        filtreSahiplikTipi = "Tumu";
-        filtreSahiplikHaric = false;
+        filtreSahiplikTipi = nameof(AracSahiplikTipi.Tedarikci);
+        filtreSahiplikHaric = true;
         filtreSinifTipi = "Tumu";
         filtreYil = null;
         filtreAy = null;

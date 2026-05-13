@@ -32,6 +32,7 @@ public interface ITasimaTedarikciService
 
     // Tedarikçi firma evrak CRUD
     Task<List<TedarikciEvrak>> GetTedarikciEvraklariAsync(int tedarikciId);
+    Task<List<TedarikciEvrak>> GetAllTedarikciEvraklariAsync();
     Task<TedarikciEvrak> CreateTedarikciEvrakAsync(TedarikciEvrak evrak);
     Task<TedarikciEvrak> UpdateTedarikciEvrakAsync(TedarikciEvrak evrak);
     Task DeleteTedarikciEvrakAsync(int evrakId);
@@ -285,6 +286,18 @@ public class TasimaTedarikciService : ITasimaTedarikciService
             .Include(e => e.Dosyalar)
             .Where(e => e.TasimaTedarikciId == tedarikciId)
             .OrderBy(e => e.EvrakKategorisi)
+            .ThenByDescending(e => e.BitisTarihi)
+            .ToListAsync();
+    }
+
+    public async Task<List<TedarikciEvrak>> GetAllTedarikciEvraklariAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.TedarikciEvraklari
+            .Include(e => e.Dosyalar)
+            .Include(e => e.TasimaTedarikci)
+            .OrderBy(e => e.TasimaTedarikci!.Unvan)
+            .ThenBy(e => e.EvrakKategorisi)
             .ThenByDescending(e => e.BitisTarihi)
             .ToListAsync();
     }

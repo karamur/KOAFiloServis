@@ -43,6 +43,13 @@ public class BankaKasaHareket : BaseEntity
     /// </summary>
     public int? PersonelOdemeHesapId { get; set; }
 
+    /// <summary>
+    /// Personel cebinden harcama kaydı için: kapatan geri ödeme hareketi (Cikis hareket).
+    /// Aynı geri ödeme hareketi birden çok cebinden kaydını kapatabilir.
+    /// </summary>
+    public int? PersonelGeriOdemeHareketId { get; set; }
+    public virtual BankaKasaHareket? PersonelGeriOdemeHareket { get; set; }
+
     // Mahsup islemleri icin
     public int? MahsupHareketId { get; set; } // Iliskili karsi hareket (transfer/mahsup)
     public Guid? MahsupGrupId { get; set; } // Ayni mahsup isleminin iki hareketini gruplar
@@ -110,5 +117,6 @@ public enum IslemKaynak
     EFatura = 8,
     Mahsup = 9,         // Hesaplar arasi transfer
     CariMahsup = 10,    // Cari hesap mahsubu
-    PersonelCebinden = 11 // Personel cebinden harcama
+    PersonelCebinden = 11, // Personel cebinden harcama
+    PersonelGeriOdeme = 12 // Personele cebinden harcama geri ödemesi (Cikis)
 }

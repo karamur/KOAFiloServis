@@ -20,6 +20,9 @@ public static class BankaHareketPersonelCebindenMigrationHelper
             // BankaKasaHareketleri tablosu
             await EnsureBankaHareketColumnsAsync(connection, isPostgres, logger);
 
+            // PersonelGeriOdemeHareketId kolonu (kesin çözüm: cebinden harcamayı kapatır)
+            await EnsurePersonelGeriOdemeHareketColumnAsync(connection, isPostgres, logger);
+
             // AracMasraflari tablosu
             await EnsureAracMasrafColumnsAsync(connection, isPostgres, logger);
         }
@@ -27,6 +30,49 @@ public static class BankaHareketPersonelCebindenMigrationHelper
         {
             logger.LogWarning(ex, "PersonelCebinden kolonları eklenirken hata oluştu: {Message}", ex.Message);
         }
+    }
+
+    private static async Task EnsurePersonelGeriOdemeHareketColumnAsync(System.Data.Common.DbConnection connection, bool isPostgres, ILogger logger)
+    {
+        var tableName = isPostgres ? "\"BankaKasaHareketleri\"" : "BankaKasaHareketleri";
+
+        var checkColumnSql = isPostgres
+            ? "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'BankaKasaHareketleri' AND column_name = 'PersonelGeriOdemeHareketId'"
+            : "SELECT COUNT(*) FROM pragma_table_info('BankaKasaHareketleri') WHERE name = 'PersonelGeriOdemeHareketId'";
+
+        using var checkCmd = connection.CreateCommand();
+        checkCmd.CommandText = checkColumnSql;
+        var columnExists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
+
+        if (columnExists) return;
+
+        logger.LogInformation("BankaKasaHareketleri tablosuna PersonelGeriOdemeHareketId kolonu ekleniyor...");
+
+        var alterSql = isPostgres
+            ? $@"ALTER TABLE {tableName} ADD COLUMN IF NOT EXISTS ""PersonelGeriOdemeHareketId"" INTEGER NULL;"
+            : $@"ALTER TABLE {tableName} ADD COLUMN PersonelGeriOdemeHareketId INTEGER NULL;";
+
+        using var alterCmd = connection.CreateCommand();
+        alterCmd.CommandText = alterSql;
+        await alterCmd.ExecuteNonQueryAsync();
+
+        if (isPostgres)
+        {
+            try
+            {
+                var indexSql = $@"CREATE INDEX IF NOT EXISTS ""IX_BankaKasaHareketleri_PersonelGeriOdemeHareketId"" 
+                                 ON {tableName} (""PersonelGeriOdemeHareketId"");";
+                using var indexCmd = connection.CreateCommand();
+                indexCmd.CommandText = indexSql;
+                await indexCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("PersonelGeriOdemeHareketId indeks eklenemedi (devam ediliyor): {Message}", ex.Message);
+            }
+        }
+
+        logger.LogInformation("BankaKasaHareketleri tablosuna PersonelGeriOdemeHareketId kolonu eklendi.");
     }
 
     private static async Task EnsureBankaHareketColumnsAsync(System.Data.Common.DbConnection connection, bool isPostgres, ILogger logger)

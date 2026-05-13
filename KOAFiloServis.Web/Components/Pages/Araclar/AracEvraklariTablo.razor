@@ -356,8 +356,10 @@
     private string aktifFiltre = string.Empty;
     private string belgeFiltre = string.Empty;
     private string seviyeFiltre = "tumu"; // "gecmis" | "yedi" | "otuz" | "tumu"
-    private string sahiplikFiltre = "Tumu"; // AracSahiplikTipi enum adı veya "Tumu"
-    private bool sahiplikFiltreHaric;
+    // Varsayılan: Sahiplik = Tedarikçi, Hariç tut = işaretli
+    // (Tedarikçi sahipli araçlar evrak tablosundan gizlenmiş gelir; kullanıcı isterse değiştirebilir.)
+    private string sahiplikFiltre = nameof(AracSahiplikTipi.Tedarikci);
+    private bool sahiplikFiltreHaric = true;
 
     // Açık satır
     private int? acikAracId;
@@ -467,8 +469,8 @@
         aktifFiltre = string.Empty;
         belgeFiltre = string.Empty;
         seviyeFiltre = "tumu";
-        sahiplikFiltre = "Tumu";
-        sahiplikFiltreHaric = false;
+        sahiplikFiltre = nameof(AracSahiplikTipi.Tedarikci);
+        sahiplikFiltreHaric = true;
     }
 
     private static string GetSahiplikText(AracSahiplikTipi tip) => SahiplikHelper.GetMetin(tip);

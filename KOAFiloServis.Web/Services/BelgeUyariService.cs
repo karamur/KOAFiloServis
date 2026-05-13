@@ -483,6 +483,9 @@ public class BelgeUyariService : IBelgeUyariService
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
 
+        // Tüm araçlar (Tedarikçi sahipli olanlar dahil) bu listede döner;
+        // "Araç Belge Tablosu" ile "Ted. Araçları" sekmeleri UI tarafında
+        // SahiplikTipi'ne göre ayrıştırılır.
         var araclar = await context.Araclar
             .AsNoTracking()
             .Include(a => a.TasimaTedarikci)

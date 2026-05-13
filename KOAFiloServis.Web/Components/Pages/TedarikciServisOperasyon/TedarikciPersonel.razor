@@ -5,6 +5,7 @@
 @using KOAFiloServis.Web.Services
 @inject ISoforService SoforService
 @inject ITasimaTedarikciService TasimaTedarikciService
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -14,12 +15,112 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3><i class="bi bi-people me-2"></i>Tedarikçi Personel Listesi</h3>
         <div class="d-flex gap-2">
+            <button class="btn btn-success" @onclick="YeniTedarikciPersonelEkle" disabled="@(!tedarikciler.Any())">
+                <i class="bi bi-plus-lg me-1"></i>Yeni Tedarikçi Personeli
+            </button>
             <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/personel-tasima/tedarikciler")'>
                 <i class="bi bi-truck me-1"></i>Tedarikçi Yönetimi
             </button>
             <button class="btn btn-outline-primary" @onclick='() => Navigation.NavigateTo("/personel")'>
                 <i class="bi bi-grid me-1"></i>Tüm Personel
             </button>
+        </div>
+    </div>
+
+    <div class="card mb-3 border-info">
+        <div class="card-header py-2 bg-info bg-opacity-10">
+            <strong><i class="bi bi-person-plus me-1"></i>Hızlı Tedarikçi Personeli Ekle</strong>
+            <span class="text-muted small ms-2">Yeni personel açın veya mevcut personeli bir tedarikçiye atayın</span>
+        </div>
+        <div class="card-body py-2">
+            <ul class="nav nav-tabs nav-sm mb-2">
+                <li class="nav-item">
+                    <button class="nav-link @(hizliTab == "yeni" ? "active" : "")" @onclick='() => hizliTab = "yeni"'>
+                        <i class="bi bi-person-plus me-1"></i>Yeni Personel
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(hizliTab == "mevcut" ? "active" : "")" @onclick='() => hizliTab = "mevcut"'>
+                        <i class="bi bi-person-lines-fill me-1"></i>Mevcut Personelden Ata
+                    </button>
+                </li>
+            </ul>
+
+            @if (hizliTab == "yeni")
+            {
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Tedarikçi Seç *</label>
+                        <select class="form-select form-select-sm" @bind="hizliYeniTedarikciId">
+                            <option value="0">— Tedarikçi seçin —</option>
+                            @foreach (var t in tedarikciler.Where(t => t.Aktif))
+                            {
+                                <option value="@t.Id">@(string.IsNullOrWhiteSpace(t.TedarikciKodu) ? t.Unvan : $"{t.TedarikciKodu} - {t.Unvan}")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-auto">
+                        <button class="btn btn-sm btn-success" @onclick="YeniPersonelFormunaGit" disabled="@(hizliYeniTedarikciId == 0)">
+                            <i class="bi bi-arrow-right-circle me-1"></i>Personel Formuna Git
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label small mb-1">Tedarikçisi Olmayan Personel Ara</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="Ad, soyad, kod, telefon..."
+                               @bind="atanacakPersonelArama" @bind:event="oninput" />
+                        @if (FiltreliAtanacakPersoneller.Any() && atanacakPersonelId == null)
+                        {
+                            <div class="border rounded mt-1 bg-white shadow-sm" style="max-height:200px;overflow-y:auto;z-index:100;position:relative">
+                                @foreach (var p in FiltreliAtanacakPersoneller)
+                                {
+                                    <div class="px-2 py-1 border-bottom" @onclick="() => AtanacakPersonelSec(p)" style="cursor:pointer;font-size:.85rem">
+                                        <span class="badge bg-secondary me-1" style="font-size:.7rem">@p.SoforKodu</span>
+                                        <strong>@p.Ad @p.Soyad</strong>
+                                        <span class="text-muted ms-1" style="font-size:.75rem">(@GetGorevAdi(p.Gorev))</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        @if (atanacakPersonelId.HasValue)
+                        {
+                            var sp = tumPersoneller.FirstOrDefault(p => p.Id == atanacakPersonelId.Value);
+                            <div class="mt-1 px-2 py-1 bg-success bg-opacity-10 border border-success rounded d-flex justify-content-between align-items-center" style="font-size:.85rem">
+                                <span><i class="bi bi-check-circle-fill text-success me-1"></i><strong>@sp?.SoforKodu</strong> — @sp?.Ad @sp?.Soyad</span>
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" @onclick="() => atanacakPersonelId = null" title="Seçimi temizle">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1">Hedef Tedarikçi *</label>
+                        <select class="form-select form-select-sm" @bind="atanacakHedefTedarikciId">
+                            <option value="0">— Tedarikçi seçin —</option>
+                            @foreach (var t in tedarikciler.Where(t => t.Aktif))
+                            {
+                                <option value="@t.Id">@(string.IsNullOrWhiteSpace(t.TedarikciKodu) ? t.Unvan : $"{t.TedarikciKodu} - {t.Unvan}")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-auto">
+                        <button class="btn btn-sm btn-primary" @onclick="MevcutPersoneliAtaAsync"
+                                disabled="@(atanacakPersonelId is null || atanacakHedefTedarikciId == 0 || atamaYukleniyor)">
+                            @if (atamaYukleniyor)
+                            { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            <i class="bi bi-link-45deg me-1"></i>Tedarikçiye Ata
+                        </button>
+                    </div>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(hizliMesaj))
+            {
+                <div class="alert alert-success py-1 mb-0 mt-2 small">@hizliMesaj</div>
+            }
         </div>
     </div>
 
@@ -265,6 +366,86 @@
     private List<Sofor> tumPersoneller = new();
     private List<Sofor> filtreliPersonel = new();
     private List<TasimaTedarikci> tedarikciler = new();
+
+    // Hızlı ekleme/atama
+    private string hizliTab = "yeni";
+    private int hizliYeniTedarikciId;
+    private int? atanacakPersonelId;
+    private string atanacakPersonelArama = string.Empty;
+    private int atanacakHedefTedarikciId;
+    private bool atamaYukleniyor;
+    private string? hizliMesaj;
+
+    private List<Sofor> FiltreliAtanacakPersoneller => string.IsNullOrWhiteSpace(atanacakPersonelArama)
+        ? new()
+        : tumPersoneller
+            .Where(p => !p.TasimaTedarikciId.HasValue && p.Aktif)
+            .Where(p =>
+                (p.SoforKodu?.Contains(atanacakPersonelArama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Ad?.Contains(atanacakPersonelArama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Soyad?.Contains(atanacakPersonelArama, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Telefon?.Contains(atanacakPersonelArama, StringComparison.OrdinalIgnoreCase) ?? false))
+            .Take(20)
+            .ToList();
+
+    private void YeniTedarikciPersonelEkle()
+    {
+        var hedef = seciliTedarikciId > 0 ? seciliTedarikciId : tedarikciler.FirstOrDefault(t => t.Aktif)?.Id ?? 0;
+        if (hedef <= 0)
+        {
+            ToastService.ShowWarning("Önce aktif bir tedarikçi tanımlayın.");
+            return;
+        }
+        Navigation.NavigateTo($"/personel/yeni?tedarikciId={hedef}");
+    }
+
+    private void YeniPersonelFormunaGit()
+    {
+        if (hizliYeniTedarikciId <= 0) return;
+        Navigation.NavigateTo($"/personel/yeni?tedarikciId={hizliYeniTedarikciId}");
+    }
+
+    private void AtanacakPersonelSec(Sofor p)
+    {
+        atanacakPersonelId = p.Id;
+        atanacakPersonelArama = $"{p.Ad} {p.Soyad}";
+    }
+
+    private async Task MevcutPersoneliAtaAsync()
+    {
+        if (!atanacakPersonelId.HasValue || atanacakHedefTedarikciId <= 0) return;
+        try
+        {
+            atamaYukleniyor = true;
+            var sofor = await SoforService.GetByIdAsync(atanacakPersonelId.Value);
+            if (sofor == null)
+            {
+                ToastService.ShowError("Personel bulunamadı.");
+                return;
+            }
+            sofor.TasimaTedarikciId = atanacakHedefTedarikciId;
+            await SoforService.UpdateAsync(sofor);
+
+            var tedAdi = tedarikciler.FirstOrDefault(t => t.Id == atanacakHedefTedarikciId)?.Unvan ?? "Tedarikçi";
+            hizliMesaj = $"{sofor.Ad} {sofor.Soyad} → {tedAdi} tedarikçisine atandı.";
+            ToastService.ShowSuccess(hizliMesaj);
+
+            atanacakPersonelId = null;
+            atanacakPersonelArama = string.Empty;
+            atanacakHedefTedarikciId = 0;
+
+            tumPersoneller = await SoforService.GetAllAsync();
+            Filtrele();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Atama yapılamadı: " + ex.Message);
+        }
+        finally
+        {
+            atamaYukleniyor = false;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

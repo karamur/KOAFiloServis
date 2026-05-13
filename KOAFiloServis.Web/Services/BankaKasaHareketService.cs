@@ -800,6 +800,140 @@ public class BankaKasaHareketService : IBankaKasaHareketService
         return hesaplar.ToDictionary(h => h.Id, h => h.AcilisBakiye + h.Girisler - h.Cikislar);
     }
 
+    public async Task<PersonelGeriOdemeSonuc> PersonelGeriOdemeYapAsync(int personelId, IEnumerable<int> cebindenHareketIds, int? hesapId, DateTime odemeTarihi, string? aciklama = null)
+    {
+        if (personelId <= 0)
+            return new PersonelGeriOdemeSonuc { Basarili = false, Hata = "Personel seçilmelidir." };
+
+        var idListesi = cebindenHareketIds?.Distinct().ToList() ?? new List<int>();
+        if (idListesi.Count == 0)
+            return new PersonelGeriOdemeSonuc { Basarili = false, Hata = "Kapatılacak hareket seçilmedi." };
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var strategy = context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await context.Database.BeginTransactionAsync();
+            try
+            {
+                var cebindenler = await context.BankaKasaHareketleri
+                    .Where(h => idListesi.Contains(h.Id) && h.PersonelCebindenId == personelId && !h.PersoneleOdendi)
+                    .ToListAsync();
+
+                if (cebindenler.Count == 0)
+                    return new PersonelGeriOdemeSonuc { Basarili = false, Hata = "Geçerli (ödenmemiş) cebinden kaydı bulunamadı." };
+
+                var toplam = cebindenler.Sum(x => x.Tutar);
+
+                BankaKasaHareket? odemeHareketi = null;
+
+                // Hesap seçildiyse karşı çıkış hareketi oluştur (kasa/banka düşülecek).
+                // Hesap seçilmediyse: sadece "ödendi" işaretle (elden / nakit dışı senaryo).
+                if (hesapId.HasValue && hesapId.Value > 0)
+                {
+                    var hesap = await _bankaHesapService.GetByIdAsync(hesapId.Value);
+                    if (hesap == null)
+                        return new PersonelGeriOdemeSonuc { Basarili = false, Hata = "Seçilen hesap bulunamadı." };
+                    if (!hesap.Aktif)
+                        return new PersonelGeriOdemeSonuc { Basarili = false, Hata = "Hesap aktif değil." };
+
+                    var personelAd = cebindenler.First().PersonelCebindenId.HasValue
+                        ? (await context.Soforler.AsNoTracking().Where(s => s.Id == personelId).Select(s => s.Ad + " " + s.Soyad).FirstOrDefaultAsync() ?? "Personel")
+                        : "Personel";
+
+                    odemeHareketi = new BankaKasaHareket
+                    {
+                        IslemNo = await GenerateNextIslemNoAsync(),
+                        IslemTarihi = odemeTarihi,
+                        HareketTipi = HareketTipi.Cikis,
+                        Tutar = toplam,
+                        BankaHesapId = hesapId.Value,
+                        IslemKaynak = IslemKaynak.PersonelGeriOdeme,
+                        Aciklama = string.IsNullOrWhiteSpace(aciklama)
+                            ? $"[PERSONEL GERİ ÖDEME] {personelAd} - {cebindenler.Count} kayıt"
+                            : $"[PERSONEL GERİ ÖDEME] {personelAd} - {aciklama.Trim()}",
+                        MuhasebeHesapKodu = hesap.VarsayilanMuhasebeKodu,
+                        KostMerkeziKodu = hesap.VarsayilanKostMerkezi
+                    };
+
+                    NormalizeHareket(odemeHareketi);
+                    await ValidateHareketAsync(context, odemeHareketi);
+                    context.BankaKasaHareketleri.Add(odemeHareketi);
+                    await context.SaveChangesAsync();
+                }
+
+                // Cebinden kayıtlarını kapat
+                foreach (var c in cebindenler)
+                {
+                    c.PersoneleOdendi = true;
+                    c.PersonelOdemeTarihi = odemeTarihi;
+                    c.PersonelOdemeHesapId = hesapId;
+                    c.PersonelGeriOdemeHareketId = odemeHareketi?.Id;
+                }
+                await context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                return new PersonelGeriOdemeSonuc
+                {
+                    Basarili = true,
+                    OdemeHareketi = odemeHareketi,
+                    KapatilanKayitSayisi = cebindenler.Count,
+                    ToplamTutar = toplam
+                };
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return new PersonelGeriOdemeSonuc { Basarili = false, Hata = ex.Message };
+            }
+        });
+    }
+
+    public async Task PersonelGeriOdemeIptalAsync(int cebindenHareketId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var strategy = context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await context.Database.BeginTransactionAsync();
+
+            var cebinden = await context.BankaKasaHareketleri
+                .FirstOrDefaultAsync(h => h.Id == cebindenHareketId);
+            if (cebinden == null)
+            {
+                await transaction.CommitAsync();
+                return;
+            }
+
+            var odemeId = cebinden.PersonelGeriOdemeHareketId;
+
+            cebinden.PersoneleOdendi = false;
+            cebinden.PersonelOdemeTarihi = null;
+            cebinden.PersonelOdemeHesapId = null;
+            cebinden.PersonelGeriOdemeHareketId = null;
+            await context.SaveChangesAsync();
+
+            // Eğer ödeme hareketi başka cebinden kaydını kapatmıyorsa, ödeme hareketini de sil
+            if (odemeId.HasValue)
+            {
+                var hala = await context.BankaKasaHareketleri
+                    .AnyAsync(h => h.PersonelGeriOdemeHareketId == odemeId.Value);
+                if (!hala)
+                {
+                    var odeme = await context.BankaKasaHareketleri.FirstOrDefaultAsync(h => h.Id == odemeId.Value);
+                    if (odeme != null && odeme.IslemKaynak == IslemKaynak.PersonelGeriOdeme)
+                    {
+                        context.BankaKasaHareketleri.Remove(odeme);
+                        await context.SaveChangesAsync();
+                    }
+                }
+            }
+
+            await transaction.CommitAsync();
+        });
+    }
+
     private static int? TryParseIslemNoSequence(string? islemNo)
     {
         if (string.IsNullOrWhiteSpace(islemNo))
