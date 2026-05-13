@@ -4,6 +4,7 @@
 @inject ITasimaTedarikciService TedarikciService
 @inject ICariService CariService
 @inject ISoforService SoforService
+@inject IToastService ToastService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 
@@ -154,15 +155,22 @@
                 <div class="col-md-4">
                     <input type="text" class="form-control form-control-sm" placeholder="Ara: ünvan, kod, vergi no..." @bind="aramaMetni" @bind:event="oninput" />
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <select class="form-select form-select-sm" @bind="durumFiltre">
                         <option value="">Tümü (Aktif + Pasif)</option>
                         <option value="aktif">Yalnızca Aktif</option>
                         <option value="pasif">Yalnızca Pasif</option>
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="cariFiltre">
+                        <option value="">Cari: Hepsi</option>
+                        <option value="eksik">Yalnızca Cari Eksik</option>
+                        <option value="atanmis">Yalnızca Cari Atanmış</option>
+                    </select>
+                </div>
                 <div class="col-md-3 text-muted small">
-                    Toplam: <strong>@FiltrelenmisTedarikciler.Count</strong> tedarikçi
+                    Gösterilen: <strong>@FiltrelenmisTedarikciler.Count</strong> / @tedarikciler.Count
                 </div>
             </div>
             @{
@@ -305,6 +313,7 @@
     private bool yukleniyor = true;
     private string aramaMetni = string.Empty;
     private string durumFiltre = string.Empty;
+    private string cariFiltre = string.Empty;
     private int? atamaYukleniyorId;
     private bool topluAtaYukleniyor = false;
 
@@ -319,14 +328,25 @@
                 .Where(x => x.Oneri != null)
                 .ToList();
             int basarili = 0;
+            int hata = 0;
             foreach (var h in hedefler)
             {
-                h.Tedarikci.CariId = h.Oneri!.Id;
-                h.Tedarikci.Cari = h.Oneri;
-                await TedarikciService.UpdateAsync(h.Tedarikci);
-                basarili++;
+                try
+                {
+                    h.Tedarikci.CariId = h.Oneri!.Id;
+                    h.Tedarikci.Cari = h.Oneri;
+                    await TedarikciService.UpdateAsync(h.Tedarikci);
+                    basarili++;
+                }
+                catch
+                {
+                    hata++;
+                }
             }
-            // Toast burada yok, basit görsel geri bildirim icin liste yenileme yeterli.
+            if (basarili > 0)
+                ToastService.ShowSuccess($"{basarili} tedarikçiye Cari atandı.");
+            if (hata > 0)
+                ToastService.ShowError($"{hata} tedarikçi ataması başarısız.");
             await Yukle();
         }
         finally
@@ -361,6 +381,11 @@
             t.CariId = c.Id;
             t.Cari = c;
             await TedarikciService.UpdateAsync(t);
+            ToastService.ShowSuccess($"{t.Unvan} → {c.CariKodu} atandı.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Atama başarısız: {ex.Message}");
         }
         finally
         {
@@ -398,6 +423,12 @@
         {
             "aktif" => t.Aktif,
             "pasif" => !t.Aktif,
+            _ => true
+        })
+        .Where(t => cariFiltre switch
+        {
+            "eksik" => t.CariId == null,
+            "atanmis" => t.CariId != null,
             _ => true
         })
         .ToList();
