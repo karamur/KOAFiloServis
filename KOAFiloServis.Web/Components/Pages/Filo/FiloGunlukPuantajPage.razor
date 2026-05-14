@@ -14,14 +14,15 @@
 @inject IGuzergahService GuzergahService
 @inject IToastService ToastService
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 @attribute [Authorize]
 
-<PageTitle>Filo Günlük Puantaj</PageTitle>
+<PageTitle>Puantaj</PageTitle>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h2 class="mb-1"><i class="bi bi-calendar2-check me-2"></i>Filo Günlük Puantaj</h2>
+            <h2 class="mb-1"><i class="bi bi-calendar2-check me-2"></i>Puantaj</h2>
             <p class="text-muted mb-0">Günlük operasyon kayıtları (Sabah / Akşam / Yarda Mesai). Hakediş ve maliyet snapshot'ları bu kayıtlardan üretilir.</p>
         </div>
         <button class="btn btn-primary" @onclick="YeniKayitAc">
@@ -64,6 +65,10 @@
                             </div>
                         }
                     </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Ara (Güzergah/Plaka/Şoför)</label>
+                        <input class="form-control form-control-sm" @bind="puantajAramaMetni" />
+                    </div>
                     <div class="col-md-2">
                         <label class="form-label small">Kapasite</label>
                         <select class="form-select form-select-sm" @bind="secilenKapasite">
@@ -75,16 +80,16 @@
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label small">Gün</label>
-                        <input type="number" min="1" max="31" class="form-control form-control-sm" @bind="secilenGun" />
-                    </div>
-                    <div class="col-md-2">
                         <label class="form-label small">Sefer Sayısı</label>
                         <input type="number" min="0.5" step="0.5" class="form-control form-control-sm" @bind="secilenSeferSayisi" />
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label small">Ara (Güzergah/Plaka/Şoför)</label>
-                        <input class="form-control form-control-sm" @bind="puantajAramaMetni" />
+                    <div class="col-md-2">
+                        <label class="form-label small">Başlangıç</label>
+                        <input type="date" class="form-control form-control-sm" @bind="topluBaslangicTarihi" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Bitiş</label>
+                        <input type="date" class="form-control form-control-sm" @bind="topluBitisTarihi" />
                     </div>
                 </div>
 
@@ -139,7 +144,7 @@
                                             <input type="number" class="form-control form-control-sm" min="0" @bind="satir.Kapasite" />
                                         </td>
                                         <td>
-                                            <input type="number" class="form-control form-control-sm" min="1" max="31" @bind="satir.Gun" />
+                                            <input type="number" class="form-control form-control-sm" min="1" step="1" @bind="satir.ToplamGun" @bind:after="() => ToplamGunDegisti(satir)" />
                                         </td>
                                         <td>
                                             <input type="number" class="form-control form-control-sm" min="0.5" step="0.5" @bind="satir.SeferSayisi" />
@@ -150,7 +155,7 @@
                                     {
                                         <tr class="table-secondary">
                                             <td></td>
-                                            <td colspan="12">
+                                            <td colspan="11">
                                                 <div class="row g-2 align-items-end">
                                                     <div class="col-md-3">
                                                         <label class="form-label small mb-1">Şoför Değiştir</label>
@@ -502,6 +507,8 @@
     private List<Kurum> filtreliKurumlar = new();
     private int secilenKapasite = 0;
     private int secilenGun = DateTime.Today.Day;
+    private DateTime topluBaslangicTarihi = DateTime.Today;
+    private DateTime topluBitisTarihi = DateTime.Today;
     private decimal secilenSeferSayisi = 1m;
     private string puantajAramaMetni = string.Empty;
     private List<FiloGuzergahEslestirme> tumEslestirmeler = new();
@@ -539,6 +546,7 @@
         guzergahlar = await GuzergahService.GetAllAsync();
         kurumlar = await KurumService.GetAktifAsync();
         await LoadEslestirmelerAsync();
+        topluPanelAcik = Navigation.Uri.Contains("/operasyon/filo-gunluk-puantaj", StringComparison.OrdinalIgnoreCase);
         await LoadAsync();
     }
 
@@ -629,9 +637,16 @@
 
         var seciliKurumKart = kurumlar.FirstOrDefault(k => k.Id == secilenKurumId);
         var seciliFirmaId = secilenKurumFirmaId;
-        topluSatirlar = FiltreliEslestirmeler.Select(es => new TopluPuantajSatiri
+        if (seciliFirmaId <= 0)
+        {
+            ToastService.ShowWarning("Seçili kurum için cari/firma eşleşmesi bulunamadı.");
+            return;
+        }
+        var gunSayisi = Math.Max((topluBitisTarihi.Date - topluBaslangicTarihi.Date).Days + 1, 1);
+        topluSatirlar = FiltreliEslestirmeler.Select((es, idx) => new TopluPuantajSatiri
         {
             EslestirmeId = es.Id,
+            SiraNo = idx + 1,
             KurumId = seciliFirmaId,
             KurumAdi = seciliKurumKart?.KurumAdi ?? es.KurumFirma?.FirmaAdi ?? "-",
             GuzergahId = es.GuzergahId,
@@ -645,9 +660,11 @@
             GelirFiyat = es.KurumaKesilecekUcret,
             GiderFiyat = es.TaseronaOdenenUcret,
             Kapasite = secilenKapasite > 0 ? secilenKapasite : Math.Max(es.Guzergah?.PersonelSayisi ?? 0, 0),
-            Gun = secilenGun,
+            ToplamGun = gunSayisi,
             SeferSayisi = secilenSeferSayisi,
-            FirmaTipi = FirmaTipiniBelirle(es.Arac)
+            FirmaTipi = FirmaTipiniBelirle(es.Arac),
+            GelirToplam = es.KurumaKesilecekUcret * gunSayisi,
+            GiderToplam = es.TaseronaOdenenUcret * gunSayisi
         })
         .Where(s => s.KurumId > 0 && guzergahlar.Any(g => g.Id == s.GuzergahId && (g.CariId == secilenKurumCariId || (g.FirmaId.HasValue && g.FirmaId == secilenKurumFirmaId))))
         .ToList();
@@ -665,6 +682,12 @@
 
     private bool SatirDetayAcikMi(int eslestirmeId) => satirDetayAcik.TryGetValue(eslestirmeId, out var acik) && acik;
 
+    private void ToplamGunDegisti(TopluPuantajSatiri satir)
+    {
+        satir.GelirToplam = satir.GelirFiyat * satir.ToplamGun;
+        satir.GiderToplam = satir.GiderFiyat * satir.ToplamGun;
+    }
+
     private async Task TopluPuantajKaydet()
     {
         if (!topluSatirlar.Any())
@@ -679,8 +702,8 @@
             await using var ctx = await DbContextFactory.CreateDbContextAsync();
             foreach (var satir in topluSatirlar)
             {
-                var gun = Math.Clamp(satir.Gun, 1, DateTime.DaysInMonth(filtreBaslangic.Year, filtreBaslangic.Month));
-                var tarih = new DateTime(filtreBaslangic.Year, filtreBaslangic.Month, gun);
+                var tarih = topluBaslangicTarihi.Date;
+
                 var entity = new FiloGunlukPuantaj
                 {
                     FirmaId = satir.KurumId,
@@ -694,8 +717,8 @@
                     ServisTuru = satir.ServisTuru,
                     SeferSayisi = satir.SeferSayisi,
                     PuantajCarpani = 1m,
-                    TahakkukEdenKurumUcreti = satir.GelirFiyat * satir.SeferSayisi,
-                    TahakkukEdenTaseronUcreti = satir.GiderFiyat * satir.SeferSayisi,
+                    TahakkukEdenKurumUcreti = satir.GelirToplam,
+                    TahakkukEdenTaseronUcreti = satir.GiderToplam,
                     Notlar = satir.Notlar
                 };
                 ctx.FiloGunlukPuantajlar.Add(entity);
@@ -704,6 +727,7 @@
             await ctx.SaveChangesAsync();
             ToastService.ShowSuccess($"{topluSatirlar.Count} satır toplu puantaj kaydedildi.");
             await LoadEslestirmelerAsync();
+        topluPanelAcik = Navigation.Uri.Contains("/operasyon/filo-gunluk-puantaj", StringComparison.OrdinalIgnoreCase);
         await LoadAsync();
             topluSatirlar.Clear();
             satirDetayAcik.Clear();
@@ -753,6 +777,7 @@
         filtreBitis = DateTime.Today;
         filtreKurumId = 0; filtreAracId = 0; filtreServisTuru = "";
         await LoadEslestirmelerAsync();
+        topluPanelAcik = Navigation.Uri.Contains("/operasyon/filo-gunluk-puantaj", StringComparison.OrdinalIgnoreCase);
         await LoadAsync();
     }
 
@@ -907,6 +932,7 @@
             }
             else { kayitModalAcik = false; }
             await LoadEslestirmelerAsync();
+        topluPanelAcik = Navigation.Uri.Contains("/operasyon/filo-gunluk-puantaj", StringComparison.OrdinalIgnoreCase);
         await LoadAsync();
         }
         catch (Exception ex)
@@ -928,6 +954,7 @@
             await ctx.SaveChangesAsync();
             ToastService.ShowSuccess("Kayıt silindi.");
             await LoadEslestirmelerAsync();
+        topluPanelAcik = Navigation.Uri.Contains("/operasyon/filo-gunluk-puantaj", StringComparison.OrdinalIgnoreCase);
         await LoadAsync();
         }
         catch (Exception ex) { ToastService.ShowError(ex.Message); }
@@ -982,8 +1009,11 @@
         public decimal GelirFiyat { get; set; }
         public decimal GiderFiyat { get; set; }
         public int Kapasite { get; set; }
-        public int Gun { get; set; }
+        public int SiraNo { get; set; }
+        public decimal ToplamGun { get; set; }
         public decimal SeferSayisi { get; set; }
+        public decimal GelirToplam { get; set; }
+        public decimal GiderToplam { get; set; }
         public string FirmaTipi { get; set; } = "Cari";
         public string? Notlar { get; set; }
     }}
