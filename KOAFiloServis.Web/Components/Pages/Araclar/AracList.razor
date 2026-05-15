@@ -197,8 +197,6 @@
                                 <th>Durum</th>
                                 <th>Model Yılı</th>
                                 <th>Koltuk</th>
-                                <th>Kayıt T.</th>
-                                <th>Muayene</th>
                                 <th style="width: 120px;" class="text-center">İşlemler</th>
                             </tr>
                         </thead>
@@ -260,16 +258,6 @@
                                     </td>
                                     <td>@arac.ModelYili</td>
                                     <td>@arac.KoltukSayisi</td>
-                                    <td><small>@arac.CreatedAt.ToLocalTime().ToString("MM/yyyy")</small></td>
-                                    <td>
-                                        @if (arac.MuayeneBitisTarihi.HasValue)
-                                        {
-                                            var gunKaldi = (arac.MuayeneBitisTarihi.Value - DateTime.Today).Days;
-                                            <span class="badge @(gunKaldi < 30 ? "bg-danger" : gunKaldi < 60 ? "bg-warning text-dark" : "bg-success")">
-                                                @arac.MuayeneBitisTarihi.Value.ToString("dd.MM.yyyy")
-                                            </span>
-                                        }
-                                    </td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-outline-info" @onclick="() => EvraklarGit(arac.Id)" title="Evraklar">

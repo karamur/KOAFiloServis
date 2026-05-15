@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using KOAFiloServis.Web.Services.Interfaces;
 using KOAFiloServis.Web.Helpers;
@@ -556,10 +556,11 @@ public class AracService : IAracService
             evrak.BaslangicTarihi = DateTime.SpecifyKind(evrak.BaslangicTarihi.Value, DateTimeKind.Utc);
         if (evrak.BitisTarihi.HasValue)
             evrak.BitisTarihi = DateTime.SpecifyKind(evrak.BitisTarihi.Value, DateTimeKind.Utc);
-        
+
         evrak.CreatedAt = DateTime.UtcNow;
         context.AracEvraklari.Add(evrak);
         await context.SaveChangesAsync();
+        await SenkronizeAracBelgeTarihleriAsync(context, evrak.AracId);
         return evrak;
     }
 
@@ -570,10 +571,11 @@ public class AracService : IAracService
             evrak.BaslangicTarihi = DateTime.SpecifyKind(evrak.BaslangicTarihi.Value, DateTimeKind.Utc);
         if (evrak.BitisTarihi.HasValue)
             evrak.BitisTarihi = DateTime.SpecifyKind(evrak.BitisTarihi.Value, DateTimeKind.Utc);
-        
+
         evrak.UpdatedAt = DateTime.UtcNow;
         context.AracEvraklari.Update(evrak);
         await context.SaveChangesAsync();
+        await SenkronizeAracBelgeTarihleriAsync(context, evrak.AracId);
         return evrak;
     }
 
@@ -583,7 +585,7 @@ public class AracService : IAracService
         var evrak = await context.AracEvraklari
             .Include(e => e.Dosyalar)
             .FirstOrDefaultAsync(e => e.Id == evrakId);
-            
+
         if (evrak != null)
         {
             // Dosyaları sil
@@ -591,8 +593,52 @@ public class AracService : IAracService
             {
                 await _secureFileService.DeleteAsync(dosya.DosyaYolu);
             }
-            
+
             evrak.IsDeleted = true;
+            await context.SaveChangesAsync();
+            await SenkronizeAracBelgeTarihleriAsync(context, evrak.AracId);
+        }
+    }
+
+    /// <summary>
+    /// AracEvrak tablosundaki en güncel (bitiş tarihi en yüksek, aktif, silinmemiş) kayıtlardan
+    /// Arac tablosundaki geriye dönük belge bitiş tarihlerini (Muayene/Trafik/Kasko/Koltuk) tekilleştirir.
+    /// Böylece evrak güncellendiğinde uyarı/rapor/listelerde tek kaynaktan tutarlı tarih görünür.
+    /// </summary>
+    private static async Task SenkronizeAracBelgeTarihleriAsync(ApplicationDbContext context, int aracId)
+    {
+        if (aracId <= 0) return;
+        var arac = await context.Araclar.FirstOrDefaultAsync(a => a.Id == aracId && !a.IsDeleted);
+        if (arac == null) return;
+
+        var aktifEvraklar = await context.AracEvraklari
+            .Where(e => e.AracId == aracId
+                     && !e.IsDeleted
+                     && e.Durum != EvrakDurum.Pasif
+                     && e.BitisTarihi.HasValue)
+            .Select(e => new { e.EvrakKategorisi, e.BitisTarihi })
+            .ToListAsync();
+
+        DateTime? EnYakin(string kategori) => aktifEvraklar
+            .Where(x => x.EvrakKategorisi == kategori)
+            .OrderByDescending(x => x.BitisTarihi)
+            .Select(x => x.BitisTarihi)
+            .FirstOrDefault();
+
+        var yeniMuayene = EnYakin(EvrakKategorileri.Muayene);
+        var yeniTrafik = EnYakin(EvrakKategorileri.TrafikSigortasi);
+        var yeniKasko = EnYakin(EvrakKategorileri.Kasko);
+        var yeniKoltuk = EnYakin(EvrakKategorileri.KoltukSigortasi);
+
+        var degisti = false;
+        if (arac.MuayeneBitisTarihi != yeniMuayene) { arac.MuayeneBitisTarihi = yeniMuayene; degisti = true; }
+        if (arac.TrafikSigortaBitisTarihi != yeniTrafik) { arac.TrafikSigortaBitisTarihi = yeniTrafik; degisti = true; }
+        if (arac.KaskoBitisTarihi != yeniKasko) { arac.KaskoBitisTarihi = yeniKasko; degisti = true; }
+        if (arac.KoltukSigortasiBitisTarihi != yeniKoltuk) { arac.KoltukSigortasiBitisTarihi = yeniKoltuk; degisti = true; }
+
+        if (degisti)
+        {
+            arac.UpdatedAt = DateTime.UtcNow;
             await context.SaveChangesAsync();
         }
     }

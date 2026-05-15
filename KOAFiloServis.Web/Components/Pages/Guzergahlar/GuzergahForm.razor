@@ -10,6 +10,7 @@
 @inject IKurumService KurumService
 @inject IAracService AracService
 @inject ISoforService SoforService
+@inject IKapasiteService KapasiteService
 @inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
@@ -235,12 +236,12 @@
                     </div>
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Kapasite (Personel Sayısı)</label>
+                            <label class="form-label">Kapasite</label>
                             <select class="form-select" @bind="guzergah.PersonelSayisi">
                                 <option value="0">-- Seçiniz --</option>
                                 @foreach (var k in kapasiteSecenekleri)
                                 {
-                                    <option value="@k">@k</option>
+                                    <option value="@k.Value">@k.Label</option>
                                 }
                             </select>
                         </div>
@@ -379,7 +380,32 @@
     private bool secilenKurumCariYok;
     private string kurumArama = string.Empty;
     private List<Kurum> kurumOnerileri = new();
-    private static readonly int[] kapasiteSecenekleri = new[] { 8, 12, 16, 20, 27, 31, 46 };
+    private List<(int Value, string Label)> kapasiteSecenekleri = new();
+
+    private async Task YukleKapasitelerAsync()
+    {
+        try
+        {
+            var aktifKapasiteler = await KapasiteService.GetActiveAsync();
+            kapasiteSecenekleri = aktifKapasiteler
+                .Select(k =>
+                {
+                    var ad = (k.KapasiteAdi ?? string.Empty).Trim();
+                    var rakam = new string(ad.Where(char.IsDigit).ToArray());
+                    int.TryParse(rakam, out var v);
+                    return (Value: v, Label: ad);
+                })
+                .Where(x => x.Value > 0)
+                .GroupBy(x => x.Value)
+                .Select(g => g.First())
+                .OrderBy(x => x.Value)
+                .ToList();
+        }
+        catch
+        {
+            kapasiteSecenekleri = new();
+        }
+    }
 
     // Cari seçimi (kurumdan bağımsız)
     private string cariArama = string.Empty;
@@ -397,6 +423,7 @@
         kurumlar = await KurumService.GetAktifAsync();
         araclar = await AracService.GetActiveAsync();
         soforler = await SoforService.GetActiveAsync();
+        await YukleKapasitelerAsync();
         await YukleAktifAracSoforMapAsync();
 
         if (IsEdit)
