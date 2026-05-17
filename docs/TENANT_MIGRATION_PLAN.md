@@ -187,3 +187,31 @@ Migration: `TenantC3_RequireFirmaId` (C3-b, tüm tablolarda `AlterColumn FirmaId
 ### Tenant Mimarisi Yeniden Yapılandırması: BAŞARIYLA TAMAMLANDI ✅
 
 Aşamalar A → H. Tüm `IFirmaTenant` entity'leri NOT NULL `FirmaId` ile zorunlu izolasyon altında, global query filter ile otomatik filtreleniyor. K1–K9 kararlarının hepsi uygulandı. Açık iş yok.
+
+---
+
+## 📌 Bir Sonraki Oturum İçin Kaldığımız Yer (Bookmark)
+
+**Son durum:** Tenant mimarisi tamamen kapandı. Opsiyonel Teknik Borçlar tablosunda #2, #3, #4 ✅ tamam. Açık kalan iki opsiyonel madde var.
+
+**Bir sonraki oturumda yapılacak adaylar (öncelik sırası):**
+
+1. **Teknik Borç #5 — Legacy `Sirket` / `SirketId` kolonlarının fiziksel drop'u** (önerilen ilk adım)
+   - Etkilenen kolonlar: `Cari.SirketId`, `Firma.CariId`, `Fatura.SirketId` (+ ilişkili `Sirket` navigation'ları ve `Sirketler` tablosu varsa).
+   - Hepsi zaten `[Obsolete]`. Production'da en az 1 sürüm beklendi sayılırsa drop migration üretilebilir.
+   - Yapılacaklar:
+     - [ ] `Cari`, `Firma`, `Fatura` entity'lerinden `SirketId` / `CariId` / `Sirket` navigation property'lerini sil
+     - [ ] `ApplicationDbContext` içindeki ilgili `DbSet<Sirket>` ve fluent config'i temizle (varsa)
+     - [ ] `SirketService` / `TenantService` kalıntılarını sil (DI kayıtları dahil)
+     - [ ] `dotnet ef migrations add TenantZ1_DropLegacySirket` → DropColumn + DropTable
+     - [ ] PostgreSQL'de bir kez koştur, build temiz olsun
+     - [ ] Plan dosyasında #5'i ✅ tamam yap
+
+2. **Teknik Borç #1 — "True Excel grid"** (düşük öncelik, UI işi)
+   - Üçüncü parti grid değerlendirmesi (Radzen DataGrid ücretsiz / Syncfusion lisanslı).
+   - Pilot ekran: `Hakedis/HakedisTablosu.razor`.
+   - Klavye nav + kopya-yapıştır + donmuş üst satır.
+
+**Devam komutu:** Yeni oturumda kullanıcı "kaldığımız yerden devam" derse → bu bookmark'tan başla, önce Teknik Borç #5'i öner.
+
+**Son build durumu:** `dotnet build` ✅ 0 error. Tüm migration'lar PostgreSQL'e uygulanmış.
