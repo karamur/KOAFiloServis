@@ -10,7 +10,9 @@ public class Fatura : BaseEntity, IFirmaTenant
     /// <summary>
     /// Multi-tenant: Şirket ID (null = sistem geneli)
     /// </summary>
+    [Obsolete("Legacy tenant alanı. Yeni tenant kavramı 'FirmaId'. Bu kolon ileriki bir sürümde drop edilecek (bkz: TENANT_MIGRATION_PLAN.md Karar K1, Teknik Borç #2 ve #5).")]
     public int? SirketId { get; set; }
+    [Obsolete("Legacy tenant navigation. Yeni tenant 'Firma'. (bkz: TENANT_MIGRATION_PLAN.md K1)")]
     public virtual Sirket? Sirket { get; set; }
 
     public string FaturaNo { get; set; } = string.Empty;

@@ -177,10 +177,10 @@ Migration: `TenantC3_RequireFirmaId` (C3-b, tüm tablolarda `AlterColumn FirmaId
 | # | Borç | Şiddet | Not |
 |---|------|--------|-----|
 | 1 | "True Excel grid" özellikleri (klavye navigasyonu, kopya-yapıştır, formül desteği, donmuş üst satır) | Düşük | Mevcut tablolar yeterli; ileride üçüncü parti grid (Syncfusion / Radzen DataGrid) entegrasyonu düşünülebilir |
-| 2 | `Fatura.SirketId` (legacy) `[Obsolete]`'a alınması | Düşük | Kolon hâlâ kullanılıyor olabilir; veri taşıma sonrası işaretlenir |
-| 3 | `GuzergahSefer.Guzergah` navigation EF Core warning 10622 | Düşük | `GuzergahSefer`'e de tenant filtresi uygulanırsa kaybolur |
+| 2 | `Fatura.SirketId` (legacy) `[Obsolete]`'a alınması | ✅ tamam | `Fatura.SirketId` ve `Fatura.Sirket` artık `[Obsolete]` (K1 ile tutarlı). Kolon henüz drop edilmedi, en az 1 sürüm sonra Teknik Borç #5 kapsamında drop migration üretilecek |
+| 3 | `GuzergahSefer.Guzergah` navigation EF Core warning 10622 | ✅ tamam | `GuzergahSefer` artık `IFirmaTenant` (NOT NULL `FirmaId` + Firmalar FK Cascade). Migration `TenantG1_AddFirmaIdToGuzergahSefer` K9 deseni ile (nullable → parent Guzergah.FirmaId'den backfill → NOT NULL). DB'ye uygulandı, build temiz. Önceki `string? Firma` alanı isim çakışması nedeniyle `FirmaAdiSerbest`'e (DB kolonu yine `Firma`) taşındı |
 | 4 | Aktif firma persistence (tarayıcı kapanınca reset) | ✅ tamam | `AktifFirmaProvider` artık `ProtectedLocalStorage` üzerinde `koa.aktifFirma.v1` anahtarıyla kalıcı tutuyor; `MainLayout.OnAfterRenderAsync` ilk render'da `TryRestoreAsync` çağırıp aktif firmayı geri yüklüyor |
-| 5 | Eski `Sirket` / `SirketId` kolonlarının fiziksel drop'u | Düşük | Tüm legacy yollar `[Obsolete]` işaretli; production'da en az 1 sürüm beklendikten sonra drop migration üretilebilir |
+| 5 | Eski `Sirket` / `SirketId` kolonlarının fiziksel drop'u | Düşük | Tüm legacy yollar `[Obsolete]` işaretli (Cari, Firma, Fatura); production'da en az 1 sürüm beklendikten sonra drop migration üretilebilir |
 
 ---
 

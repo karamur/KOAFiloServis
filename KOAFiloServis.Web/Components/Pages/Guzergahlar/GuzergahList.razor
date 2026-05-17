@@ -481,7 +481,7 @@
                     AracId = s.AracId,
                     SoforAd = s.SoforAd,
                     SoforTelefon = s.SoforTelefon,
-                    Firma = s.Firma
+                    Firma = s.FirmaAdiSerbest
                 }).ToList();
             }
         }
@@ -716,7 +716,7 @@
                 AracId = k.AracId,
                 SoforAd = k.SoforAd,
                 SoforTelefon = k.SoforTelefon,
-                Firma = k.Firma
+                FirmaAdiSerbest = k.Firma
             }).ToList();
 
             await GuzergahSeferService.ReplaceAllAsync(g.Id, entities);
