@@ -35,7 +35,7 @@
 | E | Kasa/Banka firma bazlı + FirmalarArasiTransfer | ✅ tamam (UI E2'ye ertelendi) | TenantE1_AddFirmaIdToBankaKasaAndFirmalarArasiTransfer |
 | F | FirmaKopyalamaService + UI (toplu/tekil checkbox) | ✅ tamam (servis + UI + migration) | TenantF1_AddKopyalanabilirTenantAuditColumns |
 | G | Hakediş Puantaj ekranı (Excel benzeri tablo) | ⬜ bekliyor | - |
-| H | Login sonrası firma seçim ekranı + üst bar firma değiştirici | ⬜ bekliyor | - |
+| H | Login sonrası firma seçim ekranı + üst bar firma değiştirici | ✅ tamam | - |
 
 ---
 
@@ -102,41 +102,28 @@
 
 ### Şu Anki Devam Noktası (Aşama G — Hakediş Puantaj ekranı)
 
-**Aşama F tamam:**
+**Aşama H tamam:**
 
-- Yeni interface `IKopyalanabilirTenant` (`IFirmaTenant`'ı genişletir; `KaynakFirmaId`, `KaynakKayitId`).
-- 5 master entity bu interface'i implement ediyor: `Cari`, `Kurum`, `Guzergah`, `Arac`, `Sofor`. (`MasrafKalemi` global tanım kümesi olduğu için kapsam dışı.)
-- `IFirmaKopyalamaService` + `FirmaKopyalamaService` (Scoped, `IDbContextFactory` üzerinden çalışır):
-  - `ListeleAsync(modul, kaynakFirmaId, hedefFirmaId)` → hedef kod kümesi ile karşılaştırıp `HedefteVarMi` işaretler.
-  - `KopyalaAsync(modul, kaynakFirmaId, hedefFirmaId, ids)` → transaction içinde clone üretir; `FirmaId = hedef`, `KaynakFirmaId/KaynakKayitId` set edilir; aynı kod hedefte varsa atlanır.
-  - Per-modul kurallar: `Cari` → `MuhasebeHesapId`/`PersonelAvansHesapId`/`SoforId` null'lanır; `Kurum` → `CariId` null'lanır; `Guzergah` → `VarsayilanAracId`/`VarsayilanSoforId`/`KurumId`/`CariId`/`FaturaKalemId` null'lanır; `Arac` → `KiralikCariId`/`KomisyoncuCariId`/`TasimaTedarikciId` null'lanır, `PlakaGecmisi`/`AracEvrak`/`AracMasraf`/`KiralikPlakaTakip` kopyalanmaz; `Sofor` → `TasimaTedarikciId` null'lanır.
-  - Tüm sorgular `IgnoreQueryFilters()` kullanıyor; bu sayede aktif firma kaynak firma olmasa da kopyalama yapılabilir.
-- DI: `IFirmaKopyalamaService` Scoped olarak `Program.cs`'e eklendi.
-- UI: `Pages/Ayarlar/FirmaKopyalama.razor` (route: `/ayarlar/firma-kopyalama`) — kaynak/hedef firma + modül seçimi, kod bazlı çakışma görselleştirmesi (sarı satır), tek tek + "tümünü seç" checkbox, kopya sonrası özet toast.
-- Migration: `TenantF1_AddKopyalanabilirTenantAuditColumns` — 5 tabloya `KaynakFirmaId`/`KaynakKayitId` nullable int kolonları eklendi.
-- `dotnet build` 0 error, 0 warning.
+- Yeni sayfa `Pages/FirmaSec.razor` (route: `/firma-sec`, layout: `EmptyLayout`, `[Authorize]`).
+  - Aktif firmaları kart şeklinde listeler; tıklanınca `FirmaService.SetAktifFirma(id)` + `SetTumFirmalar(false)` çağrılır ve `returnUrl`'e yönlendirir.
+  - **Tek firma varsa otomatik seçer ve hemen yönlendirir** (fazladan tıklama olmaz).
+  - "Tüm Firmalar (raporlama)" butonu da var.
+- `Login.razor` → `GetSafeReturnUrl()` artık `/firma-sec?returnUrl=<gercekHedef>` döndürüyor. Standart, 2FA ve replay (yeniden render) akışlarının hepsi bu metoda düşüğü için tek noktadan geçiyor.
+- `MainLayout.razor` üst bar firma dropdown'una **"Firma Değiştir (Tam Ekran)"** linki eklendi.
+- `MainLayout.razor` Ayarlar dropdown'una **"Şirketler Arası Kopyalama"** linki eklendi (Aşama F'in UI giriş noktası).
+- `FirmaSelector.razor` ve mevcut layout firma dropdown'u zaten scoped `IAktifFirmaProvider` üzerinden çalışıyor (Aşama A); Aşama H'de ekstra değişiklik gerekmedi.
+- `dotnet build` 0 error.
+
+**Not (kalıcılık):** Aktif firma şu an per-circuit in-memory. Tarayicinin kapanıp açılmasında `AktifFirmaProvider` reset olur ve `FirmaService.GetAktifFirma()` varsayılan firmaya düşer; bu davranış şimdilik kabul edildi. Session cookie kalıcılığı (K2'nin ikinci yarısı) gerekirse ileride `ProtectedLocalStorage` ile eklenebilir.
 
 **Aşama G hedefi:** Hakediş puantaj ekranı (Excel benzeri tablo). Firma bazlı çalışacak (aktif firma + dönem üzerinden).
 
-**Sıradaki adımlar:**
-
-1. UI menüye `Ayarlar → Şirketler Arası Kopyalama` link'i ekle (henüz menüye eklenmedi; Aşama H'deki üst bar firma değiştirici ile aynı menü grubunda olacak).
-2. `dotnet ef database update` ile F1 migration'ı uygulayan kullanıcıya hatırlatma — veri kaybı yok, sadece yeni kolonlar.
-
-**Başlamadan önce yap:** Aşama F commit + push.
+**Başlamadan önce yap:** Aşama H commit + push.
 ```
 git add docs/TENANT_MIGRATION_PLAN.md \
-        KOAFiloServis.Shared/Entities/Cari.cs \
-        KOAFiloServis.Shared/Entities/Kurum.cs \
-        KOAFiloServis.Shared/Entities/Guzergah.cs \
-        KOAFiloServis.Shared/Entities/Arac.cs \
-        KOAFiloServis.Shared/Entities/Sofor.cs \
-        KOAFiloServis.Shared/Entities/IKopyalanabilirTenant.cs \
-        KOAFiloServis.Web/Services/IFirmaKopyalamaService.cs \
-        KOAFiloServis.Web/Services/FirmaKopyalamaService.cs \
-        KOAFiloServis.Web/Components/Pages/Ayarlar/FirmaKopyalama.razor \
-        KOAFiloServis.Web/Program.cs \
-        KOAFiloServis.Web/Migrations/
-git commit -m "tenant: Aşama F - FirmaKopyalamaService + UI (K8)"
+        KOAFiloServis.Web/Components/Pages/FirmaSec.razor \
+        KOAFiloServis.Web/Components/Pages/Login.razor \
+        KOAFiloServis.Web/Components/Layout/MainLayout.razor
+git commit -m "tenant: Aşama H - Login sonrası firma seçim ekranı + menü linkleri (K2)"
 git push origin main
 ```

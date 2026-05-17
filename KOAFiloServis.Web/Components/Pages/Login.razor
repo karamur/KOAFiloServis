@@ -837,20 +837,22 @@
 
     private string GetSafeReturnUrl()
     {
-        if (string.IsNullOrWhiteSpace(ReturnUrl))
+        // Aşama H (K2): Login sonrası önce firma seçim ekranına gönder.
+        // FirmaSec tek firma varsa otomatik olarak hedef URL'e yönlendirir,
+        // birden fazla firma varsa kullanıcıya seçim sunar.
+        var hedef = "/dashboard";
+        if (!string.IsNullOrWhiteSpace(ReturnUrl))
         {
-            return "/dashboard";
+            var decoded = Uri.UnescapeDataString(ReturnUrl);
+            if (decoded.StartsWith('/') && !decoded.StartsWith("//") &&
+                !decoded.StartsWith("/login", StringComparison.OrdinalIgnoreCase) &&
+                !decoded.StartsWith("/firma-sec", StringComparison.OrdinalIgnoreCase))
+            {
+                hedef = decoded;
+            }
         }
 
-        var decodedReturnUrl = Uri.UnescapeDataString(ReturnUrl);
-        if (!decodedReturnUrl.StartsWith('/') || decodedReturnUrl.StartsWith("//"))
-        {
-            return "/dashboard";
-        }
-
-        return decodedReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase)
-            ? "/dashboard"
-            : decodedReturnUrl;
+        return $"/firma-sec?returnUrl={Uri.EscapeDataString(hedef)}";
     }
 
     private string GetRegisterUrl()
