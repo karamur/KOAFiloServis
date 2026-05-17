@@ -31,8 +31,8 @@
 | A | Plan + IFirmaTenant + IAktifFirmaProvider + FirmaService bug fix | ✅ tamam | (commit edilecek) |
 | B | Firma.CariId kaldır, Cari.SirketId deprecate, DbContext global filter | ✅ tamam | (commit edilecek) |
 | C | Master entity'lere FirmaId zorunlu (Cari, Kurum, Guzergah, Sofor, Arac, BankaHesap, Stok, MasrafKalemi…) | ⏳ devam (C1 tamam) | TenantC1_AddFirmaIdToMasterEntities |
-| D | AracSahiplikTipi sadeleştirme + masraf sahibi helper | ⬜ bekliyor | - |
-| E | Kasa/Banka firma bazlı + FirmalarArasiTransfer | ⬜ bekliyor | - |
+| D | AracSahiplikTipi sadeleştirme + masraf sahibi helper | ✅ tamam | (commit edilecek) |
+| E | Kasa/Banka firma bazlı + FirmalarArasiTransfer | ⏳ devam | - |
 | F | FirmaKopyalamaService + UI (toplu/tekil checkbox) | ⬜ bekliyor | - |
 | G | Hakediş Puantaj ekranı (Excel benzeri tablo) | ⬜ bekliyor | - |
 | H | Login sonrası firma seçim ekranı + üst bar firma değiştirici | ⬜ bekliyor | - |
@@ -100,33 +100,30 @@
 3. Aşama bitince satırını `✅ tamam` yap, commit at, bir sonraki aşamayı `⏳ devam` yap.
 4. Veri kaybı olmaması için Aşama B-C'deki migration sırasını **bozma** (nullable → doldur → required).
 
-### Şu Anki Devam Noktası (Aşama C2 — Veri Doldurma)
+### Şu Anki Devam Noktası (Aşama E — Kasa/Banka firma bazlı + transfer)
 
-**Hedef:** C1 ile eklenen nullable `FirmaId` kolonlarındaki NULL kayıtları varsayılan firma ile doldur, sonra C2 migration ile `IsRequired()` yap.
+**Aşama D tamamlandı** (commit atılacak):
 
-**Önemli yeni karar (K9 güncelleme):** `IFirmaTenant.FirmaId` `int?` olarak tanımlandı (eski `int` deneyince Sofor/Cari'de 60+ derleme hatası çıktı; nullable yaklaşım K9 stratejisine zaten daha uygun). Filter ve SaveChanges buna göre güncellendi.
+- `KOAFiloServis.Web/Services/AracMasrafSahibiHelper.cs` eklendi: `GetMasrafSahibi(arac, kategori)`, `GetBelgeTakipSahibi`, `GetSoforMasrafSahibi`, `HesaplaCPlakaKirasi`.
+- K5 kuralı kodlanı: lastik + belge her zaman firmada; kiralıkta C plaka kirası firmada; tedarikçide operasyonel masraf tedarikçide.
+- `SahiplikHelper.cs` açıklamaları K5 ile hizalandı (Kiralık ve Tedarikçi).
+- `AracSahiplikTipi` enum'una **dokunulmadı**: `Komisyon` ve `Diger` zaten kullanımda; veri kaybı riski oluştururdu. Helper içinde Komisyon=Firma, Diger=Firma davranıyor.
+
+**Aşama E hedefi:** Kasa/Banka kayıtlarını firma bazlı izole et + `FirmalarArasiTransfer` entity ile şirketler arası transfer (K6).
 
 **Sıradaki adımlar:**
 
-1. Veri scripti (her tenant entity için): `UPDATE Kurumlar SET FirmaId = (SELECT Id FROM Firmalar WHERE VarsayilanFirma = true) WHERE FirmaId IS NULL;` (Cari, Sofor, Guzergah, Arac, Kurum)
-2. `Firma.cs` veya seed kodunda "ANA firma" mevcut değilse seed et.
-3. Entity'lerde `int? FirmaId` → `int FirmaId` çevirip migration `TenantC2_RequireFirmaIdOnMasterEntities` oluştur. **Ama önce** üst aklımızda 60+ kullanım yerini (`HasValue`/`Value`/`??`) toplu temizle. Aksi halde derleme patlar.
-4. Ya da pragmatik seçim: Şimdilik nullable bırak, query filter zaten korumayı sağlıyor. NOT NULL'a geçişi Aşama F (kopyalama) sonrasına erteleyebiliriz.
+1. `BankaHesap` ve `BankaKasaHareket` entity'lerine `IFirmaTenant` implement et + nullable `FirmaId` (zaten varsa atla).
+2. EF migration: `TenantE1_AddFirmaIdToBankaKasa`.
+3. Yeni entity: `FirmalarArasiTransfer` (KaynakFirmaId, HedefFirmaId, KaynakHesapId, HedefHesapId, Tutar, Tarih, Aciklama, OlusturulanHareketKaynakId, OlusturulanHareketHedefId).
+4. `FirmalarArasiTransferService` — tek transferden iki `BankaKasaHareket` kaydı üret (kaynakta -Tutar, hedefte +Tutar), her ikisinin `FirmaId`'si doğru kalmalı (manuel set, tenant filter atlanmadan).
+5. UI: `Pages/KasaBanka/FirmalarArasiTransfer.razor` (basit form).
 
-**Tercih:** Pragmatik seçim. NOT NULL'a geçiş sonra. **Şimdi doğrudan Aşama D'ye geçiyoruz** (Arac sahiplik 3 tip + masraf sahibi helper). C2/C3 daha sonra toplu temizlik arasında yapılır.
-
-**Başlamadan önce yap:** Aşama C1 commit:
+**Başlamadan önce yap:** Aşama D commit + push.
 ```
 git add docs/TENANT_MIGRATION_PLAN.md \
-        KOAFiloServis.Shared/Entities/IFirmaTenant.cs \
-        KOAFiloServis.Shared/Entities/Kurum.cs \
-        KOAFiloServis.Shared/Entities/Guzergah.cs \
-        KOAFiloServis.Shared/Entities/Arac.cs \
-        KOAFiloServis.Shared/Entities/Sofor.cs \
-        KOAFiloServis.Shared/Entities/Cari.cs \
-        KOAFiloServis.Web/Data/ApplicationDbContext.cs \
-        KOAFiloServis.Web/Migrations/20260517000621_TenantC1_AddFirmaIdToMasterEntities.cs \
-        KOAFiloServis.Web/Migrations/20260517000621_TenantC1_AddFirmaIdToMasterEntities.Designer.cs \
-        KOAFiloServis.Web/Migrations/ApplicationDbContextModelSnapshot.cs
-git commit -m "tenant: Aşama C1 - IFirmaTenant on master entities + nullable FirmaId migration"
+        KOAFiloServis.Web/Services/AracMasrafSahibiHelper.cs \
+        KOAFiloServis.Web/Helpers/SahiplikHelper.cs
+git commit -m "tenant: Aşama D - AracMasrafSahibiHelper + K5 açıklama hizalama"
+git push origin main
 ```

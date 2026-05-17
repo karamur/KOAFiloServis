@@ -53,9 +53,9 @@ public static class SahiplikHelper
     public static string GetAciklama(AracSahiplikTipi tip) => tip switch
     {
         AracSahiplikTipi.Ozmal => "Plaka, şoför ve araç firmaya aittir. Taşeron ödemesi yapılmaz.",
-        AracSahiplikTipi.Kiralik => "Plaka kiralık yapıdadır, operasyon firma üzerinden yürür. Taşeron ödemesi yapılmaz.",
+        AracSahiplikTipi.Kiralik => "Plaka kiralık; firma araç sahibine C plaka kirası öder. Yakıt, bakım, şoför masrafları firmaya aittir. Belge takibi (sigorta/muayene/kasko/ruhsat) ve lastik değişimi her durumda firmaya aittir.",
         AracSahiplikTipi.Komisyon => "Plaka, şoför, araç ve operasyon masrafları komisyoncuya aittir. Taşeron ücreti aktif kullanılır.",
-        AracSahiplikTipi.Tedarikci => "Araç ve şoför tedarikçi firma üzerinden sağlanır. Tedarikçiye ödeme yapılır.",
+        AracSahiplikTipi.Tedarikci => "Araç, plaka ve şoför tedarikçiye aittir; operasyonel masraflar (yakıt, bakım, plaka, şoför) tedarikçiye yansır. Lastik değişimi ve belge takibi (sigorta/muayene/kasko/ruhsat) yine firmaya aittir.",
         AracSahiplikTipi.Diger => "Sahiplik tipi belirtilmemiş.",
         _ => "Ek kural tanımlanmamış."
     };
