@@ -5,10 +5,20 @@
 /// Bir cariye birden fazla sefer ücreti tanımlanabilir (farklı güzergah,
 /// farklı dönem, farklı araç tipi vb.).
 /// </summary>
-public class CariSeferUcreti : BaseEntity
+[TenantNullableFirmaId]
+public class CariSeferUcreti : BaseEntity, IFirmaTenant
 {
+    /// <summary>
+    /// LEGACY — Eski multi-tenant Sirket kavramı. Yeni mimari `FirmaId` kullanır.
+    /// </summary>
+    [Obsolete("Tenant yeniden yapılandırması (Faz 5.3-B1): SirketId yerine FirmaId kullanın.")]
     public int? SirketId { get; set; }
+    [Obsolete("Tenant yeniden yapılandırması (Faz 5.3-B1): Sirket navigasyonu yerine Firma kullanın.")]
     public virtual Sirket? Sirket { get; set; }
+
+    /// <summary>Tenant: Bu sefer ücretinin ait olduğu firma. (K3+K4)</summary>
+    public int? FirmaId { get; set; }
+    public virtual Firma? Firma { get; set; }
 
     public int CariId { get; set; }
     public virtual Cari Cari { get; set; } = null!;

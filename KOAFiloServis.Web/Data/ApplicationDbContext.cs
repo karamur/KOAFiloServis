@@ -9,22 +9,7 @@ namespace KOAFiloServis.Web.Data;
 public class ApplicationDbContext : DbContext
 {
     private IServiceProvider? _serviceProvider;
-    private ITenantService? _tenantService;
     private IAktifFirmaProvider? _aktifFirmaProvider;
-
-    // Multi-tenant query filter yardımcı property'leri
-    // EF Core expression tree'de _tenantService null olduğunda NullReferenceException'ı önler
-    // Lazy resolution: ITenantService, sorgu çalıştığında IServiceProvider'dan çözümlenir
-    private bool TenantFilterDisabled
-    {
-        get
-        {
-            ITenantService? ts = ResolveTenantService();
-            return ts == null || ts.IsSuperAdmin;
-        }
-    }
-
-    private int? TenantId => ResolveTenantService()?.CurrentSirketId;
 
     /// <summary>
     /// Aktif firma (yeni tenant kavramı). Global query filter ve SaveChanges'te kullanılır.
@@ -53,32 +38,12 @@ public class ApplicationDbContext : DbContext
     }
 
     /// <summary>
-    /// Scoped IServiceProvider'ı ayarlar. ITenantService sorgu zamanında lazy olarak çözümlenir.
-    /// Bu sayede döngüsel bağımlılık (TenantService → DbContext → ITenantService) önlenir.
+    /// Scoped IServiceProvider'ı ayarlar. IAktifFirmaProvider sorgu zamanında lazy olarak çözümlenir.
     /// </summary>
     public void SetServiceProvider(IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
-        _tenantService = null; // Yeni scope, yeni tenant service
         _aktifFirmaProvider = null; // Yeni scope, yeni aktif firma provider
-    }
-
-    private ITenantService? ResolveTenantService()
-    {
-        if (_tenantService == null && _serviceProvider != null)
-        {
-            try
-            {
-                _tenantService = _serviceProvider.GetService<ITenantService>();
-            }
-            catch (ObjectDisposedException)
-            {
-                // Scope dispose edilmiş (örn. Blazor circuit kapatıldı ya da fire-and-forget görev)
-                _serviceProvider = null;
-                return null;
-            }
-        }
-        return _tenantService;
     }
 
     private IAktifFirmaProvider? ResolveAktifFirmaProvider()
@@ -467,13 +432,16 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.GuzergahId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            entity.HasOne(e => e.Sirket)
+            // Sirket iliskisi (Multi-tenant) - LEGACY drop edildi (Faz 5.3-B1, Teknik Borç #5)
+
+            // Firma ilişkisi (Tenant)
+            entity.HasOne(e => e.Firma)
                 .WithMany()
-                .HasForeignKey(e => e.SirketId)
+                .HasForeignKey(e => e.FirmaId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasQueryFilter(e => !e.IsDeleted &&
-                (TenantFilterDisabled || e.SirketId == null || e.SirketId == TenantId));
+            // Global Query Filter: IsDeleted (Tenant izolasyonu IFirmaTenant filter'ı tarafından otomatik ekleniyor)
+            entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
         // Şoför

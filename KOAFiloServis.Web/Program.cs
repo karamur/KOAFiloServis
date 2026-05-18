@@ -197,8 +197,7 @@ else
 }
 builder.Services.AddScoped<ICacheService, CacheService>();
 
-// Multi-tenant Service
-builder.Services.AddScoped<ITenantService, TenantService>();
+// Multi-tenant Service (legacy ITenantService kaldirildi: Faz 5.3-B2)
 
 // Application Services
 // Aktif firma (tenant) state'i per-circuit tutulur; Blazor Server'da static state veri sizdiriyordu.
