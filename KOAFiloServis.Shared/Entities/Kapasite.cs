@@ -13,8 +13,6 @@ public class Kapasite : BaseEntity, IFirmaTenant
     /// </summary>
     [Obsolete("Tenant yeniden yapılandırması (Faz C-extend): SirketId yerine FirmaId kullanın.")]
     public int? SirketId { get; set; }
-    [Obsolete("Tenant yeniden yapılandırması (Faz C-extend): Sirket navigasyonu yerine Firma kullanın.")]
-    public virtual Sirket? Sirket { get; set; }
 
     /// <summary>
     /// Tenant: Bu kapasitenin ait olduğu firma. (K3+K4)

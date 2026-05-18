@@ -13,8 +13,6 @@ public class BankaKasaHareket : BaseEntity, IFirmaTenant
     /// </summary>
     [Obsolete("Tenant yeniden yapılandırması (Aşama E): SirketId yerine FirmaId kullanın.")]
     public int? SirketId { get; set; }
-    [Obsolete("Tenant yeniden yapılandırması (Aşama E): Sirket navigasyonu yerine Firma kullanın.")]
-    public virtual Sirket? Sirket { get; set; }
 
     /// <summary>
     /// Tenant: Bu hareketin ait olduğu firma. (K6)

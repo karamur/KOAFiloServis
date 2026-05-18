@@ -16,8 +16,6 @@ public class Hakedis : BaseEntity, IFirmaTenant
 
     [Obsolete("K1: Legacy Sirket alanı. FirmaId'ye geçildi. Veri taşıma sonrası kaldırılacak.")]
     public int? SirketId { get; set; }
-    [Obsolete("K1: Legacy Sirket navigation. FirmaId/Firma kullanılacak.")]
-    public virtual Sirket? Sirket { get; set; }
 
     [Required]
     public int Yil { get; set; }

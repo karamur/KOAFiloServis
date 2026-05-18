@@ -18,8 +18,6 @@ public class Guzergah : BaseEntity, IKopyalanabilirTenant, IFirmaTenant
     /// </summary>
     [Obsolete("Tenant yeniden yapılandırması (Aşama C): SirketId yerine FirmaId kullanın.")]
     public int? SirketId { get; set; }
-    [Obsolete("Tenant yeniden yapılandırması (Aşama C): Sirket navigasyonu yerine Firma kullanın.")]
-    public virtual Sirket? Sirket { get; set; }
 
     /// <summary>
     /// Tenant: Bu güzergahın ait olduğu firma. (K3+K4)

@@ -10,7 +10,6 @@ namespace KOAFiloServis.Shared.Entities;
 public class AracMaliyetSnapshot : BaseEntity
 {
     public int? SirketId { get; set; }
-    public virtual Sirket? Sirket { get; set; }
 
     [Required]
     public int AracId { get; set; }

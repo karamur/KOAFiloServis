@@ -13,8 +13,6 @@ public class CariSeferUcreti : BaseEntity, IFirmaTenant
     /// </summary>
     [Obsolete("Tenant yeniden yapılandırması (Faz 5.3-B1): SirketId yerine FirmaId kullanın.")]
     public int? SirketId { get; set; }
-    [Obsolete("Tenant yeniden yapılandırması (Faz 5.3-B1): Sirket navigasyonu yerine Firma kullanın.")]
-    public virtual Sirket? Sirket { get; set; }
 
     /// <summary>Tenant: Bu sefer ücretinin ait olduğu firma. (K3+K4)</summary>
     public int? FirmaId { get; set; }

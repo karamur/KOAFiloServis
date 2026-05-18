@@ -18,8 +18,6 @@ public class Sofor : BaseEntity, IKopyalanabilirTenant, IFirmaTenant
     /// </summary>
     [Obsolete("Tenant yeniden yapılandırması (Aşama C): SirketId yerine FirmaId kullanın.")]
     public int? SirketId { get; set; }
-    [Obsolete("Tenant yeniden yapılandırması (Aşama C): Sirket navigasyonu yerine Firma kullanın.")]
-    public virtual Sirket? Sirket { get; set; }
 
     public string SoforKodu { get; set; } = string.Empty;
     public string Ad { get; set; } = string.Empty;

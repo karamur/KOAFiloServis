@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KOAFiloServis.Shared.Entities;
@@ -129,7 +129,6 @@ public class AuditLog
     
     // Navigation
     public virtual Kullanici? Kullanici { get; set; }
-    public virtual Sirket? Sirket { get; set; }
 }
 
 /// <summary>

@@ -298,8 +298,7 @@ public class ApplicationDbContext : DbContext
     // Bildirim Ayarları Modülü
     public DbSet<BildirimAyar> BildirimAyarlari { get; set; }
 
-    // Multi-tenant (Çoklu Şirket) Modülü
-    public DbSet<Sirket> Sirketler { get; set; }
+    // Multi-tenant (Legacy Şirket) - Faz 5.3-B3-i: DbSet kaldırıldı, entity dosyası silinecek
 
     // Araç Takip (GPS) Modülü
     public DbSet<AracTakipCihaz> AracTakipCihazlar { get; set; }
@@ -308,10 +307,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<AracBolgeAtama> AracBolgeAtamalar { get; set; }
     public DbSet<AracTakipAlarm> AracTakipAlarmlar { get; set; }
 
-    // Şirketler Arası Transfer Modülü
-    public DbSet<SirketTransferLog> SirketTransferLoglari { get; set; }
+    // Şirketler Arası Transfer (Legacy) - Faz 5.3-B3-i: DbSet kaldırıldı, entity dosyası silinecek
 
-    // Audit Log Modülü (Tüm İşlem Takibi)
+    // Audit Log Modülü
     public DbSet<AuditLog> AuditLoglar { get; set; }
     public DbSet<BakimPeriyot> BakimPeriyotlar { get; set; }
     public DbSet<AracBakimUyari> AracBakimUyarilari { get; set; }
@@ -599,7 +597,6 @@ public class ApplicationDbContext : DbContext
         // Kapasite
         modelBuilder.Entity<Kapasite>(entity =>
         {
-            entity.HasIndex(e => new { e.SirketId, e.KapasiteAdi }).IsUnique();
             entity.HasIndex(e => new { e.FirmaId, e.KapasiteAdi });
             entity.Property(e => e.KapasiteAdi).HasMaxLength(100);
             entity.Property(e => e.Aciklama).HasMaxLength(500);
@@ -803,7 +800,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.BankaHesapId, e.IslemTarihi });
             entity.HasIndex(e => new { e.CariId, e.IslemTarihi });
             entity.HasIndex(e => new { e.HareketTipi, e.IslemTarihi });
-            entity.HasIndex(e => new { e.SirketId, e.IslemTarihi });
             entity.HasIndex(e => new { e.PersonelCebindenId, e.PersoneleOdendi }); // Personel cebinden index
             entity.Property(e => e.IslemNo).HasMaxLength(50);
             entity.Property(e => e.Tutar).HasPrecision(18, 2);
@@ -1134,33 +1130,10 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.SoforId)
                 .OnDelete(DeleteBehavior.SetNull);
-            entity.HasOne(e => e.Sirket)
-                .WithMany(s => s.Kullanicilar)
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.SetNull);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Sirket (Multi-tenant)
-        modelBuilder.Entity<Sirket>(entity =>
-        {
-            entity.HasIndex(e => e.SirketKodu).IsUnique();
-            entity.Property(e => e.SirketKodu).HasMaxLength(20);
-            entity.Property(e => e.Unvan).HasMaxLength(250);
-            entity.Property(e => e.KisaAd).HasMaxLength(100);
-            entity.Property(e => e.VergiNo).HasMaxLength(11);
-            entity.Property(e => e.VergiDairesi).HasMaxLength(100);
-            entity.Property(e => e.Adres).HasMaxLength(500);
-            entity.Property(e => e.Il).HasMaxLength(50);
-            entity.Property(e => e.Ilce).HasMaxLength(50);
-            entity.Property(e => e.PostaKodu).HasMaxLength(10);
-            entity.Property(e => e.Telefon).HasMaxLength(20);
-            entity.Property(e => e.Email).HasMaxLength(100);
-            entity.Property(e => e.WebSitesi).HasMaxLength(200);
-            entity.Property(e => e.LogoUrl).HasMaxLength(500);
-            entity.Property(e => e.ParaBirimi).HasMaxLength(5);
-            entity.HasQueryFilter(e => !e.IsDeleted);
-        });
+        // Sirket (Multi-tenant) - Faz 5.3-B3-i: entity konfigürasyonu kaldırıldı, Sirket.cs silinecek
 
         // Rol
         modelBuilder.Entity<Rol>(entity =>
@@ -2584,8 +2557,7 @@ public class ApplicationDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // Şirketler Arası Transfer Konfigürasyonu
-        ConfigureSirketTransferLog(modelBuilder);
+        // Şirketler Arası Transfer Konfigürasyonu - Faz 5.3-B3-i: kaldırıldı
 
         // Lastik Takip Modülü
         modelBuilder.Entity<LastikDepo>(entity =>
@@ -2593,10 +2565,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DepoAdi).HasMaxLength(150);
             entity.Property(e => e.SorumluKisi).HasMaxLength(100);
             entity.Property(e => e.Telefon).HasMaxLength(20);
-            entity.HasOne(e => e.Sirket)
-                .WithMany()
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.Restrict);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
@@ -2613,10 +2581,6 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.AracId)
                 .OnDelete(DeleteBehavior.SetNull);
-            entity.HasOne(e => e.Sirket)
-                .WithMany()
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.Restrict);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
@@ -2646,10 +2610,6 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.KaynakDepoId)
                 .OnDelete(DeleteBehavior.SetNull);
-            entity.HasOne(e => e.Sirket)
-                .WithMany()
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.Restrict);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
@@ -2672,11 +2632,6 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.CariId)
                 .OnDelete(DeleteBehavior.SetNull);
-
-            entity.HasOne(e => e.Sirket)
-                .WithMany()
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -2708,11 +2663,6 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.SoforId)
                 .OnDelete(DeleteBehavior.SetNull);
-
-            entity.HasOne(e => e.Sirket)
-                .WithMany()
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -2804,15 +2754,10 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.TasimaTedarikciIsId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            entity.HasOne(e => e.Sirket)
-                .WithMany()
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // ── ServisPuantaj ──────────────────────────────────────────────────────
+        // ── ServisPuantaj
         modelBuilder.Entity<ServisPuantaj>(entity =>
         {
             entity.HasIndex(e => new { e.ServisKontratId, e.Yil, e.Ay }).IsUnique();
@@ -2829,15 +2774,10 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.ServisKontratId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne(e => e.Sirket)
-                .WithMany()
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // ── ServisOdeme ────────────────────────────────────────────────────────
+        // ── ServisOdeme
         modelBuilder.Entity<ServisOdeme>(entity =>
         {
             entity.Property(e => e.Tutar).HasPrecision(18, 2);
@@ -2849,15 +2789,10 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.ServisPuantajId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne(e => e.Sirket)
-                .WithMany()
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        // ── ServisTahsilat ─────────────────────────────────────────────────────
+        // ── ServisTahsilat
         modelBuilder.Entity<ServisTahsilat>(entity =>
         {
             entity.Property(e => e.Tutar).HasPrecision(18, 2);
@@ -2868,11 +2803,6 @@ public class ApplicationDbContext : DbContext
                 .WithMany(p => p.Tahsilatlar)
                 .HasForeignKey(e => e.ServisPuantajId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.Sirket)
-                .WithMany()
-                .HasForeignKey(e => e.SirketId)
-                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -3048,39 +2978,7 @@ public class ApplicationDbContext : DbContext
         }
     }
 
-    // SirketTransferLog Entity Configuration (OnModelCreating içinde olmalıydı ama method çok uzun)
-    // Bu konfigürasyon OnModelCreating'de çağrılacak:
-    private void ConfigureSirketTransferLog(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<SirketTransferLog>(entity =>
-        {
-            entity.HasIndex(e => new { e.EntityTuru, e.EntityId });
-            entity.HasIndex(e => e.TransferTarihi);
-            entity.HasIndex(e => new { e.KaynakSirketId, e.HedefSirketId });
-
-            entity.Property(e => e.EntityTuru).HasMaxLength(50);
-            entity.Property(e => e.EntityAciklama).HasMaxLength(500);
-            entity.Property(e => e.HataMesaji).HasMaxLength(2000);
-            entity.Property(e => e.Notlar).HasMaxLength(1000);
-
-            entity.HasOne(e => e.KaynakSirket)
-                .WithMany()
-                .HasForeignKey(e => e.KaynakSirketId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.HedefSirket)
-                .WithMany()
-                .HasForeignKey(e => e.HedefSirketId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.Kullanici)
-                .WithMany()
-                .HasForeignKey(e => e.KullaniciId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            entity.HasQueryFilter(e => !e.IsDeleted);
-        });
-    }
+    // SirketTransferLog Entity Configuration - Faz 5.3-B3-i: kaldırıldı, entity dosyası silinecek
 
     private void UpdateTimestamps()
     {

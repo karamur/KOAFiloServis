@@ -12,7 +12,6 @@ public class TasimaTedarikci : BaseEntity
     /// Multi-tenant: Şirket ID (null = sistem geneli)
     /// </summary>
     public int? SirketId { get; set; }
-    public virtual Sirket? Sirket { get; set; }
 
     public string TedarikciKodu { get; set; } = string.Empty;
     public string Unvan { get; set; } = string.Empty;
@@ -143,7 +142,6 @@ public static class TedarikciEvrakKategorileri
 public class TasimaTedarikciIs : BaseEntity
 {
     public int? SirketId { get; set; }
-    public virtual Sirket? Sirket { get; set; }
 
     public int TasimaTedarikciId { get; set; }
     public virtual TasimaTedarikci TasimaTedarikci { get; set; } = null!;

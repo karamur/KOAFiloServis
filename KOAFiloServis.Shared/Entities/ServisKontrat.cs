@@ -1,4 +1,4 @@
-namespace KOAFiloServis.Shared.Entities;
+﻿namespace KOAFiloServis.Shared.Entities;
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -58,7 +58,6 @@ public enum OdemeVeTahsilatSekli
 public class ServisKontrat : BaseEntity
 {
     public int? SirketId { get; set; }
-    public virtual Sirket? Sirket { get; set; }
 
     /// <summary>Otomatik kod (KNT-00001 vb.)</summary>
     public string KontratKodu { get; set; } = string.Empty;
@@ -122,7 +121,6 @@ public class ServisKontrat : BaseEntity
 public class ServisPuantaj : BaseEntity
 {
     public int? SirketId { get; set; }
-    public virtual Sirket? Sirket { get; set; }
 
     public int ServisKontratId { get; set; }
     public virtual ServisKontrat? ServisKontrat { get; set; }
@@ -162,7 +160,6 @@ public class ServisPuantaj : BaseEntity
 public class ServisOdeme : BaseEntity
 {
     public int? SirketId { get; set; }
-    public virtual Sirket? Sirket { get; set; }
 
     public int ServisPuantajId { get; set; }
     public virtual ServisPuantaj? ServisPuantaj { get; set; }
@@ -184,7 +181,6 @@ public class ServisOdeme : BaseEntity
 public class ServisTahsilat : BaseEntity
 {
     public int? SirketId { get; set; }
-    public virtual Sirket? Sirket { get; set; }
 
     public int ServisPuantajId { get; set; }
     public virtual ServisPuantaj? ServisPuantaj { get; set; }

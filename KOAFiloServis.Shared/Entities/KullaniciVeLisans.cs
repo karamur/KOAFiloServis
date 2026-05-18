@@ -92,7 +92,6 @@ public class Kullanici : BaseEntity
     /// Null ise sistem admin kullanıcısı (tüm şirketlere erişebilir)
     /// </summary>
     public int? SirketId { get; set; }
-    public virtual Sirket? Sirket { get; set; }
 
     public int? SoforId { get; set; } // Personel ile iliskilendirme
     public virtual Sofor? Sofor { get; set; }
