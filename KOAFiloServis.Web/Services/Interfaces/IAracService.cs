@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace KOAFiloServis.Web.Services;
@@ -18,6 +18,16 @@ public interface IAracService
         decimal? islemTutari = null, int? cariId = null, string? aciklama = null);
     Task<Arac> UpdateAsync(Arac arac);
     Task DeleteAsync(int id);
+
+    /// <summary>
+    /// FirmaId değeri null olan araçların FirmaId'sini verilen firmaya atar.
+    /// Eski (multi-tenant öncesi) kayıtların puantaj/fatura akışlarında hata vermemesi için kullanılır.
+    /// </summary>
+    /// <returns>Güncellenen araç sayısı</returns>
+    Task<int> BackfillFirmaIdAsync(int firmaId);
+
+    /// <summary>FirmaId değeri null olan araç sayısı.</summary>
+    Task<int> GetFirmaIdYokSayisiAsync();
 
     // Plaka İşlemleri
     Task<List<AracPlaka>> GetPlakaGecmisiAsync(int aracId);

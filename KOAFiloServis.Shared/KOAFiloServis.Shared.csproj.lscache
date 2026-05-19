@@ -90,11 +90,14 @@ Entities/
  Firma.cs
  FirmaAracSoforEslestirme.cs
  FirmaGuzergahEslestirme.cs
+ FirmalarArasiTransfer.cs
  Guzergah.cs
  GuzergahSefer.cs
  Hakedis.cs
+ IFirmaTenant.cs
  IhaleHazirlik.cs
  IhaleTeklifVersiyon.cs
+ IKopyalanabilirTenant.cs
  IlanYayin.cs
  Kapasite.cs
  KiralamaVeServis.cs
@@ -123,6 +126,8 @@ Entities/
  Stok.cs
  TasimaTedarikci.cs
  TekrarlayanOdeme.cs
+ TenantFilterIgnoreAttribute.cs
+ TenantNullableFirmaIdAttribute.cs
  WhatsApp.cs
 LisansHelper.cs
 obj/Debug/net10.0/
@@ -314,9 +319,6 @@ obj/Debug/net10.0/
 <DOTNET>/sdk/10.0.204/Sdks/Microsoft.NET.Sdk/analyzers/
  Microsoft.CodeAnalysis.CSharp.NetAnalyzers.dll
  Microsoft.CodeAnalysis.NetAnalyzers.dll
-<NUGET>/microsoft.net.illink.tasks/10.0.8/analyzers/dotnet/cs/
- ILLink.CodeFixProvider.dll
- ILLink.RoslynAnalyzer.dll
 
 [analyzerConfigFiles]
 ../.editorconfig

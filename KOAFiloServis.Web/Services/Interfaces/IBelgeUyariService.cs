@@ -261,6 +261,10 @@ public class AracBelgeTabloKalemi
     public int? TasimaTedarikciId { get; set; }
     public string? TasimaTedarikciUnvan { get; set; }
 
+    // Aracın bağlı olduğu firma (tenant)
+    public int? FirmaId { get; set; }
+    public string? FirmaAdi { get; set; }
+
     public static string BelgeDurumClass(DateTime? tarih) => tarih == null ? "bg-secondary"
         : (tarih.Value - DateTime.Today).Days switch
         {

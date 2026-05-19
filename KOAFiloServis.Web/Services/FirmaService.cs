@@ -123,12 +123,17 @@ public class FirmaService : IFirmaService
     public AktifFirmaBilgisi GetAktifFirma()
     {
         var mevcut = _aktifFirmaProvider.Mevcut;
-        if (mevcut.FirmaId != 0)
+        // Kullanıcı zaten bir firma seçtiyse veya bilinçli olarak "Tüm Firmalar" modundaysa
+        // tekrar varsayılana düşürme.
+        if (mevcut.FirmaId != 0 || mevcut.TumFirmalar)
             return mevcut;
 
-        // İlk erişim: varsayılan firmayı yükle ve provider'a set et.
+        // İlk erişim: önce VarsayilanFirma=true olanı, yoksa ilk aktif firmayı seç.
+        // "Tüm Firmalar" otomatik default DEĞİL — kullanıcı tek bir firma ile başlasın,
+        // istediğinde üst menüden "Hepsi" diyebilsin.
         using var context = _contextFactory.CreateDbContext();
-        var varsayilan = context.Firmalar.FirstOrDefault(f => f.VarsayilanFirma && f.Aktif);
+        var varsayilan = context.Firmalar.FirstOrDefault(f => f.VarsayilanFirma && f.Aktif)
+                         ?? context.Firmalar.Where(f => f.Aktif).OrderBy(f => f.SiraNo).ThenBy(f => f.FirmaAdi).FirstOrDefault();
 
         var bilgi = varsayilan != null
             ? new AktifFirmaBilgisi
@@ -144,10 +149,10 @@ public class FirmaService : IFirmaService
             {
                 FirmaId = 0,
                 FirmaKodu = "VARSAYILAN",
-                FirmaAdi = "Varsayilan Firma",
+                FirmaAdi = "Firma Yok",
                 AktifDonemYil = DateTime.Today.Year,
                 AktifDonemAy = DateTime.Today.Month,
-                TumFirmalar = true
+                TumFirmalar = false
             };
 
         _aktifFirmaProvider.Set(bilgi);

@@ -1,4 +1,4 @@
-@page "/banka-hareketleri"
+﻿@page "/banka-hareketleri"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Models
@@ -15,9 +15,14 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3><i class="bi bi-arrow-left-right me-2"></i>Banka/Kasa Hareketleri</h3>
-        <button class="btn btn-primary" @onclick="YeniHareket">
-            <i class="bi bi-plus-lg me-1"></i>Yeni Hareket
-        </button>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success" @onclick="@(() => Navigation.NavigateTo("/banka-hareketleri/import"))">
+                <i class="bi bi-cloud-arrow-up me-1"></i>Excel/CSV/PDF İçeri Aktar
+            </button>
+            <button class="btn btn-primary" @onclick="YeniHareket">
+                <i class="bi bi-plus-lg me-1"></i>Yeni Hareket
+            </button>
+        </div>
     </div>
 
     @* Filtre Alanı *@

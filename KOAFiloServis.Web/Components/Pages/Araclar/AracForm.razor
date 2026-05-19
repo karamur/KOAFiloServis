@@ -6,6 +6,8 @@
 @inject IAracService AracService
 @inject ICariService CariService
 @inject ITasimaTedarikciService TasimaTedarikciService
+@inject IFirmaService FirmaService
+@inject IAktifFirmaProvider AktifFirmaProvider
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
@@ -300,6 +302,26 @@
                             </div>
                         </div>
                     }
+                </div>
+
+                <!-- Firma (Tenant) Bilgisi -->
+                <h5 class="border-bottom pb-2 mb-3 mt-4"><i class="bi bi-building me-2"></i>Firma (Tenant)</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Aracın Bağlı Olduğu Firma *</label>
+                            <InputSelect @bind-Value="arac.FirmaId" class="form-select">
+                                <option value="">-- Firma Seçiniz --</option>
+                                @foreach (var f in firmalar)
+                                {
+                                    <option value="@f.Id">@f.FirmaAdi @(f.VarsayilanFirma ? "⭐" : "")</option>
+                                }
+                            </InputSelect>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> Yeni araçlarda aktif firma otomatik atanır; gerekirse buradan değiştirebilirsiniz.
+                            </small>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="mb-3">
@@ -718,6 +740,9 @@
     private string plaka = string.Empty;
     private string? loadWarning;
 
+    // Firma listesi (tenant seçimi için)
+    private List<KOAFiloServis.Shared.Entities.Firma> firmalar = new();
+
     // Evrak yönetimi
     private List<AracEvrak> aracEvraklari = new();
     private bool evraklarYukleniyor = false;
@@ -751,6 +776,15 @@
         catch
         {
             tasimaTedarikciler = new();
+        }
+
+        try
+        {
+            firmalar = await FirmaService.GetAktifFirmalarAsync();
+        }
+        catch
+        {
+            firmalar = new();
         }
     }
 
@@ -787,13 +821,22 @@
 
     private void YeniAracFormunuSifirla()
     {
+        // Yeni araçta aktif firmayı default ata (Tüm Firmalar modunda boş kalır,
+        // kullanıcı manuel seçebilir)
+        int? defaultFirmaId = null;
+        if (!AktifFirmaProvider.TumFirmalar && AktifFirmaProvider.AktifFirmaId.HasValue && AktifFirmaProvider.AktifFirmaId.Value > 0)
+        {
+            defaultFirmaId = AktifFirmaProvider.AktifFirmaId.Value;
+        }
+
         arac = new Arac
         {
             Aktif = true,
             AracTipi = AracTipi.Minibus,
             AracSinifi = AracSinifi.PersonelTasiti,
             SahiplikTipi = TedarikciIdQuery.HasValue ? AracSahiplikTipi.Tedarikci : AracSahiplikTipi.Ozmal,
-            TasimaTedarikciId = TedarikciIdQuery
+            TasimaTedarikciId = TedarikciIdQuery,
+            FirmaId = defaultFirmaId
         };
 
         plaka = string.Empty;
@@ -856,6 +899,20 @@
         arac.SaseNo = arac.SaseNo.ToUpper().Trim();
         if (!string.IsNullOrWhiteSpace(plaka))
             plaka = plaka.ToUpper().Trim();
+
+        // Firma seçilmemişse aktif firmayı otomatik ata (Tüm Firmalar modunda kullanıcı uyarılır)
+        if (!arac.FirmaId.HasValue || arac.FirmaId.Value <= 0)
+        {
+            if (!AktifFirmaProvider.TumFirmalar && AktifFirmaProvider.AktifFirmaId.HasValue && AktifFirmaProvider.AktifFirmaId.Value > 0)
+            {
+                arac.FirmaId = AktifFirmaProvider.AktifFirmaId.Value;
+            }
+            else
+            {
+                ToastService.ShowError("Lütfen aracın bağlı olduğu firmayı seçin. (Üst bardaki firma seçicide bir firma seçili olmalı ya da form üstündeki firma alanından seçim yapın.)");
+                return;
+            }
+        }
 
         if (arac.SahiplikTipi == AracSahiplikTipi.Ozmal)
         {

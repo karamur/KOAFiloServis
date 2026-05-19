@@ -7,6 +7,7 @@
 @using System.IO
 @inject IBelgeUyariService BelgeUyariService
 @inject IAracService AracService
+@inject IFirmaService FirmaService
 @inject ISecureFileService SecureFileService
 @inject IJSRuntime JS
 @inject IToastService ToastService
@@ -133,6 +134,17 @@
                         <option value="yaklasan">30 Gün İçinde</option>
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Bağlı Firma</label>
+                    <select class="form-select form-select-sm" @bind="firmaFiltre">
+                        <option value="0">Tümü</option>
+                        <option value="-1">(Firmasız)</option>
+                        @foreach (var f in firmaListesi)
+                        {
+                            <option value="@f.Id">@f.FirmaAdi</option>
+                        }
+                    </select>
+                </div>
                 <div class="col-md-3 d-flex gap-1">
                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="FiltreleriTemizle">
                         <i class="bi bi-arrow-counterclockwise me-1"></i>Temizle
@@ -176,6 +188,7 @@
                                 <th>Plaka</th>
                                 <th>Şase No</th>
                                 <th>Marka / Model</th>
+                                <th style="width:140px;">Bağlı Firma</th>
                                 <th class="text-center" style="width:90px;">Tip</th>
                                 <th class="text-center bg-primary bg-opacity-25" style="width:100px;">Ruhsat</th>
                                 <th class="text-center bg-info bg-opacity-25" style="width:100px;">Sigorta</th>
@@ -189,7 +202,7 @@
                         <tbody>
                             @if (!FiltrelenmisAracBelgeTablosu.Any())
                             {
-                                <tr><td colspan="13" class="text-center text-muted py-4">Filtreye uygun araç bulunamadı.</td></tr>
+                                <tr><td colspan="14" class="text-center text-muted py-4">Filtreye uygun araç bulunamadı.</td></tr>
                             }
                             @foreach (var item in FiltrelenmisAracBelgeTablosu)
                             {
@@ -206,6 +219,16 @@
                                     <td><strong>@item.Plaka</strong></td>
                                     <td><small class="text-muted">@item.SaseNo</small></td>
                                     <td>@item.MarkaModel</td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(item.FirmaAdi))
+                                        {
+                                            <span class="badge bg-info text-dark" title="@item.FirmaAdi">@item.FirmaAdi</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger" title="Firma atanmamış">Firmasız</span>
+                                        }
+                                    </td>
                                     <td class="text-center"><span class="badge bg-dark">@item.AracTipi</span></td>
                                     <td class="text-center p-1" @onclick:stopPropagation="true">@RuhsatVarYokBadge(item)</td>
                                     <td class="text-center p-1" @onclick:stopPropagation="true">@BelgeBadge(item, "Sigorta", item.SigortaGecerlilik)</td>
@@ -355,6 +378,9 @@
     private string tipFiltre = string.Empty;
     private string aktifFiltre = string.Empty;
     private string belgeFiltre = string.Empty;
+    // 0 = Tümü, -1 = Firmasız, >0 = Belirli firma
+    private int firmaFiltre = 0;
+    private List<KOAFiloServis.Shared.Entities.Firma> firmaListesi = new();
     private string seviyeFiltre = "tumu"; // "gecmis" | "yedi" | "otuz" | "tumu"
     // Varsayılan: Sahiplik = Tedarikçi, Hariç tut = işaretli
     // (Tedarikçi sahipli araçlar evrak tablosundan gizlenmiş gelir; kullanıcı isterse değiştirebilir.)
@@ -430,10 +456,24 @@
             if (!Enum.TryParse<AracSahiplikTipi>(sahiplikFiltre, out var st)) return true;
             return sahiplikFiltreHaric ? p.SahiplikTipi != st : p.SahiplikTipi == st;
         })
+        .Where(p =>
+        {
+            if (firmaFiltre == 0) return true;
+            if (firmaFiltre == -1) return p.FirmaId == null;
+            return p.FirmaId == firmaFiltre;
+        })
         .ToList();
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
+            firmaListesi = await FirmaService.GetAktifFirmalarAsync();
+        }
+        catch
+        {
+            firmaListesi = new();
+        }
         await TabloyuYukle();
     }
 

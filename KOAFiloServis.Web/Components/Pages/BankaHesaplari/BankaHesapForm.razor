@@ -1,9 +1,11 @@
-@page "/banka-hesaplari/yeni"
+﻿@page "/banka-hesaplari/yeni"
 @page "/banka-hesaplari/{Id:int}"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @inject IBankaHesapService BankaHesapService
 @inject IBudgetService BudgetService
+@inject IFirmaService FirmaService
+@inject IAktifFirmaProvider AktifFirmaProvider
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
@@ -54,6 +56,25 @@
                                     <option value="@tip">@GetTipText(tip)</option>
                                 }
                             </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Bağlı Firma *</label>
+                            <InputSelect @bind-Value="hesap.FirmaId" class="form-select">
+                                <option value="">-- Firma seçin --</option>
+                                @if (firmalar != null)
+                                {
+                                    @foreach (var f in firmalar)
+                                    {
+                                        <option value="@f.Id">@f.FirmaAdi</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <div class="form-text">Bu hesap, seçilen firmanın kasa/banka listesinde görünür.</div>
                         </div>
                     </div>
                 </div>
@@ -199,6 +220,7 @@
 
     private BankaHesap hesap = new();
     private List<KrediOzet>? krediOzetleri;
+    private List<Firma>? firmalar;
     private string secilenKrediGrupId = "";
     private bool IsEdit => Id.HasValue;
     private bool isSaving;
@@ -208,6 +230,7 @@
     {
         // Kredi/Taksit listesini yükle
         krediOzetleri = await BudgetService.GetKrediOzetleriAsync();
+        firmalar = await FirmaService.GetAktifFirmalarAsync();
 
         if (IsEdit)
         {
@@ -231,6 +254,11 @@
             hesap.HesapTipi = HesapTipi.VadesizHesap;
             hesap.ParaBirimi = "TRY";
             hesap.Aktif = true;
+            // Varsayılan: aktif firma
+            if (AktifFirmaProvider.AktifFirmaId.HasValue && AktifFirmaProvider.AktifFirmaId.Value > 0)
+            {
+                hesap.FirmaId = AktifFirmaProvider.AktifFirmaId.Value;
+            }
             ApplyVarsayilanMuhasebeAlanlari(force: true);
         }
     }
@@ -254,6 +282,12 @@
         if (string.IsNullOrWhiteSpace(hesap.HesapAdi))
         {
             ToastService.ShowWarning("Hesap adı zorunludur.");
+            return;
+        }
+
+        if (!hesap.FirmaId.HasValue || hesap.FirmaId.Value <= 0)
+        {
+            ToastService.ShowWarning("Bağlı firma seçimi zorunludur.");
             return;
         }
 

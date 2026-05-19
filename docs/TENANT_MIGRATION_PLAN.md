@@ -1,5 +1,9 @@
 ﻿# Tenant (Firma) Mimarisi - Tam Yeniden Yapılandırma
 
+> **🆕 GÜNCEL DURUM (2026-05-19):** Tenant migration **TAMAMLANMIŞ** (v1.0.21). Son oturum özeti ve
+> yarın için yapılacaklar: **`docs/OTURUM_NOTLARI_2026-05-19.md`** dosyasına bakın. Aşağıdaki içerik
+> tarihsel plan ve referans olarak korunmaktadır.
+
 > **Amaç:** Zirve Müşavirlik mantığı. Kullanıcı login olunca firma seçer; o oturum boyunca tüm CRUD/hesaplama
 > sadece o firma verisi üzerinde döner. Firmalar birbirine **sızmaz**. İstenirse şirketler arası kopyalama
 > (toplu/tekil) ve şirketler arası kasa/banka transferi yapılabilir.

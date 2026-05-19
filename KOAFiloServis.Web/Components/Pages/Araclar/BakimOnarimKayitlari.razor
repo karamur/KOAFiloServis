@@ -9,6 +9,7 @@
 @inject ICariService CariService
 @inject IMasrafKalemiService MasrafKalemiService
 @inject IBankaKasaHareketService HareketService
+@inject IFirmaService FirmaService
 @inject NavigationManager Navigation
 @inject IToastService ToastService
 @inject IExcelService ExcelService
@@ -202,6 +203,17 @@
                         <option value="">Tümü</option>
                         <option value="evet">Evet</option>
                         <option value="hayir">Hayır</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Bağlı Firma</label>
+                    <select class="form-select form-select-sm" @bind="filtreFirmaId">
+                        <option value="0">Tümü</option>
+                        <option value="-1">(Firmasız)</option>
+                        @foreach (var f in firmaListesi)
+                        {
+                            <option value="@f.Id">@f.FirmaAdi</option>
+                        }
                     </select>
                 </div>
                 <div class="col-md-2 d-flex gap-1">
@@ -527,6 +539,8 @@
         public string Plaka { get; set; } = string.Empty;
         public string SaseNo { get; set; } = string.Empty;
         public string MarkaModel { get; set; } = string.Empty;
+        public int? FirmaId { get; set; }
+        public string? FirmaAdi { get; set; }
         public string Kategori { get; set; } = string.Empty;
         public MasrafKategori? KategoriEnum { get; set; }
         public string Aciklama { get; set; } = string.Empty;
@@ -567,6 +581,9 @@
     private decimal? filtreMaxTutar;
     private string filtreFisDurumu = string.Empty;
     private string filtreAriza = string.Empty;
+    // 0 = Tümü, -1 = Firmasız, >0 = Belirli firma
+    private int filtreFirmaId = 0;
+    private List<KOAFiloServis.Shared.Entities.Firma> firmaListesi = new();
 
     // Sıralama
     private string siralamaAlani = "Tarih";
@@ -602,6 +619,14 @@
             araclar = await AracService.GetAllAsync();
             cariler = await CariService.GetAllAsync();
             masrafKalemleri = await MasrafKalemiService.GetAllAsync();
+            try
+            {
+                firmaListesi = await FirmaService.GetAktifFirmalarAsync();
+            }
+            catch
+            {
+                firmaListesi = new();
+            }
         }
         catch (Exception ex)
         {
@@ -618,17 +643,22 @@
         get
         {
             var liste = new List<Hareket>();
+            // Hareketin bağlı olduğu aracın firmasını bulmak için sözlük (AracService Firma include eder)
+            var aracById = araclar.ToDictionary(a => a.Id);
             foreach (var m in masraflar)
             {
+                aracById.TryGetValue(m.AracId, out var aracRef);
                 liste.Add(new Hareket
                 {
                     Id = m.Id,
                     Kaynak = "Masraf",
                     Tarih = m.MasrafTarihi,
                     AracId = m.AracId,
-                    Plaka = m.Arac?.AktifPlaka ?? string.Empty,
-                    SaseNo = m.Arac?.SaseNo ?? string.Empty,
-                    MarkaModel = $"{m.Arac?.Marka} {m.Arac?.Model}".Trim(),
+                    Plaka = m.Arac?.AktifPlaka ?? aracRef?.AktifPlaka ?? string.Empty,
+                    SaseNo = m.Arac?.SaseNo ?? aracRef?.SaseNo ?? string.Empty,
+                    MarkaModel = $"{m.Arac?.Marka ?? aracRef?.Marka} {m.Arac?.Model ?? aracRef?.Model}".Trim(),
+                    FirmaId = aracRef?.FirmaId,
+                    FirmaAdi = aracRef?.Firma?.FirmaAdi,
                     Kategori = m.MasrafKalemi?.MasrafAdi ?? string.Empty,
                     KategoriEnum = m.MasrafKalemi?.Kategori,
                     Aciklama = m.Aciklama ?? string.Empty,
@@ -645,15 +675,18 @@
             }
             foreach (var s in servisler)
             {
+                aracById.TryGetValue(s.AracId, out var aracRef);
                 liste.Add(new Hareket
                 {
                     Id = s.Id,
                     Kaynak = "Servis",
                     Tarih = s.ServisTarihi,
                     AracId = s.AracId,
-                    Plaka = s.Arac?.AktifPlaka ?? string.Empty,
-                    SaseNo = s.Arac?.SaseNo ?? string.Empty,
-                    MarkaModel = $"{s.Arac?.Marka} {s.Arac?.Model}".Trim(),
+                    Plaka = s.Arac?.AktifPlaka ?? aracRef?.AktifPlaka ?? string.Empty,
+                    SaseNo = s.Arac?.SaseNo ?? aracRef?.SaseNo ?? string.Empty,
+                    MarkaModel = $"{s.Arac?.Marka ?? aracRef?.Marka} {s.Arac?.Model ?? aracRef?.Model}".Trim(),
+                    FirmaId = aracRef?.FirmaId,
+                    FirmaAdi = aracRef?.Firma?.FirmaAdi,
                     Kategori = GetServisTipiAdi(s.ServisTipi),
                     Aciklama = s.ServisAdi ?? string.Empty,
                     BelgeNo = string.Empty,
@@ -671,6 +704,7 @@
             foreach (var h in personelHareketleri)
             {
                 if (h.Arac == null) continue;
+                aracById.TryGetValue(h.AracId ?? 0, out var aracRef);
                 liste.Add(new Hareket
                 {
                     Id = h.Id,
@@ -680,6 +714,8 @@
                     Plaka = h.Arac.AktifPlaka ?? string.Empty,
                     SaseNo = h.Arac.SaseNo ?? string.Empty,
                     MarkaModel = $"{h.Arac.Marka} {h.Arac.Model}".Trim(),
+                    FirmaId = aracRef?.FirmaId,
+                    FirmaAdi = aracRef?.Firma?.FirmaAdi,
                     Kategori = "Personel Cebinden",
                     Aciklama = h.Aciklama ?? string.Empty,
                     BelgeNo = h.BelgeNo ?? string.Empty,
@@ -705,6 +741,9 @@
             || h.Aciklama.Contains(filtreArama, StringComparison.OrdinalIgnoreCase)
             || h.BelgeNo.Contains(filtreArama, StringComparison.OrdinalIgnoreCase))
         && (filtreAracId == 0 || h.AracId == filtreAracId)
+        && (filtreFirmaId == 0
+            || (filtreFirmaId == -1 && h.FirmaId == null)
+            || (filtreFirmaId > 0 && h.FirmaId == filtreFirmaId))
         && (string.IsNullOrEmpty(filtreKaynak)
             || (filtreKaynak == "Masraf" && (h.Kaynak == "Masraf" || h.Kaynak == "PersonelMasraf"))
             || (filtreKaynak == "Servis" && h.Kaynak == "Servis"))
@@ -754,6 +793,7 @@
                                 <th>Kaynak</th>
                                 <th>Plaka</th>
                                 <th>Marka/Model</th>
+                                <th>Bağlı Firma</th>
                                 <th>Kategori / Servis</th>
                                 <th>Açıklama</th>
                                 <th @onclick='() => Sirala("Tutar")' style="cursor:pointer;" class="text-end">Tutar @SiralamaIkonu("Tutar")</th>
@@ -767,7 +807,7 @@
                         <tbody>
                             @if (!SiraliHareketler.Any())
                             {
-                                <tr><td colspan="12" class="text-center text-muted py-4">Kriterlere uygun kayıt bulunamadı.</td></tr>
+                                <tr><td colspan="13" class="text-center text-muted py-4">Kriterlere uygun kayıt bulunamadı.</td></tr>
                             }
                             @foreach (var h in SiraliHareketler)
                             {
@@ -792,6 +832,16 @@
                                     </td>
                                     <td>@h.Plaka</td>
                                     <td><small>@h.MarkaModel</small></td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(h.FirmaAdi))
+                                        {
+                                            <span class="badge bg-info text-dark" title="@h.FirmaAdi">@h.FirmaAdi</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger" title="Firma atanmamış">Firmasız</span>
+                                        }
+                                    </td>
                                     <td>@h.Kategori</td>
                                     <td><small>@h.Aciklama</small></td>
                                     <td class="text-end"><strong>@h.Tutar.ToString("N2") ₺</strong></td>
@@ -835,7 +885,7 @@
                         </tbody>
                         <tfoot class="table-light">
                             <tr>
-                                <th colspan="6" class="text-end">Toplam:</th>
+                                <th colspan="7" class="text-end">Toplam:</th>
                                 <th class="text-end">@FiltrelenmisHareketler.Sum(h => h.Tutar).ToString("N2") ₺</th>
                                 <th colspan="5"></th>
                             </tr>
@@ -1123,6 +1173,7 @@
     {
         filtreArama = filtreKaynak = filtreKategori = filtreOdemeKaynak = filtreFisDurumu = filtreAriza = string.Empty;
         filtreAracId = 0;
+        filtreFirmaId = 0;
         filtreBaslangic = filtreBitis = null;
         filtreMinTutar = filtreMaxTutar = null;
         seviyeFiltre = "tumu";

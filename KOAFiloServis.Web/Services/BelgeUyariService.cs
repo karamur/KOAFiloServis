@@ -489,6 +489,7 @@ public class BelgeUyariService : IBelgeUyariService
         var araclar = await context.Araclar
             .AsNoTracking()
             .Include(a => a.TasimaTedarikci)
+            .Include(a => a.Firma)
             .Where(a => !a.IsDeleted)
             .OrderBy(a => a.AktifPlaka ?? a.SaseNo)
             .ToListAsync();
@@ -570,6 +571,8 @@ public class BelgeUyariService : IBelgeUyariService
                 SahiplikTipi = a.SahiplikTipi,
                 TasimaTedarikciId = a.TasimaTedarikciId,
                 TasimaTedarikciUnvan = a.TasimaTedarikci?.Unvan,
+                FirmaId = a.FirmaId,
+                FirmaAdi = a.Firma?.FirmaAdi,
                 ToplamEvrakSayisi = sutunlar.Length,
                 YuklenmisEvrakSayisi = dosyalar.Count(d => d.DosyaVar),
                 EvrakDosyalari = dosyalar,

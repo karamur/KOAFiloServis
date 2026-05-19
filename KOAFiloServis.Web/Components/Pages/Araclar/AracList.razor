@@ -3,6 +3,8 @@
 @using KOAFiloServis.Web.Services
 @using Microsoft.AspNetCore.Components.Forms
 @inject IAracService AracService
+@inject IAktifFirmaProvider AktifFirmaProvider
+@inject IFirmaService FirmaService
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
@@ -17,6 +19,12 @@
             <button class="btn btn-primary" @onclick="YeniArac">
                 <i class="bi bi-plus-lg me-1"></i>Yeni Araç
             </button>
+            @if (firmasizAracSayisi > 0)
+            {
+                <button class="btn btn-warning" @onclick="FirmasizlariAktifFirmayaAta" title="FirmaId'si boş araçları aktif firmaya atar">
+                    <i class="bi bi-building-fill-exclamation me-1"></i>Firmasız (@firmasizAracSayisi) → Aktif Firma
+                </button>
+            }
             <button class="btn btn-outline-info" @onclick="SablonIndir" title="Excel Sablon Indir">
                 <i class="bi bi-download me-1"></i>Şablon
             </button>
@@ -38,6 +46,17 @@
                         <option value="Operasyon">Operasyon</option>
                         <option value="Yonetim">Yönetim</option>
                         <option value="Satis">Satış</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Bağlı Firma</label>
+                    <select class="form-select form-select-sm" @bind="filtreFirmaId">
+                        <option value="0">Tümü</option>
+                        <option value="-1">(Firmasız)</option>
+                        @foreach (var f in firmaListesi)
+                        {
+                            <option value="@f.Id">@f.FirmaAdi</option>
+                        }
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -188,6 +207,7 @@
                             <tr>
                                 <th>Şase No</th>
                                 <th>Aktif Plaka</th>
+                                <th>Bağlı Firma</th>
                                 <th>Geçmiş Plakalar</th>
                                 <th>Marka</th>
                                 <th>Model</th>
@@ -207,6 +227,16 @@
                                     <td><small class="text-muted">@arac.SaseNo</small></td>
                                     <td>
                                         <span class="badge bg-primary fs-6">@(arac.AktifPlaka ?? "PLAKASIZ")</span>
+                                    </td>
+                                    <td>
+                                        @if (arac.Firma != null)
+                                        {
+                                            <span class="badge bg-info text-dark" title="@arac.Firma.FirmaAdi">@arac.Firma.FirmaAdi</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger" title="Firma atanmamış">Firmasız</span>
+                                        }
                                     </td>
                                     <td>
                                         <button class="btn btn-link btn-sm p-0 text-decoration-none" @onclick="() => PlakaGecmisiAc(arac)" title="Plaka Geçmişini Yönet">
@@ -619,6 +649,9 @@
     private int? filtreModelYili;
     private int? filtreKoltukSayisi;
     private string filtreSinif = "Tumu";
+    // 0 = Tümü, -1 = Firmasız, >0 = Belirli firma
+    private int filtreFirmaId = 0;
+    private List<KOAFiloServis.Shared.Entities.Firma> firmaListesi = new();
     // Varsayılan: Sahiplik = Tedarikçi, Hariç tut = işaretli
     // (Tedarikçi araçları araç listesinden gizlenmiş gelir; kullanıcı isterse filtreyi değiştirebilir.)
     private string filtreSahiplikTipi = nameof(AracSahiplikTipi.Tedarikci);
@@ -636,8 +669,52 @@
     {
         isLoading = true;
         tumAraclar = await AracService.GetAllAsync() ?? new List<Arac>();
+        try
+        {
+            firmasizAracSayisi = await AracService.GetFirmaIdYokSayisiAsync();
+        }
+        catch
+        {
+            firmasizAracSayisi = 0;
+        }
+        try
+        {
+            firmaListesi = await FirmaService.GetAktifFirmalarAsync();
+        }
+        catch
+        {
+            firmaListesi = new();
+        }
         Filtrele();
         isLoading = false;
+    }
+
+    private int firmasizAracSayisi = 0;
+
+    private async Task FirmasizlariAktifFirmayaAta()
+    {
+        if (AktifFirmaProvider.TumFirmalar || !AktifFirmaProvider.AktifFirmaId.HasValue || AktifFirmaProvider.AktifFirmaId.Value <= 0)
+        {
+            ToastService.ShowWarning("Önce üst bardaki firma seçiciden bir firma seçin (Tüm Firmalar modunda toplu atama yapılamaz).");
+            return;
+        }
+
+        var aktifFirma = FirmaService.GetAktifFirma();
+        var firmaId = AktifFirmaProvider.AktifFirmaId.Value;
+        var onay = await JS.InvokeAsync<bool>("confirm",
+            $"{firmasizAracSayisi} adet firmasız araç, '{aktifFirma.FirmaAdi}' firmasına atanacak. Devam edilsin mi?");
+        if (!onay) return;
+
+        try
+        {
+            var sayi = await AracService.BackfillFirmaIdAsync(firmaId);
+            ToastService.ShowSuccess($"{sayi} araç '{aktifFirma.FirmaAdi}' firmasına atandı.");
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Toplu firma atama hatası: {ex.GetBaseException().Message}");
+        }
     }
 
     private void Filtrele()
@@ -660,6 +737,16 @@
         else if (filtreDurum == "Satis")
         {
             sorgu = sorgu.Where(a => a.Durumu == AracDurumu.Satis);
+        }
+
+        // Bağlı Firma Filtresi
+        if (filtreFirmaId == -1)
+        {
+            sorgu = sorgu.Where(a => a.FirmaId == null);
+        }
+        else if (filtreFirmaId > 0)
+        {
+            sorgu = sorgu.Where(a => a.FirmaId == filtreFirmaId);
         }
 
         // Şase No
@@ -732,6 +819,7 @@
     private void FiltreyiTemizle()
     {
         filtreDurum = "Tumu";
+        filtreFirmaId = 0;
         filtreSase = null;
         filtrePlaka = null;
         filtreMarka = null;

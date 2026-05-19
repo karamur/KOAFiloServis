@@ -240,6 +240,7 @@
     private List<KOAFiloServis.Shared.Entities.Firma> firmalar = new();
     private int aktifFirmaId;
     private string aktifFirmaAdi = "Firma";
+    private bool tumFirmalarMod = false;
     private bool isDarkMode = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -399,7 +400,8 @@
             firmalar = await FirmaService.GetAktifFirmalarAsync();
             var aktifFirma = FirmaService.GetAktifFirma();
             aktifFirmaId = aktifFirma.FirmaId;
-            aktifFirmaAdi = aktifFirma.FirmaAdi;
+            tumFirmalarMod = aktifFirma.TumFirmalar;
+            aktifFirmaAdi = tumFirmalarMod ? "Tüm Firmalar" : aktifFirma.FirmaAdi;
         }
         catch (Exception ex)
         {
@@ -412,6 +414,15 @@
         FirmaService.SetAktifFirma(firma.Id);
         aktifFirmaId = firma.Id;
         aktifFirmaAdi = firma.FirmaAdi;
+        tumFirmalarMod = false;
+        Navigation.NavigateTo(Navigation.Uri, true);
+    }
+
+    private void TumFirmalarSecildi()
+    {
+        FirmaService.SetTumFirmalar(true);
+        tumFirmalarMod = true;
+        aktifFirmaAdi = "Tüm Firmalar";
         Navigation.NavigateTo(Navigation.Uri, true);
     }
 

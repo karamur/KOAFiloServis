@@ -309,9 +309,6 @@ UI/MainForm.cs
  microsoft.entityframeworkcore.analyzers/10.0.5/analyzers/dotnet/cs/Microsoft.EntityFrameworkCore.Analyzers.dll
  microsoft.extensions.logging.abstractions/10.0.5/analyzers/dotnet/roslyn4.4/cs/Microsoft.Extensions.Logging.Generators.dll
  microsoft.extensions.options/10.0.5/analyzers/dotnet/roslyn4.4/cs/Microsoft.Extensions.Options.SourceGeneration.dll
- microsoft.net.illink.tasks/10.0.8/analyzers/dotnet/cs/
-  ILLink.CodeFixProvider.dll
-  ILLink.RoslynAnalyzer.dll
 
 [analyzerConfigFiles]
 ../.editorconfig

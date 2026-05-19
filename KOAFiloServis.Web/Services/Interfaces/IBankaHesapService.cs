@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 
 namespace KOAFiloServis.Web.Services;
 
@@ -14,4 +14,18 @@ public interface IBankaHesapService
     Task<string> GenerateNextKodAsync();
     Task<decimal> GetBakiyeAsync(int hesapId);
     Task<Dictionary<int, decimal>> GetTumHesapBakiyeleriAsync();
+
+    /// <summary>
+    /// FirmaId değeri NULL olan banka/kasa hesaplarını döndürür (tenant filtresi devre dışı).
+    /// Kullanıcı bunları görüp aktif firmaya/seçtiği firmaya ilişkilendirebilsin diye.
+    /// </summary>
+    Task<List<BankaHesap>> GetFirmasizHesaplarAsync();
+
+    /// <summary>
+    /// Verilen hesabın FirmaId'sini ayarlar (tenant filtresi bypass edilir).
+    /// </summary>
+    Task AssignFirmaAsync(int hesapId, int firmaId);
+
+    /// <summary>FirmaId null olan banka hesap sayısı.</summary>
+    Task<int> GetFirmaIdYokSayisiAsync();
 }

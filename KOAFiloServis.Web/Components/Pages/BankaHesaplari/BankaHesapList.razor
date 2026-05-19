@@ -1,9 +1,12 @@
-@page "/banka-hesaplari"
+﻿@page "/banka-hesaplari"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using ClosedXML.Excel
 @inject IBankaHesapService BankaHesapService
 @inject IBankaKasaHareketService BankaKasaHareketService
+@inject IFirmaService FirmaService
+@inject IAktifFirmaProvider AktifFirmaProvider
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -319,6 +322,9 @@
 
 @code {
     private List<BankaHesap>? hesaplar;
+    private List<BankaHesap>? firmasizHesaplar;
+    private List<Firma>? firmalar;
+    private Dictionary<int, int> firmaAtamaSecim = new();
     private Dictionary<int, decimal> bakiyeler = new();
     private bool showDeleteModal = false;
     private BankaHesap? silinecekHesap;

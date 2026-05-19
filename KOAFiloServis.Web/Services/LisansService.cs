@@ -11,9 +11,12 @@ public class LisansService : ILisansService
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private static Lisans? _cachedLisans;
 
-    public LisansService(IDbContextFactory<ApplicationDbContext> contextFactory)
+    // Singleton servis: scoped TenantAwareDbContextFactory tüketemez.
+    // Bunun yerine singleton PooledDbContextFactoryHolder üzerinden doğrudan pooled
+    // factory'i alır. Lisans tablosu IFirmaTenant değil — tenant filter zaten gerekmez.
+    public LisansService(PooledDbContextFactoryHolder holder)
     {
-        _contextFactory = contextFactory;
+        _contextFactory = holder.Inner;
     }
 
     public async Task<Lisans?> GetAktifLisansAsync()

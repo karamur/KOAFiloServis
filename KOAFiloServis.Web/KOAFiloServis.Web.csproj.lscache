@@ -219,6 +219,14 @@ Data/
   20260514135908_AddKapasiteEntity.Designer.cs
   20260514234625_AddPuantajOnaylandi.cs
   20260514234625_AddPuantajOnaylandi.Designer.cs
+  20260517012738_TenantC2_RequireFirmaId.cs
+  20260517012738_TenantC2_RequireFirmaId.Designer.cs
+  20260517013906_TenantC3_AddFirmaIdToStokMasrafServisCalisma.cs
+  20260517013906_TenantC3_AddFirmaIdToStokMasrafServisCalisma.Designer.cs
+  20260517030611_TenantC3_RequireFirmaId.cs
+  20260517030611_TenantC3_RequireFirmaId.Designer.cs
+  20260517101411_TenantG1_AddFirmaIdToGuzergahSefer.cs
+  20260517101411_TenantG1_AddFirmaIdToGuzergahSefer.Designer.cs
   AracMasrafMuhasebeMigrationHelper.cs
   BankaHareketPersonelCebindenMigrationHelper.cs
   BordroMigrationHelper.cs
@@ -240,6 +248,7 @@ Data/
   SirketSchemaFixMigrationHelper.cs
   SmsMigrationHelper.cs
   SoforMaasMigrationHelper.cs
+  TenantFirmaIdBackfillMigrationHelper.cs
   TwoFactorMigrationHelper.cs
  TestDataSeeder.cs
 Extensions/StringExtensions.cs
@@ -269,6 +278,12 @@ Migrations/
  20260515010739_EnsureGuzergahKurumIdColumn.Designer.cs
  20260515115558_AddGuzergahKapasiteAdiAndSeferleri.cs
  20260515115558_AddGuzergahKapasiteAdiAndSeferleri.Designer.cs
+ 20260517000621_TenantC1_AddFirmaIdToMasterEntities.cs
+ 20260517000621_TenantC1_AddFirmaIdToMasterEntities.Designer.cs
+ 20260517003813_TenantE1_AddFirmaIdToBankaKasaAndFirmalarArasiTransfer.cs
+ 20260517003813_TenantE1_AddFirmaIdToBankaKasaAndFirmalarArasiTransfer.Designer.cs
+ 20260517004902_TenantF1_AddKopyalanabilirTenantAuditColumns.cs
+ 20260517004902_TenantF1_AddKopyalanabilirTenantAuditColumns.Designer.cs
  ApplicationDbContextModelSnapshot.cs
 Models/
  AracKarlilikRaporModels.cs
@@ -302,6 +317,7 @@ Services/
  AppIssueStateService.cs
  AracDegerlemeAIService.cs
  AracMaliyetService.cs
+ AracMasrafSahibiHelper.cs
  AracMasrafService.cs
  AracPiyasaArastirmaService.cs
  AracService.cs
@@ -348,6 +364,8 @@ Services/
  FaturaService.cs
  FiloKomisyonService.cs
  FiloOperasyonService.cs
+ FirmaKopyalamaService.cs
+ FirmalarArasiTransferService.cs
  FirmaService.cs
  GlobalSearchService.cs
  GpsSimulasyonService.cs
@@ -356,6 +374,8 @@ Services/
  GuzergahService.cs
  HakedisService.cs
  HttpScraperService.cs
+ IAktifFirmaProvider.cs
+ IFirmaKopyalamaService.cs
  IhaleHazirlikService.cs
  IhaleTeklifExportService.cs
  IhaleTeklifKarsilastirmaService.cs
@@ -962,6 +982,7 @@ Components/
    DosyaMigrasyonu.razor
    EntegrasyonRehberi.razor
    FaturaSablonlari.razor
+   FirmaKopyalama.razor
    FirmaYonetimi.razor
    GuncellemeYonetimi.razor
    KullaniciYonetimi.razor
@@ -1061,6 +1082,7 @@ Components/
   Finans/
    MasrafGirisi.razor
    PersonelOdenecekler.razor
+  FirmaSec.razor
   Galeri/PiyasaArastirma.razor
   Guzergahlar/
    GuzergahForm.razor
@@ -1264,6 +1286,7 @@ Components/
    DosyaMigrasyonu.razor
    EntegrasyonRehberi.razor
    FaturaSablonlari.razor
+   FirmaKopyalama.razor
    FirmaYonetimi.razor
    GuncellemeYonetimi.razor
    KullaniciYonetimi.razor
@@ -1363,6 +1386,7 @@ Components/
   Finans/
    MasrafGirisi.razor
    PersonelOdenecekler.razor
+  FirmaSec.razor
   Galeri/PiyasaArastirma.razor
   Guzergahlar/
    GuzergahForm.razor

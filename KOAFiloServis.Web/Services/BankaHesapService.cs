@@ -1,4 +1,4 @@
-using KOAFiloServis.Shared.Entities;
+﻿using KOAFiloServis.Shared.Entities;
 using KOAFiloServis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -166,6 +166,49 @@ public class BankaHesapService : IBankaHesapService
             .ToListAsync();
 
         return hesaplar.ToDictionary(h => h.Id, h => h.AcilisBakiye + h.Girisler - h.Cikislar);
+    }
+
+    public async Task<List<BankaHesap>> GetFirmasizHesaplarAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BankaHesaplari
+            .IgnoreQueryFilters()
+            .Where(b => !b.IsDeleted && b.FirmaId == null)
+            .AsNoTracking()
+            .OrderBy(b => b.HesapAdi)
+            .ToListAsync();
+    }
+
+    public async Task AssignFirmaAsync(int hesapId, int firmaId)
+    {
+        if (firmaId <= 0)
+            throw new ArgumentException("Geçerli bir firma seçilmedi.", nameof(firmaId));
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var firmaVar = await context.Firmalar.IgnoreQueryFilters()
+            .AnyAsync(f => f.Id == firmaId && !f.IsDeleted);
+        if (!firmaVar)
+            throw new InvalidOperationException($"Id={firmaId} olan firma bulunamadı.");
+
+        var hesap = await context.BankaHesaplari
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(b => b.Id == hesapId && !b.IsDeleted);
+
+        if (hesap == null)
+            throw new InvalidOperationException("Banka/Kasa hesabı bulunamadı.");
+
+        hesap.FirmaId = firmaId;
+        hesap.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+    }
+
+    public async Task<int> GetFirmaIdYokSayisiAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BankaHesaplari
+            .IgnoreQueryFilters()
+            .CountAsync(b => !b.IsDeleted && b.FirmaId == null);
     }
 
     private IQueryable<BankaHesap> QueryBankaHesaplari(ApplicationDbContext context, bool asNoTracking = true)

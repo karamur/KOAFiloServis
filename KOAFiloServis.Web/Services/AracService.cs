@@ -12,23 +12,38 @@ public class AracService : IAracService
     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly ISecureFileService _secureFileService;
     private readonly ICacheService _cache;
+    private readonly IAktifFirmaProvider _aktifFirmaProvider;
 
-    public AracService(IDbContextFactory<ApplicationDbContext> contextFactory, ISecureFileService secureFileService, ICacheService cache)
+    public AracService(IDbContextFactory<ApplicationDbContext> contextFactory, ISecureFileService secureFileService, ICacheService cache, IAktifFirmaProvider aktifFirmaProvider)
     {
         _contextFactory = contextFactory;
         _secureFileService = secureFileService;
         _cache = cache;
+        _aktifFirmaProvider = aktifFirmaProvider;
+    }
+
+    /// <summary>
+    /// Cache key'lerini aktif firmaya göre scope'lar. Firma seçili değil veya "Tüm Firmalar"
+    /// modu açıksa ortak bir key kullanır. Bu, EF global query filter ile birlikte çalışarak
+    /// firmalar arası veri sızmasını önler.
+    /// </summary>
+    private string ScopeKey(string baseKey)
+    {
+        if (_aktifFirmaProvider.TumFirmalar) return baseKey + ":Tum";
+        var fid = _aktifFirmaProvider.AktifFirmaId ?? 0;
+        return baseKey + ":F" + fid.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     #region Araç CRUD İşlemleri
 
     public Task<List<Arac>> GetAllAsync() =>
-        _cache.GetOrSetAsync(CacheKeys.AracListesi, async () =>
+        _cache.GetOrSetAsync(ScopeKey(CacheKeys.AracListesi), async () =>
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             var araclar = await context.Araclar
                 .AsNoTracking()
                 .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
+                .Include(a => a.Firma)
                 .Where(a => !a.IsDeleted)
                 .ToListAsync();
 
@@ -50,12 +65,13 @@ public class AracService : IAracService
         }, CacheDurations.Medium);
 
     public Task<List<Arac>> GetActiveAsync() =>
-        _cache.GetOrSetAsync(CacheKeys.AracAktif, async () =>
+        _cache.GetOrSetAsync(ScopeKey(CacheKeys.AracAktif), async () =>
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             var araclar = await context.Araclar
                 .AsNoTracking()
                 .Include(a => a.PlakaGecmisi.Where(p => !p.IsDeleted))
+                .Include(a => a.Firma)
                 .Where(a => a.Aktif && !a.IsDeleted)
                 .ToListAsync();
             
@@ -272,6 +288,11 @@ public class AracService : IAracService
             existing.SatisaAcik = arac.SatisaAcik;
             existing.SatisFiyati = arac.SatisFiyati;
             existing.SatisAciklamasi = arac.SatisAciklamasi;
+            // Tenant (Firma) güncellemesi: sadece açıkça seçilmişse değiştir
+            if (arac.FirmaId.HasValue && arac.FirmaId.Value > 0)
+            {
+                existing.FirmaId = arac.FirmaId;
+            }
             existing.UpdatedAt = DateTime.UtcNow;
             
             await context.SaveChangesAsync();
@@ -308,6 +329,49 @@ public class AracService : IAracService
             arac.UpdatedAt = DateTime.UtcNow;
             await context.SaveChangesAsync();
         }
+    }
+
+    /// <summary>
+    /// FirmaId değeri null olan araçları verilen firmaya atar.
+    /// Eski (multi-tenant öncesi) kayıtların puantaj/fatura akışlarında hata vermemesi için kullanılır.
+    /// Global query filter'ı by-pass ederek tüm firmasız araçları yakalar.
+    /// </summary>
+    public async Task<int> BackfillFirmaIdAsync(int firmaId)
+    {
+        if (firmaId <= 0)
+            throw new ArgumentException("Geçerli bir firma seçilmedi.", nameof(firmaId));
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        // Verilen firmayı doğrula
+        var firmaVar = await context.Firmalar.IgnoreQueryFilters().AnyAsync(f => f.Id == firmaId && !f.IsDeleted);
+        if (!firmaVar)
+            throw new InvalidOperationException($"Id={firmaId} olan firma bulunamadı.");
+
+        var firmasizlar = await context.Araclar
+            .IgnoreQueryFilters()
+            .Where(a => !a.IsDeleted && a.FirmaId == null)
+            .ToListAsync();
+
+        if (firmasizlar.Count == 0) return 0;
+
+        foreach (var a in firmasizlar)
+        {
+            a.FirmaId = firmaId;
+            a.UpdatedAt = DateTime.UtcNow;
+        }
+        await context.SaveChangesAsync();
+        await _cache.RemoveByPrefixAsync(CacheKeys.AracPrefix);
+        return firmasizlar.Count;
+    }
+
+    /// <summary>FirmaId değeri null olan araç sayısı.</summary>
+    public async Task<int> GetFirmaIdYokSayisiAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Araclar
+            .IgnoreQueryFilters()
+            .CountAsync(a => !a.IsDeleted && a.FirmaId == null);
     }
     
     #endregion
