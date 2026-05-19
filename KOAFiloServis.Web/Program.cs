@@ -136,14 +136,55 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>((sp, options) =
     options.AddInterceptors(sp.GetRequiredService<AktiviteLogInterceptor>());
 });
 
-// DbContext - Factory'den olustur ve scoped IServiceProvider'ı bağla
-// ITenantService sorgu zamanında lazy olarak çözümlenir (döngüsel bağımlılık önlenir)
+// Tenant-aware factory: pooled factory'yi sarmala, her context'e scoped IServiceProvider enjekte et.
+// Bu, IAktifFirmaProvider'ın resolve edilebilmesini ve global query filter'ların (firma izolasyonu)
+// servisler (AracService, KapasiteService, vb.) içinden de devreye girmesini sağlar.
+// Pooled factory'nin orijinal service descriptor'ını yakala ve scoped wrapper ile değiştir.
+{
+    var pooledDescriptor = builder.Services.Single(d =>
+        d.ServiceType == typeof(IDbContextFactory<ApplicationDbContext>));
+    builder.Services.Remove(pooledDescriptor);
+
+    // Singleton holder: orijinal pooled factory'yi descriptor'dan çözümler (recursion yok).
+    builder.Services.AddSingleton<PooledDbContextFactoryHolder>(sp =>
+    {
+        IDbContextFactory<ApplicationDbContext> inner;
+        if (pooledDescriptor.ImplementationFactory != null)
+        {
+            inner = (IDbContextFactory<ApplicationDbContext>)pooledDescriptor.ImplementationFactory(sp);
+        }
+        else if (pooledDescriptor.ImplementationInstance != null)
+        {
+            inner = (IDbContextFactory<ApplicationDbContext>)pooledDescriptor.ImplementationInstance;
+        }
+        else if (pooledDescriptor.ImplementationType != null)
+        {
+            inner = (IDbContextFactory<ApplicationDbContext>)ActivatorUtilities.CreateInstance(sp, pooledDescriptor.ImplementationType);
+        }
+        else
+        {
+            throw new InvalidOperationException("Pooled IDbContextFactory<ApplicationDbContext> descriptor çözümlenemedi.");
+        }
+        return new PooledDbContextFactoryHolder(inner);
+    });
+}
+
+// DbContext - Pooled holder'dan al ve scoped IServiceProvider'ı bağla
+// IAktifFirmaProvider sorgu zamanında lazy olarak çözümlenir (döngüsel bağımlılık önlenir)
 builder.Services.AddScoped<ApplicationDbContext>(sp =>
 {
-    var context = sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext();
+    var holder = sp.GetRequiredService<PooledDbContextFactoryHolder>();
+    var context = holder.Inner.CreateDbContext();
     context.SetServiceProvider(sp);
     return context;
 });
+
+// IDbContextFactory<ApplicationDbContext>'i scoped TenantAwareDbContextFactory ile override et.
+// Tüm servisler (Araç, Kapasite, Hakediş, vb.) bu interface üzerinden context alır; böylece
+// factory yolundan oluşturulan context'ler de SetServiceProvider çağrılmış ve tenant filter aktif olur.
+// Singleton servisler (örn. LisansService) bu scoped factory'i tüketemez; onlar doğrudan
+// PooledDbContextFactoryHolder kullanmalıdır (tenant-bağımsız global tablolar için uygundur).
+builder.Services.AddScoped<IDbContextFactory<ApplicationDbContext>, TenantAwareDbContextFactory>();
 
 // Authentication - Her circuit (tarayici baglantisi) icin bagimsiz oturum yonetimi
 // Scoped: Her Blazor circuit kendi oturumunu yonetir - farkli PC/tarayicilar birbirini etkilemez
@@ -219,6 +260,7 @@ builder.Services.AddScoped<IServisCalismaService, ServisCalismaService>();
 builder.Services.AddScoped<IFaturaService, FaturaService>();
 builder.Services.AddScoped<IBankaHesapService, BankaHesapService>();
 builder.Services.AddScoped<IBankaKasaHareketService, BankaKasaHareketService>();
+builder.Services.AddScoped<IBankaHareketImportService, BankaHareketImportService>();
 builder.Services.AddScoped<IOdemeEslestirmeService, OdemeEslestirmeService>();
 builder.Services.AddScoped<IRaporService, RaporService>();
 builder.Services.AddScoped<IExcelService, ExcelService>();
@@ -257,12 +299,10 @@ builder.Services.AddScoped<IKurumService, KurumService>();
 builder.Services.AddScoped<IPuantajService, PuantajService>();
 builder.Services.AddScoped(typeof(KOAFiloServis.Web.Services.Interfaces.IFiloKomisyonService), typeof(FiloKomisyonService));
 builder.Services.AddScoped<KOAFiloServis.Web.Services.Interfaces.IPuantajEslestirmeService, PuantajEslestirmeService>();
-builder.Services.AddScoped<IAracDegerlemeAIService, AracDegerlemeAIService>(); // AI Arac Degerleme
 builder.Services.AddScoped<IPiyasaKaynakService, PiyasaKaynakService>(); // Piyasa Kaynak Yonetimi (once kaydet)
 builder.Services.AddScoped<IHttpScraperService, HttpScraperService>(); // HTTP Scraper (en hizli)
 builder.Services.AddScoped<IPlaywrightScraperService, PlaywrightScraperService>(); // Playwright Web Scraper (yedek)
-builder.Services.AddScoped<IAracPiyasaArastirmaService, AracPiyasaArastirmaService>(); // AI Piyasa Arastirma
-builder.Services.AddScoped<IMusteriKiralamaService, MusteriKiralamaService>(); // Musteri Kiralama Servisi
+builder.Services.AddScoped<IMusteriKiralamaService, MusteriKiralamaService>();
 builder.Services.AddScoped<ICRMService, CRMService>(); // CRM Servisi - Bildirim, Mesaj, Hatırlatıcı
 builder.Services.AddScoped<KOAFiloServis.Web.Services.Interfaces.IWhatsAppService, WhatsAppService>(); // WhatsApp Servisi
 builder.Services.AddScoped<IStokService, StokService>(); // Stok/Envanter Servisi
@@ -286,11 +326,8 @@ builder.Services.AddScoped<IEmailService, EmailService>(); // E-posta Bildirim S
 builder.Services.AddScoped<ISystemHealthService, SystemHealthService>(); // Sistem Sağlık Kontrolü
 builder.Services.AddScoped<DatabaseBackupService>(); // Quartz job tarafından tetiklenen veritabanı yedek servisi
 builder.Services.AddScoped<BelgeUyariBackgroundService>(); // Quartz job tarafından tetiklenen belge uyarı servisi
-builder.Services.AddHttpClient("OpenAI"); // OpenAI icin HttpClient
 builder.Services.AddHttpClient("Scraper"); // Scraper icin HttpClient
-builder.Services.AddScoped<IOllamaService, OllamaService>(); // Ollama AI Rapor Yorumlama
-builder.Services.AddScoped<IFaturaAIImportService, FaturaAIImportService>(); // AI Fatura Import Servisi
-builder.Services.AddScoped<IIhaleHazirlikService, IhaleHazirlikService>(); // İhale Hazırlık Servisi
+builder.Services.AddScoped<IIhaleHazirlikService, IhaleHazirlikService>();
 builder.Services.AddScoped<ICariRiskService, CariRiskService>(); // Cari Risk Analizi Servisi
 builder.Services.AddScoped<IKolayMuhasebeService, KolayMuhasebeService>(); // Kolay Muhasebe Girişi Servisi
 builder.Services.AddScoped<ITopluFaturaService, TopluFaturaService>(); // Toplu Fatura Oluşturma Servisi
@@ -307,8 +344,6 @@ builder.Services.AddScoped<IDestekTalebiService, DestekTalebiService>(); // Dest
 builder.Services.AddScoped<IEbysEvrakService, EbysEvrakService>(); // EBYS Gelen/Giden Evrak Servisi
 builder.Services.AddScoped<IBelgeVersiyonService, BelgeVersiyonService>(); // EBYS Belge Versiyon Yönetimi Servisi
 builder.Services.AddScoped<IEbysBelgeAramaService, EbysBelgeAramaService>(); // EBYS Gelişmiş Belge Arama Servisi
-builder.Services.AddScoped<IEbysAIService, EbysAIService>(); // EBYS AI Servisi (OCR, Belge Sınıflandırma)
-builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>(); // EBYS Semantic Search (Akıllı Belge Arama) Servisi
 builder.Services.AddScoped<IBildirimService, BildirimService>(); // Bildirim Sistemi Servisi
 builder.Services.AddScoped<ISmsService, SmsService>(); // SMS Gönderim Servisi
 builder.Services.AddScoped<IWebhookService, WebhookService>(); // Webhook Sistemi Servisi
