@@ -1,4 +1,4 @@
-﻿@page "/guzergahlar"
+@page "/guzergahlar"
 @using KOAFiloServis.Shared.Entities
 @using KOAFiloServis.Web.Services
 @using KOAFiloServis.Web.Data
@@ -18,20 +18,12 @@
     .sefer-detay-row > td { background-color: #f8f9fa; padding: 0; }
     .sefer-detay-icerik { padding: .75rem 1rem; border-top: 2px solid #0d6efd; }
     .sefer-tipi-btn { cursor: pointer; min-width: 110px; }
-    .guzergah-row.acik { background-color: #e7f1ff !important; }
 
     /* Sefer Durumu göstergeleri */
-    .sefer-durum-wrap { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; line-height: 1; }
-    .sefer-pill {
         display: inline-flex; align-items: center; gap: 6px;
         padding: 4px 10px; border-radius: 999px;
         font-size: .78rem; font-weight: 700; letter-spacing: .2px;
     }
-    .sefer-pill.ok    { background: #e6f6ec; color: #146c43; border: 1px solid #a7e0bc; }
-    .sefer-pill.eksik { background: #fdecec; color: #b02a37; border: 1px solid #f1aeb5; animation: seferPulse 1.6s ease-in-out infinite; }
-    @@keyframes seferPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); } 50% { box-shadow: 0 0 0 4px rgba(220,53,69,.18); } }
-    .sefer-dots { display: inline-flex; gap: 3px; }
-    .sefer-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #c7c7c7; background: #fff; }
     .sefer-dot.dolu { background: #198754; border-color: #146c43; }
     .sefer-dot.bos  { background: #fff; border-color: #dc3545; box-shadow: inset 0 0 0 2px #f8d7da; }
 </style>
@@ -209,27 +201,22 @@
                                     <th>Kurum / Müşteri</th>
                                     <th>Cari</th>
                                     <th class="text-center">Kapasite Adı</th>
-                                    <th>Varsayılan Araç</th>
-                                    <th>Şoför</th>
                                     <th class="text-end">Gelir ₺</th>
                                     <th class="text-end">Gider ₺</th>
                                     <th class="text-center">Konum</th>
                                     <th class="text-center">Durum</th>
-                                    <th class="text-center" style="width: 130px;">Sefer Durumu</th>
                                     <th style="width: 150px;">İşlemler</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var guzergah in FiltrelenmisGuzergahlar)
                                 {
-                                    <tr class="guzergah-row @(acikGuzergahId == guzergah.Id ? "acik" : "")">
+                                    <tr class="guzergah-row">
                                         <td><strong>@guzergah.GuzergahKodu</strong></td>
                                         <td>@guzergah.GuzergahAdi</td>
                                         <td>@(guzergah.Kurum?.KurumAdi ?? KurumAdiBul(guzergah.CariId) ?? "-")</td>
                                         <td>@(guzergah.Cari?.Unvan ?? "-")</td>
                                         <td class="text-center">@(KapasiteAdiBul(guzergah) ?? guzergah.PersonelSayisi.ToString())</td>
-                                        <td>@(guzergah.VarsayilanArac?.AktifPlaka ?? "-")</td>
-                                        <td>@(guzergah.VarsayilanSofor?.TamAd ?? "-")</td>
                                         <td class="text-end"><strong class="text-success">@guzergah.GelirFiyat.ToString("N2")</strong></td>
                                         <td class="text-end"><strong class="text-danger">@guzergah.GiderFiyat.ToString("N2")</strong></td>
                                         <td class="text-center">
@@ -252,43 +239,7 @@
                                                 <span class="badge bg-danger">Pasif</span>
                                             }
                                         </td>
-                                        <td class="text-center">
-                                            @{
-                                                var (eslesen, toplam) = SeferEslesmeDurumu(guzergah);
-                                                var eksik = toplam - eslesen;
-                                                var tamam = eksik == 0;
-                                                var titleTxt = tamam
-                                                    ? $"Tüm seferlere araç eşleştirildi ({eslesen}/{toplam})"
-                                                    : $"DİKKAT: {eksik} sefer için araç eşleştirilmedi ({eslesen}/{toplam})";
-                                            }
-                                            <div class="sefer-durum-wrap" title="@titleTxt">
-                                                @if (tamam)
-                                                {
-                                                    <span class="sefer-pill ok">
-                                                        <i class="bi bi-check-circle-fill"></i>@eslesen / @toplam
-                                                    </span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="sefer-pill eksik">
-                                                        <i class="bi bi-exclamation-triangle-fill"></i>@eksik EKSİK
-                                                        <span class="opacity-75 fw-normal">(@eslesen/@toplam)</span>
-                                                    </span>
-                                                }
-                                                <span class="sefer-dots">
-                                                    @for (int i = 0; i < toplam; i++)
-                                                    {
-                                                        <span class="sefer-dot @(i < eslesen ? "dolu" : "bos")"
-                                                              title="@($"Sefer {i + 1}: " + (i < eslesen ? "eşleştirildi" : "eşleştirilmedi"))"></span>
-                                                    }
-                                                </span>
-                                            </div>
-                                        </td>
                                         <td>
-                                            <button type="button" class="btn btn-sm btn-info text-white me-1"
-                                                    @onclick="() => SeferDetayToggle(guzergah)" title="Sefer detaylarını göster/gizle">
-                                                <i class="bi @(acikGuzergahId == guzergah.Id ? "bi-chevron-down" : "bi-chevron-right")"></i>
-                                            </button>
                                             <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Duzenle(guzergah.Id)" title="Düzenle">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
@@ -297,16 +248,13 @@
                                             </button>
                                         </td>
                                     </tr>
-                                    @if (acikGuzergahId == guzergah.Id)
-                                    {
-                                        <tr class="sefer-detay-row">
-                                            <td colspan="12">
-                                                <div class="sefer-detay-icerik">
-                                                    @SeferDetayPanel(guzergah)
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
+                                    <tr class="sefer-detay-row">
+                                        <td colspan="9">
+                                            <div class="sefer-detay-icerik">
+                                                @SeferDetayPanel(guzergah)
+                                            </div>
+                                        </td>
+                                    </tr>
                                 }
                             </tbody>
                         </table>
@@ -350,7 +298,6 @@
     private HaritaGosterici? harita;
 
     // Sefer detay state
-    private int? acikGuzergahId;
     private readonly Dictionary<int, List<SeferDetayKalemi>> seferDetaylari = new();
     private int? kaydedenGuzergahId;
     private int? kaydedildiGuzergahId;
@@ -552,18 +499,6 @@
     }
 
     // ── Sefer Detay ──────────────────────────────────────────────────
-    private (int eslesen, int toplam) SeferEslesmeDurumu(Guzergah g)
-    {
-        if (seferDetaylari.TryGetValue(g.Id, out var liste) && liste.Count > 0)
-        {
-            var eslesen = liste.Count(s => s.AracId.HasValue && s.AracId.Value > 0);
-            return (eslesen, liste.Count);
-        }
-        // Detay henüz açılmadıysa: varsayılan sefer sayısı 2; varsayılan araç varsa 2/2, yoksa 0/2
-        var varsayilan = g.VarsayilanAracId.HasValue && g.VarsayilanAracId.Value > 0 ? 2 : 0;
-        return (varsayilan, 2);
-    }
-
     private string? KapasiteAdiBul(Guzergah g)
     {
         // 0) Öncelik: güzergahın kendi kayıtlı KapasiteAdi alanı
@@ -634,24 +569,6 @@
             else i++;
         }
         return varMi ? toplam : -1;
-    }
-
-    private void SeferDetayToggle(Guzergah g)
-    {
-        if (acikGuzergahId == g.Id)
-        {
-            acikGuzergahId = null;
-            return;
-        }
-        acikGuzergahId = g.Id;
-        if (!seferDetaylari.ContainsKey(g.Id))
-        {
-            seferDetaylari[g.Id] = new List<SeferDetayKalemi>
-            {
-                YeniSeferKalemi(g),
-                YeniSeferKalemi(g)
-            };
-        }
     }
 
     private SeferDetayKalemi YeniSeferKalemi(Guzergah g) => new()
