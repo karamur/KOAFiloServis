@@ -20,16 +20,16 @@ public sealed class TenantAwareDbContextFactory : IDbContextFactory<ApplicationD
 {
     private readonly IDbContextFactory<ApplicationDbContext> _inner;
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly IServiceProvider _rootServiceProvider;
+    private readonly IServiceProvider _scopedServiceProvider;
 
     public TenantAwareDbContextFactory(
         PooledDbContextFactoryHolder inner,
         IHttpContextAccessor httpContextAccessor,
-        IServiceProvider rootServiceProvider)
+        IServiceProvider scopedServiceProvider)
     {
         _inner = inner.Inner;
         _httpContextAccessor = httpContextAccessor;
-        _rootServiceProvider = rootServiceProvider;
+        _scopedServiceProvider = scopedServiceProvider;
     }
 
     public ApplicationDbContext CreateDbContext()
@@ -47,13 +47,23 @@ public sealed class TenantAwareDbContextFactory : IDbContextFactory<ApplicationD
     }
 
     /// <summary>
-    /// Mevcut HTTP/circuit request scope'unu döndürür; yoksa (startup, background job,
-    /// singleton tüketiciler) root provider'ı döndürür. Root provider verildiğinde
-    /// IAktifFirmaProvider scoped çözümlenemediği için ApplicationDbContext tenant
-    /// filtresini otomatik devre dışı bırakır — bu, lisans/global tablo erişimi için doğrudur.
+    /// Aktif firma (tenant) bilgisi için doğru <see cref="IServiceProvider"/> kapsamını döndürür.
+    /// <para>
+    /// Bu factory <b>Scoped</b> olarak kayıtlıdır, bu yüzden constructor'a inject edilen
+    /// <see cref="IServiceProvider"/> her zaman geçerli scope'un (HTTP isteği veya Blazor Server SignalR circuit)
+    /// provider'ıdır. Tenant aware <see cref="IAktifFirmaProvider"/> (Scoped) bu provider üzerinden
+    /// doğrudan çözümlenir.
+    /// </para>
+    /// <para>
+    /// Bug: Önceden önce <see cref="IHttpContextAccessor.HttpContext"/> kontrol ediliyordu. Blazor Server'da
+    /// kullanıcı butona tıkladığında istek SignalR circuit üzerinden geldiği için <c>HttpContext</c> <b>null</b>
+    /// olur ve fallback yolu farklı bir scope'a düşebiliyor, bu da circuit'in <c>AktifFirmaProvider</c>
+    /// instance'ına ulaşamamaya ve dolayısıyla bütçe ödemesinde
+    /// "Aktif firma seçili olmadan 'BankaKasaHareket' kaydı eklenemez" hatasına neden oluyordu.
+    /// Çözüm: doğrudan scoped provider'ı kullan; bu hem HTTP istekleri hem de Blazor circuit'i için doğru scope'tur.
+    /// </para>
     /// </summary>
-    private IServiceProvider ResolveScope()
-        => _httpContextAccessor.HttpContext?.RequestServices ?? _rootServiceProvider;
+    private IServiceProvider ResolveScope() => _scopedServiceProvider;
 }
 
 /// <summary>
