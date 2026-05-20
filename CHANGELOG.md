@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 Bu dosya, KOAFiloServis projesindeki tüm önemli değişiklikleri kayıt altına almaktadır.  
 Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) standardına, sürümlendirme ise [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uygundur.

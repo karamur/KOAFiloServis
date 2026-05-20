@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="https://img.shields.io/badge/-KOA%20Filo%20Servis-1f6feb?style=for-the-badge&logo=bus&logoColor=white" alt="KOA Filo Servis" />
 
@@ -15,9 +15,8 @@ _Filo · Operasyon · Hakediş · Muhasebe · EBYS — tek panelden, uçtan uca.
 [![EF Core 10](https://img.shields.io/badge/EF%20Core-10.0-68217A?style=flat-square&logo=microsoft&logoColor=white)](https://learn.microsoft.com/ef/core/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-336791?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Quartz.NET](https://img.shields.io/badge/Quartz.NET-3.x-FB7A24?style=flat-square)](https://www.quartz-scheduler.net)
-[![Tests](https://img.shields.io/badge/Tests-xUnit%20%2B%20Playwright-25A162?style=flat-square&logo=testinglibrary&logoColor=white)](#-test-stratejisi)
-[![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](#-lisans)
-[![Version](https://img.shields.io/badge/Version-1.0.20-success?style=flat-square)](setup/RELEASE-NOTES-v1.0.20.md)
+[![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](#lisans)
+[![Version](https://img.shields.io/badge/Version-1.0.21-success?style=flat-square)](CHANGELOG.md)
 
 </div>
 
@@ -25,476 +24,305 @@ _Filo · Operasyon · Hakediş · Muhasebe · EBYS — tek panelden, uçtan uca.
 
 ## 📚 İçindekiler
 
-- [Proje Hakkında](#-proje-hakkında)
-- [Öne Çıkan Yetenekler](#-öne-çıkan-yetenekler)
-- [Mimari Genel Bakış](#-mimari-genel-bakış)
-- [Veri Akışı](#-veri-akışı-yüksek-düzey)
-- [Teknoloji Yığını](#-teknoloji-yığını)
-- [Çözüm Yapısı](#-çözüm-yapısı)
-- [Hızlı Başlangıç](#-hızlı-başlangıç)
-- [Yapılandırma](#-yapılandırma)
-- [Multi-Tenant Mimarisi](#-multi-tenant-mimarisi)
-- [Veritabanı & Migration Stratejisi](#-veritabanı--migration-stratejisi)
-- [Test Stratejisi](#-test-stratejisi)
-- [Kurulum / Deploy](#-kurulum--deploy)
-- [Güvenlik](#-güvenlik)
-- [Yol Haritası](#-yol-haritası)
-- [Katkıda Bulunma](#-katkıda-bulunma)
-- [Lisans](#-lisans)
+- [Proje Hakkında](#proje-hakkinda)
+- [Öne Çıkan Yetenekler](#one-cikan-yetenekler)
+- [Mimari Genel Bakış](#mimari-genel-bakis)
+- [Proje Yapısı](#proje-yapisi)
+- [Teknoloji Yığını](#teknoloji-yigini)
+- [Güzergah ve Sefer Yönetimi](#guzergah-ve-sefer-yonetimi)
+- [Kurulum](#kurulum)
+- [Geliştirme Ortamı](#gelistirme-ortami)
+- [Migration Stratejisi](#migration-stratejisi)
+- [Test Stratejisi](#test-stratejisi)
+- [Deploy](#deploy)
+- [Güvenlik](#guvenlik)
+- [Yol Haritası](#yol-haritasi)
+- [Katkıda Bulunma](#katki)
+- [Sürüm Geçmişi](#surum-gecmisi)
+- [Lisans](#lisans)
 
 ---
 
-## 📌 Proje Hakkında
+## 🎯 Proje Hakkında
 
-**KOA Filo Servis**, personel taşımacılığı yapan firmalar için tasarlanmış kurumsal düzeyde bir **Blazor Interactive Server** uygulamasıdır. Araç, şoför, güzergah ve müşteri verilerinden başlayan operasyonel zinciri **günlük puantaj → hakediş → fatura → muhasebe** akışıyla tek bir platformda yönetir.
+**KOA Filo Servis**, kurumsal personel servis taşımacılığı sektörüne yönelik uçtan uca filo ve operasyon yönetim platformudur.
 
-Tedarikçi araç/personel, kiralık plaka takibi, evrak süre uyarıları, EBYS arşivi ve AI destekli arama gibi sahanın gerçek ihtiyaçları **yerleşik** olarak gelir.
+Onlarca güzergah, yüzlerce araç, binlerce personel ve çok sayıda taşıma tedarikçisi olan büyük ölçekli işletmelerin ihtiyaçlarına yanıt verir. Günlük puantajdan aylık hakedişe, araç kira takibinden EBYS entegrasyonuna kadar tüm operasyon tek panelden yönetilir.
 
-> 🏢 **Çok-firmalı (multi-tenant) altyapı**, rol bazlı yetkilendirme, EBYS belge arşivi ve AI destekli servisler ile gerçek operasyon yüküne ölçeklenir.
-
-### 🎯 Hedef Kullanıcılar
-
-- Personel taşımacılığı işletmeleri (kurumsal servis filoları)
-- Karma filo işleten lojistik firmaları (özmal + kiralık + tedarikçi araç)
-- Çok-firmalı holding yapılarındaki taşımacılık birimleri
+> **Bir veri, bir kez girilir — platform geri kalanını halleder.**
 
 ---
 
 ## ✨ Öne Çıkan Yetenekler
 
-<details open>
-<summary><b>🚐 Filo &amp; Araç Yönetimi</b></summary>
-
-- Şase numarası bazında **tekil araç kartı** + **plaka geçmişi**.
-- Sahiplik tipleri: **Özmal / Kiralık / Tedarikçi** — her biri için ayrı işleyiş.
-- Kiralık ve komisyonlu araçlar için **detaylı kira/komisyon hesaplama**.
-- Araç evrakları (ruhsat, sigorta, kasko, muayene, yetki belgesi, emisyon, koltuk sigortası…) — **çok versiyonlu dosya arşivi**.
-- Evrak bitiş tarihleri **tek noktadan tekilleştirilir**, tüm uyarı/rapor/listeye yansır.
-
-</details>
-
-<details>
-<summary><b>👥 Personel &amp; Şoför Operasyonu</b></summary>
-
-- Özlük dosyası, ehliyet, MYK, psikoteknik, sağlık raporu süre takibi.
-- Personel-araç atama, izin & devamsızlık yönetimi.
-- Tedarikçi personeli için ayrı işleyiş (alt yüklenici takibi).
-
-</details>
-
-<details>
-<summary><b>🛣️ Güzergah &amp; Puantaj</b></summary>
-
-- **Kurum** ve **Cari** ayrı kavramlar — Cari'siz Kurum bile güzergah açabilir.
-- Hiyerarşik **Güzergah → Araç → Günlük Satır** puantaj ekranı.
-- Ay filtreli, **rota bazlı toplu onay** akışı.
-- Otomatik puantaj üretimi: varsayılan araç/şoför/tedarikçi şablonlarından doldurur.
-
-</details>
-
-<details>
-<summary><b>💰 Hakediş, Fatura &amp; Muhasebe</b></summary>
-
-- Güzergah-araç eşleşmelerinden türeyen **Hakediş** ekranı; sütun bazlı filtreler, gelir/gider özeti, detay & puantaj geçişi.
-- Fatura kalemleri, tahsilat, banka/kasa hareketleri, masraflar ve mali analiz.
-- Aylık & dönemsel **Excel / PDF rapor** çıktıları.
-
-</details>
-
-<details>
-<summary><b>🗂️ Belge Yönetim Sistemi (EBYS)</b></summary>
-
-- Gelen / Giden / Personel Özlük / Araç Evrak başta olmak üzere belge kategorileri.
-- AI destekli **belge tipi tanıma** ve **semantik arama**.
-- Versiyonlu dosya saklama, şifreli güvenli depolama (`SecureFileService`).
-
-</details>
-
-<details>
-<summary><b>🔔 Uyarı &amp; Bildirim Sistemi</b></summary>
-
-- Araç evrakları, şoför belgeleri, tedarikçi sözleşmeleri, kiralık plakalar için **merkezi uyarı paneli**.
-- **Quartz.NET** tabanlı periyodik tarama ve bildirim üretimi.
-
-</details>
-
-<details>
-<summary><b>🤖 AI / Otomasyon</b></summary>
-
-- Araç piyasa araştırma & değerleme servisleri (Ollama / `Microsoft.Extensions.AI`).
-- Belge AI servisi: arşivde içerik bazlı arama ve sınıflandırma.
-- Otomatik veri senkronizasyon servisi (`KOAFiloServis.DataSync`).
-
-</details>
-
-<details>
-<summary><b>🛡️ Kurumsal Altyapı</b></summary>
-
-- **Firma bazlı multi-tenant** veri ayrımı (global EF query filter + `IAktifFirmaProvider`).
-- Detaylı **rol & yetki sistemi** (`Permissions`, `RolePermissions`, menü-bazlı).
-- Aktivite logları, oturum izleme, **JWT** ile API erişimi.
-- Quartz.NET tabanlı zamanlanmış işler.
-
-</details>
+| Modül | Açıklama |
+|---|---|
+| 🗺️ Güzergah Yönetimi | Tanımlama, harita koordinatları, sefer detayları düzenleme ekranında |
+| 🚌 Araç Yönetimi | Özmal / tedarikçi / kiralık takibi, plaka geçmişi, aktif atamalar |
+| 👤 Şoför Yönetimi | Şoför kartı, ehliyet, firma bağlantısı |
+| 📅 Puantaj | Günlük/aylık giriş, toplu onay, kurum bazlı görünüm |
+| 💰 Hakediş | Operasyonel, tedarikçi ve araç hakediş otomasyonu |
+| 🏢 Kurum ve Cari | Kurum–Cari bağlantısı, çok kurum desteği |
+| 🔧 Destek Modülü | Servis geçmişi, bakım takvimi, lastik takibi |
+| 📄 EBYS | Belge yönetimi, şifreli dosya saklama |
+| 📊 Raporlama | Maliyet snapshot, hakediş raporları, özel filtreler |
+| 🔐 Kimlik ve Yetki | RBAC, 2FA altyapısı, aktivite logu |
+| ⏰ Zamanlayıcı | Quartz.NET tabanlı planlı görevler |
 
 ---
 
-## 🏗️ Mimari Genel Bakış
+## 🏛️ Mimari Genel Bakış
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          KOAFiloServis.Web                              │
-│  ┌───────────────────────┐  ┌──────────────────┐  ┌─────────────────┐   │
-│  │ Blazor Server (UI)    │  │ REST API         │  │ Quartz Jobs     │   │
-│  │  • Components/Pages   │  │  • Controllers   │  │  • Background   │   │
-│  │  • Layout / NavMenu   │  │  • JWT Auth      │  │    bildirim/    │   │
-│  │  • SignalR runtime    │  │                  │  │    snapshot/    │   │
-│  └──────────┬────────────┘  └────────┬─────────┘  └────────┬────────┘   │
-│             │                        │                     │            │
-│             └──────────┬─────────────┴──────────┬──────────┘            │
-│                        ▼                        ▼                       │
-│  ┌─────────────────────────────────┐  ┌──────────────────────────────┐  │
-│  │ Services Katmanı                │  │ Cross-Cutting                │  │
-│  │  • İş kuralları                 │  │  • IAktifFirmaProvider       │  │
-│  │  • EF Core sorgu/komut          │  │    (tenant context)          │  │
-│  │  • Cache (Memory + Redis)       │  │  • AuditLogService           │  │
-│  │  • SecureFileService            │  │  • Permission checks         │  │
-│  └────────────────┬────────────────┘  └──────────────┬───────────────┘  │
-│                   ▼                                  │                  │
-│  ┌─────────────────────────────────────────────────┐ │                  │
-│  │ ApplicationDbContext (EF Core 10)               │◄┘                  │
-│  │  • Global tenant filter (IFirmaTenant)          │                    │
-│  │  • Soft-delete filter (BaseEntity.IsDeleted)    │                    │
-│  └────────────────┬────────────────────────────────┘                    │
-└───────────────────┼─────────────────────────────────────────────────────┘
-                    ▼
-        ┌───────────────────────┐
-        │ PostgreSQL (varsayılan)│
-        │ SQL Server / SQLite /  │
-        │ MySQL (opsiyonel)      │
-        └───────────────────────┘
+Blazor Server UI (.razor — InteractiveServer)
+        |
+Application Services (DI)
+GuzergahService · PuantajService · HakedisService · AracService ...
+        |
+ApplicationDbContext (IDbContextFactory — scoped per circuit)
+Global Query Filters — FirmaId tenant izolasyonu
+        |
+   PostgreSQL 14+ (üretim) / SQLite (geliştirme)
+```
 
-   Yardımcı Projeler:
-   ─────────────────────
-   • KOAFiloServis.Shared        → Domain entities + DTO + interfaces
-   • KOAFiloServis.DataSync      → Otomatik dış-sistem senkron servisi
-   • KOAFiloServis.LisansDesktop → WinForms lisans yöneticisi
-   • KOAFiloServis.Tests         → xUnit + Playwright/Selenium E2E
+### Multi-Tenant Modeli
+
+- Her entity **IFirmaTenant** implemente eder (FirmaId kolonu).
+- DbContext global query filter ile aktif firmaya ait kayıtları otomatik filtreler.
+- Blazor devrelerinde tenant kimliği **IAktifFirmaProvider** ile çözülür.
+- **TenantAwareDbContextFactory** — Blazor circuit scope uyumlu, scoped provider kullanır.
+
+---
+
+## 📁 Proje Yapısı
+
+```
+KOAFiloServis/
+├── KOAFiloServis.Shared/          # Entity modeller, interfaceler, DTOlar
+├── KOAFiloServis.Web/             # Blazor Server uygulaması
+│   ├── Components/Pages/          # Guzergahlar, Araclar, Soforler, Puantaj ...
+│   ├── Data/                      # ApplicationDbContext, Migrations
+│   ├── Services/                  # Servis implementasyonları
+│   └── wwwroot/                   # CSS, JS, statik dosyalar
+├── KOAFiloServis.Tests/           # xUnit + Playwright testleri
+├── setup/                         # WiX kurulum paketi
+├── scripts/                       # Deploy / yedekleme scriptleri
+├── CHANGELOG.md
+├── ROADMAP.md
+└── README.md
 ```
 
 ---
 
-## 🔁 Veri Akışı (Yüksek Düzey)
+## 🛠️ Teknoloji Yığını
 
-```text
-   Kurum / Müşteri ──► Güzergah ──► Araç + Şoför Eşleşmesi
-                                          │
-                                          ▼
-                                  Günlük Puantaj
-                                          │
-                          ┌───────────────┼─────────────────┐
-                          ▼               ▼                 ▼
-                     Toplu Onay      Hakediş          Fatura / Muhasebe
-                                          │
-                                          ▼
-                                Belge Uyarıları & Raporlar
-```
-
----
-
-## 🧰 Teknoloji Yığını
-
-| Katman | Teknoloji | Versiyon |
-| --- | --- | --- |
-| Runtime | **.NET** | 10.0 |
-| UI | **Blazor Interactive Server**, Bootstrap 5, Bootstrap Icons | — |
-| Backend | ASP.NET Core, Razor Components, REST API Controllers | 10.0 |
-| ORM | **Entity Framework Core** (Npgsql · SqlServer · Sqlite · Pomelo MySQL) | 10.0 |
-| Cache | StackExchange.Redis (opsiyonel) + InMemory | 2.x |
-| Arka Plan | **Quartz.NET Hosting** | 3.x |
-| Belge | ClosedXML · EPPlus · QuestPDF | — |
-| Mail | MailKit | — |
-| AI | `Microsoft.Extensions.AI` · OllamaSharp | preview |
-| Auth | ASP.NET Core Identity + özel `AppAuthenticationStateProvider` + JWT | — |
-| Test | xUnit · Microsoft.Playwright · Selenium WebDriver | — |
-| Lisans | WinForms Desktop (`KOAFiloServis.LisansDesktop`) | — |
+| Katman | Teknoloji |
+|---|---|
+| Framework | .NET 10 / ASP.NET Core 10 |
+| UI | Blazor Server (InteractiveServer) |
+| ORM | Entity Framework Core 10 |
+| Veritabanı | PostgreSQL 14+ / SQLite |
+| Kimlik | ASP.NET Core Identity |
+| Zamanlayıcı | Quartz.NET 3.x |
+| Harita | Leaflet.js (JS interop) |
+| UI Bileşenler | Bootstrap 5, Bootstrap Icons |
+| Test | xUnit, Microsoft.Playwright, Selenium |
+| Kurulum | WiX Toolset v4 |
 
 ---
 
-## 📂 Çözüm Yapısı
+## 🗺️ Güzergah ve Sefer Yönetimi
 
-```
-KOAFiloServis.sln
-├── KOAFiloServis.Web/                  # Ana Blazor uygulaması (UI + API + servisler)
-│   ├── Components/
-│   │   ├── Pages/                      # Modül Razor sayfaları (Filo, Puantaj, Hakediş, EBYS...)
-│   │   └── Layout/                     # NavMenu, MainLayout
-│   ├── Services/                       # İş kuralları (Filo, Puantaj, Hakediş, AuditLog, ...)
-│   │   ├── Interfaces/                 # ITenant-less, IFirmaTenant kontratları
-│   │   └── ...
-│   ├── Controllers/                    # REST API endpoint'leri (JWT korumalı)
-│   ├── Data/
-│   │   ├── ApplicationDbContext.cs     # Tüm DbSet'ler + global query filter
-│   │   ├── DbInitializer.cs            # SQLite/PostgreSQL şema bootstrap
-│   │   └── Migrations/                 # EF Core migration tarihçesi
-│   ├── Jobs/                           # Quartz arka plan iş tanımları
-│   ├── wwwroot/                        # Statik içerik (css, js, images)
-│   └── appsettings.json                # Bağlantı, AI, Mail, Quartz, JWT ayarları
-│
-├── KOAFiloServis.Shared/               # Domain & paylaşılan kütüphane
-│   ├── Entities/                       # Tüm EF entity'leri (~80 sınıf)
-│   ├── DTO/                            # API & UI veri transfer nesneleri
-│   └── Interfaces/                     # IFirmaTenant, IKopyalanabilirTenant, IAktifFirmaProvider
-│
-├── KOAFiloServis.DataSync/             # Otomatik veri senkronizasyon servisi
-├── KOAFiloServis.LisansDesktop/        # Masaüstü lisans yöneticisi (WinForms)
-├── KOAFiloServis.Tests/                # xUnit + Playwright E2E + entegrasyon testleri
-│
-├── docs/                               # Mimari ve faz dokümanları
-│   └── TENANT_MIGRATION_PLAN.md        # Tenant göç bookmark'ı
-├── setup/                              # WiX / kurulum scriptleri + release notes
-├── scripts/                            # PowerShell yardımcı scriptler (deploy-iis-local vb.)
-└── CHANGELOG.md                        # Sürüm kayıtları
-```
+> v1.0.21 ile sefer yönetimi doğrudan **Güzergah Düzenle** kartına taşındı.
+
+**Güzergah Listesi** — Sadece güzergah bilgileri: kod, ad, kurum, kapasite, fiyatlar, koordinat durumu, aktif/pasif.
+
+**Güzergah Düzenle Formu** — Tüm detay burada:
+
+- Temel bilgiler (ad, kod, kurum, cari, fiyat, mesafe, süre, notlar)
+- Harita koordinatları (Leaflet entegrasyonu)
+- Seferler Tablosu: sefer sayısı → her sefer için Sefer Tipi / Kapasite / Araç / Şoför / Telefon / Firma
+- _1. Seferi Tüm Seferlere Uygula_ — tek tıkla tekrarlı seferleri doldurur
+- Araç seçiminde şoför ve firma bilgisi aktif personel atamasından otomatik doldurulur
+- Güzergah kaydedildiğinde tüm sefer kayıtları birlikte persist edilir
+
+| Alan | Açıklama |
+|---|---|
+| GuzergahId | Güzergah FK |
+| SeferTipi | Sabah / Akşam / SabahAkşam / Saatlik |
+| KapasiteAdi | 16+1, 28+1 vb. |
+| AracId | Araç FK (nullable) |
+| SoforAd | Otomatik veya manuel |
+| SoforTelefon | Serbest metin |
+| FirmaAdiSerbest | Tedarikçi / özmal firma |
+| Sira | Görüntülenme sırası |
 
 ---
 
-## 🚀 Hızlı Başlangıç
+## 🚀 Kurulum
 
-### Önkoşullar
-
-| Bileşen | Versiyon | Zorunlu? |
-| --- | --- | --- |
-| [.NET SDK](https://dotnet.microsoft.com/download) | 10.0 | ✅ |
-| PostgreSQL | 14+ | ✅ (varsayılan; alternatif: SQL Server / SQLite / MySQL) |
-| `dotnet-ef` global tool | 9.x+ | ✅ |
-| Redis | 7+ | ⛔ Opsiyonel (cache) |
-| Ollama / Azure OpenAI | — | ⛔ Opsiyonel (AI servisleri) |
-| Node.js | 18+ | ⛔ Opsiyonel (Playwright tarayıcıları için) |
-
-### Kurulum
+| Gereksinim | Sürüm |
+|---|---|
+| .NET SDK | 10.0.x |
+| PostgreSQL | 14.x |
+| Node.js | 18+ (Playwright için) |
+| Windows | 10 / Server 2019+ |
 
 ```pwsh
-# 1) Repoyu klonla
 git clone https://github.com/karamur/KOAFiloServis.git
 cd KOAFiloServis
-
-# 2) EF Core tool (yoksa)
-dotnet tool install --global dotnet-ef
-
-# 3) Bağımlılıkları yükle ve derle
-dotnet restore
-dotnet build
-
-# 4) Bağlantıyı yapılandır
-#    KOAFiloServis.Web/appsettings.Development.json içine ConnectionStrings:DefaultConnection ekleyin
-
-# 5) Veritabanı şemasını oluştur (tüm migration'lar)
-dotnet ef database update --project KOAFiloServis.Web --startup-project KOAFiloServis.Web
-
-# 6) Uygulamayı çalıştır
+# appsettings.Development.json — DefaultConnection ayarla
+dotnet ef database update --project KOAFiloServis.Web
 dotnet run --project KOAFiloServis.Web
+# https://localhost:5200
 ```
 
-➡️ Uygulama varsayılan olarak **`https://localhost:5001`** adresinde başlar.
-
-### Test Çalıştırma
+Windows kurulum paketi:
 
 ```pwsh
-# Tüm testler
-dotnet test KOAFiloServis.Tests/KOAFiloServis.Tests.csproj
-
-# Sadece birim testler (Playwright hariç)
-dotnet test --filter "Category!=E2E"
+.\setupolustur.bat
+# Çıktı: setup\output\v1.0.21\KOAFiloServisKurulum-1.0.21.exe
 ```
 
 ---
 
-## ⚙️ Yapılandırma
+## 💻 Geliştirme Ortamı
 
-`KOAFiloServis.Web/appsettings.json` içindeki temel bölümler:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Database=KOAFiloServisV2;Username=postgres;Password=***"
-  },
-  "DatabaseProvider": "PostgreSQL",          // PostgreSQL | SqlServer | Sqlite | MySQL
-  "Jwt": {
-    "Key": "...", "Issuer": "...", "Audience": "...", "ExpireMinutes": 480
-  },
-  "Quartz": { "Enabled": true },
-  "Cache": { "Provider": "Memory" },         // Memory | Redis
-  "AI": {
-    "Provider": "Ollama",                    // Ollama | AzureOpenAI | Disabled
-    "Endpoint": "http://localhost:11434",
-    "Model": "llama3.1"
-  },
-  "Mail": { "Host": "...", "Port": 587, "From": "..." }
-}
+```pwsh
+dotnet build KOAFiloServis.Web/KOAFiloServis.Web.csproj
+dotnet watch --project KOAFiloServis.Web
+dotnet ef migrations add <MigrationAdi> --project KOAFiloServis.Web
+dotnet ef database update --project KOAFiloServis.Web
 ```
 
-> 🔐 Üretim ortamında **secrets** için `dotnet user-secrets` veya environment variables (`ASPNETCORE_…`) kullanın.
+| Ayar | Açıklama |
+|---|---|
+| ConnectionStrings:DefaultConnection | PostgreSQL bağlantı dizesi |
+| AppSettings:DbProvider | postgresql veya sqlite |
+| AppSettings:Port | HTTP port (varsayılan 5200) |
 
 ---
 
-## 🏢 Multi-Tenant Mimarisi
+## 🗄️ Migration Stratejisi
 
-Sistem **firma bazlı (FirmaId) yatay tenant** modelini kullanır:
-
-- **`IFirmaTenant`** interface'ini implement eden tüm entity'ler global EF query filter ile **otomatik izole edilir**.
-- **`IAktifFirmaProvider`** (scoped) → giriş yapan kullanıcının aktif firma seçimini taşır.
-- **TumFirmalar** (eski "SuperAdmin") modunda filter atlanır → cross-firma raporlama.
-- Firmalar arası **kopyalama** (`IKopyalanabilirTenant`) ve **transfer** servisleri mevcuttur.
-
-> 📜 **Geçmiş not:** Eski `Sirket` tenant modeli **Faz 5.3 (v1.0.20 + B4)** ile tamamen emekliye alındı. Tüm entity'lerden `SirketId` kolonu drop edildi, `AuditLog.SirketId` → `FirmaId` rename edildi, `Sirketler` ve `SirketTransferLoglari` legacy tabloları kaldırıldı. Detay: [`docs/TENANT_MIGRATION_PLAN.md`](docs/TENANT_MIGRATION_PLAN.md).
-
----
-
-## 🗄️ Veritabanı & Migration Stratejisi
-
-### EF Core Migration Adlandırma
-
-- Tenant göç fazları: `TenantA_*`, `TenantC_*`, `TenantB3_*`, `TenantB4a_*`, `TenantB4b_*`…
-- Şema değişiklikleri: `<Faz>_<KısaAçıklama>` (PascalCase).
-
-### Idempotent PL/pgSQL Migration Şablonu
-
-Kritik veri taşıma migration'ları **PL/pgSQL `DO $$ ... $$` blokları** ile idempotent yazılır:
+İdempotent PL/pgSQL yaklaşımı — aynı migration birden fazla kez güvenle çalışır.
 
 ```sql
-DO $$
-DECLARE r RECORD;
-BEGIN
-    -- FK'leri dinamik sil
-    FOR r IN
-        SELECT conname FROM pg_constraint
-        WHERE conrelid = '"Araclar"'::regclass
-          AND contype = 'f'
-          AND conname ILIKE '%SirketId%'
-    LOOP
-        EXECUTE format('ALTER TABLE "Araclar" DROP CONSTRAINT IF EXISTS %I', r.conname);
-    END LOOP;
-
-    -- Kolonu sil (varsa)
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'Araclar' AND column_name = 'SirketId') THEN
-        ALTER TABLE "Araclar" DROP COLUMN "SirketId";
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'Guzergahlar' AND column_name = 'YeniKolon'
+    ) THEN
+        ALTER TABLE "Guzergahlar" ADD COLUMN "YeniKolon" text NULL;
     END IF;
 END $$;
 ```
 
-Bu yaklaşım sayesinde:
-
-- ✅ Aynı migration **birden çok kez çalıştırılabilir**.
-- ✅ Snapshot-DB drift'lerinde otomatik düzelir.
-- ✅ Çoklu ortam (dev/test/prod) tutarlılığı garanti edilir.
-
-### Yedekleme (Üretim)
+> ⚠️ Yıkıcı migrationlardan önce mutlaka yedek alın.
 
 ```pwsh
-pg_dump -h <host> -U <user> -d KOAFiloServisV2 -F c `
-        -f "backup-$(Get-Date -Format yyyy-MM-dd-HHmm).dump"
+pg_dump -h <host> -U <user> -d KOAFiloServisV2 -F c -f "backup.dump"
 ```
-
-> ⚠️ **Yıkıcı migration'lardan ÖNCE backup zorunludur** (kolon drop / tablo drop).
 
 ---
 
 ## 🧪 Test Stratejisi
 
 | Tür | Çatı | Kapsam |
-| --- | --- | --- |
-| Birim Testler | xUnit | Servis kuralları, hesaplama, mapping |
-| Entegrasyon | xUnit + EF InMemory / SQLite | Repository + servis zinciri |
-| E2E (UI) | Microsoft.Playwright | Kritik akışlar (login, puantaj, hakediş) |
-| Smoke | Selenium WebDriver | Tarayıcı çapraz uyumluluk |
+|---|---|---|
+| Birim | xUnit | Servis kuralları, hesaplama |
+| Entegrasyon | xUnit + EF InMemory | Repository + servis zinciri |
+| E2E | Microsoft.Playwright | Kritik akışlar |
+| Smoke | Selenium | Tarayıcı uyumluluk |
 
 ```pwsh
-# Sadece birim test
 dotnet test --filter "Category=Unit"
-
-# E2E Playwright (önce playwright install)
 pwsh KOAFiloServis.Tests/bin/Debug/net10.0/playwright.ps1 install
 dotnet test --filter "Category=E2E"
 ```
 
 ---
 
-## 📦 Kurulum / Deploy
-
-### Setup Paketi (Windows)
+## 📦 Deploy
 
 ```pwsh
-# setup\build.ps1 — WiX tabanlı kurulum paketi üretir
-.\setupolustur.bat
-# Çıktı: setup\output\v<X.Y.Z>\KOAFiloServisKurulum-<X.Y.Z>.exe
-```
-
-### IIS'e Deploy (Yerel)
-
-```pwsh
-# Admin PowerShell:
 .\scripts\deploy-iis-local.ps1
 ```
 
-### Sürüm Notları
-
-- 📝 [`CHANGELOG.md`](CHANGELOG.md) — Tüm sürümler
-- 📝 [`setup/RELEASE-NOTES-v1.0.20.md`](setup/RELEASE-NOTES-v1.0.20.md) — En son sürüm
+Varsayılan port: **5200** — Sürüm notları: [CHANGELOG.md](CHANGELOG.md) — Yol haritası: [ROADMAP.md](ROADMAP.md)
 
 ---
 
 ## 🔐 Güvenlik
 
-- 🔑 ASP.NET Core Identity tabanlı kullanıcı/rol modeli.
-- 🛂 `Permissions` + `RolePermissions` ile **menü & aksiyon bazlı yetkilendirme**.
-- 🪪 **JWT** tabanlı API erişimi.
-- 📄 `SecureFileService` ile **diskte şifrelenmiş** belge saklama.
-- 🧾 Kapsamlı **aktivite logu** (`AuditLogService` — görüntüleme, oluşturma, düzenleme, silme).
-- 🔒 İki faktörlü doğrulama (2FA) altyapısı `KullaniciVeLisans` entity'sinde mevcut.
-- 🚫 Soft-delete (`BaseEntity.IsDeleted`) ile **kalıcı kayıp önlenir**.
+- ASP.NET Core Identity tabanlı kullanıcı/rol yönetimi
+- Permissions + RolePermissions ile RBAC
+- JWT tabanlı API erişimi
+- SecureFileService ile diskte şifreli belge saklama
+- AuditLogService ile kapsamlı aktivite logu
+- 2FA altyapısı hazır
+- Soft-delete ile kalıcı kayıp önlenir
+- FirmaId global query filter ile tenant izolasyonu
 
-> 🐞 Güvenlik açığı bildirmek için lütfen önce e-posta yoluyla iletişime geçin (public issue **açmayın**).
+> 🐞 Güvenlik açığı için e-posta ile iletişime geçin — public issue açmayın.
 
 ---
 
 ## 🗺️ Yol Haritası
 
+Detaylar: [ROADMAP.md](ROADMAP.md)
+
 - [ ] 📱 Mobil (MAUI) şoför uygulaması
-- [ ] 📊 PowerBI bağlantısı için OData uçları
-- [ ] 🌐 Daha kapsamlı tedarikçi self-servis portalı
+- [ ] 📊 PowerBI için OData uçları
+- [ ] 🌐 Tedarikçi self-servis portalı
 - [ ] 🧾 SAP / e-Fatura entegrasyonu
 - [ ] 🤖 AI tabanlı puantaj anomali tespiti
 - [ ] 🌍 Çoklu dil desteği (i18n)
+- [ ] 📧 E-posta bildirim sistemi
+- [ ] 🔄 REST API (mobil ve harici entegrasyon)
 
 ---
 
 ## 🤝 Katkıda Bulunma
 
-Bu repo özel bir projeye aittir. Katkı talepleri için lütfen önce bir _issue_ açarak iletişime geçin.
+Bu repo özel bir projeye aittir. Katkı için önce _issue_ açın.
 
 ```pwsh
 git checkout -b feature/yeni-ozellik
-# … geliştirme …
 dotnet build && dotnet test
-git commit -m "feat(modul): kısa açıklama"
 git push origin feature/yeni-ozellik
 ```
 
-### Commit Mesaj Konvansiyonu
-
-`<tip>(<modul>): <kısa açıklama>` formatı tercih edilir.
-
 | Tip | Anlam |
-| --- | --- |
-| `feat` | Yeni özellik |
-| `fix` | Hata düzeltme |
-| `refactor` | Davranış değiştirmeyen iyileştirme |
-| `tenant` | Multi-tenant göç adımı |
-| `docs` | Dokümantasyon |
-| `build` / `chore` | Build/CI/setup |
-| `test` | Test ekleme/güncelleme |
+|---|---|
+| feat | Yeni özellik |
+| fix | Hata düzeltme |
+| refactor | Davranış değiştirmeyen iyileştirme |
+| tenant | Multi-tenant göç adımı |
+| docs | Dokümantasyon |
+| build / chore | Build/CI/setup |
+| test | Test ekleme/güncelleme |
+
+---
+
+## 📋 Sürüm Geçmişi
+
+Tüm detaylar: [CHANGELOG.md](CHANGELOG.md)
+
+### v1.0.21 — Güzergah Sefer Yönetimi
+
+- Sefer yönetimi güzergah düzenleme kartına taşındı; liste sadeleşti
+- Güzergah kaydedildiğinde sefer kayıtları otomatik persist edilir
+- Araç seçiminde şoför/firma otomatik dolduruluyor
+- GuzergahList: sefer detay paneli kaldırıldı
+
+### v1.0.20 — Tenant Migrasyonu ve Temizlik
+
+- Legacy Sirket mimarisi kaldırıldı (~1470 satır)
+- FirmaId tabanlı tenant izolasyonuna geçiş tamamlandı
+- TenantAwareDbContextFactory Blazor scope hatası düzeltildi
+- Destek modülü Npgsql async reader hatası düzeltildi
+- Port 5200 olarak güncellendi
 
 ---
 
@@ -502,15 +330,16 @@ git push origin feature/yeni-ozellik
 
 © **Karamur Yazılım**. Tüm hakları saklıdır.
 
-Bu yazılım yalnızca lisanslı kullanım için sunulur; izinsiz **kopyalanması, dağıtılması veya türev çalışma üretilmesi yasaktır**.
+Bu yazılım yalnızca lisanslı kullanım için sunulur; izinsiz kopyalanması, dağıtılması veya türev çalışma üretilmesi yasaktır.
 
 ---
 
 <div align="center">
 
 **KOA Filo Servis**
+
 _Operasyondan muhasebeye, filodan hakedişe — tek panelden uçtan uca yönetim._
 
-<sub>Made with ❤️ on .NET 10 &amp; Blazor</sub>
+<sub>Made with ❤️ on .NET 10 and Blazor</sub>
 
 </div>
