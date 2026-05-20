@@ -1,4 +1,4 @@
-﻿@page "/ai-asistan"
+@page "/ai-asistan"
 @using System.Text
 @using System.Text.RegularExpressions
 @using KOAFiloServis.Web.Services
@@ -302,7 +302,7 @@
 
     private List<string> GetBirlesikModelListesi()
     {
-        var onTanililar = new[] { "llama3.2", "llama3", "mistral", "phi3", "gemma2", "deepseek-coder-v2" };
+        var onTanililar = new[] { "llama3.2", "llama3", "mistral", "phi3", "gemma2", "deepseek-v3", "deepseek-r1", "deepseek-coder-v2" };
         var list = new HashSet<string>(availableModels, StringComparer.OrdinalIgnoreCase);
         foreach (var t in onTanililar) list.Add(t);
         return list.OrderBy(x => x).ToList();

@@ -279,6 +279,10 @@ builder.Services.AddScoped<IBudgetService, BudgetService>();
 // OpenRouter AI Integration
 builder.Services.AddHttpClient<IOpenRouterService, OpenRouterService>();
 
+// Ollama AI Integration (yerel LLM / embedding)
+builder.Services.AddHttpClient("Ollama");
+builder.Services.AddScoped<IOllamaService, OllamaService>();
+
 // Guvenlik: Master key (DPAPI) + AES-GCM dosya koruyucu
 builder.Services.AddSingleton<IMasterKeyProvider>(sp =>
 {
