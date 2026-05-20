@@ -1,4 +1,4 @@
-﻿using KOAFiloServis.Shared.Entities;
+using KOAFiloServis.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Data;
@@ -1390,9 +1390,9 @@ WHERE IsDeleted = 0;");
 
             // Önce hangi tabloların var olduğunu kontrol et
             var existingTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            using (var checkTablesCmd = new NpgsqlCommand(
+            await using (var checkTablesCmd = new NpgsqlCommand(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'", conn))
-            using (var reader = await checkTablesCmd.ExecuteReaderAsync())
+            await using (var reader = await checkTablesCmd.ExecuteReaderAsync())
             {
                 while (await reader.ReadAsync())
                 {
