@@ -391,6 +391,12 @@
     protected override async Task OnInitializedAsync()
     {
         kurumlar = await KurumPuantajService.GetAktifKurumlarAsync();
+
+        if (kurumlar.Any())
+        {
+            seciliKurumId = kurumlar[0].Id;
+            await LoadData();
+        }
     }
 
     async Task KurumDegisti()
@@ -537,8 +543,10 @@
             var idx = kayitlar.FindIndex(k => k.Id == kaydedilen.Id || (k.GuzergahId == kaydedilen.GuzergahId && k.AracId == kaydedilen.AracId));
             if (idx >= 0)
             {
+                var eski = kayitlar[idx];
                 kayitlar[idx] = kaydedilen;
-                degisikSatirlar.Remove(kayitlar[idx]);
+                degisikSatirlar.Remove(eski);
+                degisikSatirlar.Remove(kaydedilen);
             }
             else
             {
