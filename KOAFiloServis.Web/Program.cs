@@ -301,6 +301,7 @@ builder.Services.AddScoped<IMuhasebeService, MuhasebeService>();
 builder.Services.AddScoped<ISatisService, SatisService>();
 builder.Services.AddScoped<IKurumService, KurumService>();
 builder.Services.AddScoped<IPuantajService, PuantajService>();
+builder.Services.AddScoped<IKurumPuantajService, KurumPuantajService>();
 builder.Services.AddScoped(typeof(KOAFiloServis.Web.Services.Interfaces.IFiloKomisyonService), typeof(FiloKomisyonService));
 builder.Services.AddScoped<KOAFiloServis.Web.Services.Interfaces.IPuantajEslestirmeService, PuantajEslestirmeService>();
 builder.Services.AddScoped<IPiyasaKaynakService, PiyasaKaynakService>(); // Piyasa Kaynak Yonetimi (once kaydet)
